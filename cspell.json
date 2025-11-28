@@ -1,0 +1,19 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "words": [
+    "axios",
+    "mobtestplatform",
+    "vite",
+    "vue",
+    "element",
+    "pinia"
+  ],
+  "ignorePaths": [
+    "node_modules",
+    "dist",
+    "*.log",
+    "*.json",
+    "*.md"
+  ]
+}
