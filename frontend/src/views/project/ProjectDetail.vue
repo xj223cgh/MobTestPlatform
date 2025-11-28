@@ -85,7 +85,7 @@
         <!-- 统计概览 -->
         <el-row :gutter="20" class="stats-overview">
           <!-- 缺陷统计 -->
-          <el-col :span="8">
+          <el-col :span="6">
             <div class="stat-item-with-chart">
               <div class="stat-header">
                 <div class="stat-label">缺陷总数</div>
@@ -98,7 +98,7 @@
           </el-col>
           
           <!-- 用例统计 -->
-          <el-col :span="8">
+          <el-col :span="6">
             <div class="stat-item-with-chart">
               <div class="stat-header">
                 <div class="stat-label">用例总数</div>
@@ -111,18 +111,111 @@
           </el-col>
           
           <!-- 迭代统计 -->
-          <el-col :span="8">
+          <el-col :span="6">
             <div class="stat-item-with-chart">
               <div class="stat-header">
                 <div class="stat-label">迭代总数</div>
-                <div class="stat-value">{{ projectDetail.iteration_stats?.total || 0 }}</div>
+                <div class="stat-value">{{ projectDetail.iteration_count || 0 }}</div>
               </div>
               <div class="chart-container-small">
                 <v-chart :option="iterationChartOption" autoresize />
               </div>
             </div>
           </el-col>
+          
+          <!-- 版本需求统计 -->
+          <el-col :span="6">
+            <div class="stat-item-with-chart">
+              <div class="stat-header">
+                <div class="stat-label">需求总数</div>
+                <div class="stat-value">{{ projectDetail.requirement_count || 0 }}</div>
+              </div>
+              <div class="chart-container-small">
+                <v-chart :option="requirementChartOption" autoresize />
+              </div>
+            </div>
+          </el-col>
         </el-row>
+      </el-card>
+    </div>
+
+    <!-- 版本需求列表 -->
+    <div class="info-section">
+      <el-card shadow="hover" class="info-card">
+        <template #header>
+          <div class="card-header">
+            <span>版本需求</span>
+            <div class="header-actions">
+              <el-button type="primary" @click="handleCreateRequirement">
+                <el-icon><Plus /></el-icon>
+                新建需求
+              </el-button>
+            </div>
+          </div>
+        </template>
+        <el-table
+          v-loading="requirementsLoading"
+          :data="versionRequirements"
+          stripe
+          border
+          style="width: 100%"
+          fit
+        >
+          <el-table-column prop="id" label="ID" min-width="60" align="center">
+            <template #default="scope">
+              {{ scope.row.id || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="requirement_name" label="需求名称" min-width="200" align="center">
+            <template #default="scope">
+              {{ scope.row.requirement_name || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="status" label="状态" min-width="80" align="center">
+            <template #default="scope">
+              <el-tag :type="getRequirementStatusType(scope.row.status)">{{ getRequirementStatusText(scope.row.status) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="priority" label="优先级" min-width="80" align="center">
+            <template #default="scope">
+              <el-tag :type="getPriorityType(scope.row.priority)">{{ getPriorityText(scope.row.priority) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="iteration_name" label="所属迭代" min-width="120" align="center">
+            <template #default="scope">
+              {{ scope.row.iteration_name || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="assigned_to_name" label="负责人" min-width="100" align="center">
+            <template #default="scope">
+              {{ scope.row.assigned_to_name || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="estimated_hours" label="预估工时" min-width="100" align="center">
+            <template #default="scope">
+              {{ scope.row.estimated_hours || 0 }}h
+            </template>
+          </el-table-column>
+          <el-table-column prop="actual_hours" label="实际工时" min-width="100" align="center">
+            <template #default="scope">
+              {{ scope.row.actual_hours || 0 }}h
+            </template>
+          </el-table-column>
+          <el-table-column prop="created_at" label="创建时间" min-width="140" align="center">
+            <template #default="scope">
+              {{ formatDateTime(scope.row.created_at) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" min-width="150" align="center" fixed="right">
+            <template #default="scope">
+              <div class="operation-buttons">
+                <el-button type="primary" size="small" @click="handleViewRequirement(scope.row)">查看</el-button>
+                <el-button type="success" size="small" @click="handleEditRequirement(scope.row)">编辑</el-button>
+                <el-button type="danger" size="small" @click="handleDeleteRequirement(scope.row)">删除</el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
       </el-card>
     </div>
   </div>
@@ -132,7 +225,7 @@
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Edit, ArrowLeft } from '@element-plus/icons-vue'
+import { Edit, ArrowLeft, Plus } from '@element-plus/icons-vue'
 import { getProject } from '@/api/project'
 import dayjs from 'dayjs'
 import { use } from 'echarts/core'
@@ -146,7 +239,9 @@ use([CanvasRenderer, PieChart, BarChart, TitleComponent, TooltipComponent, Legen
 
 // 响应式数据
 const loading = ref(false)
+const requirementsLoading = ref(false)
 const projectDetail = ref({})
+const versionRequirements = ref([])
 const route = useRoute()
 const router = useRouter()
 
