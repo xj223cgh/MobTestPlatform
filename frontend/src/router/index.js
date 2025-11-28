@@ -63,7 +63,7 @@ const routes = [
           path: 'iterations',
           name: 'Iterations',
           component: () => import('@/views/project/IterationManagement.vue'),
-          meta: { title: '迭代管理', icon: 'SwitchButton' }
+          meta: { title: '迭代管理', icon: 'Calendar' }
         },
       {
         path: 'devices',
@@ -107,7 +107,7 @@ const routes = [
         path: 'report',
         name: 'ReportManagement',
         component: () => import('@/views/report/ReportManagement.vue'),
-        meta: { title: '报告管理', icon: 'Document' }
+        meta: { title: '报告管理', icon: 'Odometer' }
       },
       {
         path: 'users',

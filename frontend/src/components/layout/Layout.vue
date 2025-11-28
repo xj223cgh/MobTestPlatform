@@ -133,7 +133,8 @@ import {
   Briefcase,
   ChatRound,
   Tickets,
-  Close
+  Close,
+  Calendar
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -198,12 +199,10 @@ const cleanupBreadcrumbHistory = () => {
 
 // 监听路由变化，更新面包屑历史
 watch(
-  () => route,
-  (newRoute) => {
-    // 获取当前路由的标题和名称
-    const routeTitle = newRoute.meta.title
-    const routeName = newRoute.name
-    const newPath = newRoute.path
+  () => route.path,
+  (newPath) => {
+    // 获取当前路由的标题
+    const routeTitle = currentRoute.value.meta.title
     
     // 如果没有标题，不添加到面包屑
     if (!routeTitle) return
@@ -219,20 +218,16 @@ watch(
     const existingPathIndex = breadcrumbHistory.value.findIndex(item => item.path === newPath)
     
     if (existingPathIndex > -1) {
-      // 如果已经存在相同路径，不修改面包屑历史，只跳转页面
+      // 如果已经存在相同路径的面包屑，不修改面包屑历史，只跳转页面
       return
     }
     
-    // 检查是否存在相同路由名称的面包屑（用于动态路由，如项目详情）
-    const existingNameIndex = breadcrumbHistory.value.findIndex(item => {
-      // 获取面包屑项对应的路由名称
-      const breadcrumbRoute = router.getRoutes().find(route => route.path === item.path)
-      return breadcrumbRoute && breadcrumbRoute.name === routeName
-    })
+    // 检查是否已经存在相同标题的面包屑（用于动态路由，如项目详情）
+    const existingTitleIndex = breadcrumbHistory.value.findIndex(item => item.title === routeTitle)
     
-    if (existingNameIndex > -1) {
-      // 如果存在相同路由名称的面包屑，替换其路径和标题
-      breadcrumbHistory.value[existingNameIndex] = {
+    if (existingTitleIndex > -1) {
+      // 如果存在相同标题的面包屑，替换其路径为新路径
+      breadcrumbHistory.value[existingTitleIndex] = {
         path: newPath,
         title: routeTitle
       }

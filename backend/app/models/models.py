@@ -263,33 +263,79 @@ class Iteration(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
     iteration_name = db.Column(db.String(200), nullable=False, comment='迭代名称')
     description = db.Column(db.Text, comment='迭代描述')
+    goal = db.Column(db.Text, comment='迭代目标')
     status = db.Column(db.Enum(*ITERATION_STATUS), default='planning', comment='迭代状态')
     start_date = db.Column(db.DateTime, nullable=False, comment='开始日期')
     end_date = db.Column(db.DateTime, nullable=False, comment='结束日期')
     version = db.Column(db.String(100), comment='版本信息')
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), comment='创建者ID')
+    updated_by = db.Column(db.Integer, db.ForeignKey('users.id'), comment='更新者ID')
     created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
     
     # 关系
     test_plans = db.relationship('TestPlan', backref='iteration', cascade='all, delete-orphan')
     test_tasks = db.relationship('TestTask', backref='iteration', cascade='all, delete-orphan')
+    version_requirements = db.relationship('VersionRequirement', backref='iteration', cascade='all, delete-orphan')
+    case_executions = db.relationship('TestCaseExecution', backref='iteration', cascade='all, delete-orphan')
+    bugs = db.relationship('Bug', backref='iteration', cascade='all, delete-orphan')
+    creator = db.relationship('User', backref='created_iterations', foreign_keys=[created_by])
+    updater = db.relationship('User', backref='updated_iterations', foreign_keys=[updated_by])
     
     def to_dict(self):
         """转换为字典"""
+        # 计算需求统计
+        requirement_stats = {
+            'total': len(self.version_requirements),
+            'new': sum(1 for req in self.version_requirements if req.status == 'new'),
+            'in_progress': sum(1 for req in self.version_requirements if req.status == 'in_progress'),
+            'completed': sum(1 for req in self.version_requirements if req.status == 'completed'),
+            'cancelled': sum(1 for req in self.version_requirements if req.status == 'cancelled')
+        }
+        
+        # 计算用例执行统计
+        executions = [exec for req in self.version_requirements if req.test_case for exec in req.test_case.executions]
+        execution_stats = {
+            'total': len(executions),
+            'pass': sum(1 for exec in executions if exec.status == 'pass'),
+            'fail': sum(1 for exec in executions if exec.status == 'fail'),
+            'blocked': sum(1 for exec in executions if exec.status == 'blocked'),
+            'not_applicable': sum(1 for exec in executions if exec.status == 'not_applicable')
+        }
+        
+        # 计算缺陷统计
+        bug_stats = {
+            'total': len(self.bugs),
+            'open': sum(1 for bug in self.bugs if bug.status == 'open'),
+            'in_progress': sum(1 for bug in self.bugs if bug.status == 'in_progress'),
+            'resolved': sum(1 for bug in self.bugs if bug.status == 'resolved'),
+            'closed': sum(1 for bug in self.bugs if bug.status == 'closed')
+        }
+        
         return {
             'id': self.id,
             'project_id': self.project_id,
             'project_name': self.project.project_name if self.project else None,
             'iteration_name': self.iteration_name,
             'description': self.description,
+            'goal': self.goal,
             'status': self.status,
             'start_date': self.start_date.isoformat() if self.start_date else None,
             'end_date': self.end_date.isoformat() if self.end_date else None,
             'version': self.version,
+            'created_by': self.created_by,
+            'created_by_name': self.creator.real_name if self.creator else None,
+            'updated_by': self.updated_by,
+            'updated_by_name': self.updater.real_name if self.updater else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'test_plan_count': len(self.test_plans),
-            'test_task_count': len(self.test_tasks)
+            'test_task_count': len(self.test_tasks),
+            'requirement_count': len(self.version_requirements),
+            'bug_count': len(self.bugs),
+            'requirement_stats': requirement_stats,
+            'execution_stats': execution_stats,
+            'bug_stats': bug_stats
         }
 
 

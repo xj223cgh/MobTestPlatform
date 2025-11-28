@@ -53,13 +53,13 @@
 
       <el-table :data="iterationsData" stripe style="width: 100%">
         <el-table-column prop="id" label="ID" width="80"></el-table-column>
-        <el-table-column prop="name" label="迭代名称">
+        <el-table-column prop="iteration_name" label="迭代名称">
           <template slot-scope="scope">
-            <a href="#" @click.stop="showIterationDetail(scope.row)">{{ scope.row.name }}</a>
+            <a href="#" @click.stop="showIterationDetail(scope.row)">{{ scope.row.iteration_name }}</a>
           </template>
         </el-table-column>
         <el-table-column prop="project_name" label="所属项目" width="180"></el-table-column>
-        <el-table-column prop="target" label="迭代目标" show-overflow-tooltip></el-table-column>
+        <el-table-column prop="goal" label="迭代目标" show-overflow-tooltip></el-table-column>
         <el-table-column prop="version" label="测试版本" width="120"></el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template slot-scope="scope">
@@ -113,11 +113,11 @@
             ></el-option>
           </el-select>
         </el-form-item>
-        <el-form-item label="迭代名称" prop="name">
-          <el-input v-model="iterationForm.name" placeholder="请输入迭代名称"></el-input>
+        <el-form-item label="迭代名称" prop="iteration_name">
+          <el-input v-model="iterationForm.iteration_name" placeholder="请输入迭代名称"></el-input>
         </el-form-item>
-        <el-form-item label="迭代目标" prop="target">
-          <el-input v-model="iterationForm.target" type="textarea" placeholder="请输入迭代目标" :rows="3"></el-input>
+        <el-form-item label="迭代目标" prop="goal">
+          <el-input v-model="iterationForm.goal" type="textarea" placeholder="请输入迭代目标" :rows="3"></el-input>
         </el-form-item>
         <el-form-item label="测试版本" prop="version">
           <el-input v-model="iterationForm.version" placeholder="请输入测试版本"></el-input>
@@ -202,7 +202,7 @@
         <el-descriptions border column="1" label-align="left">
           <el-descriptions-item label="迭代名称">{{ currentIteration.name }}</el-descriptions-item>
           <el-descriptions-item label="所属项目">{{ currentIteration.project_name }}</el-descriptions-item>
-          <el-descriptions-item label="迭代目标">{{ currentIteration.target }}</el-descriptions-item>
+          <el-descriptions-item label="迭代目标">{{ currentIteration.goal }}</el-descriptions-item>
           <el-descriptions-item label="测试版本">{{ currentIteration.version }}</el-descriptions-item>
           <el-descriptions-item label="状态">
             <el-tag :type="getTagTypeByStatus(currentIteration.status)">
@@ -335,8 +335,8 @@ export default {
       iterationForm: {
         id: null,
         project_id: null,
-        name: '',
-        target: '',
+        iteration_name: '',
+        goal: '',
         version: '',
         start_date: '',
         end_date: '',
@@ -345,7 +345,7 @@ export default {
       },
       iterationRules: {
         project_id: [{ required: true, message: '请选择项目', trigger: 'blur' }],
-        name: [{ required: true, message: '请输入迭代名称', trigger: 'blur' }],
+        iteration_name: [{ required: true, message: '请输入迭代名称', trigger: 'blur' }],
         start_date: [{ required: true, message: '请选择开始日期', trigger: 'blur' }],
         end_date: [{ required: true, message: '请选择结束日期', trigger: 'blur' }]
       },

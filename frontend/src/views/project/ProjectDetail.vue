@@ -632,12 +632,6 @@ const fetchProjectDetail = async () => {
     // 假设后端返回的数据结构是 { project: { ... } }
     projectDetail.value = response.project || {}
     
-    // 更新路由meta.title，使面包屑显示更具体的标题
-    if (projectDetail.value.project_name) {
-      // 更新路由meta.title
-      route.meta.title = `项目详情 - ${projectDetail.value.project_name}`
-    }
-    
     // 获取版本需求列表
     await fetchVersionRequirements()
   } catch (error) {
