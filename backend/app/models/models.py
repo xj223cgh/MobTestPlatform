@@ -176,6 +176,7 @@ class VersionRequirement(db.Model):
     id = db.Column(db.Integer, primary_key=True, comment='需求编号')
     requirement_name = db.Column(db.String(200), nullable=False, comment='需求名称')
     requirement_description = db.Column(db.Text, comment='需求描述')
+    module = db.Column(db.String(100), nullable=True, comment='所属模块')
     status = db.Column(db.Enum(*VERSION_REQUIREMENT_STATUS), default='new', comment='需求状态')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
@@ -184,9 +185,11 @@ class VersionRequirement(db.Model):
     actual_hours = db.Column(db.Float, comment='实际工时')
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='创建者ID')
     assigned_to = db.Column(db.Integer, db.ForeignKey('users.id'), comment='分配给ID')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
+    start_date = db.Column(db.DateTime, comment='开始时间')
+    end_date = db.Column(db.DateTime, comment='结束时间')
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
     completed_at = db.Column(db.DateTime, comment='完成时间')
+    is_deleted = db.Column(db.Boolean, default=False, comment='是否逻辑删除')
     
     # 关系
     project = db.relationship('Project', backref='version_requirements')
@@ -213,9 +216,11 @@ class VersionRequirement(db.Model):
             'created_by_name': self.creator.real_name if self.creator else None,
             'assigned_to': self.assigned_to,
             'assigned_to_name': self.assignee.real_name if self.assignee else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'start_date': self.start_date.isoformat() if self.start_date else None,
+            'end_date': self.end_date.isoformat() if self.end_date else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            'is_deleted': self.is_deleted,
             'has_test_case': self.test_case is not None
         }
 

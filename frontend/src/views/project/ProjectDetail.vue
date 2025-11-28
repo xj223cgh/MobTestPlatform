@@ -139,6 +139,8 @@
       </el-card>
     </div>
 
+
+
     <!-- 版本需求列表 -->
     <div class="info-section">
       <el-card shadow="hover" class="info-card">
@@ -161,57 +163,72 @@
           style="width: 100%"
           fit
         >
-          <el-table-column prop="id" label="ID" min-width="60" align="center">
-            <template #default="scope">
-              {{ scope.row.id || '-' }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="requirement_name" label="需求名称" min-width="200" align="center">
+
+          <el-table-column prop="requirement_name" label="需求名称" min-width="180" align="center">
             <template #default="scope">
               {{ scope.row.requirement_name || '-' }}
             </template>
           </el-table-column>
-          <el-table-column prop="status" label="状态" min-width="80" align="center">
+          <el-table-column prop="requirement_description" label="需求描述" min-width="220" align="center">
             <template #default="scope">
-              <el-tag :type="getRequirementStatusType(scope.row.status)">{{ getRequirementStatusText(scope.row.status) }}</el-tag>
+              {{ scope.row.requirement_description || '-' }}
             </template>
           </el-table-column>
-          <el-table-column prop="priority" label="优先级" min-width="80" align="center">
-            <template #default="scope">
-              <el-tag :type="getPriorityType(scope.row.priority)">{{ getPriorityText(scope.row.priority) }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="iteration_name" label="所属迭代" min-width="120" align="center">
+          <el-table-column prop="iteration_name" label="所属迭代" width="120" align="center">
             <template #default="scope">
               {{ scope.row.iteration_name || '-' }}
             </template>
           </el-table-column>
-          <el-table-column prop="assigned_to_name" label="负责人" min-width="100" align="center">
+          <el-table-column prop="status" label="状态" width="90" align="center">
+            <template #default="scope">
+              <el-tag :type="getRequirementStatusType(scope.row.status)">{{ getRequirementStatusText(scope.row.status) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="priority" label="优先级" width="90" align="center">
+            <template #default="scope">
+              <el-tag :type="getPriorityType(scope.row.priority)">{{ getPriorityText(scope.row.priority) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="assigned_to_name" label="负责人" width="110" align="center">
             <template #default="scope">
               {{ scope.row.assigned_to_name || '-' }}
             </template>
           </el-table-column>
-          <el-table-column prop="estimated_hours" label="预估工时" min-width="100" align="center">
+          <el-table-column prop="start_date" label="开始时间" width="140" align="center">
+            <template #default="scope">
+              {{ formatDateTime(scope.row.start_date) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="end_date" label="结束时间" width="140" align="center">
+            <template #default="scope">
+              {{ formatDateTime(scope.row.end_date) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="estimated_hours" label="预估工时" width="100" align="center">
             <template #default="scope">
               {{ scope.row.estimated_hours || 0 }}h
             </template>
           </el-table-column>
-          <el-table-column prop="actual_hours" label="实际工时" min-width="100" align="center">
+          <el-table-column prop="actual_hours" label="实际工时" width="100" align="center">
             <template #default="scope">
               {{ scope.row.actual_hours || 0 }}h
             </template>
           </el-table-column>
-          <el-table-column prop="created_at" label="创建时间" min-width="140" align="center">
-            <template #default="scope">
-              {{ formatDateTime(scope.row.created_at) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" min-width="150" align="center" fixed="right">
+          <el-table-column label="操作" min-width="280" align="center" fixed="right">
             <template #default="scope">
               <div class="operation-buttons">
-                <el-button type="primary" size="small" @click="handleViewRequirement(scope.row)">查看</el-button>
-                <el-button type="success" size="small" @click="handleEditRequirement(scope.row)">编辑</el-button>
-                <el-button type="danger" size="small" @click="handleDeleteRequirement(scope.row)">删除</el-button>
+                <el-button type="primary" size="small" @click="handleViewTestCase(scope.row)">
+                  查看用例
+                </el-button>
+                <el-button type="warning" size="small" @click="handleViewBugs(scope.row)">
+                  查看缺陷
+                </el-button>
+                <el-button type="success" size="small" @click="handleEditRequirement(scope.row)">
+                  编辑
+                </el-button>
+                <el-button type="danger" size="small" @click="handleDeleteRequirement(scope.row)">
+                  删除
+                </el-button>
               </div>
             </template>
           </el-table-column>
@@ -225,8 +242,8 @@
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Edit, ArrowLeft, Plus } from '@element-plus/icons-vue'
-import { getProject } from '@/api/project'
+import { Edit, ArrowLeft, Plus, Document, Warning, Delete } from '@element-plus/icons-vue'
+import { getProject, getProjectVersionRequirements, getProjectIterations } from '@/api/project'
 import dayjs from 'dayjs'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -399,6 +416,60 @@ const iterationChartOption = ref({
   ]
 })
 
+// 版本需求图表配置
+const requirementChartOption = ref({
+  title: {
+    text: '',
+    left: 'center'
+  },
+  tooltip: {
+    trigger: 'item',
+    formatter: '{b}: {c} ({d}%)'
+  },
+  legend: {
+    orient: 'horizontal',
+    bottom: 0,
+    left: 'center',
+    textStyle: {
+      fontSize: 10
+    },
+    itemGap: 10,
+    padding: [10, 0, 0, 0]
+  },
+  series: [
+    {
+      name: '需求状态',
+      type: 'pie',
+      radius: '65%',
+      avoidLabelOverlap: false,
+      itemStyle: {
+        borderRadius: 0,
+        borderColor: '#fff',
+        borderWidth: 1
+      },
+      label: {
+        show: true,
+        position: 'outside',
+        formatter: '{b}: {c} ({d}%)',
+        fontSize: 10
+      },
+      emphasis: {
+        label: {
+          show: true,
+          fontSize: '12',
+          fontWeight: 'bold'
+        }
+      },
+      labelLine: {
+        show: true
+      },
+      data: []
+    }
+  ]
+})
+
+
+
 // 状态类型映射
 const getStatusType = (status) => {
   const statusMap = {
@@ -463,6 +534,28 @@ const getPriorityText = (priority) => {
   return priorityMap[priority] || priority
 }
 
+// 版本需求状态类型映射
+const getRequirementStatusType = (status) => {
+  const statusMap = {
+    new: 'info',
+    in_progress: 'warning',
+    completed: 'success',
+    cancelled: 'danger'
+  }
+  return statusMap[status] || 'info'
+}
+
+// 版本需求状态文本映射
+const getRequirementStatusText = (status) => {
+  const statusMap = {
+    new: '未开始',
+    in_progress: '进行中',
+    completed: '已完成',
+    cancelled: '已取消'
+  }
+  return statusMap[status] || status || '-'  
+}
+
 // 时间格式化函数
 const formatDateTime = (dateTime) => {
   return dateTime ? dayjs(dateTime).format('YYYY-MM-DD HH:mm:ss') : '-' 
@@ -519,6 +612,15 @@ const updateCharts = () => {
       { name: '暂无数据', value: 1 }
     ]
   }
+  
+  // 更新版本需求状态分布饼图
+  const requirementStats = projectDetail.value.requirement_stats || {}
+  requirementChartOption.value.series[0].data = [
+    { value: requirementStats.new || 0, name: '新建' },
+    { value: requirementStats.in_progress || 0, name: '进行中' },
+    { value: requirementStats.completed || 0, name: '已完成' },
+    { value: requirementStats.cancelled || 0, name: '已取消' }
+  ]
 }
 
 // 获取项目详情
@@ -529,6 +631,15 @@ const fetchProjectDetail = async () => {
     const response = await getProject(projectId)
     // 假设后端返回的数据结构是 { project: { ... } }
     projectDetail.value = response.project || {}
+    
+    // 更新路由meta.title，使面包屑显示更具体的标题
+    if (projectDetail.value.project_name) {
+      // 更新路由meta.title
+      route.meta.title = `项目详情 - ${projectDetail.value.project_name}`
+    }
+    
+    // 获取版本需求列表
+    await fetchVersionRequirements()
   } catch (error) {
     console.error('获取项目详情失败:', error)
     ElMessage.error('获取项目详情失败')
@@ -537,6 +648,22 @@ const fetchProjectDetail = async () => {
     loading.value = false
     // 更新图表
     updateCharts()
+  }
+}
+
+// 获取版本需求列表
+const fetchVersionRequirements = async () => {
+  requirementsLoading.value = true
+  try {
+    const projectId = route.params.id
+    const response = await getProjectVersionRequirements(projectId)
+    versionRequirements.value = response.version_requirements || []
+  } catch (error) {
+    console.error('获取版本需求列表失败:', error)
+    ElMessage.error('获取版本需求列表失败')
+    versionRequirements.value = []
+  } finally {
+    requirementsLoading.value = false
   }
 }
 
@@ -553,6 +680,31 @@ const handleBack = () => {
 // 编辑项目
 const handleEdit = () => {
   ElMessage.info('编辑功能待实现')
+}
+
+// 创建版本需求
+const handleCreateRequirement = () => {
+  ElMessage.info('创建需求功能待实现')
+}
+
+// 查看测试用例
+const handleViewTestCase = (row) => {
+  ElMessage.info(`查看需求${row.requirement_name}的测试用例`)
+}
+
+// 查看缺陷列表
+const handleViewBugs = (row) => {
+  ElMessage.info(`查看需求${row.requirement_name}的缺陷列表`)
+}
+
+// 编辑版本需求
+const handleEditRequirement = (row) => {
+  ElMessage.info(`编辑需求: ${row.requirement_name}`)
+}
+
+// 删除版本需求
+const handleDeleteRequirement = (row) => {
+  ElMessage.info(`删除需求: ${row.requirement_name}`)
 }
 
 // 生命周期钩子 - 组件挂载时获取项目详情
@@ -642,7 +794,7 @@ onMounted(() => {
 .stat-item-with-chart {
   background-color: #f5f7fa;
   border-radius: 8px;
-  padding: 15px;
+  padding: 10px 0px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -653,7 +805,7 @@ onMounted(() => {
 .stat-header {
   text-align: center;
   margin-top: 5px;
-  margin-bottom: -35px;
+  margin-bottom: -30px;
   padding: 0 10px;
 }
 
@@ -678,5 +830,12 @@ onMounted(() => {
     color: #66b1ff;
     text-decoration: underline;
   }
+}
+
+/* 操作按钮样式 */
+.operation-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
 }
 </style>

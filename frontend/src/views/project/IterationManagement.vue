@@ -17,8 +17,23 @@
       </div>
     </div>
 
-    <!-- 迭代列表 -->
-    <el-card class="list-card">
+    <!-- 视图切换 -->
+    <div class="view-tabs">
+      <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+        <el-tab-pane label="甘特图" name="gantt"></el-tab-pane>
+        <el-tab-pane label="列表视图" name="list"></el-tab-pane>
+      </el-tabs>
+    </div>
+
+    <!-- 甘特图视图 -->
+    <el-card v-if="activeTab === 'gantt'" class="list-card">
+      <div class="gantt-container">
+        <v-chart :option="ganttChartOption" autoresize />
+      </div>
+    </el-card>
+
+    <!-- 列表视图 -->
+    <el-card v-else class="list-card">
       <div class="search-bar">
         <el-input
           v-model="searchQuery"
@@ -209,16 +224,32 @@
 </template>
 
 <script>
+import { ref, reactive, onMounted, watch } from 'vue'
 import { getProjectIterations, createIteration, updateIteration, deleteIteration, copyIteration, getIteration } from '@/api/iteration'
-import { getProjects } from '@/api/project'
+import { getProjects, getProjectVersionRequirements } from '@/api/project'
+import dayjs from 'dayjs'
+import { use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { PieChart, BarChart } from 'echarts/charts'
+import { TitleComponent, TooltipComponent, LegendComponent, GridComponent } from 'echarts/components'
+import VChart from 'vue-echarts'
+
+// 注册必要的组件
+use([CanvasRenderer, PieChart, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent])
 
 export default {
   name: 'IterationManagement',
+  components: {
+    VChart
+  },
   data() {
     return {
       // 项目相关
       projects: [],
       selectedProjectId: null,
+      
+      // 视图切换
+      activeTab: 'gantt',
       
       // 迭代列表数据
       iterations: [],
@@ -228,6 +259,75 @@ export default {
       pageSize: 10,
       searchQuery: '',
       statusFilter: '',
+      
+      // 版本需求数据
+      versionRequirements: [],
+      
+      // 甘特图配置
+      ganttChartOption: {
+        title: {
+          text: '',
+          left: 'center'
+        },
+        tooltip: {
+          trigger: 'axis',
+          formatter: function(params) {
+            let result = params[0].name + '<br/>';
+            params.forEach(param => {
+              const start = dayjs(param.data[0]).format('YYYY-MM-DD HH:mm');
+              const end = dayjs(param.data[1]).format('YYYY-MM-DD HH:mm');
+              result += `${param.marker} ${param.seriesName}: ${start} - ${end}<br/>`;
+            });
+            return result;
+          }
+        },
+        legend: {
+          data: ['迭代', '需求'],
+          top: 10
+        },
+        grid: {
+          left: '10%',
+          right: '10%',
+          bottom: '15%',
+          top: '15%',
+          containLabel: true
+        },
+        xAxis: {
+          type: 'time',
+          axisLabel: {
+            formatter: '{yyyy}-{MM}-{dd}'
+          }
+        },
+        yAxis: {
+          type: 'category',
+          data: [],
+          axisLabel: {
+            fontSize: 12
+          }
+        },
+        series: [
+          {
+            name: '迭代',
+            type: 'bar',
+            stack: 'total',
+            itemStyle: {
+              color: '#5470c6'
+            },
+            data: [],
+            barWidth: 20
+          },
+          {
+            name: '需求',
+            type: 'bar',
+            stack: 'total',
+            itemStyle: {
+              color: '#91cc75'
+            },
+            data: [],
+            barWidth: 10
+          }
+        ]
+      },
       
       // 创建/编辑迭代表单
       iterationDialogVisible: false,
@@ -290,6 +390,7 @@ export default {
         if (this.projects.length > 0) {
           this.selectedProjectId = this.projects[0].id
           this.loadIterations()
+          this.loadVersionRequirements()
         }
       } catch (error) {
         this.$message.error('获取项目列表失败: ' + (error.message || '未知错误'))
@@ -310,10 +411,88 @@ export default {
         this.iterations = response.data.items || []
         this.total = response.data.total || 0
         this.filterIterations()
+        this.updateGanttChart()
       } catch (error) {
         this.$message.error('获取迭代列表失败: ' + (error.message || '未知错误'))
       } finally {
         this.$loading.hide()
+      }
+    },
+    
+    // 加载版本需求数据
+    async loadVersionRequirements() {
+      if (!this.selectedProjectId) return
+      
+      try {
+        const response = await getProjectVersionRequirements(this.selectedProjectId)
+        this.versionRequirements = response.version_requirements || []
+        this.updateGanttChart()
+      } catch (error) {
+        console.error('获取版本需求列表失败:', error)
+        this.$message.error('获取版本需求列表失败: ' + (error.message || '未知错误'))
+        this.versionRequirements = []
+      }
+    },
+    
+    // 更新甘特图数据
+    updateGanttChart() {
+      // 准备甘特图数据
+      const iterationData = []
+      const requirementData = []
+      const yAxisData = []
+      
+      // 处理迭代数据
+      this.iterations.forEach(iteration => {
+        yAxisData.push(iteration.name)
+        iterationData.push({
+          name: iteration.name,
+          value: [
+            iteration.start_date,
+            iteration.end_date
+          ]
+        })
+      })
+      
+      // 处理需求数据，按所属迭代分组
+      const requirementsByIteration = {}
+      this.versionRequirements.forEach(requirement => {
+        const iterationName = requirement.iteration_name || '未分配'
+        if (!requirementsByIteration[iterationName]) {
+          requirementsByIteration[iterationName] = []
+        }
+        requirementsByIteration[iterationName].push(requirement)
+      })
+      
+      // 将需求添加到对应迭代下
+      this.iterations.forEach(iteration => {
+        const iterationRequirements = requirementsByIteration[iteration.name] || []
+        iterationRequirements.forEach(requirement => {
+          requirementData.push({
+            name: iteration.name,
+            value: [
+              requirement.start_date || iteration.start_date,
+              requirement.end_date || iteration.end_date
+            ]
+          })
+        })
+      })
+      
+      // 更新甘特图配置
+      this.ganttChartOption.yAxis.data = yAxisData
+      this.ganttChartOption.series[0].data = iterationData
+      this.ganttChartOption.series[1].data = requirementData
+    },
+    
+    // 处理标签切换
+    handleTabChange(tab) {
+      if (tab === 'gantt') {
+        // 确保数据已加载
+        if (this.iterations.length === 0) {
+          this.loadIterations()
+        }
+        if (this.versionRequirements.length === 0) {
+          this.loadVersionRequirements()
+        }
       }
     },
     
@@ -550,6 +729,10 @@ export default {
   align-items: center;
 }
 
+.view-tabs {
+  margin-bottom: 20px;
+}
+
 .list-card {
   margin-bottom: 20px;
 }
@@ -568,5 +751,11 @@ export default {
 
 .iteration-detail {
   padding: 10px 0;
+}
+
+/* 甘特图容器样式 */
+.gantt-container {
+  height: 500px;
+  width: 100%;
 }
 </style>

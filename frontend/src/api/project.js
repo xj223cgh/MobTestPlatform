@@ -129,6 +129,72 @@ export function getUserProjects() {
   })
 }
 
+/**
+ * 获取项目的版本需求列表
+ * @param {number} projectId 项目ID
+ * @returns {Promise}
+ */
+export function getProjectVersionRequirements(projectId) {
+  return request({
+    url: `/projects/${projectId}/version-requirements`,
+    method: 'get'
+  })
+}
+
+/**
+ * 创建版本需求
+ * @param {number} projectId 项目ID
+ * @param {Object} data 需求数据
+ * @returns {Promise}
+ */
+export function createVersionRequirement(projectId, data) {
+  return request({
+    url: `/projects/${projectId}/version-requirements`,
+    method: 'post',
+    data
+  })
+}
+
+/**
+ * 更新版本需求
+ * @param {number} projectId 项目ID
+ * @param {number} requirementId 需求ID
+ * @param {Object} data 需求数据
+ * @returns {Promise}
+ */
+export function updateVersionRequirement(projectId, requirementId, data) {
+  return request({
+    url: `/projects/${projectId}/version-requirements/${requirementId}`,
+    method: 'put',
+    data
+  })
+}
+
+/**
+ * 删除版本需求
+ * @param {number} projectId 项目ID
+ * @param {number} requirementId 需求ID
+ * @returns {Promise}
+ */
+export function deleteVersionRequirement(projectId, requirementId) {
+  return request({
+    url: `/projects/${projectId}/version-requirements/${requirementId}`,
+    method: 'delete'
+  })
+}
+
+/**
+ * 获取项目的迭代列表
+ * @param {number} projectId 项目ID
+ * @returns {Promise}
+ */
+export function getProjectIterations(projectId) {
+  return request({
+    url: `/projects/${projectId}/iterations`,
+    method: 'get'
+  })
+}
+
 // 默认导出所有方法
 export default {
   getProjects,
@@ -140,5 +206,10 @@ export default {
   addProjectMember,
   updateProjectMemberRole,
   removeProjectMember,
-  getUserProjects
+  getUserProjects,
+  getProjectVersionRequirements,
+  createVersionRequirement,
+  updateVersionRequirement,
+  deleteVersionRequirement,
+  getProjectIterations
 }

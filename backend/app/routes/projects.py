@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from app.models.models import db, Project, ProjectMember, User
+from app.models.models import db, Project, ProjectMember, User, VersionRequirement, Iteration
 from flask_login import login_required, current_user
 from datetime import datetime
 import json
@@ -328,3 +328,183 @@ def remove_project_member(project_id, member_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'移除项目成员失败: {str(e)}'}), 500
+
+# 版本需求相关路由
+
+@bp.route('/<int:project_id>/version-requirements', methods=['GET'])
+@login_required
+def get_project_version_requirements(project_id):
+    """获取项目的版本需求列表"""
+    try:
+        # 检查用户是否有权限访问该项目
+        project_member = ProjectMember.query.filter_by(
+            project_id=project_id,
+            user_id=current_user.id
+        ).first()
+        
+        if not project_member:
+            return jsonify({'error': '无权访问该项目'}), 403
+        
+        # 获取项目的版本需求
+        requirements = VersionRequirement.query.filter_by(project_id=project_id).all()
+        
+        # 转换为字典列表
+        requirement_list = [req.to_dict() for req in requirements]
+        
+        return jsonify({'version_requirements': requirement_list}), 200
+    except Exception as e:
+        return jsonify({'error': f'获取版本需求列表失败: {str(e)}'}), 500
+
+@bp.route('/<int:project_id>/version-requirements', methods=['POST'])
+@login_required
+def create_project_version_requirement(project_id):
+    """创建版本需求"""
+    try:
+        # 检查用户是否有权限创建需求
+        project_member = ProjectMember.query.filter_by(
+            project_id=project_id,
+            user_id=current_user.id
+        ).first()
+        
+        if not project_member or project_member.role not in ['owner', 'manager']:
+            return jsonify({'error': '无权创建版本需求'}), 403
+        
+        # 获取请求数据
+        data = request.get_json()
+        
+        # 验证必要字段
+        required_fields = ['requirement_name', 'description']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'缺少必要字段: {field}'}), 400
+        
+        # 创建版本需求
+        new_requirement = VersionRequirement(
+            requirement_name=data['requirement_name'],
+            requirement_description=data['description'],
+            status=data.get('status', 'new'),
+            project_id=project_id,
+            iteration_id=data.get('iteration_id'),
+            priority=data.get('priority', 'medium'),
+            estimated_hours=data.get('estimated_hours'),
+            actual_hours=data.get('actual_hours'),
+            created_by=current_user.id,
+            assigned_to=data.get('assigned_to')
+        )
+        db.session.add(new_requirement)
+        db.session.commit()
+        
+        return jsonify({'message': '版本需求创建成功', 'requirement': new_requirement.to_dict()}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'创建版本需求失败: {str(e)}'}), 500
+
+@bp.route('/<int:project_id>/version-requirements/<int:requirement_id>', methods=['PUT'])
+@login_required
+def update_project_version_requirement(project_id, requirement_id):
+    """更新版本需求"""
+    try:
+        # 检查用户是否有权限更新需求
+        project_member = ProjectMember.query.filter_by(
+            project_id=project_id,
+            user_id=current_user.id
+        ).first()
+        
+        if not project_member or project_member.role not in ['owner', 'manager']:
+            return jsonify({'error': '无权更新版本需求'}), 403
+        
+        # 获取需求
+        requirement = VersionRequirement.query.filter_by(
+            id=requirement_id,
+            project_id=project_id
+        ).first()
+        
+        if not requirement:
+            return jsonify({'error': '版本需求不存在或不属于该项目'}), 404
+        
+        # 更新需求信息
+        data = request.get_json()
+        
+        if 'requirement_name' in data:
+            requirement.requirement_name = data['requirement_name']
+        if 'requirement_description' in data:
+            requirement.requirement_description = data['requirement_description']
+        if 'status' in data:
+            requirement.status = data['status']
+        if 'iteration_id' in data:
+            requirement.iteration_id = data['iteration_id']
+        if 'priority' in data:
+            requirement.priority = data['priority']
+        if 'estimated_hours' in data:
+            requirement.estimated_hours = data['estimated_hours']
+        if 'actual_hours' in data:
+            requirement.actual_hours = data['actual_hours']
+        if 'assigned_to' in data:
+            requirement.assigned_to = data['assigned_to']
+        if 'completed_at' in data and data['completed_at']:
+            requirement.completed_at = datetime.strptime(data['completed_at'], '%Y-%m-%d %H:%M:%S')
+        
+        requirement.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify({'message': '版本需求更新成功', 'requirement': requirement.to_dict()}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'更新版本需求失败: {str(e)}'}), 500
+
+@bp.route('/<int:project_id>/version-requirements/<int:requirement_id>', methods=['DELETE'])
+@login_required
+def delete_project_version_requirement(project_id, requirement_id):
+    """删除版本需求"""
+    try:
+        # 检查用户是否有权限删除需求
+        project_member = ProjectMember.query.filter_by(
+            project_id=project_id,
+            user_id=current_user.id
+        ).first()
+        
+        if not project_member or project_member.role not in ['owner', 'manager']:
+            return jsonify({'error': '无权删除版本需求'}), 403
+        
+        # 获取要删除的需求
+        requirement_to_delete = VersionRequirement.query.filter_by(
+            id=requirement_id,
+            project_id=project_id
+        ).first()
+        
+        if not requirement_to_delete:
+            return jsonify({'error': '版本需求不存在或不属于该项目'}), 404
+        
+        # 删除需求
+        db.session.delete(requirement_to_delete)
+        db.session.commit()
+        
+        return jsonify({'message': '版本需求删除成功'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'删除版本需求失败: {str(e)}'}), 500
+
+@bp.route('/<int:project_id>/iterations', methods=['GET'])
+@login_required
+def get_project_iterations(project_id):
+    """获取项目的迭代列表"""
+    try:
+        # 检查用户是否有权限访问该项目
+        project_member = ProjectMember.query.filter_by(
+            project_id=project_id,
+            user_id=current_user.id
+        ).first()
+        
+        if not project_member:
+            return jsonify({'error': '无权访问该项目'}), 403
+        
+        # 获取项目的迭代
+        project_iterations = Iteration.query.filter_by(project_id=project_id).all()
+        
+        # 转换为字典列表
+        iteration_list = [iteration.to_dict() for iteration in project_iterations]
+        
+        return jsonify({'iterations': iteration_list}), 200
+    except Exception as e:
+        return jsonify({'error': f'获取迭代列表失败: {str(e)}'}), 500

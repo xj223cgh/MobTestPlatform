@@ -8,7 +8,7 @@
           </div>
       
       <el-menu
-        :default-active="$route.path.replace('/', '')"
+        :default-active="$route.path"
         :collapse="isCollapsed"
         :unique-opened="true"
         router
@@ -17,7 +17,7 @@
         <el-menu-item 
           v-for="menuRoute in menuRoutes" 
           :key="menuRoute.path" 
-          :index="menuRoute.path.replace('/', '')"
+          :index="`/${menuRoute.path}`"
         >
           <el-icon v-if="menuRoute.meta.icon">
             <component :is="menuRoute.meta.icon" />
@@ -44,7 +44,7 @@
             <!-- 动态生成面包屑 -->
             <el-breadcrumb-item :to="{ path: '/home' }">首页</el-breadcrumb-item>
             
-            <!-- 生成中间层级面包屑 -->
+            <!-- 生成所有面包屑 -->
             <template v-if="breadcrumbItems.length > 0">
               <el-breadcrumb-item
                 v-for="item in breadcrumbItems"
@@ -64,21 +64,6 @@
                 </div>
               </el-breadcrumb-item>
             </template>
-            
-            <!-- 当前页面面包屑，带关闭按钮，仅当不是首页时显示 -->
-            <el-breadcrumb-item v-if="currentRoute.meta.title && currentRoute.path !== '/home'">
-              <div class="breadcrumb-item-with-close">
-                {{ currentRoute.meta.title }}
-                <el-button
-                  type="text"
-                  size="small"
-                  @click.stop="handleCloseBreadcrumb()"
-                  class="breadcrumb-close-btn"
-                >
-                  <el-icon><Close /></el-icon>
-                </el-button>
-              </div>
-            </el-breadcrumb-item>
           </el-breadcrumb>
         </div>
 
@@ -162,41 +147,135 @@ const isCollapsed = ref(false)
 const currentRoute = computed(() => route)
 
 // 菜单路由
-  const menuRoutes = computed(() => {
-    const routes = router.getRoutes() || []
-    const layoutRoute = routes.find(route => route.name === 'Layout')
-    
-    if (!layoutRoute || !layoutRoute.children) {
+const menuRoutes = computed(() => {
+  const routes = router.getRoutes() || []
+  const layoutRoute = routes.find(route => route.name === 'Layout')
+  
+  if (!layoutRoute || !layoutRoute.children) {
+    return []
+  }
+  
+  // 直接返回Layout组件的children，保持路由配置中的顺序，排除hidden为true的路由
+  return layoutRoute.children.filter(route => 
+    route && 
+    route.path && 
+    route.meta?.title && 
+    route.meta?.hidden !== true &&
+    !['profile', '403', '404', 'login', 'register', 'forgot-password', 'reset-password'].includes(route.path)
+  )
+})
+
+// 面包屑历史记录 - 从localStorage恢复
+const loadBreadcrumbHistory = () => {
+  const savedHistory = localStorage.getItem('breadcrumbHistory')
+  if (savedHistory) {
+    try {
+      return JSON.parse(savedHistory)
+    } catch (e) {
+      console.error('Failed to parse breadcrumb history from localStorage:', e)
       return []
     }
+  }
+  return []
+}
+
+const breadcrumbHistory = ref(loadBreadcrumbHistory())
+
+// 保存面包屑历史到localStorage
+const saveBreadcrumbHistory = () => {
+  localStorage.setItem('breadcrumbHistory', JSON.stringify(breadcrumbHistory.value))
+}
+
+// 面包屑历史最大长度限制
+const MAX_BREADCRUMB_HISTORY = 10
+
+// 清理面包屑历史，移除最早的面包屑项
+const cleanupBreadcrumbHistory = () => {
+  if (breadcrumbHistory.value.length > MAX_BREADCRUMB_HISTORY) {
+    breadcrumbHistory.value = breadcrumbHistory.value.slice(-MAX_BREADCRUMB_HISTORY)
+  }
+}
+
+// 监听路由变化，更新面包屑历史
+watch(
+  () => route,
+  (newRoute) => {
+    // 获取当前路由的标题和名称
+    const routeTitle = newRoute.meta.title
+    const routeName = newRoute.name
+    const newPath = newRoute.path
     
-    // 直接返回Layout组件的children，保持路由配置中的顺序，排除hidden为true的路由
-    return layoutRoute.children.filter(route => 
-      route && 
-      route.path && 
-      route.meta?.title && 
-      route.meta?.hidden !== true &&
-      !['profile', '403', '404', 'login', 'register', 'forgot-password', 'reset-password'].includes(route.path)
-    )
-  })
+    // 如果没有标题，不添加到面包屑
+    if (!routeTitle) return
+    
+    // 如果是首页，清空面包屑历史
+    if (newPath === '/home') {
+      breadcrumbHistory.value = []
+      saveBreadcrumbHistory()
+      return
+    }
+    
+    // 检查是否已经存在相同路径的面包屑
+    const existingPathIndex = breadcrumbHistory.value.findIndex(item => item.path === newPath)
+    
+    if (existingPathIndex > -1) {
+      // 如果已经存在相同路径，不修改面包屑历史，只跳转页面
+      return
+    }
+    
+    // 检查是否存在相同路由名称的面包屑（用于动态路由，如项目详情）
+    const existingNameIndex = breadcrumbHistory.value.findIndex(item => {
+      // 获取面包屑项对应的路由名称
+      const breadcrumbRoute = router.getRoutes().find(route => route.path === item.path)
+      return breadcrumbRoute && breadcrumbRoute.name === routeName
+    })
+    
+    if (existingNameIndex > -1) {
+      // 如果存在相同路由名称的面包屑，替换其路径和标题
+      breadcrumbHistory.value[existingNameIndex] = {
+        path: newPath,
+        title: routeTitle
+      }
+    } else {
+      // 添加到面包屑历史末尾
+      breadcrumbHistory.value.push({
+        path: newPath,
+        title: routeTitle
+      })
+    }
+    
+    // 清理面包屑历史，保持最大长度
+    cleanupBreadcrumbHistory()
+    
+    // 保存到localStorage
+    saveBreadcrumbHistory()
+  }
+)
+
+// 监听面包屑历史变化，保存到localStorage
+watch(
+  breadcrumbHistory,
+  () => {
+    saveBreadcrumbHistory()
+  },
+  { deep: true }
+)
+
+// 退出登录时清空面包屑历史（在userStore.logout时调用）
+// 这里添加一个清理函数，方便在需要时调用
+const clearBreadcrumbHistory = () => {
+  breadcrumbHistory.value = []
+  localStorage.removeItem('breadcrumbHistory')
+}
+
+// 暴露清理函数，方便其他组件调用
+defineExpose({
+  clearBreadcrumbHistory
+})
 
 // 生成面包屑层级
 const breadcrumbItems = computed(() => {
-  const items = []
-  const path = currentRoute.value.path
-  
-  // 如果是项目详情页面，添加项目管理面包屑
-  if (path.startsWith('/projects/') && path !== '/projects') {
-    const projectRoute = menuRoutes.value.find(route => route.path === 'projects')
-    if (projectRoute) {
-      items.push({
-        path: '/projects',
-        title: projectRoute.meta.title
-      })
-    }
-  }
-  
-  return items
+  return breadcrumbHistory.value
 })
 
 // 切换侧边栏
@@ -215,16 +294,49 @@ const toggleFullscreen = () => {
 
 // 关闭面包屑，返回指定页面或上一个页面
 const handleCloseBreadcrumb = (path = '') => {
+  // 获取当前页面的路径
+  const currentPath = route.path
+  
   if (path) {
-    // 如果指定了路径，直接跳转到该路径
-    router.push(path)
-  } else if (currentRoute.value.path.startsWith('/projects/')) {
-    // 如果当前是项目详情页面，返回项目列表页面
-    router.push('/projects')
+    // 如果指定了路径，检查是否是当前页面的面包屑
+    const isCurrentPage = path === currentPath
+    
+    // 查找要删除的面包屑索引
+    const index = breadcrumbHistory.value.findIndex(item => item.path === path)
+    if (index > -1) {
+      // 只删除指定的面包屑，不影响后续面包屑
+      breadcrumbHistory.value.splice(index, 1)
+      
+      // 如果关闭的是当前页面的面包屑，跳转到未关闭的最新面包屑对应的页面
+      if (isCurrentPage) {
+        if (breadcrumbHistory.value.length > 0) {
+          // 跳转到最后一个面包屑对应的页面
+          const lastPath = breadcrumbHistory.value[breadcrumbHistory.value.length - 1].path
+          router.push(lastPath)
+        } else {
+          // 如果没有面包屑了，跳转到首页
+          router.push('/home')
+        }
+      }
+      // 如果关闭的不是当前页面的面包屑，不跳转页面，保持当前页面不变
+    }
   } else {
-    // 其他页面，返回首页
-    router.push('/home')
+    // 关闭当前页面的面包屑（没有指定路径时）
+    if (breadcrumbHistory.value.length > 0) {
+      // 删除最后一个面包屑
+      breadcrumbHistory.value.pop()
+      // 跳转到前一个面包屑对应的页面
+      if (breadcrumbHistory.value.length > 0) {
+        const lastPath = breadcrumbHistory.value[breadcrumbHistory.value.length - 1].path
+        router.push(lastPath)
+      } else {
+        // 如果没有面包屑了，跳转到首页
+        router.push('/home')
+      }
+    }
   }
+  // 保存面包屑历史到localStorage
+  saveBreadcrumbHistory()
 }
 
 // 处理下拉菜单命令
@@ -352,11 +464,31 @@ const handleCommand = (command) => {
     }
     
     .breadcrumb {
-      display: flex;
-      align-items: center;
-      margin: 0;
-      padding: 0;
-    }
+            display: flex;
+            align-items: center;
+            margin: 0;
+            padding: 0;
+          }
+          
+          /* 修复面包屑字体加粗问题，确保所有面包屑项字体粗细一致 */
+          .el-breadcrumb__item {
+            font-weight: normal !important;
+          }
+          
+          /* 确保面包屑分隔符样式正常 */
+          .el-breadcrumb__separator {
+            font-weight: normal;
+          }
+          
+          /* 修复面包屑颜色问题：除了首页，非当前页面的面包屑保持默认颜色 */
+          .el-breadcrumb__item:not(:first-child) .el-breadcrumb__inner {
+            color: var(--el-text-color-regular) !important;
+          }
+          
+          /* 确保首页面包屑样式正常 */
+          .el-breadcrumb__item:first-child .el-breadcrumb__inner {
+            color: inherit;
+          }
     
     .breadcrumb-item-with-close {
       display: flex;
