@@ -27,7 +27,7 @@ def create_iteration(project_id):
         
         # 验证必要字段
         data = request.get_json()
-        required_fields = ['iteration_name', 'start_date', 'end_date', 'version_info']
+        required_fields = ['iteration_name', 'start_date', 'end_date', 'version']
         for field in required_fields:
             if field not in data:
                 return jsonify({'error': f'缺少必要字段: {field}'}), 400
@@ -53,7 +53,7 @@ def create_iteration(project_id):
             iteration_name=data['iteration_name'],
             start_date=start_date,
             end_date=end_date,
-            version=data['version_info'],
+            version=data['version'],
             goal=data.get('goal', ''),
             status=data.get('status', 'planning'),
             created_by=current_user.id,
@@ -63,7 +63,11 @@ def create_iteration(project_id):
         db.session.add(new_iteration)
         db.session.commit()
         
-        return jsonify({'message': '迭代创建成功', 'iteration': new_iteration.to_dict()}), 201
+        return jsonify({
+            'code': 201,
+            'message': '迭代创建成功',
+            'data': new_iteration.to_dict()
+        }), 201
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'创建迭代失败: {str(e)}'}), 500
@@ -88,7 +92,21 @@ def get_iterations(project_id):
         # 转换为字典列表
         iteration_list = [iteration.to_dict() for iteration in iterations]
         
-        return jsonify({'iterations': iteration_list}), 200
+        # 调试信息：打印当前项目的迭代数量
+        print(f"DEBUG: Project {project_id} has {len(iteration_list)} iterations")
+        
+        # 调试信息：打印所有迭代的基本信息
+        for iteration in iterations:
+            print(f"DEBUG: Iteration {iteration.id}: {iteration.iteration_name} (Project: {iteration.project_id})")
+        
+        return jsonify({
+            'code': 200,
+            'message': 'success',
+            'data': {
+                'items': iteration_list,
+                'total': len(iteration_list)
+            }
+        }), 200
     except Exception as e:
         return jsonify({'error': f'获取迭代列表失败: {str(e)}'}), 500
 
@@ -111,7 +129,11 @@ def get_iteration(iteration_id):
         if not project_member:
             return jsonify({'error': '无权访问该迭代'}), 403
         
-        return jsonify({'iteration': iteration.to_dict()}), 200
+        return jsonify({
+            'code': 200,
+            'message': 'success',
+            'data': iteration.to_dict()
+        }), 200
     except Exception as e:
         return jsonify({'error': f'获取迭代详情失败: {str(e)}'}), 500
 
@@ -142,8 +164,8 @@ def update_iteration(iteration_id):
             iteration.goal = data['goal']
         if 'status' in data:
             iteration.status = data['status']
-        if 'version_info' in data:
-            iteration.version_info = data['version_info']
+        if 'version' in data:
+            iteration.version = data['version']
         if 'start_date' in data:
             try:
                 iteration.start_date = datetime.strptime(data['start_date'], '%Y-%m-%d')
@@ -159,7 +181,11 @@ def update_iteration(iteration_id):
         iteration.updated_at = datetime.utcnow()
         
         db.session.commit()
-        return jsonify({'message': '迭代更新成功', 'iteration': iteration.to_dict()}), 200
+        return jsonify({
+            'code': 200,
+            'message': '迭代更新成功',
+            'data': iteration.to_dict()
+        }), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'更新迭代失败: {str(e)}'}), 500
@@ -191,7 +217,10 @@ def delete_iteration(iteration_id):
         db.session.delete(iteration)
         db.session.commit()
         
-        return jsonify({'message': '迭代删除成功'}), 200
+        return jsonify({
+            'code': 200,
+            'message': '迭代删除成功'
+        }), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'删除迭代失败: {str(e)}'}), 500
@@ -251,7 +280,7 @@ def copy_iteration(iteration_id):
             iteration_name=new_iteration_name,
             start_date=new_start_date,
             end_date=new_end_date,
-            version=data.get('version_info', source_iteration.version),
+            version=data.get('version', source_iteration.version),
             goal=data.get('goal', source_iteration.goal),
             status=data.get('status', 'planning'),
             created_by=current_user.id,
@@ -261,7 +290,46 @@ def copy_iteration(iteration_id):
         db.session.add(new_iteration)
         db.session.commit()
         
-        return jsonify({'message': '迭代复制成功', 'iteration': new_iteration.to_dict()}), 201
+        return jsonify({
+            'code': 201,
+            'message': '迭代复制成功',
+            'data': new_iteration.to_dict()
+        }), 201
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'复制迭代失败: {str(e)}'}), 500
+
+@bp.route('/api/iterations/<int:iteration_id>/stats', methods=['GET'])
+@login_required
+def get_iteration_stats(iteration_id):
+    """获取迭代统计信息"""
+    try:
+        # 获取迭代
+        iteration = Iteration.query.get(iteration_id)
+        if not iteration:
+            return jsonify({'error': '迭代不存在'}), 404
+        
+        # 检查用户是否有权限访问该项目
+        project_member = ProjectMember.query.filter_by(
+            project_id=iteration.project_id,
+            user_id=current_user.id
+        ).first()
+        
+        if not project_member:
+            return jsonify({'error': '无权访问该迭代'}), 403
+        
+        # 返回迭代的统计信息
+        return jsonify({
+            'code': 200,
+            'message': 'success',
+            'data': {
+                'iteration': iteration.to_dict(),
+                'stats': {
+                    'requirement_stats': iteration.requirement_stats,
+                    'execution_stats': iteration.execution_stats,
+                    'bug_stats': iteration.bug_stats
+                }
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({'error': f'获取迭代统计信息失败: {str(e)}'}), 500

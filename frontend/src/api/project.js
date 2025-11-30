@@ -142,6 +142,17 @@ export function getProjectVersionRequirements(projectId) {
 }
 
 /**
+ * 获取所有版本需求列表
+ * @returns {Promise}
+ */
+export function getAllVersionRequirements() {
+  return request({
+    url: `/projects/version-requirements`,
+    method: 'get'
+  })
+}
+
+/**
  * 创建版本需求
  * @param {number} projectId 项目ID
  * @param {Object} data 需求数据
@@ -208,6 +219,7 @@ export default {
   removeProjectMember,
   getUserProjects,
   getProjectVersionRequirements,
+  getAllVersionRequirements,
   createVersionRequirement,
   updateVersionRequirement,
   deleteVersionRequirement,

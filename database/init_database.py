@@ -63,9 +63,9 @@ def main():
     print("数据库初始化完成！")
     print("测试账号信息：")
     print("   - Lethe (超级管理员): 123321")
-    print("   - Manager (管理员): 12345678")
-    print("   - Tester (测试人员): 12345678")
-    print("   - Admin (实习生): 12345678")
+    print("   - Manager (管理员): 123321")
+    print("   - Tester (测试人员): 123321")
+    print("   - Admin (实习生): 123321")
     print("=" * 50)
     
     return 0

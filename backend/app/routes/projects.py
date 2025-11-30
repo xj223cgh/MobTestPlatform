@@ -23,6 +23,10 @@ def create_project():
             if field not in data:
                 return jsonify({'error': f'缺少必要字段: {field}'}), 400
         
+        # 验证项目描述字数限制
+        if len(data['description']) > 100:
+            return jsonify({'error': '项目描述不能超过100个字符'}), 400
+        
         # 验证日期格式
         try:
             start_date = datetime.strptime(data['start_date'], '%Y-%m-%d')
@@ -45,11 +49,12 @@ def create_project():
             start_date=start_date,
             end_date=end_date,
             status=data.get('status', 'not_started'),
-            environment=data.get('environment', 'test'),
             tags=tags,
             priority=data.get('priority', 'medium'),
             doc_url=data.get('doc_url'),
-            pipeline_url=data.get('pipeline_url')
+            pipeline_url=data.get('pipeline_url'),
+            owner_id=current_user.id,
+            creator_id=current_user.id
         )
         db.session.add(new_project)
         db.session.flush()  # 获取项目ID
@@ -98,7 +103,6 @@ def get_projects():
         size = request.args.get('size', 10, type=int)
         search = request.args.get('search', '', type=str)
         status = request.args.get('status', '', type=str)
-        environment = request.args.get('environment', '', type=str)
         priority = request.args.get('priority', '', type=str)
         
         # 构建基础查询，返回所有项目
@@ -113,10 +117,6 @@ def get_projects():
         if status and status in PROJECT_STATUS:
             query = query.filter(Project.status == status)
         
-        # 应用环境筛选
-        if environment:
-            query = query.filter(Project.environment == environment)
-        
         # 应用优先级筛选
         if priority:
             query = query.filter(Project.priority == priority)
@@ -129,10 +129,14 @@ def get_projects():
         
         # 返回包含分页信息的结果
         return jsonify({
-            'projects': project_list,
-            'total': pagination.total,
-            'page': page,
-            'size': size
+            'code': 200,
+            'message': 'success',
+            'data': {
+                'items': project_list,
+                'total': pagination.total,
+                'page': page,
+                'size': size
+            }
         }), 200
     except Exception as e:
         return jsonify({'error': f'获取项目列表失败: {str(e)}'}), 500
@@ -147,7 +151,13 @@ def get_project(project_id):
         if not project:
             return jsonify({'error': '项目不存在'}), 404
         
-        return jsonify({'project': project.to_dict()}), 200
+        return jsonify({
+            'code': 200,
+            'message': 'success',
+            'data': {
+                'project': project.to_dict()
+            }
+        }), 200
     except Exception as e:
         return jsonify({'error': f'获取项目详情失败: {str(e)}'}), 500
 
@@ -175,6 +185,9 @@ def update_project(project_id):
         if 'project_name' in data:
             project.project_name = data['project_name']
         if 'description' in data:
+            # 验证项目描述字数限制
+            if len(data['description']) > 100:
+                return jsonify({'error': '项目描述不能超过100个字符'}), 400
             project.description = data['description']
         if 'status' in data:
             project.status = data['status']
@@ -188,8 +201,6 @@ def update_project(project_id):
                 project.end_date = datetime.strptime(data['end_date'], '%Y-%m-%d')
             except ValueError:
                 return jsonify({'error': '结束日期格式错误，请使用YYYY-MM-DD格式'}), 400
-        if 'environment' in data:
-            project.environment = data['environment']
         if 'tags' in data:
             import json
             project.tags = json.dumps(data['tags']) if data['tags'] else None
@@ -351,7 +362,36 @@ def get_project_version_requirements(project_id):
         # 转换为字典列表
         requirement_list = [req.to_dict() for req in requirements]
         
-        return jsonify({'version_requirements': requirement_list}), 200
+        return jsonify({
+            'code': 200,
+            'message': 'success',
+            'data': {
+                'items': requirement_list,
+                'total': len(requirement_list)
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({'error': f'获取版本需求列表失败: {str(e)}'}), 500
+
+@bp.route('/version-requirements', methods=['GET'])
+@login_required
+def get_all_version_requirements():
+    """获取所有版本需求列表"""
+    try:
+        # 获取所有版本需求，不限制项目
+        requirements = VersionRequirement.query.all()
+        
+        # 转换为字典列表
+        requirement_list = [req.to_dict() for req in requirements]
+        
+        return jsonify({
+            'code': 200,
+            'message': 'success',
+            'data': {
+                'items': requirement_list,
+                'total': len(requirement_list)
+            }
+        }), 200
     except Exception as e:
         return jsonify({'error': f'获取版本需求列表失败: {str(e)}'}), 500
 
@@ -386,6 +426,7 @@ def create_project_version_requirement(project_id):
             project_id=project_id,
             iteration_id=data.get('iteration_id'),
             priority=data.get('priority', 'medium'),
+            environment=data.get('environment', 'test'),
             estimated_hours=data.get('estimated_hours'),
             actual_hours=data.get('actual_hours'),
             created_by=current_user.id,
@@ -435,6 +476,8 @@ def update_project_version_requirement(project_id, requirement_id):
             requirement.iteration_id = data['iteration_id']
         if 'priority' in data:
             requirement.priority = data['priority']
+        if 'environment' in data:
+            requirement.environment = data['environment']
         if 'estimated_hours' in data:
             requirement.estimated_hours = data['estimated_hours']
         if 'actual_hours' in data:
@@ -499,12 +542,27 @@ def get_project_iterations(project_id):
         if not project_member:
             return jsonify({'error': '无权访问该项目'}), 403
         
-        # 获取项目的迭代
-        project_iterations = Iteration.query.filter_by(project_id=project_id).all()
+        # 获取分页参数
+        page = request.args.get('page', 1, type=int)
+        page_size = request.args.get('page_size', 10, type=int)
+        
+        # 获取项目的迭代，添加分页
+        project_iterations = Iteration.query.filter_by(project_id=project_id)
+        total = project_iterations.count()
+        
+        # 分页查询
+        paginated_iterations = project_iterations.offset((page - 1) * page_size).limit(page_size).all()
         
         # 转换为字典列表
-        iteration_list = [iteration.to_dict() for iteration in project_iterations]
+        iteration_list = [iteration.to_dict() for iteration in paginated_iterations]
         
-        return jsonify({'iterations': iteration_list}), 200
+        return jsonify({
+            'code': 200,
+            'message': 'success',
+            'data': {
+                'items': iteration_list,
+                'total': total
+            }
+        }), 200
     except Exception as e:
         return jsonify({'error': f'获取迭代列表失败: {str(e)}'}), 500

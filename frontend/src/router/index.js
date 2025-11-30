@@ -8,10 +8,6 @@ NProgress.configure({ showSpinner: false })
 
 const routes = [
   {
-    path: '/',
-    redirect: '/home'
-  },
-  {
     path: '/login',
     name: 'Login',
     component: () => import('@/views/auth/Login.vue'),
@@ -40,6 +36,7 @@ const routes = [
     name: 'Layout',
     component: () => import('@/components/layout/Layout.vue'),
     meta: { requiresAuth: true },
+    redirect: '/home',
     children: [
       {
           path: 'home',
@@ -64,6 +61,12 @@ const routes = [
           name: 'Iterations',
           component: () => import('@/views/project/IterationManagement.vue'),
           meta: { title: '迭代管理', icon: 'Calendar' }
+        },
+        {
+          path: 'requirements',
+          name: 'Requirements',
+          component: () => import('@/views/requirement/RequirementManagement.vue'),
+          meta: { title: '需求管理', icon: 'Document' }
         },
       {
         path: 'devices',
@@ -158,21 +161,36 @@ router.beforeEach(async (to, from, next) => {
   NProgress.start()
   
   const userStore = useUserStore()
-  const isAuthenticated = userStore.isAuthenticated
   
   // 设置页面标题
   document.title = to.meta.title ? `${to.meta.title} - 移动端测试平台` : '移动端测试平台'
   
   // 检查是否需要认证
   if (to.meta.requiresAuth !== false) {
-    if (!isAuthenticated) {
+    const isAuthenticated = userStore.isAuthenticated
+    
+    if (isAuthenticated) {
+      // 已登录，检查后端认证状态
+      try {
+        const isAuthValid = await userStore.checkAuth()
+        if (!isAuthValid) {
+          // 认证失效，跳转到登录页
+          next('/login')
+          return
+        }
+      } catch (error) {
+        // 检查失败，跳转到登录页
+        next('/login')
+        return
+      }
+    } else {
       // 未登录，跳转到登录页
       next('/login')
       return
     }
   } else {
     // 不需要认证的页面，如果已登录则跳转到首页
-    if (isAuthenticated && to.path !== '/404' && to.path !== '/403') {
+    if (userStore.isAuthenticated && to.path !== '/404' && to.path !== '/403') {
       next('/home')
       return
     }

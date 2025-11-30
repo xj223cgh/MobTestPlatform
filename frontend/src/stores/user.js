@@ -75,6 +75,9 @@ export const useUserStore = defineStore('user', () => {
       userInfo.value = null
       sessionStorage.removeItem(USER_KEY)
       
+      // 清除面包屑历史
+      sessionStorage.removeItem('breadcrumbHistory')
+      
       // 注意：不在这里清除记住的登录信息，让用户主动选择是否记住
       
       // 只有在真正需要时才显示成功消息
@@ -93,27 +96,31 @@ export const useUserStore = defineStore('user', () => {
       // 尝试调用检查会话接口
       const response = await checkSession()
       
-      if (response.code === 200 && response.data.authenticated) {
-        const { user } = response.data
-        userInfo.value = user
-        sessionStorage.setItem(USER_KEY, JSON.stringify(user))
-        return true
+      if (response.code === 200) {
+        if (response.data.authenticated) {
+          const { user } = response.data
+          userInfo.value = user
+          sessionStorage.setItem(USER_KEY, JSON.stringify(user))
+          return true
+        } else {
+          // 后端明确返回未认证，清除本地数据
+          userInfo.value = null
+          sessionStorage.removeItem(USER_KEY)
+          return false
+        }
       } else {
-        // 清除无效的本地数据
-        userInfo.value = null
-        sessionStorage.removeItem(USER_KEY)
-        return false
+        // API调用成功但返回错误码，保留本地数据
+        return !!userInfo.value
       }
     } catch (error) {
-      // 检查是否是接口不存在(404)错误，如果是则保留本地会话状态
+      // 检查是否是接口不存在(404)错误
       if (error.response && error.response.status === 404) {
-        // 不清除本地数据，因为后端接口未实现，但可能用户已经登录
-        return !!userInfo.value // 返回当前是否有用户信息
+        // 接口未实现，保留本地数据
+        return !!userInfo.value
       } else {
-        // 其他错误则清除本地数据
-        userInfo.value = null
-        sessionStorage.removeItem(USER_KEY)
-        return false
+        // 其他错误（网络错误、500等），保留本地数据
+        // 只有当明确知道未认证时才清除数据
+        return !!userInfo.value
       }
     } finally {
       loading.value = false

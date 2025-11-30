@@ -1,1 +1,0 @@
-import{_ as e}from"./_plugin-vue_export-helper-1b428a4d.js";import{c as a,d as n,e as t}from"./index-ea26c5b6.js";const r={class:"bug-management"};const s=e({name:"BugManagement",data:()=>({}),mounted(){}},[["render",function(e,s,o,d,m,u){return a(),n("div",r,[...s[0]||(s[0]=[t("h1",null,"缺陷管理",-1)])])}],["__scopeId","data-v-403fd14f"]]);export{s as default};

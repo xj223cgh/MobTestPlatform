@@ -22,13 +22,12 @@
           <el-descriptions-item label="状态">
             <el-tag :type="getStatusType(projectDetail.status)">{{ getStatusText(projectDetail.status) }}</el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="环境">
-            <el-tag :type="getEnvironmentType(projectDetail.environment)">{{ getEnvironmentText(projectDetail.environment) || '-' }}</el-tag>
-          </el-descriptions-item>
+
           <el-descriptions-item label="优先级">
             <el-tag :type="getPriorityType(projectDetail.priority)">{{ getPriorityText(projectDetail.priority) || '-' }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="负责人">{{ projectDetail.owner_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="创建者">{{ projectDetail.creator_name || '-' }}</el-descriptions-item>
           <el-descriptions-item label="开始日期">{{ formatDateTime(projectDetail.start_date) }}</el-descriptions-item>
           <el-descriptions-item label="结束日期">{{ formatDateTime(projectDetail.end_date) }}</el-descriptions-item>
           <el-descriptions-item label="创建时间">{{ formatDateTime(projectDetail.created_at) }}</el-descriptions-item>
@@ -37,41 +36,50 @@
       </el-card>
     </div>
 
-    <!-- 项目描述 -->
-    <div class="info-section">
-      <el-card shadow="hover" class="info-card">
-        <template #header>
-          <div class="card-header">
-            <span>项目描述</span>
-            <span class="description-count">{{ (projectDetail.description || '').length }} 字符</span>
-          </div>
-        </template>
-        <div class="description-content">
-          {{ projectDetail.description || '暂无描述' }}
+    <!-- 项目描述和链接 -->
+    <el-row :gutter="20" class="info-section-row">
+  <!-- 项目链接 -->
+      <el-col :span="12">
+        <div class="info-section">
+          <el-card shadow="hover" class="info-card equal-height-card">
+            <template #header>
+              <div class="card-header">
+                <span>项目链接</span>
+              </div>
+            </template>
+            <el-descriptions :column="1" border label-width="120px">
+              <el-descriptions-item label="文档链接">
+                <a v-if="projectDetail.doc_url" :href="projectDetail.doc_url" target="_blank" class="project-link">{{ projectDetail.doc_url }}</a>
+                <span v-else>-</span>
+              </el-descriptions-item>
+              <el-descriptions-item label="流水线链接">
+                <a v-if="projectDetail.pipeline_url" :href="projectDetail.pipeline_url" target="_blank" class="project-link">{{ projectDetail.pipeline_url }}</a>
+                <span v-else>-</span>
+              </el-descriptions-item>
+            </el-descriptions>
+          </el-card>
         </div>
-      </el-card>
-    </div>
+      </el-col>
 
-    <!-- 项目链接 -->
-    <div class="info-section">
-      <el-card shadow="hover" class="info-card">
-        <template #header>
-          <div class="card-header">
-            <span>项目链接</span>
-          </div>
-        </template>
-        <el-descriptions :column="1" border label-width="140px">
-          <el-descriptions-item label="文档链接">
-            <a v-if="projectDetail.doc_url" :href="projectDetail.doc_url" target="_blank" class="project-link">{{ projectDetail.doc_url }}</a>
-            <span v-else>-</span>
-          </el-descriptions-item>
-          <el-descriptions-item label="流水线链接">
-            <a v-if="projectDetail.pipeline_url" :href="projectDetail.pipeline_url" target="_blank" class="project-link">{{ projectDetail.pipeline_url }}</a>
-            <span v-else>-</span>
-          </el-descriptions-item>
-        </el-descriptions>
-      </el-card>
-    </div>
+      <!-- 项目描述 -->
+      <el-col :span="12">
+        <div class="info-section">
+          <el-card shadow="hover" class="info-card equal-height-card">
+            <template #header>
+              <div class="card-header">
+                <span>项目描述</span>
+                <span class="description-count">{{ (projectDetail.description || '').length }}/{{ 100 }}</span>
+              </div>
+            </template>
+            <div class="description-content">
+              {{ projectDetail.description || '暂无描述' }}
+            </div>
+          </el-card>
+        </div>
+      </el-col>
+
+    
+    </el-row>
 
     <!-- 项目统计 -->
     <div class="info-section">
@@ -141,100 +149,7 @@
 
 
 
-    <!-- 版本需求列表 -->
-    <div class="info-section">
-      <el-card shadow="hover" class="info-card">
-        <template #header>
-          <div class="card-header">
-            <span>版本需求</span>
-            <div class="header-actions">
-              <el-button type="primary" @click="handleCreateRequirement">
-                <el-icon><Plus /></el-icon>
-                新建需求
-              </el-button>
-            </div>
-          </div>
-        </template>
-        <el-table
-          v-loading="requirementsLoading"
-          :data="versionRequirements"
-          stripe
-          border
-          style="width: 100%"
-          fit
-        >
 
-          <el-table-column prop="requirement_name" label="需求名称" min-width="180" align="center">
-            <template #default="scope">
-              {{ scope.row.requirement_name || '-' }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="requirement_description" label="需求描述" min-width="220" align="center">
-            <template #default="scope">
-              {{ scope.row.requirement_description || '-' }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="iteration_name" label="所属迭代" width="120" align="center">
-            <template #default="scope">
-              {{ scope.row.iteration_name || '-' }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="status" label="状态" width="90" align="center">
-            <template #default="scope">
-              <el-tag :type="getRequirementStatusType(scope.row.status)">{{ getRequirementStatusText(scope.row.status) }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="priority" label="优先级" width="90" align="center">
-            <template #default="scope">
-              <el-tag :type="getPriorityType(scope.row.priority)">{{ getPriorityText(scope.row.priority) }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="assigned_to_name" label="负责人" width="110" align="center">
-            <template #default="scope">
-              {{ scope.row.assigned_to_name || '-' }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="start_date" label="开始时间" width="140" align="center">
-            <template #default="scope">
-              {{ formatDateTime(scope.row.start_date) }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="end_date" label="结束时间" width="140" align="center">
-            <template #default="scope">
-              {{ formatDateTime(scope.row.end_date) }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="estimated_hours" label="预估工时" width="100" align="center">
-            <template #default="scope">
-              {{ scope.row.estimated_hours || 0 }}h
-            </template>
-          </el-table-column>
-          <el-table-column prop="actual_hours" label="实际工时" width="100" align="center">
-            <template #default="scope">
-              {{ scope.row.actual_hours || 0 }}h
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" min-width="280" align="center" fixed="right">
-            <template #default="scope">
-              <div class="operation-buttons">
-                <el-button type="primary" size="small" @click="handleViewTestCase(scope.row)">
-                  查看用例
-                </el-button>
-                <el-button type="warning" size="small" @click="handleViewBugs(scope.row)">
-                  查看缺陷
-                </el-button>
-                <el-button type="success" size="small" @click="handleEditRequirement(scope.row)">
-                  编辑
-                </el-button>
-                <el-button type="danger" size="small" @click="handleDeleteRequirement(scope.row)">
-                  删除
-                </el-button>
-              </div>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
-    </div>
   </div>
 </template>
 
@@ -242,8 +157,8 @@
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Edit, ArrowLeft, Plus, Document, Warning, Delete } from '@element-plus/icons-vue'
-import { getProject, getProjectVersionRequirements, getProjectIterations } from '@/api/project'
+import { Edit, ArrowLeft } from '@element-plus/icons-vue'
+import { getProject } from '@/api/project'
 import dayjs from 'dayjs'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -256,9 +171,7 @@ use([CanvasRenderer, PieChart, BarChart, TitleComponent, TooltipComponent, Legen
 
 // 响应式数据
 const loading = ref(false)
-const requirementsLoading = ref(false)
 const projectDetail = ref({})
-const versionRequirements = ref([])
 const route = useRoute()
 const router = useRouter()
 
@@ -470,6 +383,8 @@ const requirementChartOption = ref({
 
 
 
+
+
 // 状态类型映射
 const getStatusType = (status) => {
   const statusMap = {
@@ -494,25 +409,7 @@ const getStatusText = (status) => {
   return statusMap[status] || status || '-'  
 }
 
-// 环境类型映射
-const getEnvironmentType = (environment) => {
-  const envMap = {
-    test: 'info',
-    staging: 'warning',
-    production: 'success'
-  }
-  return envMap[environment] || 'info'
-}
 
-// 环境文本映射
-const getEnvironmentText = (environment) => {
-  const envMap = {
-    test: '测试环境',
-    staging: '预发环境',
-    production: '正式环境'
-  }
-  return envMap[environment] || environment
-}
 
 // 优先级类型映射
 const getPriorityType = (priority) => {
@@ -534,27 +431,7 @@ const getPriorityText = (priority) => {
   return priorityMap[priority] || priority
 }
 
-// 版本需求状态类型映射
-const getRequirementStatusType = (status) => {
-  const statusMap = {
-    new: 'info',
-    in_progress: 'warning',
-    completed: 'success',
-    cancelled: 'danger'
-  }
-  return statusMap[status] || 'info'
-}
 
-// 版本需求状态文本映射
-const getRequirementStatusText = (status) => {
-  const statusMap = {
-    new: '未开始',
-    in_progress: '进行中',
-    completed: '已完成',
-    cancelled: '已取消'
-  }
-  return statusMap[status] || status || '-'  
-}
 
 // 时间格式化函数
 const formatDateTime = (dateTime) => {
@@ -581,37 +458,30 @@ const updateCharts = () => {
     { value: caseStats.not_run || 0, name: '未执行' }
   ]
   
-  // 更新迭代统计饼图（不显示缺陷数量，改为显示迭代基本统计）
+  // 更新迭代统计饼图
   const iterationStats = projectDetail.value.iteration_stats || {}
-  const iterations = iterationStats.iterations || []
   
-  // 如果有迭代数据，显示迭代进度分布
-  if (iterations.length > 0) {
-    // 统计不同状态的迭代数量
-    const statusCount = {
-      '进行中': 0,
-      '已完成': 0,
-      '已关闭': 0
-    }
-    
-    iterations.forEach(iter => {
-      const status = iter.status || '进行中'
-      if (statusCount[status]) {
-        statusCount[status]++
-      } else {
-        statusCount[status]++
-      }
-    })
-    
-    iterationChartOption.value.series[0].data = Object.entries(statusCount)
-      .filter(([_, count]) => count > 0)
-      .map(([status, count]) => ({ name: status, value: count }))
-  } else {
-    // 如果没有迭代数据，显示默认数据
-    iterationChartOption.value.series[0].data = [
-      { name: '暂无数据', value: 1 }
-    ]
+  // 状态映射，将英文状态转换为中文显示
+  const statusMap = {
+    'planning': '规划中',
+    'active': '进行中',
+    'completed': '已完成',
+    'cancelled': '已取消'
   }
+  
+  // 直接使用后端返回的统计数据
+  const iterationData = [
+    { name: statusMap['planning'], value: iterationStats.planning || 0 },
+    { name: statusMap['active'], value: iterationStats.active || 0 },
+    { name: statusMap['completed'], value: iterationStats.completed || 0 },
+    { name: statusMap['cancelled'], value: iterationStats.cancelled || 0 }
+  ]
+  
+  // 过滤掉值为0的数据
+  const filteredData = iterationData.filter(item => item.value > 0)
+  
+  // 如果没有数据，显示默认值
+  iterationChartOption.value.series[0].data = filteredData.length > 0 ? filteredData : [{ name: '暂无数据', value: 1 }]
   
   // 更新版本需求状态分布饼图
   const requirementStats = projectDetail.value.requirement_stats || {}
@@ -621,6 +491,7 @@ const updateCharts = () => {
     { value: requirementStats.completed || 0, name: '已完成' },
     { value: requirementStats.cancelled || 0, name: '已取消' }
   ]
+
 }
 
 // 获取项目详情
@@ -629,11 +500,8 @@ const fetchProjectDetail = async () => {
   try {
     const projectId = route.params.id
     const response = await getProject(projectId)
-    // 假设后端返回的数据结构是 { project: { ... } }
-    projectDetail.value = response.project || {}
-    
-    // 获取版本需求列表
-    await fetchVersionRequirements()
+    // 后端返回的数据结构是 { code: 200, message: 'success', data: { project: {...} } }
+    projectDetail.value = response.data?.project || {}
   } catch (error) {
     console.error('获取项目详情失败:', error)
     ElMessage.error('获取项目详情失败')
@@ -642,22 +510,6 @@ const fetchProjectDetail = async () => {
     loading.value = false
     // 更新图表
     updateCharts()
-  }
-}
-
-// 获取版本需求列表
-const fetchVersionRequirements = async () => {
-  requirementsLoading.value = true
-  try {
-    const projectId = route.params.id
-    const response = await getProjectVersionRequirements(projectId)
-    versionRequirements.value = response.version_requirements || []
-  } catch (error) {
-    console.error('获取版本需求列表失败:', error)
-    ElMessage.error('获取版本需求列表失败')
-    versionRequirements.value = []
-  } finally {
-    requirementsLoading.value = false
   }
 }
 
@@ -674,31 +526,6 @@ const handleBack = () => {
 // 编辑项目
 const handleEdit = () => {
   ElMessage.info('编辑功能待实现')
-}
-
-// 创建版本需求
-const handleCreateRequirement = () => {
-  ElMessage.info('创建需求功能待实现')
-}
-
-// 查看测试用例
-const handleViewTestCase = (row) => {
-  ElMessage.info(`查看需求${row.requirement_name}的测试用例`)
-}
-
-// 查看缺陷列表
-const handleViewBugs = (row) => {
-  ElMessage.info(`查看需求${row.requirement_name}的缺陷列表`)
-}
-
-// 编辑版本需求
-const handleEditRequirement = (row) => {
-  ElMessage.info(`编辑需求: ${row.requirement_name}`)
-}
-
-// 删除版本需求
-const handleDeleteRequirement = (row) => {
-  ElMessage.info(`删除需求: ${row.requirement_name}`)
 }
 
 // 生命周期钩子 - 组件挂载时获取项目详情
@@ -824,6 +651,38 @@ onMounted(() => {
     color: #66b1ff;
     text-decoration: underline;
   }
+}
+
+/* 等高卡片样式 */
+.equal-height-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 调整行样式，确保列对齐 */
+.info-section-row {
+  display: flex;
+  align-items: stretch;
+}
+
+/* 确保卡片内容区域能自动扩展 */
+.info-card {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 调整描述内容区域，使其能自动扩展 */
+.description-content {
+  flex: 1;
+  min-height: 80px;
+  line-height: 1.6;
+  color: #606266;
+  overflow-y: auto;
+  padding: 10px;
+  background-color: #fafafa;
+  border-radius: 4px;
+  border: 1px solid #ebeef5;
 }
 
 /* 操作按钮样式 */

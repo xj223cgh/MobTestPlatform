@@ -82,27 +82,27 @@ def insert_test_data():
             
             projects_data = [
                 # 生产环境项目
-                ('移动应用测试平台', '核心测试项目，包含自动化测试框架', 'in_progress', user_ids[0], '2023-01-01 00:00:00', '2023-12-31 23:59:59', 'production', '["移动端", "自动化", "核心项目"]', 'high', 'https://docs.example.com/mobile-test-platform', 'https://pipeline.example.com/mobile-test-platform'),
-                ('电商APP测试', '电商应用功能测试，包含支付模块', 'completed', user_ids[1], '2023-02-01 00:00:00', '2023-05-31 23:59:59', 'production', '["移动端", "Web", "电商"]', 'medium', 'https://docs.example.com/ecommerce-app', 'https://pipeline.example.com/ecommerce-app'),
-                ('金融应用测试', '金融应用安全测试，包含风控模块', 'in_progress', user_ids[2], '2023-03-15 00:00:00', '2023-09-15 23:59:59', 'production', '["移动端", "安全测试", "金融"]', 'high', 'https://docs.example.com/finance-app', 'https://pipeline.example.com/finance-app'),
-                ('社交软件测试', '社交应用性能测试，包含实时聊天', 'paused', user_ids[3], '2023-04-01 00:00:00', '2023-07-31 23:59:59', 'production', '["移动端", "性能测试", "社交"]', 'medium', 'https://docs.example.com/social-app', 'https://pipeline.example.com/social-app'),
+                ('移动应用测试平台', '核心测试项目，包含自动化测试框架', 'in_progress', user_ids[0], '2023-01-01 00:00:00', '2023-12-31 23:59:59', 'production', '["移动端", "自动化", "核心项目"]', 'high', 'https://docs.example.com/mobile-test-platform', 'https://pipeline.example.com/mobile-test-platform', user_ids[0]),
+                ('电商APP测试', '电商应用功能测试，包含支付模块', 'completed', user_ids[1], '2023-02-01 00:00:00', '2023-05-31 23:59:59', 'production', '["移动端", "Web", "电商"]', 'medium', 'https://docs.example.com/ecommerce-app', 'https://pipeline.example.com/ecommerce-app', user_ids[1]),
+                ('金融应用测试', '金融应用安全测试，包含风控模块', 'in_progress', user_ids[2], '2023-03-15 00:00:00', '2023-09-15 23:59:59', 'production', '["移动端", "安全测试", "金融"]', 'high', 'https://docs.example.com/finance-app', 'https://pipeline.example.com/finance-app', user_ids[2]),
+                ('社交软件测试', '社交应用性能测试，包含实时聊天', 'paused', user_ids[3], '2023-04-01 00:00:00', '2023-07-31 23:59:59', 'production', '["移动端", "性能测试", "社交"]', 'medium', 'https://docs.example.com/social-app', 'https://pipeline.example.com/social-app', user_ids[3]),
                 
                 # 预发环境项目
-                ('游戏APP测试', '游戏应用功能测试，包含关卡系统', 'in_progress', user_ids[0], '2023-05-01 00:00:00', '2023-08-31 23:59:59', 'staging', '["移动端", "游戏", "功能测试"]', 'medium', 'https://docs.example.com/game-app', 'https://pipeline.example.com/game-app'),
-                ('教育平台测试', '在线教育平台测试，包含直播功能', 'not_started', user_ids[1], '2023-06-01 00:00:00', '2023-12-01 23:59:59', 'staging', '["Web", "教育", "直播"]', 'high', 'https://docs.example.com/education-platform', 'https://pipeline.example.com/education-platform'),
-                ('医疗应用测试', '医疗健康应用测试，包含预约功能', 'in_progress', user_ids[2], '2023-07-01 00:00:00', '2023-10-31 23:59:59', 'staging', '["移动端", "医疗", "功能测试"]', 'high', 'https://docs.example.com/healthcare-app', 'https://pipeline.example.com/healthcare-app'),
+                ('游戏APP测试', '游戏应用功能测试，包含关卡系统', 'in_progress', user_ids[0], '2023-05-01 00:00:00', '2023-08-31 23:59:59', 'staging', '["移动端", "游戏", "功能测试"]', 'medium', 'https://docs.example.com/game-app', 'https://pipeline.example.com/game-app', user_ids[0]),
+                ('教育平台测试', '在线教育平台测试，包含直播功能', 'not_started', user_ids[1], '2023-06-01 00:00:00', '2023-12-01 23:59:59', 'staging', '["Web", "教育", "直播"]', 'high', 'https://docs.example.com/education-platform', 'https://pipeline.example.com/education-platform', user_ids[1]),
+                ('医疗应用测试', '医疗健康应用测试，包含预约功能', 'in_progress', user_ids[2], '2023-07-01 00:00:00', '2023-10-31 23:59:59', 'staging', '["移动端", "医疗", "功能测试"]', 'high', 'https://docs.example.com/healthcare-app', 'https://pipeline.example.com/healthcare-app', user_ids[2]),
                 
                 # 测试环境项目
-                ('短视频APP测试', '短视频应用测试，包含推荐算法', 'in_progress', user_ids[3], '2023-08-01 00:00:00', '2023-11-30 23:59:59', 'test', '["移动端", "短视频", "算法"]', 'medium', 'https://docs.example.com/short-video-app', 'https://pipeline.example.com/short-video-app'),
-                ('外卖平台测试', '外卖应用测试，包含配送系统', 'not_started', user_ids[0], '2023-09-01 00:00:00', '2024-02-29 23:59:59', 'test', '["移动端", "外卖", "配送"]', 'medium', 'https://docs.example.com/food-delivery-app', 'https://pipeline.example.com/food-delivery-app'),
-                ('旅游应用测试', '旅游应用测试，包含预订功能', 'completed', user_ids[1], '2023-10-01 00:00:00', '2023-12-31 23:59:59', 'test', '["移动端", "旅游", "预订"]', 'low', 'https://docs.example.com/travel-app', 'https://pipeline.example.com/travel-app'),
-                ('新闻应用测试', '新闻应用测试，包含资讯推送', 'in_progress', user_ids[2], '2023-11-01 00:00:00', '2024-04-30 23:59:59', 'test', '["移动端", "新闻", "推送"]', 'low', 'https://docs.example.com/news-app', 'https://pipeline.example.com/news-app'),
-                ('音乐APP测试', '音乐应用测试，包含播放功能', 'paused', user_ids[3], '2023-12-01 00:00:00', '2024-03-31 23:59:59', 'test', '["移动端", "音乐", "播放"]', 'medium', 'https://docs.example.com/music-app', 'https://pipeline.example.com/music-app')
+                ('短视频APP测试', '短视频应用测试，包含推荐算法', 'in_progress', user_ids[3], '2023-08-01 00:00:00', '2023-11-30 23:59:59', 'test', '["移动端", "短视频", "算法"]', 'medium', 'https://docs.example.com/short-video-app', 'https://pipeline.example.com/short-video-app', user_ids[3]),
+                ('外卖平台测试', '外卖应用测试，包含配送系统', 'not_started', user_ids[0], '2023-09-01 00:00:00', '2024-02-29 23:59:59', 'test', '["移动端", "外卖", "配送"]', 'medium', 'https://docs.example.com/food-delivery-app', 'https://pipeline.example.com/food-delivery-app', user_ids[0]),
+                ('旅游应用测试', '旅游应用测试，包含预订功能', 'completed', user_ids[1], '2023-10-01 00:00:00', '2023-12-31 23:59:59', 'test', '["移动端", "旅游", "预订"]', 'low', 'https://docs.example.com/travel-app', 'https://pipeline.example.com/travel-app', user_ids[1]),
+                ('新闻应用测试', '新闻应用测试，包含资讯推送', 'in_progress', user_ids[2], '2023-11-01 00:00:00', '2024-04-30 23:59:59', 'test', '["移动端", "新闻", "推送"]', 'low', 'https://docs.example.com/news-app', 'https://pipeline.example.com/news-app', user_ids[2]),
+                ('音乐APP测试', '音乐应用测试，包含播放功能', 'paused', user_ids[3], '2023-12-01 00:00:00', '2024-03-31 23:59:59', 'test', '["移动端", "音乐", "播放"]', 'medium', 'https://docs.example.com/music-app', 'https://pipeline.example.com/music-app', user_ids[3])
             ]
             
             cursor.executemany("""
-                INSERT INTO projects (project_name, description, status, owner_id, start_date, end_date, environment, tags, priority, doc_url, pipeline_url) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO projects (project_name, description, status, owner_id, start_date, end_date, environment, tags, priority, doc_url, pipeline_url, creator_id) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, projects_data)
             print("项目测试数据插入成功！")
             
@@ -170,12 +170,13 @@ def insert_test_data():
                         8.0 + j,
                         None if status != 'completed' else 8.0 + j * 0.8,
                         created_by,
-                        assigned_to
+                        assigned_to,
+                        'test'  # 默认环境为test
                     ))
             
             cursor.executemany("""
-                INSERT INTO version_requirements (requirement_name, requirement_description, status, project_id, iteration_id, priority, estimated_hours, actual_hours, created_by, assigned_to) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO version_requirements (requirement_name, requirement_description, status, project_id, iteration_id, priority, estimated_hours, actual_hours, created_by, assigned_to, environment) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, requirements_data)
             print("版本需求测试数据插入成功！")
             

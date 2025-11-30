@@ -102,8 +102,6 @@ def main():
         
         # 服务已全部启动
         print("\n✅ 服务已全部启动！")
-        print("📱 前端地址: http://localhost:3000 (或其他可用端口)")
-        print("🔧 后端地址: http://localhost:5000")
         print("=" * 50)
 
         # 无限循环以保持主进程运行，直到通过编辑器按钮停止

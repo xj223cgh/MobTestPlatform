@@ -42,20 +42,7 @@
             <el-option label="已关闭" value="closed"></el-option>
           </el-select>
         </el-form-item>
-        <el-form-item label="环境">
-          <el-select 
-            v-model="environmentFilter" 
-            placeholder="全部环境" 
-            clearable 
-            @clear="getProjectList"
-            style="width: 120px"
-          >
-            <el-option label="全部" value=""></el-option>
-            <el-option label="测试环境" value="test"></el-option>
-            <el-option label="预发环境" value="staging"></el-option>
-            <el-option label="正式环境" value="production"></el-option>
-          </el-select>
-        </el-form-item>
+
         <el-form-item label="优先级">
           <el-select 
             v-model="priorityFilter" 
@@ -93,7 +80,8 @@
         style="width: 100%"
         fit
       >
-        <el-table-column prop="project_name" label="项目名称" min-width="180" fixed="left" align="center">
+      <el-table-column prop="id" label="项目ID" type="index" width="100" fixed="left" align="center"></el-table-column>
+      <el-table-column prop="project_name" label="项目名称" min-width="150" fixed="left" align="center">
           <template #default="scope">
             {{ scope.row.project_name || '-' }}
           </template>
@@ -103,31 +91,22 @@
             <el-tag :type="getStatusType(scope.row.status)">{{ getStatusText(scope.row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="environment" label="环境" min-width="80" align="center">
-          <template #default="scope">
-            <el-tag :type="getEnvironmentType(scope.row.environment)">{{ getEnvironmentText(scope.row.environment) || '-' }}</el-tag>
-          </template>
-        </el-table-column>
+
         <el-table-column prop="priority" label="优先级" min-width="80" align="center">
           <template #default="scope">
             <el-tag :type="getPriorityType(scope.row.priority)">{{ getPriorityText(scope.row.priority) || '-' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="creator_name" label="创建者" min-width="100" align="center">
+          <template #default="scope">
+            {{ scope.row.creator_name || '-' }}
           </template>
         </el-table-column>
         <el-table-column prop="owner_name" label="负责人" min-width="100" align="center">
           <template #default="scope">
             {{ scope.row.owner_name || '-' }}
           </template>
-        </el-table-column>
-        <el-table-column label="缺陷总数" min-width="80" align="center">
-          <template #default="scope">
-            {{ scope.row.bug_stats?.total || 0 }}
-          </template>
-        </el-table-column>
-        <el-table-column label="用例总数" min-width="80" align="center">
-          <template #default="scope">
-            {{ scope.row.case_stats?.total || 0 }}
-          </template>
-        </el-table-column>
+        </el-table-column>   
         <el-table-column label="开始日期" min-width="120" align="center">
           <template #default="scope">
             {{ formatDateTime(scope.row.start_date) }}
@@ -138,7 +117,7 @@
             {{ formatDateTime(scope.row.end_date) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" min-width="180" fixed="right" align="center">
+        <el-table-column label="操作" min-width="190" fixed="right" align="center">
           <template #default="scope">
             <div class="operation-buttons">
               <el-button type="primary" size="small" @click="handleViewProject(scope.row)">查看</el-button>
@@ -184,7 +163,7 @@ const router = useRouter()
 // 搜索和筛选
 const searchQuery = ref('')
 const statusFilter = ref('')
-const environmentFilter = ref('')
+
 const priorityFilter = ref('')
 
 // 搜索表单
@@ -226,25 +205,7 @@ const getStatusText = (status) => {
   return statusMap[status] || status || '-'  
 }
 
-// 环境类型映射
-const getEnvironmentType = (environment) => {
-  const envMap = {
-    test: 'info',
-    staging: 'warning',
-    production: 'success'
-  }
-  return envMap[environment] || 'info'
-}
 
-// 环境文本映射
-const getEnvironmentText = (environment) => {
-  const envMap = {
-    test: '测试环境',
-    staging: '预发环境',
-    production: '正式环境'
-  }
-  return envMap[environment] || environment
-}
 
 // 优先级类型映射
 const getPriorityType = (priority) => {
@@ -275,14 +236,14 @@ const getProjectList = async () => {
       size: pagination.pageSize,
       search: searchQuery.value,
       status: statusFilter.value,
-      environment: environmentFilter.value,
+
       priority: priorityFilter.value
     }
     
     const response = await getProjects(params)
-    // 后端直接返回数据，没有success字段，所以直接处理数据
-    projectList.value = response.projects || []
-    pagination.total = response.total || 0
+    // 后端返回标准格式：{code: 200, message: 'success', data: {items: [...], total: 10}}
+    projectList.value = response.data?.items || []
+    pagination.total = response.data?.total || 0
   } catch (error) {
     console.error('获取项目列表失败:', error)
     ElMessage.error('获取项目列表失败')
@@ -297,7 +258,6 @@ const getProjectList = async () => {
 const resetFilters = () => {
   searchQuery.value = ''
   statusFilter.value = ''
-  environmentFilter.value = ''
   priorityFilter.value = ''
   pagination.currentPage = 1
   getProjectList()

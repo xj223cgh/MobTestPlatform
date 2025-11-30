@@ -17,7 +17,7 @@
         <el-menu-item 
           v-for="menuRoute in menuRoutes" 
           :key="menuRoute.path" 
-          :index="`/${menuRoute.path}`"
+          :index="menuRoute.path"
         >
           <el-icon v-if="menuRoute.meta.icon">
             <component :is="menuRoute.meta.icon" />
@@ -109,7 +109,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessageBox } from 'element-plus'
@@ -166,14 +166,14 @@ const menuRoutes = computed(() => {
   )
 })
 
-// 面包屑历史记录 - 从localStorage恢复
+// 面包屑历史记录 - 从sessionStorage恢复
 const loadBreadcrumbHistory = () => {
-  const savedHistory = localStorage.getItem('breadcrumbHistory')
+  const savedHistory = sessionStorage.getItem('breadcrumbHistory')
   if (savedHistory) {
     try {
       return JSON.parse(savedHistory)
     } catch (e) {
-      console.error('Failed to parse breadcrumb history from localStorage:', e)
+      console.error('Failed to parse breadcrumb history from sessionStorage:', e)
       return []
     }
   }
@@ -182,9 +182,9 @@ const loadBreadcrumbHistory = () => {
 
 const breadcrumbHistory = ref(loadBreadcrumbHistory())
 
-// 保存面包屑历史到localStorage
+// 保存面包屑历史到sessionStorage
 const saveBreadcrumbHistory = () => {
-  localStorage.setItem('breadcrumbHistory', JSON.stringify(breadcrumbHistory.value))
+  sessionStorage.setItem('breadcrumbHistory', JSON.stringify(breadcrumbHistory.value))
 }
 
 // 面包屑历史最大长度限制
@@ -260,7 +260,7 @@ watch(
 // 这里添加一个清理函数，方便在需要时调用
 const clearBreadcrumbHistory = () => {
   breadcrumbHistory.value = []
-  localStorage.removeItem('breadcrumbHistory')
+  sessionStorage.removeItem('breadcrumbHistory')
 }
 
 // 暴露清理函数，方便其他组件调用

@@ -78,9 +78,9 @@ class Project(db.Model):
     description = db.Column(db.Text, comment='项目描述')
     status = db.Column(db.Enum(*PROJECT_STATUS), default='not_started', comment='项目状态')
     owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='项目负责人ID')
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='项目创建者ID')
     start_date = db.Column(db.DateTime, comment='开始日期')
     end_date = db.Column(db.DateTime, comment='结束日期')
-    environment = db.Column(db.Enum(*PROJECT_ENVIRONMENT), default='test', comment='项目环境')
     tags = db.Column(db.Text, comment='项目标签，JSON格式存储')
     priority = db.Column(db.Enum(*PROJECT_PRIORITY), default='medium', comment='项目优先级')
     doc_url = db.Column(db.String(500), comment='项目文档链接')
@@ -90,7 +90,8 @@ class Project(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
     
     # 关系
-    owner = db.relationship('User', backref='owned_projects')
+    owner = db.relationship('User', backref='owned_projects', foreign_keys=[owner_id])
+    creator = db.relationship('User', backref='created_projects', foreign_keys=[creator_id])
     project_members = db.relationship('ProjectMember', backref='project', cascade='all, delete-orphan')
     iterations = db.relationship('Iteration', backref='project', cascade='all, delete-orphan')
     test_plans = db.relationship('TestPlan', backref='project', cascade='all, delete-orphan')
@@ -131,6 +132,16 @@ class Project(db.Model):
             'execution_progress': round(execution_progress, 2)
         }
         
+        # 计算迭代统计
+        total_iterations = len(self.iterations)
+        iteration_stats = {
+            'total': total_iterations,
+            'planning': sum(1 for iter in self.iterations if iter.status == 'planning'),
+            'active': sum(1 for iter in self.iterations if iter.status == 'active'),
+            'completed': sum(1 for iter in self.iterations if iter.status == 'completed'),
+            'cancelled': sum(1 for iter in self.iterations if iter.status == 'cancelled')
+        }
+        
         # 计算版本需求统计
         total_requirements = len(self.version_requirements)
         requirement_stats = {
@@ -148,9 +159,10 @@ class Project(db.Model):
             'status': self.status,
             'owner_id': self.owner_id,
             'owner_name': self.owner.real_name if self.owner else None,
+            'creator_id': self.creator_id,
+            'creator_name': self.creator.real_name if self.creator else None,
             'start_date': self.start_date.isoformat() if self.start_date else None,
             'end_date': self.end_date.isoformat() if self.end_date else None,
-            'environment': self.environment,
             'tags': json.loads(self.tags) if self.tags else [],
             'priority': self.priority,
             'doc_url': self.doc_url,
@@ -164,6 +176,7 @@ class Project(db.Model):
             'requirement_count': total_requirements,
             'bug_stats': bug_stats,
             'case_stats': case_stats,
+            'iteration_stats': iteration_stats,
             'requirement_stats': requirement_stats,
             'iterations': [iteration.iteration_name for iteration in self.iterations]
         }
@@ -181,19 +194,20 @@ class VersionRequirement(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
     priority = db.Column(db.Enum(*TEST_CASE_PRIORITY), default='medium', comment='优先级')
+    environment = db.Column(db.Enum(*PROJECT_ENVIRONMENT), default='test', comment='需求环境')
     estimated_hours = db.Column(db.Float, comment='预估工时')
     actual_hours = db.Column(db.Float, comment='实际工时')
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='创建者ID')
     assigned_to = db.Column(db.Integer, db.ForeignKey('users.id'), comment='分配给ID')
     start_date = db.Column(db.DateTime, comment='开始时间')
     end_date = db.Column(db.DateTime, comment='结束时间')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
-    completed_at = db.Column(db.DateTime, comment='完成时间')
     is_deleted = db.Column(db.Boolean, default=False, comment='是否逻辑删除')
     
     # 关系
     project = db.relationship('Project', backref='version_requirements')
-    iteration = db.relationship('Iteration', backref='version_requirements')
+    iteration = db.relationship('Iteration', back_populates='version_requirements')
     creator = db.relationship('User', backref='created_requirements', foreign_keys=[created_by])
     assignee = db.relationship('User', backref='assigned_requirements', foreign_keys=[assigned_to])
     test_case = db.relationship('TestCase', backref='version_requirement', uselist=False, cascade='all, delete-orphan')
@@ -210,6 +224,7 @@ class VersionRequirement(db.Model):
             'iteration_id': self.iteration_id,
             'iteration_name': self.iteration.iteration_name if self.iteration else None,
             'priority': self.priority,
+            'environment': self.environment,
             'estimated_hours': self.estimated_hours,
             'actual_hours': self.actual_hours,
             'created_by': self.created_by,
@@ -219,7 +234,6 @@ class VersionRequirement(db.Model):
             'start_date': self.start_date.isoformat() if self.start_date else None,
             'end_date': self.end_date.isoformat() if self.end_date else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
             'is_deleted': self.is_deleted,
             'has_test_case': self.test_case is not None
         }
@@ -276,8 +290,8 @@ class Iteration(db.Model):
     # 关系
     test_plans = db.relationship('TestPlan', backref='iteration', cascade='all, delete-orphan')
     test_tasks = db.relationship('TestTask', backref='iteration', cascade='all, delete-orphan')
-    version_requirements = db.relationship('VersionRequirement', backref='iteration', cascade='all, delete-orphan')
-    case_executions = db.relationship('TestCaseExecution', backref='iteration', cascade='all, delete-orphan')
+    version_requirements = db.relationship('VersionRequirement', back_populates='iteration', cascade='all, delete-orphan')
+    case_executions = db.relationship('TestCaseExecution', back_populates='iteration', cascade='all, delete-orphan')
     bugs = db.relationship('Bug', backref='iteration', cascade='all, delete-orphan')
     creator = db.relationship('User', backref='created_iterations', foreign_keys=[created_by])
     updater = db.relationship('User', backref='updated_iterations', foreign_keys=[updated_by])
@@ -335,7 +349,11 @@ class Iteration(db.Model):
             'bug_count': len(self.bugs),
             'requirement_stats': requirement_stats,
             'execution_stats': execution_stats,
-            'bug_stats': bug_stats
+            'bug_stats': bug_stats,
+            # 返回完整的列表数据
+            'version_requirements': [req.to_dict() for req in self.version_requirements],
+            'test_tasks': [task.to_dict() for task in self.test_tasks],
+            'bugs': [bug.to_dict() for bug in self.bugs]
         }
 
 
@@ -489,11 +507,19 @@ class TestCase(db.Model):
     # 添加支持xmind形式的字段
     xmind_data = db.Column(db.Text, comment='xmind格式的用例数据（JSON字符串）')
     preconditions = db.Column(db.Text, comment='前置条件')
+    precondition = db.Column(db.Text, comment='前置条件')
     steps = db.Column(db.Text, comment='测试步骤')
     expected_result = db.Column(db.Text, comment='预期结果')
     actual_result = db.Column(db.Text, comment='实际结果')
     created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
+    # 添加缺失的字段
+    test_data = db.Column(db.Text, nullable=True, comment='测试数据')
+    iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
+    version_info = db.Column(db.String(100), nullable=True, comment='版本信息')
+    assignee = db.Column(db.String(50), nullable=True, comment='负责人')
+    test_plan_id = db.Column(db.Integer, db.ForeignKey('test_plans.id'), nullable=True, comment='所属测试计划ID')
+    author = db.Column(db.String(50), nullable=True, comment='作者')
     
     # 关系
     test_tasks = db.relationship('TestTask', secondary='task_case_relation', backref='test_cases')
@@ -558,7 +584,7 @@ class TestCaseExecution(db.Model):
     # 与项目的多对一关系
     project = db.relationship('Project', backref='executions')
     # 与迭代的多对一关系
-    iteration = db.relationship('Iteration', backref='executions')
+    iteration = db.relationship('Iteration', back_populates='case_executions')
     
     def to_dict(self):
         """转换为字典"""
@@ -610,6 +636,8 @@ class TestTask(db.Model):
     completed_time = db.Column(db.DateTime, comment='完成时间')
     created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
+    # 添加缺失的字段
+    case_ids = db.Column(db.Text, nullable=False, comment='测试用例ID列表，JSON格式存储')
     
     # 关系
     bugs = db.relationship('Bug', backref='test_task', lazy='dynamic')
@@ -751,4 +779,60 @@ class Tool(db.Model):
             'creator_name': self.creator.real_name if self.creator else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class ExecutionBugRelation(db.Model):
+    """执行记录与缺陷关联模型"""
+    __tablename__ = 'execution_bug_relations'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True, comment='关联编号')
+    execution_id = db.Column(db.Integer, db.ForeignKey('test_case_executions.id'), nullable=False, comment='执行记录ID')
+    bug_id = db.Column(db.Integer, db.ForeignKey('bugs.id'), nullable=False, comment='缺陷ID')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
+    
+    # 关系
+    execution = db.relationship('TestCaseExecution', backref='bug_relations')
+    bug = db.relationship('Bug', backref='execution_relations')
+    
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            'id': self.id,
+            'execution_id': self.execution_id,
+            'bug_id': self.bug_id,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class TestExecution(db.Model):
+    """测试执行模型"""
+    __tablename__ = 'test_executions'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True, comment='执行编号')
+    task_id = db.Column(db.Integer, db.ForeignKey('test_tasks.id'), nullable=False, comment='测试任务ID')
+    environment_id = db.Column(db.Integer, nullable=True, comment='环境ID')
+    device_id = db.Column(db.Integer, db.ForeignKey('devices.id'), nullable=False, comment='设备ID')
+    execution_status = db.Column(db.String(20), nullable=False, comment='执行状态')
+    start_time = db.Column(db.DateTime, nullable=True, comment='开始时间')
+    end_time = db.Column(db.DateTime, nullable=True, comment='结束时间')
+    executor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, comment='执行人ID')
+    
+    # 关系
+    task = db.relationship('TestTask', backref='executions')
+    device = db.relationship('Device', backref='test_executions')
+    executor = db.relationship('User', backref='executed_tests')
+    
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            'id': self.id,
+            'task_id': self.task_id,
+            'environment_id': self.environment_id,
+            'device_id': self.device_id,
+            'execution_status': self.execution_status,
+            'start_time': self.start_time.isoformat() if self.start_time else None,
+            'end_time': self.end_time.isoformat() if self.end_time else None,
+            'executor_id': self.executor_id,
+            'executor_name': self.executor.real_name if self.executor else None
         }
