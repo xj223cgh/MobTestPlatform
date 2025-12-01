@@ -6,8 +6,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 db = SQLAlchemy()
 
 # 定义枚举类型的常量
-TEST_CASE_STATUS = ('draft', 'active', 'deprecated')
-TEST_CASE_PRIORITY = ('high', 'medium', 'low')
+TEST_CASE_STATUS = ('', 'pass', 'fail', 'blocked', 'not_applicable')
+TEST_CASE_PRIORITY = ('P0', 'P1', 'P2', 'P3', 'P4')
 TEST_SUITE_STATUS = ('active', 'inactive')
 TEST_TASK_STATUS = ('pending', 'running', 'completed', 'paused')
 TEST_EXECUTION_STATUS = ('pass', 'fail', 'blocked', 'not_applicable')
@@ -38,7 +38,7 @@ class User(UserMixin, db.Model):
     
     # 关系
     created_devices = db.relationship('Device', backref='owner', lazy='dynamic', foreign_keys='Device.owner_id')
-    created_cases = db.relationship('TestCase', backref='case_creator', lazy='dynamic')
+    created_cases = db.relationship('TestCase', lazy='dynamic', foreign_keys='TestCase.creator_id')
     created_tasks = db.relationship('TestTask', backref='creator', lazy='dynamic', foreign_keys='TestTask.creator_id')
     executed_tasks = db.relationship('TestTask', backref='executor', lazy='dynamic', foreign_keys='TestTask.executor_id')
     reported_bugs = db.relationship('Bug', backref='reporter', lazy='dynamic', foreign_keys='Bug.reporter_id')
@@ -122,12 +122,13 @@ class Project(db.Model):
         pass_rate = (passed_cases / executed_cases * 100) if executed_cases > 0 else 0
         execution_progress = (executed_cases / total_cases * 100) if total_cases > 0 else 0
         
-        # 计算用例按类型划分
+        # 计算用例按状态划分
         case_stats = {
             'total': total_cases,
-            'draft': sum(1 for case in self.test_cases if case.status == 'draft'),
-            'active': sum(1 for case in self.test_cases if case.status == 'active'),
-            'deprecated': sum(1 for case in self.test_cases if case.status == 'deprecated'),
+            'pass': sum(1 for case in self.test_cases if case.status == 'pass'),
+            'fail': sum(1 for case in self.test_cases if case.status == 'fail'),
+            'blocked': sum(1 for case in self.test_cases if case.status == 'blocked'),
+            'not_applicable': sum(1 for case in self.test_cases if case.status == 'not_applicable'),
             'pass_rate': round(pass_rate, 2),
             'execution_progress': round(execution_progress, 2)
         }
@@ -461,12 +462,13 @@ class TestSuite(db.Model):
     status = db.Column(db.Enum(*TEST_SUITE_STATUS), default='active', comment='状态')
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='创建者ID')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
+    sort_order = db.Column(db.Integer, default=0, comment='排序顺序')
     created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
     
     # 关系
     # 自引用关系，用于构建目录树结构
-    parent = db.relationship('TestSuite', remote_side=[id], backref='children')
+    parent = db.relationship('TestSuite', remote_side=[id], backref=db.backref('children', order_by='TestSuite.sort_order'))
     # 与测试用例的一对多关系
     test_cases = db.relationship('TestCase', backref='suite', lazy='dynamic')
     # 与用户的多对一关系
@@ -485,7 +487,8 @@ class TestSuite(db.Model):
             'creator_name': self.creator.real_name if self.creator else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'children_count': self.children.count(),
+            'sort_order': self.sort_order,
+            'children_count': len(self.children),
             'cases_count': self.test_cases.count()
         }
 
@@ -497,61 +500,85 @@ class TestCase(db.Model):
     id = db.Column(db.Integer, primary_key=True, comment='用例编号')
     case_name = db.Column(db.String(200), nullable=False, comment='用例名称')
     case_description = db.Column(db.Text, comment='用例描述')
-    module = db.Column(db.String(100), nullable=False, comment='所属模块')
-    priority = db.Column(db.Enum(*TEST_CASE_PRIORITY), default='medium', comment='优先级')
-    status = db.Column(db.Enum(*TEST_CASE_STATUS), default='draft', comment='状态')
+    priority = db.Column(db.Enum(*TEST_CASE_PRIORITY), default='P1', comment='优先级')
+    status = db.Column(db.Enum(*TEST_CASE_STATUS), default='', comment='状态')
+    type = db.Column(db.String(50), default='functional', comment='用例类型：functional, performance, security, etc.')
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='创建者ID')
-    suite_id = db.Column(db.Integer, db.ForeignKey('test_suites.id'), nullable=True, comment='所属套件ID')
+    suite_id = db.Column(db.Integer, db.ForeignKey('test_suites.id'), nullable=False, comment='所属套件ID（用于模块树）')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
     version_requirement_id = db.Column(db.Integer, db.ForeignKey('version_requirements.id'), unique=True, nullable=True, comment='关联的版本需求ID')
-    # 添加支持xmind形式的字段
-    xmind_data = db.Column(db.Text, comment='xmind格式的用例数据（JSON字符串）')
+    iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
+    test_plan_id = db.Column(db.Integer, db.ForeignKey('test_plans.id'), nullable=True, comment='所属测试计划ID')
+    assignee_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, comment='负责人ID')
+    
+    # 用例内容
     preconditions = db.Column(db.Text, comment='前置条件')
-    precondition = db.Column(db.Text, comment='前置条件')
     steps = db.Column(db.Text, comment='测试步骤')
     expected_result = db.Column(db.Text, comment='预期结果')
     actual_result = db.Column(db.Text, comment='实际结果')
+    test_data = db.Column(db.Text, nullable=True, comment='测试数据')
+    
+    # 脑图支持
+    xmind_data = db.Column(db.Text, comment='xmind格式的用例数据（JSON字符串）')
+    
+    # 标签支持
+    tags = db.Column(db.Text, comment='用例标签，JSON格式存储')
+    
+    # 时间字段
     created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
-    # 添加缺失的字段
-    test_data = db.Column(db.Text, nullable=True, comment='测试数据')
-    iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
+    executed_at = db.Column(db.DateTime, nullable=True, comment='最后执行时间')
+    
+    # 版本信息
     version_info = db.Column(db.String(100), nullable=True, comment='版本信息')
-    assignee = db.Column(db.String(50), nullable=True, comment='负责人')
-    test_plan_id = db.Column(db.Integer, db.ForeignKey('test_plans.id'), nullable=True, comment='所属测试计划ID')
-    author = db.Column(db.String(50), nullable=True, comment='作者')
     
     # 关系
     test_tasks = db.relationship('TestTask', secondary='task_case_relation', backref='test_cases')
     bugs = db.relationship('Bug', backref='test_case', lazy='dynamic')
-    # 与用户的多对一关系
-    # 使用User模型中已定义的关系，避免重复定义
-    # creator = db.relationship('User', backref='created_cases')  # 已在User模型中定义，避免冲突
-    # 与项目的多对一关系
-    # 使用Project模型中已定义的关系，避免重复定义
+    # 移除backref参数，避免与User模型中的created_cases冲突
+    creator = db.relationship('User', foreign_keys=[creator_id])
+    assignee = db.relationship('User', backref='assigned_cases', foreign_keys=[assignee_id])
     
     def to_dict(self):
         """转换为字典"""
+        import json
+        # 处理tags字段，防止JSONDecodeError
+        tags = []
+        if self.tags:
+            try:
+                tags = json.loads(self.tags)
+            except (json.JSONDecodeError, TypeError):
+                tags = []
+        
         return {
             'id': self.id,
             'case_name': self.case_name,
             'case_description': self.case_description,
-            'module': self.module,
             'priority': self.priority,
             'status': self.status,
+            'type': self.type,
             'creator_id': self.creator_id,
             'creator_name': self.creator.real_name if self.creator else None,
             'suite_id': self.suite_id,
             'suite_name': self.suite.suite_name if self.suite else None,
+            'project_id': self.project_id,
             'version_requirement_id': self.version_requirement_id,
-            'version_requirement_name': self.version_requirement.requirement_name if self.version_requirement else None,
-            'xmind_data': self.xmind_data,
+            'version_requirement_name': self.version_requirement.requirement_name if hasattr(self, 'version_requirement') and self.version_requirement else None,
+            'iteration_id': self.iteration_id,
+            'test_plan_id': self.test_plan_id,
+            'assignee_id': self.assignee_id,
+            'assignee_name': self.assignee.real_name if hasattr(self, 'assignee') and self.assignee else None,
             'preconditions': self.preconditions,
             'steps': self.steps,
             'expected_result': self.expected_result,
             'actual_result': self.actual_result,
+            'test_data': self.test_data,
+            'xmind_data': self.xmind_data,
+            'tags': tags,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'executed_at': self.executed_at.isoformat() if self.executed_at else None,
+            'version_info': self.version_info
         }
 
 

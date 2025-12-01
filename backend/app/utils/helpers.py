@@ -19,7 +19,7 @@ def validate_username(username):
     return True
 
 
-def success_response(data=None, message="操作成功"):
+def success_response(data=None, message="Operation successful"):
     """统一成功响应格式"""
     from datetime import datetime
     return jsonify({
@@ -30,9 +30,10 @@ def success_response(data=None, message="操作成功"):
     })
 
 
-def error_response(code, message, data=None):
+def error_response(message, code, data=None):
     """统一错误响应格式"""
     from datetime import datetime
+    # Flask会自动处理HTTP状态消息，只需要返回状态码即可
     return jsonify({
         'code': code,
         'message': message,
@@ -44,7 +45,12 @@ def error_response(code, message, data=None):
 def get_pagination_params():
     """获取分页参数"""
     page = request.args.get('page', 1, type=int)
-    size = request.args.get('size', 20, type=int)
+    # 同时支持size和page_size参数
+    # 确保两个参数都使用int类型
+    size_param = request.args.get('size', type=int)
+    page_size_param = request.args.get('page_size', type=int)
+    # 使用第一个有效的参数，如果都无效则使用默认值20
+    size = size_param if size_param is not None else (page_size_param if page_size_param is not None else 20)
     
     # 限制每页最大数量
     size = min(size, 100)

@@ -28,7 +28,7 @@ def get_test_cases():
     if search:
         query = query.filter(
             TestCase.case_name.contains(search) |
-            TestCase.description.contains(search) |
+            TestCase.case_description.contains(search) |
             TestCase.preconditions.contains(search)
         )
     
@@ -91,13 +91,13 @@ def create_test_case():
     
     test_case = TestCase(
         case_name=data['case_name'],
-        description=data.get('description', ''),
+        case_description=data.get('case_description', ''),
         preconditions=data.get('preconditions', ''),
         steps=data.get('steps', ''),
         expected_result=data.get('expected_result', ''),
         actual_result=data.get('actual_result', ''),
         priority=data['priority'],
-        status=data.get('status', 'active'),
+        status=data.get('status', ''),
         module=data['module'],
         author_id=current_user.id,
         suite_id=data.get('suite_id'),
@@ -130,8 +130,8 @@ def update_test_case(case_id):
     if 'case_name' in data:
         test_case.case_name = data['case_name']
     
-    if 'description' in data:
-        test_case.description = data['description']
+    if 'case_description' in data:
+        test_case.case_description = data['case_description']
     
     if 'preconditions' in data:
         test_case.preconditions = data['preconditions']
@@ -203,9 +203,11 @@ def delete_test_case(case_id):
 def get_priority_options():
     """获取优先级选项"""
     priority_options = [
-        {'value': 'high', 'label': '高'},
-        {'value': 'medium', 'label': '中'},
-        {'value': 'low', 'label': '低'}
+        {'value': 'P0', 'label': 'P0'},
+        {'value': 'P1', 'label': 'P1'},
+        {'value': 'P2', 'label': 'P2'},
+        {'value': 'P3', 'label': 'P3'},
+        {'value': 'P4', 'label': 'P4'}
     ]
     
     return success_response({
@@ -218,9 +220,11 @@ def get_priority_options():
 def get_status_options():
     """获取状态选项"""
     status_options = [
-        {'value': 'active', 'label': '激活'},
-        {'value': 'inactive', 'label': '停用'},
-        {'value': 'draft', 'label': '草稿'}
+        {'value': '', 'label': ''},
+        {'value': 'pass', 'label': '通过'},
+        {'value': 'fail', 'label': '失败'},
+        {'value': 'blocked', 'label': '阻塞'},
+        {'value': 'not_applicable', 'label': '不适用'}
     ]
     
     return success_response({
@@ -269,10 +273,10 @@ def import_xmind():
         # 创建一个基于xmind数据的测试用例
         new_case = TestCase(
             case_name=data.get('case_name', '从XMind导入的测试用例'),
-            description='从XMind导入',
+            case_description='从XMind导入',
             module=data.get('module', '默认模块'),
-            priority=data.get('priority', 'medium'),
-            status=data.get('status', 'draft'),
+            priority=data.get('priority', 'P1'),
+            status=data.get('status', ''),
             author_id=current_user.id,
             suite_id=data['suite_id'],
             xmind_data=data['xmind_data']

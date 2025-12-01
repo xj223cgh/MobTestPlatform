@@ -133,8 +133,8 @@
     <!-- 分页 - 固定在右侧区域底部 -->
     <div class="fixed-pagination">
       <el-pagination
-        current-page="pagination.currentPage"
-        page-size="pagination.pageSize"
+        :current-page="pagination.currentPage"
+        :page-size="pagination.pageSize"
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next, jumper"
         :total="pagination.total"

@@ -20,9 +20,9 @@ def login():
     if request.method == 'GET':
         # 如果已经登录，返回已登录状态
         if current_user.is_authenticated:
-            return success_response({"message": "Already logged in"}, "已登录")
-        # 未登录返回未授权错误
-        return error_response(401, "请登录")
+            return success_response({"message": "Already logged in"}, "Already logged in")
+        # 未登录返回未授权错误，使用英文消息避免UnicodeEncodeError
+        return error_response(401, "Please login")
     
     # 处理POST请求（正常登录）
     # 检查请求是否有JSON数据

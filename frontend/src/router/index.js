@@ -78,15 +78,13 @@ const routes = [
           path: 'test-cases',
           name: 'TestCases',
           component: () => import('@/views/testCase/TestCaseManagement.vue'),
-          meta: { title: '用例管理', icon: 'Document' },
-          children: [
-            {
-              path: 'case-reviews',
-              name: 'CaseReviews',
-              component: () => import('@/views/caseReview/CaseReviewManagement.vue'),
-              meta: { title: '用例评审', icon: 'ChatRound' }
-            }
-          ]
+          meta: { title: '用例管理', icon: 'Document' }
+        },
+        {
+          path: 'case-reviews',
+          name: 'CaseReviews',
+          component: () => import('@/views/caseReview/CaseReviewManagement.vue'),
+          meta: { title: '用例评审', icon: 'ChatRound' }
         },
         {
           path: 'test-plans',
@@ -170,18 +168,21 @@ router.beforeEach(async (to, from, next) => {
     const isAuthenticated = userStore.isAuthenticated
     
     if (isAuthenticated) {
-      // 已登录，检查后端认证状态
-      try {
-        const isAuthValid = await userStore.checkAuth()
-        if (!isAuthValid) {
-          // 认证失效，跳转到登录页
+      // 已登录，优化：只在页面刷新或从外部链接进入时检查后端认证状态
+      // 避免每次路由跳转都发起网络请求
+      if (from.path === '/' || from.path === '') {
+        try {
+          const isAuthValid = await userStore.checkAuth()
+          if (!isAuthValid) {
+            // 认证失效，跳转到登录页
+            next('/login')
+            return
+          }
+        } catch (error) {
+          // 检查失败，跳转到登录页
           next('/login')
           return
         }
-      } catch (error) {
-        // 检查失败，跳转到登录页
-        next('/login')
-        return
       }
     } else {
       // 未登录，跳转到登录页

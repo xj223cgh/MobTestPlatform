@@ -14,16 +14,66 @@
         router
         class="sidebar-menu"
       >
-        <el-menu-item 
-          v-for="menuRoute in menuRoutes" 
-          :key="menuRoute.path" 
-          :index="menuRoute.path"
-        >
-          <el-icon v-if="menuRoute.meta.icon">
-            <component :is="menuRoute.meta.icon" />
-          </el-icon>
-          <template #title>{{ menuRoute.meta.title }}</template>
-        </el-menu-item>
+        <!-- 递归生成菜单，支持嵌套路由 -->
+        <template v-for="menuRoute in menuRoutes">
+          <!-- 如果有子路由，使用 el-sub-menu -->
+          <el-sub-menu 
+            v-if="menuRoute.children && menuRoute.children.length > 0" 
+            :key="`${menuRoute.path}-submenu`"
+            :index="`/${menuRoute.path}`"
+          >
+            <template #title>
+              <el-icon v-if="menuRoute.meta.icon">
+                <component :is="menuRoute.meta.icon" />
+              </el-icon>
+              {{ menuRoute.meta.title }}
+            </template>
+            <!-- 递归渲染子菜单 -->
+            <template v-for="childRoute in menuRoute.children">
+              <el-menu-item 
+                v-if="!childRoute.children || childRoute.children.length === 0" 
+                :key="`${childRoute.path}-item`"
+                :index="`/${menuRoute.path}/${childRoute.path}`"
+              >
+                <el-icon v-if="childRoute.meta.icon">
+                  <component :is="childRoute.meta.icon" />
+                </el-icon>
+                <template #title>{{ childRoute.meta.title }}</template>
+              </el-menu-item>
+              <!-- 支持多级嵌套 -->
+              <el-sub-menu 
+                v-else 
+                :key="`${childRoute.path}-submenu`"
+                :index="`/${menuRoute.path}/${childRoute.path}`"
+              >
+                <template #title>
+                  <el-icon v-if="childRoute.meta.icon">
+                    <component :is="childRoute.meta.icon" />
+                  </el-icon>
+                  {{ childRoute.meta.title }}
+                </template>
+                <!-- 递归渲染更深层级的子菜单 -->
+                <el-menu-item v-for="grandChildRoute in childRoute.children" :key="grandChildRoute.path" :index="`/${menuRoute.path}/${childRoute.path}/${grandChildRoute.path}`">
+                  <el-icon v-if="grandChildRoute.meta.icon">
+                    <component :is="grandChildRoute.meta.icon" />
+                  </el-icon>
+                  <template #title>{{ grandChildRoute.meta.title }}</template>
+                </el-menu-item>
+              </el-sub-menu>
+            </template>
+          </el-sub-menu>
+          <!-- 没有子路由，直接使用 el-menu-item -->
+          <el-menu-item 
+            v-else 
+            :key="`${menuRoute.path}-item`"
+            :index="`/${menuRoute.path}`"
+          >
+            <el-icon v-if="menuRoute.meta.icon">
+              <component :is="menuRoute.meta.icon" />
+            </el-icon>
+            <template #title>{{ menuRoute.meta.title }}</template>
+          </el-menu-item>
+        </template>
       </el-menu>
     </aside>
 
@@ -147,6 +197,9 @@ const isCollapsed = ref(false)
 // 当前路由
 const currentRoute = computed(() => route)
 
+// 记录当前路由路径，用于检测浏览器返回
+const previousRoutePath = ref(route.path)
+
 // 菜单路由
 const menuRoutes = computed(() => {
   const routes = router.getRoutes() || []
@@ -211,14 +264,25 @@ watch(
     if (newPath === '/home') {
       breadcrumbHistory.value = []
       saveBreadcrumbHistory()
+      previousRoutePath.value = newPath
       return
     }
     
     // 检查是否已经存在相同路径的面包屑
     const existingPathIndex = breadcrumbHistory.value.findIndex(item => item.path === newPath)
     
+    // 检查当前路由是否在面包屑历史中，用于处理浏览器返回
+    const currentPathIndex = breadcrumbHistory.value.findIndex(item => item.path === previousRoutePath.value)
+    
     if (existingPathIndex > -1) {
-      // 如果已经存在相同路径的面包屑，不修改面包屑历史，只跳转页面
+      // 如果新路径已经存在于面包屑历史中，且当前路径在新路径之后，说明是浏览器返回
+      if (currentPathIndex > existingPathIndex) {
+        // 删除当前路径及之后的面包屑
+        breadcrumbHistory.value = breadcrumbHistory.value.slice(0, existingPathIndex + 1)
+        saveBreadcrumbHistory()
+      }
+      // 更新之前的路由路径
+      previousRoutePath.value = newPath
       return
     }
     
@@ -244,6 +308,9 @@ watch(
     
     // 保存到localStorage
     saveBreadcrumbHistory()
+    
+    // 更新之前的路由路径
+    previousRoutePath.value = newPath
   }
 )
 

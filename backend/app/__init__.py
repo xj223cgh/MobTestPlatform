@@ -13,8 +13,21 @@ from app.models.models import db, User
 # 创建登录管理器
 login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
-login_manager.login_message = '请先登录'
+login_manager.login_message = 'Please login first'
 login_manager.login_message_category = 'info'
+
+
+# 自定义未授权处理器，针对API请求直接返回401而不是重定向
+@login_manager.unauthorized_handler
+def unauthorized_handler():
+    from flask import request
+    from app.utils.helpers import error_response
+    # 检查是否是API请求
+    if request.path.startswith('/api/'):
+        # API请求直接返回401
+        return error_response("Unauthorized", 401)
+    # 非API请求返回重定向
+    return login_manager.unauthorized()
 
 
 @login_manager.user_loader
@@ -29,6 +42,10 @@ def create_app(config_name='default'):
     
     # 禁用严格斜杠，允许/projects和/projects/访问相同的路由
     app.url_map.strict_slashes = False
+    
+    # 设置默认编码为UTF-8，解决中文响应问题
+    app.config['JSON_AS_ASCII'] = False
+    app.config['JSONIFY_MIMETYPE'] = 'application/json; charset=utf-8'
     
     # 加载配置
     app.config.from_object(config[config_name])
@@ -83,7 +100,7 @@ def setup_logging(app):
 
 def register_blueprints(app):
     """注册蓝图"""
-    from app.routes import auth, users, devices, test_cases, test_tasks, bugs, tools, home, projects, iterations, test_plans, suite_case_relations
+    from app.routes import auth, users, devices, test_cases, test_tasks, bugs, tools, home, projects, iterations, test_plans, suite_case_relations, test_suites
     
     app.register_blueprint(auth.bp, url_prefix='/api/auth')
     app.register_blueprint(users.bp, url_prefix='/api/users')
@@ -97,6 +114,7 @@ def register_blueprints(app):
     app.register_blueprint(iterations.bp, url_prefix='/api/iterations')
     app.register_blueprint(test_plans.bp, url_prefix='/api/test-plans')
     app.register_blueprint(suite_case_relations.bp, url_prefix='/api/suite-case-relations')
+    app.register_blueprint(test_suites.bp)
 
 
 def register_error_handlers(app):
@@ -105,31 +123,31 @@ def register_error_handlers(app):
     @app.errorhandler(400)
     def bad_request(error):
         from app.utils.helpers import error_response
-        return error_response(400, "请求参数错误")
+        return error_response("Bad Request", 400)
     
     @app.errorhandler(401)
     def unauthorized(error):
         from app.utils.helpers import error_response
-        return error_response(401, "未授权访问")
+        return error_response("Unauthorized", 401)
     
     @app.errorhandler(403)
     def forbidden(error):
         from app.utils.helpers import error_response
-        return error_response(403, "权限不足")
+        return error_response("Forbidden", 403)
     
     @app.errorhandler(404)
     def not_found(error):
         from app.utils.helpers import error_response
-        return error_response(404, "资源不存在")
+        return error_response("Not Found", 404)
     
     @app.errorhandler(500)
     def internal_error(error):
         from app.utils.helpers import error_response
         app.logger.error(f'Server Error: {error}')
-        return error_response(500, "服务器内部错误")
+        return error_response("Internal Server Error", 500)
     
     @app.errorhandler(Exception)
     def handle_exception(error):
         from app.utils.helpers import error_response
         app.logger.error(f'Unhandled Exception: {error}', exc_info=True)
-        return error_response(500, "服务器内部错误")
+        return error_response("Internal Server Error", 500)

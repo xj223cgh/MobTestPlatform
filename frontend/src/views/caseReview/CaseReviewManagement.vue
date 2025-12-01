@@ -5,64 +5,50 @@
         <h1>用例评审管理</h1>
         <p class="description">管理测试用例的评审过程和结果</p>
       </div>
-      <div class="header-actions">
-        <el-button type="primary" @click="handleCreateReview">
-          <el-icon><Plus /></el-icon>
-          创建评审
-        </el-button>
-      </div>
     </div>
     
-    <!-- 用例评审管理组件内容 -->
-    <div class="review-content">
-      <!-- 评审列表或其他内容将在此添加 -->
+    <!-- 简化的用例评审页面，仅保留基本结构 -->
+    <div class="simple-content">
+      <el-empty description="用例评审页面内容已清除，保留入口"></el-empty>
     </div>
   </div>
 </template>
 
-<script>
-export default {
-  name: 'CaseReviewManagement',
-  data() {
-    return {
-      // 组件数据
-    }
-  },
-  methods: {
-    handleCreateReview() {
-      // 创建评审的逻辑
-      console.log('创建新的用例评审');
-    }
-  },
-  mounted() {
-    // 组件挂载后逻辑
-    console.log('用例评审管理组件已加载');
-  }
-}
+<script setup>
+// 简化的脚本部分，仅保留基本结构
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .case-review-management {
-  padding: 0;
+  padding: 20px;
 }
 
 .page-header {
-  margin-bottom: 24px;
-  padding: 16px 0;
-  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e4e7ed;
+  
+  .header-content {
+    h1 {
+      margin: 0 0 8px 0;
+      font-size: 24px;
+      font-weight: 600;
+      color: #303133;
+    }
+    
+    .description {
+      margin: 0;
+      color: #909399;
+      font-size: 14px;
+    }
+  }
 }
 
-.header-content {
-  margin-bottom: 16px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.review-content {
-  margin-top: 20px;
+.simple-content {
+  background: white;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  text-align: center;
 }
 </style>

@@ -3,7 +3,7 @@
     <div class="page-header">
       <div class="header-content">
         <h1>需求管理</h1>
-        <p class="description">管理系统版本需求信息</p>
+        <p class="description">管理所属项目迭代的版本需求信息</p>
       </div>
       <div class="header-actions">
         <el-button type="primary" @click="handleCreateRequirement" :loading="loading">
@@ -123,7 +123,7 @@
         style="width: 100%"
         fit
       >
-        <el-table-column prop="id" label="需求ID" width="80" align="center"></el-table-column>
+        <el-table-column prop="id" label="ID" width="80" align="center"></el-table-column>
         <el-table-column prop="requirement_name" label="需求名称" min-width="140" align="center">
           <template #default="scope">
             {{ scope.row.requirement_name }}
@@ -136,7 +136,7 @@
             {{ scope.row.iteration_name || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" min-width="90" align="center">
+        <el-table-column prop="status" label="状态" min-width="80" align="center">
           <template #default="scope">
             <el-tag :type="getStatusType(scope.row.status)">{{ getStatusText(scope.row.status) }}</el-tag>
           </template>
@@ -146,28 +146,38 @@
             <el-tag :type="getPriorityType(scope.row.priority)">{{ getPriorityText(scope.row.priority) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="environment" label="环境" min-width="90" align="center">
+        <el-table-column prop="environment" label="环境" min-width="95" align="center">
           <template #default="scope">
             <el-tag :type="getEnvironmentType(scope.row.environment)">{{ getEnvironmentText(scope.row.environment) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="created_by_name" label="创建者" min-width="100" align="center"></el-table-column>
-        <el-table-column prop="assigned_to_name" label="负责人" min-width="100" align="center">
+        <el-table-column prop="updated_at" label="更新时间" min-width="130" align="center">
           <template #default="scope">
-            {{ scope.row.assigned_to_name || '-' }}
-          </template>
-        </el-table-column>     
-        <el-table-column prop="start_time" label="开始时间" min-width="140" align="center">
-          <template #default="scope">
-            {{ formatDateTime(scope.row.start_time) || '-' }}
+            {{ formatDateTime(scope.row.updated_at) || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="end_time" label="结束时间" min-width="140" align="center">
+        <el-table-column prop="start_date" label="开始时间" min-width="130" align="center">
           <template #default="scope">
-            {{ formatDateTime(scope.row.end_time) || '-' }}
+            {{ formatDateTime(scope.row.start_date) || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="requirement_description" label="需求描述" min-width="220" align="center">
+        <el-table-column prop="end_date" label="结束时间" min-width="130" align="center">
+          <template #default="scope">
+            {{ formatDateTime(scope.row.end_date) || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="estimated_hours" label="预估工时" min-width="90" align="center">
+          <template #default="scope">
+            {{ scope.row.estimated_hours || '-' }}h
+          </template>
+        </el-table-column>
+        <el-table-column prop="actual_hours" label="实际工时" min-width="90" align="center">
+          <template #default="scope">
+            {{ scope.row.actual_hours || '-' }}h
+          </template>
+        </el-table-column>
+        <el-table-column prop="requirement_description" label="需求描述" min-width="200" align="center">
           <template #default="scope">
             <div class="wrap-text">{{ scope.row.requirement_description || '-' }}</div>
           </template>
