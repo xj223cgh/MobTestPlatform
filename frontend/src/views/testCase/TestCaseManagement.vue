@@ -45,6 +45,10 @@
           >
             <template #default="{ node, data }">
               <span class="tree-node-content">
+                <el-icon class="node-icon">
+                  <Folder v-if="data.type === 'folder'" />
+                  <Document v-else />
+                </el-icon>
                 <span v-if="!editingNodeId || editingNodeId !== data.id" @dblclick="startEdit(data)">
                   {{ node.label }}
                 </span>
@@ -58,7 +62,7 @@
                   @keyup.esc="cancelEdit"
                   autofocus
                 />
-                <span class="case-count">({{ data.cases_count }})</span>
+                <span class="case-count" v-if="data.type === 'suite'">({{ data.cases_count }})</span>
               </span>
             </template>
           </el-tree>
@@ -168,8 +172,8 @@
           <!-- 分页 -->
           <div class="pagination">
             <el-pagination
-              current-page="currentPage"
-              page-size="pageSize"
+              :current-page="currentPage"
+              :page-size="pageSize"
               :page-sizes="[10, 20, 50, 100]"
               layout="total, sizes, prev, pager, next, jumper"
               :total="totalCases"
@@ -195,6 +199,12 @@
       <el-form :model="suiteForm" label-width="80px">
         <el-form-item label="套件名称" required>
           <el-input v-model="suiteForm.suite_name" placeholder="请输入测试套件名称" />
+        </el-form-item>
+        <el-form-item label="套件类型" required v-if="!isEditSuite">
+          <el-select v-model="suiteForm.type" placeholder="请选择套件类型">
+            <el-option label="用例文件夹" value="folder" />
+            <el-option label="用例集" value="suite" />
+          </el-select>
         </el-form-item>
         <el-form-item label="父套件">
           <el-select
@@ -304,8 +314,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Folder, Document } from '@element-plus/icons-vue'
 import { getTestSuiteTree, getSuiteCases, createTestSuite, updateTestSuite, deleteTestSuite } from '@/api/testSuite'
 
 // 树形组件相关
@@ -342,6 +353,7 @@ const suiteForm = reactive({
   id: null,
   suite_name: '',
   description: '',
+  type: 'folder', // 默认类型为文件夹
   parent_id: null,
   project_id: 1 // 默认项目ID，实际应从上下文获取
 })
@@ -401,7 +413,14 @@ const allowDrop = (draggingNode, dropNode, type) => {
 // 节点点击事件
 const handleNodeClick = (data) => {
   selectedSuite.value = data
-  loadTestCases(data.id)
+  if (data.type === 'suite') {
+    // 只有用例集才能加载测试用例
+    loadTestCases(data.id)
+  } else {
+    // 文件夹清空测试用例列表
+    testCases.value = []
+    totalCases.value = 0
+  }
 }
 
 // 开始编辑节点名称
@@ -454,15 +473,21 @@ const handleNodeDrop = async (draggingNode, dropNode, dropType) => {
       // 拖入节点内部，设置parent_id为dropNode的id
       parentId = dropNode.data.id
       // 计算新的sort_order，添加到尾部
-      const lastChild = dropNode.children[dropNode.children.length - 1]
-      sortOrder = lastChild ? lastChild.data.sort_order + 1 : 1
+      // 获取该文件夹下最大的sort_order值，确保新节点排序到末尾
+      const lastChild = dropNode.data.children && dropNode.data.children.length > 0 ? 
+                        [...dropNode.data.children].sort((a, b) => b.sort_order - a.sort_order)[0] : null
+      sortOrder = lastChild ? lastChild.sort_order + 1 : 1
     } else if (dropType === 'before') {
-      // 拖到节点前面，设置parent_id与dropNode相同，sort_order为dropNode的sort_order
+      // 拖到节点前面，设置parent_id与dropNode相同
       parentId = dropNode.data.parent_id
+      // 对于'before'类型，我们希望当前节点被放置在dropNode之前
+      // 所以设置sort_order为dropNode的sort_order
       sortOrder = dropNode.data.sort_order
     } else if (dropType === 'after') {
-      // 拖到节点后面，设置parent_id与dropNode相同，sort_order为dropNode的sort_order + 1
+      // 拖到节点后面，设置parent_id与dropNode相同
       parentId = dropNode.data.parent_id
+      // 对于'after'类型，我们希望当前节点被放置在dropNode之后
+      // 所以设置sort_order为dropNode的sort_order + 1
       sortOrder = dropNode.data.sort_order + 1
     }
     
@@ -505,8 +530,18 @@ onMounted(() => {
 // 加载树形数据
 const loadTreeData = async () => {
   try {
+    // 保存当前展开的节点ID
+    const expandedKeys = treeRef.value?.getExpandedKeys() || []
+    
     const response = await getTestSuiteTree()
     treeData.value = response.data
+    
+    // 恢复展开状态
+    nextTick(() => {
+      if (treeRef.value && expandedKeys.length > 0) {
+        treeRef.value.setExpandedKeys(expandedKeys)
+      }
+    })
   } catch (error) {
     ElMessage.error('加载测试套件失败')
     console.error('Failed to load test suites:', error)
@@ -615,6 +650,10 @@ const resetSuiteForm = () => {
 const handleAddCase = () => {
   if (!selectedSuite.value) {
     ElMessage.warning('请先选择一个测试套件')
+    return
+  }
+  if (selectedSuite.value.type !== 'suite') {
+    ElMessage.warning('只能在测试用例集中添加测试用例')
     return
   }
   isEditCase.value = false
@@ -791,6 +830,12 @@ const handleCurrentChange = (page) => {
 .tree-node-content {
   display: flex;
   align-items: center;
+  
+  .node-icon {
+    margin-right: 5px;
+    font-size: 16px;
+    color: #606266;
+  }
   
   .case-count {
     margin-left: 5px;

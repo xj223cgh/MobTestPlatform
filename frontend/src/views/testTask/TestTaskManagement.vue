@@ -268,8 +268,8 @@
       <!-- 分页 -->
       <div class="pagination">
         <el-pagination
-          current-page="pagination.page"
-          page-size="pagination.size"
+          :current-page="pagination.page"
+          :page-size="pagination.size"
           :total="pagination.total"
           :page-sizes="[10, 20, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"

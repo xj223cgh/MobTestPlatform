@@ -169,8 +169,10 @@ def create_tables():
                 description TEXT COMMENT '套件描述',
                 parent_id INT COMMENT '父套件ID，用于构建目录结构',
                 status ENUM('active', 'inactive') DEFAULT 'active' COMMENT '状态',
+                type ENUM('folder', 'suite') DEFAULT 'folder' COMMENT '类型：folder-用例文件夹, suite-用例集',
                 creator_id INT NOT NULL COMMENT '创建者ID',
                 project_id INT NULL COMMENT '所属项目ID',
+                sort_order INT DEFAULT 0 COMMENT '排序顺序',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                 FOREIGN KEY (parent_id) REFERENCES test_suites(id) ON DELETE SET NULL,
@@ -178,7 +180,9 @@ def create_tables():
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
                 INDEX idx_parent_id (parent_id),
                 INDEX idx_creator_id (creator_id),
-                INDEX idx_project_id (project_id)
+                INDEX idx_project_id (project_id),
+                INDEX idx_type (type),
+                INDEX idx_sort_order (sort_order)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='测试套件表'""")
             
             # 创建test_cases表

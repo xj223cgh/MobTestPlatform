@@ -89,8 +89,20 @@ def create_test_suite():
         if not data.get('suite_name'):
             return error_response('套件名称不能为空', 400)
         
-        # 计算新节点的sort_order，默认添加到尾部
+        # 验证type字段
+        suite_type = data.get('type', 'folder')
+        if suite_type not in ['folder', 'suite']:
+            return error_response('套件类型无效，只能是folder或suite', 400)
+        
         parent_id = data.get('parent_id')
+        
+        # 如果有父套件，验证父套件类型
+        if parent_id is not None:
+            parent_suite = TestSuite.query.get(parent_id)
+            if parent_suite and parent_suite.type != 'folder':
+                return error_response('只能在文件夹中创建子套件', 400)
+        
+        # 计算新节点的sort_order，默认添加到尾部
         # 查找同级别最大的sort_order值
         max_sort_order = db.session.query(db.func.max(TestSuite.sort_order))
         if parent_id is not None:
@@ -107,6 +119,7 @@ def create_test_suite():
             description=data.get('description', ''),
             parent_id=parent_id,
             status=data.get('status', 'active'),
+            type=suite_type,
             creator_id=current_user.id,
             sort_order=new_sort_order
         )
@@ -131,6 +144,7 @@ def update_test_suite(suite_id):
         # 记录原始值，用于后续排序调整
         original_parent_id = suite.parent_id
         original_sort_order = suite.sort_order
+        original_type = suite.type
         
         # 更新字段
         if 'suite_name' in data:
@@ -148,11 +162,32 @@ def update_test_suite(suite_id):
                         if current.id == suite_id:
                             return error_response('不能将套件设置为自己的子套件或间接子套件', 400)
                         current = current.parent
+                    # 验证父套件类型必须是folder
+                    if parent.type != 'folder':
+                        return error_response('只能将套件移动到文件夹中', 400)
             suite.parent_id = data['parent_id']
         if 'status' in data:
             suite.status = data['status']
         if 'sort_order' in data:
             suite.sort_order = data['sort_order']
+        if 'type' in data:
+            new_type = data['type']
+            if new_type not in ['folder', 'suite']:
+                return error_response('套件类型无效，只能是folder或suite', 400)
+            
+            # 验证类型变更的合法性
+            if new_type == 'suite':
+                # 如果要改为用例集，必须没有子套件
+                if len(suite.children) > 0:
+                    return error_response('包含子套件的套件不能改为用例集', 400)
+            
+            # 如果要改为文件夹，需要确保父套件类型合法
+            if new_type == 'folder' and suite.parent_id is not None:
+                parent = TestSuite.query.get(suite.parent_id)
+                if parent and parent.type != 'folder':
+                    return error_response('只能在文件夹中创建文件夹', 400)
+            
+            suite.type = new_type
         
         # 如果父级或排序发生变化，需要重新调整排序
         if ('parent_id' in data and data['parent_id'] != original_parent_id) or \
@@ -165,13 +200,30 @@ def update_test_suite(suite_id):
                 original_siblings.sort(key=lambda x: x.sort_order)
                 for i, sibling in enumerate(original_siblings):
                     sibling.sort_order = i + 1
+                
+                # 如果移动到新的父节点，将当前节点的sort_order设置为新父节点下的最大值+1
+                max_sort_order = db.session.query(db.func.max(TestSuite.sort_order))
+                max_sort_order = max_sort_order.filter_by(parent_id=suite.parent_id).scalar() or 0
+                suite.sort_order = max_sort_order + 1
             
-            # 获取新的同级节点
-            new_siblings = TestSuite.query.filter_by(parent_id=suite.parent_id).all()
-            new_siblings.sort(key=lambda x: x.sort_order)
+            # 获取所有新的同级节点，包括当前节点
+            # 注意：这里不能直接从数据库查询，因为当前节点的sort_order还没有提交到数据库
+            # 我们需要构建一个包含所有节点的列表，包括当前节点
             
-            # 重新分配排序值，确保连续且不重复
-            for i, sibling in enumerate(new_siblings):
+            # 1. 获取除当前节点外的所有同级节点
+            other_siblings = TestSuite.query.filter(
+                TestSuite.parent_id == suite.parent_id,
+                TestSuite.id != suite.id
+            ).all()
+            
+            # 2. 创建完整的同级节点列表
+            all_siblings = [suite] + other_siblings
+            
+            # 3. 按照sort_order排序
+            all_siblings.sort(key=lambda x: (x.sort_order, 0 if x.id == suite_id else 1))
+            
+            # 4. 重新分配连续的sort_order值
+            for i, sibling in enumerate(all_siblings):
                 sibling.sort_order = i + 1
         
         db.session.commit()
@@ -211,7 +263,7 @@ def delete_test_suite(suite_id):
 def get_suite_tree():
     """获取完整的测试套件树形结构"""
     try:
-        root_suites = TestSuite.query.filter_by(parent_id=None).all()
+        root_suites = TestSuite.query.filter_by(parent_id=None).order_by(TestSuite.sort_order).all()
         
         # 递归构建树
         def build_tree(suite):
@@ -257,8 +309,6 @@ def get_suite_tree_by_id(suite_id):
 def get_suite_options():
     """获取测试套件选项列表，用于下拉选择"""
     try:
-        suites = TestSuite.query.filter_by(status='active').all()
-        
         # 递归构建选项树
         def build_options(suite, prefix=''):
             result = [{
@@ -270,7 +320,7 @@ def get_suite_options():
             return result
         
         options = []
-        for root_suite in TestSuite.query.filter_by(parent_id=None).all():
+        for root_suite in TestSuite.query.filter_by(parent_id=None).order_by(TestSuite.sort_order).all():
             options.extend(build_options(root_suite))
         
         return success_response(options)

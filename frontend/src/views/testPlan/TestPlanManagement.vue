@@ -99,8 +99,8 @@
       <!-- 分页 -->
       <div class="pagination-section">
         <el-pagination
-          current-page="currentPage"
-          page-size="pageSize"
+          :current-page="currentPage"
+          :page-size="pageSize"
           :page-sizes="[10, 20, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"
           :total="total"
@@ -314,8 +314,8 @@
         <!-- 分页 -->
         <div class="pagination-section">
           <el-pagination
-            current-page="availableCasesPage"
-            page-size="availableCasesPageSize"
+            :current-page="availableCasesPage"
+            :page-size="availableCasesPageSize"
             :page-sizes="[10, 20, 50, 100]"
             layout="total, sizes, prev, pager, next, jumper"
             :total="availableCasesTotal"

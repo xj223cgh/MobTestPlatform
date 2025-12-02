@@ -9,6 +9,7 @@ db = SQLAlchemy()
 TEST_CASE_STATUS = ('', 'pass', 'fail', 'blocked', 'not_applicable')
 TEST_CASE_PRIORITY = ('P0', 'P1', 'P2', 'P3', 'P4')
 TEST_SUITE_STATUS = ('active', 'inactive')
+TEST_SUITE_TYPE = ('folder', 'suite')  # folder: 用例文件夹, suite: 用例集
 TEST_TASK_STATUS = ('pending', 'running', 'completed', 'paused')
 TEST_EXECUTION_STATUS = ('pass', 'fail', 'blocked', 'not_applicable')
 PROJECT_STATUS = ('not_started', 'in_progress', 'paused', 'completed', 'closed')
@@ -460,6 +461,7 @@ class TestSuite(db.Model):
     description = db.Column(db.Text, comment='套件描述')
     parent_id = db.Column(db.Integer, db.ForeignKey('test_suites.id'), nullable=True, comment='父套件ID，用于构建目录结构')
     status = db.Column(db.Enum(*TEST_SUITE_STATUS), default='active', comment='状态')
+    type = db.Column(db.Enum(*TEST_SUITE_TYPE), default='folder', comment='类型：folder-用例文件夹, suite-用例集')
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='创建者ID')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
     sort_order = db.Column(db.Integer, default=0, comment='排序顺序')
@@ -483,6 +485,7 @@ class TestSuite(db.Model):
             'description': self.description,
             'parent_id': self.parent_id,
             'status': self.status,
+            'type': self.type,
             'creator_id': self.creator_id,
             'creator_name': self.creator.real_name if self.creator else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,

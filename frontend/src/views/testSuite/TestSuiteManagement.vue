@@ -33,6 +33,9 @@
           :default-expand-all="true"
           @node-click="handleNodeClick"
           @node-contextmenu="handleContextMenu"
+          :allow-drop="allowDrop"
+          :allow-drag="allowDrag"
+          @node-drop="handleNodeDrop"
         >
           <template #default="{ data }">
             <div class="tree-node-content">
@@ -269,8 +272,8 @@
         <!-- 分页 -->
         <div class="pagination-section">
           <el-pagination
-            current-page="availableCasesPage"
-            page-size="availableCasesPageSize"
+            :current-page="availableCasesPage"
+            :page-size="availableCasesPageSize"
             :page-sizes="[10, 20, 50, 100]"
             layout="total, sizes, prev, pager, next, jumper"
             :total="availableCasesTotal"
@@ -814,6 +817,43 @@ export default {
       }
     }
     
+    // 拖拽相关方法
+    const allowDrag = (draggingNode) => {
+      // 允许所有节点拖拽
+      return true
+    }
+    
+    const allowDrop = (draggingNode, dropNode, type) => {
+      // 允许拖拽到任意节点的下方或内部
+      // 这里可以根据业务需求添加限制
+      return ['before', 'after', 'inner'].includes(type)
+    }
+    
+    const handleNodeDrop = async (draggingNode, dropNode, dropType, ev) => {
+      try {
+        const loading = ElLoading.service({ text: '保存排序中...' })
+        
+        // 准备更新数据
+        const updateData = {
+          id: draggingNode.data.id,
+          parent_id: dropType === 'inner' ? dropNode.data.id : dropNode.data.parent_id,
+          sort_order: 0 // 后端会根据新的位置重新计算sort_order
+        }
+        
+        // 调用后端API更新测试套件的位置
+        await testSuiteApi.updateTestSuite(updateData.id, updateData)
+        
+        // 重新加载树数据
+        await loadTreeData()
+        
+        loading.close()
+        ElMessage.success('排序更新成功')
+      } catch (error) {
+        ElMessage.error('排序更新失败')
+        console.error('排序更新失败:', error)
+      }
+    }
+    
     // 初始化
     onMounted(() => {
       loadTreeData()
@@ -882,6 +922,10 @@ export default {
       refreshTree,
       getPriorityType,
       getStatusType,
+      // 拖拽相关方法
+      allowDrag,
+      allowDrop,
+      handleNodeDrop,
       // 测试用例关联相关方法
       openAddCaseDialog,
       getAvailableCases,
