@@ -18,14 +18,23 @@
             clearable
             size="small"
           />
-          <el-button
-            type="primary"
-            size="small"
-            icon="Plus"
-            @click="handleAddSuite"
-            circle
-          />
-
+          <div class="header-actions">
+            <el-button
+              size="small"
+              icon="RefreshRight"
+              @click="handleRefresh"
+              circle
+              title="刷新"
+            />
+            <el-button
+              type="primary"
+              size="small"
+              icon="Plus"
+              @click="handleAddSuite"
+              circle
+              title="新增套件"
+            />
+          </div>
         </div>
         
         <div class="tree-container">
@@ -34,13 +43,15 @@
             :data="treeData"
             :props="defaultProps"
             :filter-node-method="filterNode"
-            :default-expand-all="false"
-            :draggable="true"
+            :draggable="isDraggable"
             :allow-drop="allowDrop"
             :allow-drag="allowDrag"
+            :default-expanded-keys="expandedKeys"
             @node-click="handleNodeClick"
             @node-drop="handleNodeDrop"
             @node-contextmenu="handleContextMenu"
+            @node-expand="handleNodeExpand"
+            @node-collapse="handleNodeCollapse"
             node-key="id"
           >
             <template #default="{ node, data }">
@@ -194,7 +205,7 @@
     <el-dialog
       v-model="suiteDialogVisible"
       :title="isEditSuite ? '编辑测试套件' : '新增测试套件'"
-      width="500px"
+      width="750px"
     >
       <el-form :model="suiteForm" label-width="80px">
         <el-form-item label="套件名称" required>
@@ -207,18 +218,49 @@
           </el-select>
         </el-form-item>
         <el-form-item label="父套件">
-          <el-select
-            v-model="suiteForm.parent_id"
-            placeholder="请选择父套件"
-            clearable
-          >
-            <el-option
-              v-for="item in treeData"
-              :key="item.id"
-              :label="item.suite_name"
-              :value="item.id"
-            />
-          </el-select>
+          <div class="parent-suite-selector">
+            <!-- 显示当前选中的父套件路径 -->
+            <el-popover
+              visible="parentSuitePopoverVisible"
+              placement="bottom-start"
+              trigger="click"
+              :width="0"
+            >
+              <template #reference>
+                <el-input
+                  v-model="selectedParentSuitePath"
+                  placeholder="点击选择父套件（默认根套件）"
+                  readonly
+                  style="width: 100%; min-width: 640px;"
+                  @click="parentSuitePopoverVisible = true"
+                />
+              </template>
+              <!-- 弹出的套件树 -->
+              <div class="suite-tree-popover" style="width: fit-content; min-width: 200px;">
+                <el-tree
+                  :current-node-key="suiteForm.parent_id"
+                  :data="getFolderTreeData()"
+                  :props="defaultProps"
+                  node-key="id"
+                  @node-click="(data) => {
+                    suiteForm.parent_id = data.id;
+                    selectedParentSuitePath.value = getSelectedParentPath();
+                    parentSuitePopoverVisible = false;
+                  }"
+                  style="max-height: 300px; overflow-y: auto; width: fit-content; min-width: 200px; padding-right: 10px;"
+                >
+                  <template #default="{ node }">
+                    <span class="tree-node-content">
+                      <el-icon class="node-icon">
+                        <Folder />
+                      </el-icon>
+                      <span>{{ node.label }}</span>
+                    </span>
+                  </template>
+                </el-tree>
+              </div>
+            </el-popover>
+          </div>
         </el-form-item>
         <el-form-item label="描述">
           <el-input
@@ -316,7 +358,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Folder, Document } from '@element-plus/icons-vue'
+import { Folder, Document, ArrowDown, ArrowUp } from '@element-plus/icons-vue'
 import { getTestSuiteTree, getSuiteCases, createTestSuite, updateTestSuite, deleteTestSuite } from '@/api/testSuite'
 
 // 树形组件相关
@@ -327,6 +369,10 @@ const defaultProps = {
   children: 'children',
   label: 'suite_name'
 }
+const isDraggable = ref(true) // 控制树组件拖拽功能
+
+// 存储用户手动展开的节点ID
+const expandedKeys = ref([])
 
 // 编辑节点相关
 const editingNodeId = ref(null)
@@ -341,6 +387,10 @@ const contextMenuStyle = reactive({
   zIndex: 1000
 })
 const selectedNode = ref(null)
+
+// 父套件选择器相关
+const parentSuitePopoverVisible = ref(false)
+const selectedParentSuitePath = ref('')
 
 // 对话框相关
 const suiteDialogVisible = ref(false)
@@ -357,6 +407,9 @@ const suiteForm = reactive({
   parent_id: null,
   project_id: 1 // 默认项目ID，实际应从上下文获取
 })
+
+// 存储套件选项，用于父级套件选择
+const suiteOptions = ref([])
 
 const caseForm = reactive({
   id: null,
@@ -400,14 +453,29 @@ const allowDrag = (node) => {
 
 // 允许放置
 const allowDrop = (draggingNode, dropNode, type) => {
-  // 限制三级深度
+  // 限制5级深度
   if (type === 'inner') {
     const level = dropNode.level
-    if (level >= 3) {
+    if (level >= 5) {
       return false
     }
   }
   return true
+}
+
+// 节点展开事件处理
+const handleNodeExpand = (data) => {
+  if (!expandedKeys.value.includes(data.id)) {
+    expandedKeys.value.push(data.id)
+  }
+}
+
+// 节点折叠事件处理
+const handleNodeCollapse = (data) => {
+  const index = expandedKeys.value.indexOf(data.id)
+  if (index > -1) {
+    expandedKeys.value.splice(index, 1)
+  }
 }
 
 // 节点点击事件
@@ -425,6 +493,7 @@ const handleNodeClick = (data) => {
 
 // 开始编辑节点名称
 const startEdit = (data) => {
+  isDraggable.value = false // 禁用拖拽功能
   editingNodeId.value = data.id
   editingNodeName.value = data.suite_name
   // 延迟聚焦，确保输入框已渲染
@@ -449,6 +518,7 @@ const saveEdit = async (data) => {
     data.suite_name = editingNodeName.value.trim()
     ElMessage.success('套件名称已更新')
     editingNodeId.value = null
+    isDraggable.value = true // 恢复拖拽功能
   } catch (error) {
     console.error('更新套件名称失败:', error)
     ElMessage.error('更新套件名称失败')
@@ -458,6 +528,7 @@ const saveEdit = async (data) => {
 // 取消编辑
 const cancelEdit = () => {
   editingNodeId.value = null
+  isDraggable.value = true // 恢复拖拽功能
 }
 
 // 节点拖拽事件
@@ -530,18 +601,13 @@ onMounted(() => {
 // 加载树形数据
 const loadTreeData = async () => {
   try {
-    // 保存当前展开的节点ID
-    const expandedKeys = treeRef.value?.getExpandedKeys() || []
-    
     const response = await getTestSuiteTree()
     treeData.value = response.data
     
-    // 恢复展开状态
-    nextTick(() => {
-      if (treeRef.value && expandedKeys.length > 0) {
-        treeRef.value.setExpandedKeys(expandedKeys)
-      }
-    })
+    // 更新套件选项
+    suiteOptions.value = buildSuiteOptions()
+    
+    // 数据更新后，Element Plus Tree 会自动使用 default-expanded-keys 恢复展开状态
   } catch (error) {
     ElMessage.error('加载测试套件失败')
     console.error('Failed to load test suites:', error)
@@ -646,6 +712,91 @@ const resetSuiteForm = () => {
   suiteForm.parent_id = null
 }
 
+// 刷新树形数据
+const handleRefresh = () => {
+  loadTreeData()
+  ElMessage.info('已刷新测试套件')
+}
+
+// 过滤只显示文件夹类型的节点
+const getFolderTreeData = () => {
+  const filterFolderNodes = (nodes) => {
+    return nodes
+      .filter(node => node.type === 'folder')
+      .map(node => ({
+        ...node,
+        children: node.children ? filterFolderNodes(node.children) : []
+      }))
+  }
+  return filterFolderNodes(treeData.value)
+}
+
+// 获取选中的父套件路径
+const getSelectedParentPath = () => {
+  if (!suiteForm.parent_id) return ''
+  
+  const findNodePath = (nodes, id, path = []) => {
+    for (const node of nodes) {
+      if (node.id === id) {
+        return [...path, node.suite_name]
+      }
+      if (node.children) {
+        const result = findNodePath(node.children, id, [...path, node.suite_name])
+        if (result) return result
+      }
+    }
+    return null
+  }
+  
+  const path = findNodePath(treeData.value, suiteForm.parent_id)
+  return path ? path.join(' / ') : ''
+}
+
+// 监听父套件ID变化，更新显示路径
+watch(() => suiteForm.parent_id, () => {
+  selectedParentSuitePath.value = getSelectedParentPath()
+})
+
+
+
+// 清除父套件选择
+const clearParentSuiteSelection = () => {
+  suiteForm.parent_id = null
+  selectedParentSuitePath.value = ''
+}
+
+// 原函数保留，确保兼容性
+const handleParentSuiteSelect = (data) => {
+  suiteForm.parent_id = data.id
+  selectedParentSuitePath.value = getSelectedParentPath()
+}
+
+// 构建嵌套的套件选项
+const buildSuiteOptions = () => {
+  const options = []
+  
+  const traverse = (nodes, level = 0) => {
+    nodes.forEach(node => {
+      if (node.type === 'folder') {
+        // 只有文件夹可以包含子套件
+        const indent = level > 0 ? ''.padStart(level, ' ') + '└ ' : '';
+        options.push({
+          value: node.id,
+          label: `${indent}${node.suite_name}`,
+          level
+        })
+        
+        if (node.children && node.children.length > 0) {
+          traverse(node.children, level + 1)
+        }
+      }
+    })
+  }
+  
+  traverse(treeData.value)
+  return options
+}
+
 // 新增用例
 const handleAddCase = () => {
   if (!selectedSuite.value) {
@@ -728,6 +879,7 @@ const handleCurrentChange = (page) => {
   padding: 20px;
   background-color: #f5f7fa;
   min-height: 100vh;
+  overflow-x: auto;
 }
 
 .page-header {
@@ -752,43 +904,137 @@ const handleCurrentChange = (page) => {
 }
 
 .main-content {
-  display: flex;
-  gap: 20px;
-  
-  .left-panel {
-    width: 300px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
     display: flex;
-    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+    flex-wrap: nowrap;
+    min-width: 900px;
     
-    .panel-header {
-      padding: 15px;
-      border-bottom: 1px solid #e4e7ed;
+    .left-panel {
+      min-width: 280px;
+      max-width: 70%;
+      width: fit-content;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.08);
       display: flex;
-      gap: 10px;
+      flex-direction: column;
+      transition: all 0.3s ease;
+      flex-shrink: 0;
       
-      .el-input {
-        flex: 1;
-      }
-    }
+      .panel-header {
+          padding: 12px 15px;
+          border-bottom: 1px solid #f0f2f5;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background-color: #fafafa;
+          border-radius: 8px 8px 0 0;
+          
+          .el-input {
+            flex: 1;
+            min-width: 0;
+            
+            /* 增大搜索框 */
+            --el-input-height: 32px;
+          }
+          
+          .el-input__wrapper {
+            font-size: 14px;
+          }
+          
+          .el-input__inner {
+            font-size: 14px;
+            height: 32px;
+            line-height: 32px;
+          }
+          
+          .header-actions {
+            display: flex;
+            gap: 0px;
+            align-items: center;
+            flex-shrink: 0;
+            width: fit-content;
+          }
+          
+          .header-actions .el-button {
+            padding: 4px;
+            min-width: 28px;
+            height: 28px;
+            font-size: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+        }
     
     .tree-container {
       flex: 1;
-      padding: 10px;
+      padding: 15px 15px 15px 20px;
       overflow: auto;
-      max-height: calc(100vh - 200px);
+      max-height: calc(100vh - 150px);
+      background-color: #ffffff;
+      width: fit-content;
+      min-width: 100%;
+    }
+    
+    /* 确保树节点内容不被截断 */
+    :deep(.el-tree) {
+      width: fit-content;
+      min-width: 100%;
+      font-size: 14px;
+    }
+    
+    :deep(.el-tree-node) {
+      white-space: nowrap;
+    }
+    
+    :deep(.el-tree-node__content) {
+      white-space: nowrap;
+      height: 36px;
+      line-height: 36px;
+    }
+    
+    /* 增大展开收起图标 */
+    :deep(.el-tree-node__expand-icon) {
+      font-size: 16px;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    /* 增大节点图标 */
+    .node-icon {
+      font-size: 18px;
+      margin-right: 8px;
+    }
+  }
+  
+  /* 父套件选择器样式 */
+  .parent-suite-selector {
+    .suite-tree-popover {
+      .pop-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #ebeef5;
+      }
     }
   }
   
   .right-panel {
     flex: 1;
+    min-width: 400px;
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
+    flex-shrink: 1;
     
     .panel-header {
       padding: 15px;

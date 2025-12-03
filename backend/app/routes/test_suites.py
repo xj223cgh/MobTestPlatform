@@ -78,6 +78,15 @@ def get_test_suite(suite_id):
         return error_response(f'获取测试套件详情失败: {str(e)}', 500)
 
 
+def get_suite_depth(suite_id):
+    """计算测试套件的深度"""
+    depth = 0
+    current = TestSuite.query.get(suite_id)
+    while current and current.parent_id:
+        depth += 1
+        current = current.parent
+    return depth
+
 @bp.route('/', methods=['POST'])
 @login_required
 def create_test_suite():
@@ -96,11 +105,27 @@ def create_test_suite():
         
         parent_id = data.get('parent_id')
         
-        # 如果有父套件，验证父套件类型
+        # 计算深度
+        depth = 0
         if parent_id is not None:
             parent_suite = TestSuite.query.get(parent_id)
-            if parent_suite and parent_suite.type != 'folder':
+            if not parent_suite:
+                return error_response('父套件不存在', 400)
+            
+            # 如果有父套件，验证父套件类型
+            if parent_suite.type != 'folder':
                 return error_response('只能在文件夹中创建子套件', 400)
+            
+            # 计算新套件的深度
+            depth = get_suite_depth(parent_id) + 1
+            
+            # 限制深度不超过5层
+            if depth >= 5:
+                return error_response('测试套件深度不能超过5层', 400)
+            
+            # 最深一层只能是用例集
+            if depth == 4 and suite_type != 'suite':
+                return error_response('最深一层只能创建用例集', 400)
         
         # 计算新节点的sort_order，默认添加到尾部
         # 查找同级别最大的sort_order值
@@ -153,8 +178,9 @@ def update_test_suite(suite_id):
             suite.description = data['description']
         if 'parent_id' in data:
             # 检查是否会形成循环引用
-            if data['parent_id'] is not None:
-                parent = TestSuite.query.get(data['parent_id'])
+            new_parent_id = data['parent_id']
+            if new_parent_id is not None:
+                parent = TestSuite.query.get(new_parent_id)
                 if parent:
                     # 简单检查是否会形成循环
                     current = parent
@@ -165,7 +191,20 @@ def update_test_suite(suite_id):
                     # 验证父套件类型必须是folder
                     if parent.type != 'folder':
                         return error_response('只能将套件移动到文件夹中', 400)
-            suite.parent_id = data['parent_id']
+                    
+                    # 计算新的深度
+                    new_depth = get_suite_depth(new_parent_id) + 1
+                    # 限制深度不超过5层
+                    if new_depth >= 5:
+                        return error_response('测试套件深度不能超过5层', 400)
+                    
+                    # 最深一层只能是用例集
+                    if new_depth == 4 and suite.type != 'suite':
+                        return error_response('最深一层只能是用例集', 400)
+            else:
+                # 根套件深度为0
+                new_depth = 0
+            suite.parent_id = new_parent_id
         if 'status' in data:
             suite.status = data['status']
         if 'sort_order' in data:
@@ -174,6 +213,13 @@ def update_test_suite(suite_id):
             new_type = data['type']
             if new_type not in ['folder', 'suite']:
                 return error_response('套件类型无效，只能是folder或suite', 400)
+            
+            # 计算当前套件的深度
+            depth = get_suite_depth(suite.id)
+            
+            # 最深一层只能是用例集
+            if depth == 4 and new_type != 'suite':
+                return error_response('最深一层只能是用例集', 400)
             
             # 验证类型变更的合法性
             if new_type == 'suite':
