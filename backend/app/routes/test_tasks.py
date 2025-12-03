@@ -322,49 +322,7 @@ def get_task_statistics(task_id):
         return error_response(f'获取统计信息失败: {str(e)}', 500)
 
 
-@bp.route('/<int:task_id>/xmind-view', methods=['GET'])
-@login_required
-def get_task_xmind_view(task_id):
-    """获取任务的思维导图视图数据"""
-    try:
-        task = TestTask.query.get_or_404(task_id)
-        
-        # 获取所有关联的测试用例及其执行状态
-        case_executions = {}
-        executions = TestCaseExecution.query.filter_by(task_id=task_id).all()
-        for execution in executions:
-            case_executions[execution.case_id] = execution.status
-        
-        # 构建xmind视图数据
-        xmind_data = {
-            'task_id': task.id,
-            'task_name': task.task_name,
-            'nodes': []
-        }
-        
-        # 按模块分组用例
-        modules = {}
-        for case in task.test_cases:
-            if case.module not in modules:
-                modules[case.module] = []
-            modules[case.module].append({
-                'id': case.id,
-                'name': case.case_name,
-                'priority': case.priority,
-                'status': case_executions.get(case.id, None)
-            })
-        
-        # 构建节点结构
-        for module_name, cases in modules.items():
-            module_node = {
-                'name': module_name,
-                'children': cases
-            }
-            xmind_data['nodes'].append(module_node)
-        
-        return success_response(xmind_data)
-    except Exception as e:
-        return error_response(f'获取思维导图视图失败: {str(e)}', 500)
+# XMind视图功能已移除，暂时不再支持脑图实现
 
 
 @bp.route('/<int:task_id>/execute', methods=['POST'])

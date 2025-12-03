@@ -347,14 +347,7 @@ def remove_project_member(project_id, member_id):
 def get_project_version_requirements(project_id):
     """获取项目的版本需求列表"""
     try:
-        # 检查用户是否有权限访问该项目
-        project_member = ProjectMember.query.filter_by(
-            project_id=project_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not project_member:
-            return jsonify({'error': '无权访问该项目'}), 403
+        # 不需要检查用户是否有权限访问该项目，所有用户都可以查看
         
         # 获取项目的版本需求
         requirements = VersionRequirement.query.filter_by(project_id=project_id).all()
@@ -533,15 +526,6 @@ def delete_project_version_requirement(project_id, requirement_id):
 def get_project_iterations(project_id):
     """获取项目的迭代列表"""
     try:
-        # 检查用户是否有权限访问该项目
-        project_member = ProjectMember.query.filter_by(
-            project_id=project_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not project_member:
-            return jsonify({'error': '无权访问该项目'}), 403
-        
         # 获取分页参数
         page = request.args.get('page', 1, type=int)
         page_size = request.args.get('page_size', 10, type=int)

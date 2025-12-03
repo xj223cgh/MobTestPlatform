@@ -516,19 +516,25 @@
           
           <el-tab-pane label="执行结果" name="results">
             <div class="results-container">
-              <el-table :data="executionResults" stripe border>
-                <el-table-column prop="device_name" label="设备名称" />
-                <el-table-column prop="case_name" label="用例名称" />
-                <el-table-column prop="status" label="状态">
+              <el-table 
+                :data="executionResults" 
+                stripe 
+                border
+                :row-style="{height: 'auto'}"
+                :cell-style="{padding: '10px', whiteSpace: 'normal', wordBreak: 'break-word'}"
+              >
+                <el-table-column prop="device_name" label="设备名称" min-width="120" />
+                <el-table-column prop="case_name" label="用例名称" min-width="200" />
+                <el-table-column prop="status" label="状态" width="100">
                   <template #default="{ row }">
                     <el-tag :type="getStatusTagType(row.status)">
                       {{ getStatusLabel(row.status) }}
                     </el-tag>
                   </template>
                 </el-table-column>
-                <el-table-column prop="duration" label="执行时长" />
-                <el-table-column prop="error_message" label="错误信息" show-overflow-tooltip />
-                <el-table-column label="操作">
+                <el-table-column prop="duration" label="执行时长" width="100" />
+                <el-table-column prop="error_message" label="错误信息" min-width="300" />
+                <el-table-column label="操作" width="120">
                   <template #default="{ row }">
                     <el-button type="primary" size="small" @click="viewResultDetail(row)">
                       查看详情

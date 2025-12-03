@@ -711,6 +711,7 @@ const getOptionData = async () => {
         allIterations.push(...projectIterations)
       } catch (error) {
         console.error(`获取项目${project.project_name}的迭代失败:`, error)
+        // 如果是403错误，说明用户没有权限访问该项目，跳过即可
         // 继续处理其他项目
       }
     }

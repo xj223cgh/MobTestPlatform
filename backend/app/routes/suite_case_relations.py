@@ -22,7 +22,6 @@ def get_suite_cases(suite_id):
         # 获取查询参数
         page = request.args.get('page', 1, type=int)
         page_size = request.args.get('page_size', 10, type=int)
-        module = request.args.get('module')
         priority = request.args.get('priority')
         status = request.args.get('status')
         search = request.args.get('search')
@@ -31,8 +30,6 @@ def get_suite_cases(suite_id):
         query = TestCase.query.filter_by(suite_id=suite_id)
         
         # 应用过滤条件
-        if module:
-            query = query.filter_by(module=module)
         if priority:
             query = query.filter_by(priority=priority)
         if status:
@@ -156,7 +153,6 @@ def get_available_cases(suite_id):
         # 获取查询参数
         page = request.args.get('page', 1, type=int)
         page_size = request.args.get('page_size', 10, type=int)
-        module = request.args.get('module')
         priority = request.args.get('priority')
         status = request.args.get('status')
         search = request.args.get('search')
@@ -168,8 +164,6 @@ def get_available_cases(suite_id):
         )
         
         # 应用过滤条件
-        if module:
-            query = query.filter_by(module=module)
         if priority:
             query = query.filter_by(priority=priority)
         if status:
@@ -246,48 +240,4 @@ def move_cases_between_suites(suite_id):
         return error_response(str(e), 500)
 
 
-@bp.route('/<int:suite_id>/modules', methods=['GET'])
-@login_required
-@role_required(['manager', 'tester', 'admin'])
-def get_suite_modules(suite_id):
-    """
-    获取测试套件中所有的模块列表
-    """
-    try:
-        # 检查套件是否存在
-        TestSuite.query.get_or_404(suite_id, description='测试套件不存在')
-        
-        # 查询该套件下的所有模块
-        modules = db.session.query(TestCase.module).filter(
-            TestCase.suite_id == suite_id
-        ).distinct().all()
-        
-        module_list = [module[0] for module in modules if module[0]]
-        
-        return success_response({
-            'modules': module_list
-        })
-    except Exception as e:
-        return error_response(str(e), 500)
-
-
-@bp.route('/project/<int:project_id>/modules', methods=['GET'])
-@login_required
-@role_required(['manager', 'tester', 'admin'])
-def get_project_modules(project_id):
-    """
-    获取项目中所有的模块列表
-    """
-    try:
-        # 查询该项目下的所有模块
-        modules = db.session.query(TestCase.module).filter(
-            TestCase.project_id == project_id
-        ).distinct().all()
-        
-        module_list = [module[0] for module in modules if module[0]]
-        
-        return success_response({
-            'modules': module_list
-        })
-    except Exception as e:
-        return error_response(str(e), 500)
+# 模块相关功能已移除，模块信息通过套件关联获取

@@ -134,6 +134,26 @@
             />
           </el-select>
         </el-form-item>
+        <el-form-item label="项目">
+          <el-select v-model="createForm.project_id" placeholder="请选择所属项目">
+            <!-- 实际应用中应该从API获取项目列表 -->
+            <el-option label="示例项目" value="1" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="需求">
+          <el-select v-model="createForm.version_requirement_id" placeholder="请选择关联需求">
+            <!-- 实际应用中应该根据选择的项目动态加载需求列表 -->
+            <el-option label="需求1" value="1" />
+            <el-option label="需求2" value="2" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="迭代">
+          <el-select v-model="createForm.iteration_id" placeholder="请选择所属迭代">
+            <!-- 实际应用中应该根据选择的项目动态加载迭代列表 -->
+            <el-option label="迭代1" value="1" />
+            <el-option label="迭代2" value="2" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="描述">
           <el-input
             v-model="createForm.description"
@@ -156,6 +176,26 @@
       <el-form :model="editForm" :rules="editRules" ref="editFormRef" label-width="100px">
         <el-form-item label="套件名称" prop="name">
           <el-input v-model="editForm.name" placeholder="请输入测试套件名称" />
+        </el-form-item>
+        <el-form-item label="项目">
+          <el-select v-model="editForm.project_id" placeholder="请选择所属项目">
+            <!-- 实际应用中应该从API获取项目列表 -->
+            <el-option label="示例项目" value="1" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="需求">
+          <el-select v-model="editForm.version_requirement_id" placeholder="请选择关联需求">
+            <!-- 实际应用中应该根据选择的项目动态加载需求列表 -->
+            <el-option label="需求1" value="1" />
+            <el-option label="需求2" value="2" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="迭代">
+          <el-select v-model="editForm.iteration_id" placeholder="请选择所属迭代">
+            <!-- 实际应用中应该根据选择的项目动态加载迭代列表 -->
+            <el-option label="迭代1" value="1" />
+            <el-option label="迭代2" value="2" />
+          </el-select>
         </el-form-item>
         <el-form-item label="描述">
           <el-input
@@ -372,12 +412,18 @@ export default {
     const createForm = reactive({
       name: '',
       parent_id: null,
+      project_id: null,
+      version_requirement_id: null,
+      iteration_id: null,
       description: ''
     })
     
     const editForm = reactive({
       id: '',
       name: '',
+      project_id: null,
+      version_requirement_id: null,
+      iteration_id: null,
       description: ''
     })
     
@@ -497,7 +543,14 @@ export default {
       try {
         await createFormRef.value.validate()
         const loading = ElLoading.service({ text: '创建中...' })
-        await testSuiteApi.createTestSuite(createForm)
+        await testSuiteApi.createTestSuite({
+          name: createForm.name,
+          parent_id: createForm.parent_id,
+          project_id: createForm.project_id,
+          version_requirement_id: createForm.version_requirement_id,
+          iteration_id: createForm.iteration_id,
+          description: createForm.description
+        })
         loading.close()
         ElMessage.success('创建成功')
         createDialogVisible.value = false
@@ -512,6 +565,9 @@ export default {
       Object.assign(editForm, {
         id: data.id,
         name: data.name,
+        project_id: data.project_id || null,
+        version_requirement_id: data.version_requirement_id || null,
+        iteration_id: data.iteration_id || null,
         description: data.description || ''
       })
       editFormRef.value?.resetFields()
@@ -524,6 +580,9 @@ export default {
         const loading = ElLoading.service({ text: '更新中...' })
         await testSuiteApi.updateTestSuite(editForm.id, {
           name: editForm.name,
+          project_id: editForm.project_id,
+          version_requirement_id: editForm.version_requirement_id,
+          iteration_id: editForm.iteration_id,
           description: editForm.description
         })
         loading.close()
@@ -534,6 +593,9 @@ export default {
         // 如果编辑的是当前选中的节点，更新选中节点数据
         if (selectedNode.value && selectedNode.value.id === editForm.id) {
           selectedNode.value.name = editForm.name
+          selectedNode.value.project_id = editForm.project_id
+          selectedNode.value.version_requirement_id = editForm.version_requirement_id
+          selectedNode.value.iteration_id = editForm.iteration_id
           selectedNode.value.description = editForm.description
         }
       } catch (error) {
@@ -572,68 +634,18 @@ export default {
       }
     }
     
-    const handleXmindFileChange = (file) => {
-      xmindFile.value = file.raw
-    }
-    
+    // XMind相关功能已移除，暂时不再支持脑图实现
     const importXmind = () => {
-      if (!selectedNode.value) {
-        ElMessage.warning('请先选择一个测试套件')
-        return
-      }
-      xmindFile.value = null
-      uploadRef.value?.clearFiles()
-      importDialogVisible.value = true
+      ElMessage.warning('XMind导入功能已暂时移除')
     }
     
-    const handleImportXmind = async () => {
-      if (!xmindFile.value) {
-        ElMessage.warning('请选择要导入的Xmind文件')
-        return
-      }
-      
-      try {
-        const formData = new FormData()
-        formData.append('file', xmindFile.value)
-        
-        const loading = ElLoading.service({ text: '导入中...' })
-        await testSuiteApi.importXmindToSuite(selectedNode.value.id, formData)
-        loading.close()
-        ElMessage.success('导入成功')
-        importDialogVisible.value = false
-        loadTestCases(selectedNode.value.id)
-      } catch (error) {
-        ElMessage.error('导入失败')
-      }
+    const exportXmind = () => {
+      ElMessage.warning('XMind导出功能已暂时移除')
     }
     
-    const exportXmind = async () => {
-      if (!selectedNode.value) {
-        ElMessage.warning('请先选择一个测试套件')
-        return
-      }
-      
-      try {
-        const loading = ElLoading.service({ text: '导出中...' })
-        const response = await testSuiteApi.exportSuiteToXmind(selectedNode.value.id)
-        loading.close()
-        
-        // 处理文件下载
-        const blob = new Blob([response.data], { type: 'application/x-xmind' })
-        const url = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = `${selectedNode.value.name}.xmind`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        window.URL.revokeObjectURL(url)
-        
-        ElMessage.success('导出成功')
-      } catch (error) {
-        ElMessage.error('导出失败')
-      }
-    }
+    // 保留这些空函数以避免模板错误
+    const handleXmindFileChange = () => {}
+    const handleImportXmind = () => {}
     
     const createTestCase = () => {
       // 此处跳转到测试用例创建页面，并传入当前套件ID

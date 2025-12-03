@@ -104,8 +104,44 @@
       <!-- 右侧用例列表 -->
       <div class="right-panel">
         <div class="panel-header">
-          <h3>{{ selectedSuite ? selectedSuite.suite_name : '所有用例' }}</h3>
+          <div class="header-content">
+            <h3>{{ selectedSuite ? selectedSuite.suite_name : '用例列表' }}</h3>
+            <div class="suite-info" v-if="selectedSuite">
+              <div class="info-item">
+                <span class="label">项目:</span>
+                <span class="value">{{ selectedSuite.project_name || '-' }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">迭代:</span>
+                <span class="value">{{ selectedSuite.iteration_name || '-' }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">需求:</span>
+                <span class="value">{{ selectedSuite.version_requirement_name || '-' }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">创建人:</span>
+                <span class="value">{{ selectedSuite.creator_name || '-' }}</span>
+              </div>
+            </div>
+          </div>
           <div class="header-actions">
+            <el-button
+              type="danger"
+              icon="Delete"
+              @click="toggleSelectionMode"
+              v-if="!showSelection"
+            >
+              选中删除
+            </el-button>
+            <el-button
+              type="danger"
+              icon="Delete"
+              @click="handleDeleteSelection"
+              v-else
+            >
+              点击删除
+            </el-button>
             <el-button
               type="primary"
               icon="Plus"
@@ -129,53 +165,108 @@
             :data="testCases"
             style="width: 100%"
             border
+            height="calc(100vh - 250px)"
+            :row-style="{height: 'auto'}"
+            :cell-style="{padding: '10px', whiteSpace: 'normal', wordBreak: 'break-word'}"
+            @cell-click="handleCellClick"
+            ref="caseTableRef"
+            @selection-change="handleSelectionChange"
           >
-            <el-table-column prop="case_name" label="用例名称" min-width="250" />
+            <el-table-column type="selection" width="55" v-if="showSelection" />
+            <el-table-column prop="case_number" label="编号" width="120">
+              <template #default="{ row }">
+                <template v-if="editingCaseId === row.id && editingField === 'case_number'">
+                  <el-input v-model="editingValue" @blur="saveCaseEdit(row)" @keyup.enter="saveCaseEdit(row)" @keyup.esc="cancelCaseEdit" autofocus />
+                </template>
+                <div v-else @dblclick="startCaseEdit(row, 'case_number')">{{ row.case_number || '-' }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="case_name" label="用例名称" min-width="120">
+              <template #default="{ row }">
+                <template v-if="editingCaseId === row.id && editingField === 'case_name'">
+                  <el-input v-model="editingValue" @blur="saveCaseEdit(row)" @keyup.enter="saveCaseEdit(row)" @keyup.esc="cancelCaseEdit" autofocus />
+                </template>
+                <div v-else @dblclick="startCaseEdit(row, 'case_name')">{{ row.case_name }}</div>
+              </template>
+            </el-table-column>
             <el-table-column prop="priority" label="优先级" width="80">
               <template #default="{ row }">
+                <template v-if="editingCaseId === row.id && editingField === 'priority'">
+                  <el-select v-model="editingValue" @change="saveCaseEdit(row)" style="width: 100%">
+                    <el-option label="P0" value="P0" />
+                    <el-option label="P1" value="P1" />
+                    <el-option label="P2" value="P2" />
+                    <el-option label="P3" value="P3" />
+                    <el-option label="P4" value="P4" />
+                  </el-select>
+                </template>
                 <el-tag
+                  v-else
                   :type="row.priority === 'P0' ? 'danger' : row.priority === 'P1' ? 'danger' : row.priority === 'P2' ? 'warning' : row.priority === 'P3' ? 'info' : 'success'"
                   size="small"
+                  @dblclick="startCaseEdit(row, 'priority')"
                 >
                   {{ row.priority }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="status" label="状态" width="100">
+            <el-table-column prop="status" label="状态" width="85">
               <template #default="{ row }">
-                <el-tag
-                  v-if="row.status"
-                  :type="row.status === 'pass' ? 'success' : row.status === 'fail' ? 'danger' : row.status === 'blocked' ? 'warning' : 'info'"
-                  size="small"
-                >
-                  {{ row.status === 'pass' ? '通过' : row.status === 'fail' ? '失败' : row.status === 'blocked' ? '阻塞' : '不适用' }}
-                </el-tag>
-                <el-tag v-else size="small" type="info">
-                  未设置
-                </el-tag>
+                <template v-if="editingCaseId === row.id && editingField === 'status'">
+                  <el-select v-model="editingValue" @change="saveCaseEdit(row)" style="width: 100%">
+                    <el-option label="" value="" />
+                    <el-option label="通过" value="pass" />
+                    <el-option label="失败" value="fail" />
+                    <el-option label="阻塞" value="blocked" />
+                    <el-option label="不适用" value="not_applicable" />
+                  </el-select>
+                </template>
+                <template v-else>
+                  <el-tag
+                    v-if="row.status"
+                    :type="row.status === 'pass' ? 'success' : row.status === 'fail' ? 'danger' : row.status === 'blocked' ? 'warning' : 'info'"
+                    size="small"
+                    @dblclick="startCaseEdit(row, 'status')"
+                  >
+                    {{ row.status === 'pass' ? '通过' : row.status === 'fail' ? '失败' : row.status === 'blocked' ? '阻塞' : '不适用' }}
+                  </el-tag>
+                  <el-tag v-else size="small" type="info" @dblclick="startCaseEdit(row, 'status')">
+                    未设置
+                  </el-tag>
+                </template>
               </template>
             </el-table-column>
-            <el-table-column prop="creator_name" label="创建人" width="100" />
-            <el-table-column prop="created_at" label="创建时间" width="180" />
-            <el-table-column prop="preconditions" label="前置条件" min-width="200" show-overflow-tooltip />
-            <el-table-column label="操作" width="120" fixed="right">
+            <!-- 创建人信息已移至顶部标题区域 -->
+            <el-table-column prop="preconditions" label="前置条件" min-width="180">
               <template #default="{ row }">
-                <el-button
-                  type="primary"
-                  size="small"
-                  icon="Edit"
-                  @click="handleEditCase(row)"
-                >
-                  编辑
-                </el-button>
-                <el-button
-                  type="danger"
-                  size="small"
-                  icon="Delete"
-                  @click="handleDeleteCase(row)"
-                >
-                  删除
-                </el-button>
+                <template v-if="editingCaseId === row.id && editingField === 'preconditions'">
+                  <el-input v-model="editingValue" type="textarea" :rows="3" @blur="saveCaseEdit(row)" @keyup.enter.ctrl="saveCaseEdit(row)" @keyup.esc="cancelCaseEdit" autofocus />
+                </template>
+                <div v-else @dblclick="startCaseEdit(row, 'preconditions')">{{ row.preconditions || '-' }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="steps" label="操作步骤" min-width="180">
+              <template #default="{ row }">
+                <template v-if="editingCaseId === row.id && editingField === 'steps'">
+                  <el-input v-model="editingValue" type="textarea" :rows="5" @blur="saveCaseEdit(row)" @keyup.enter.ctrl="saveCaseEdit(row)" @keyup.esc="cancelCaseEdit" autofocus />
+                </template>
+                <div v-else @dblclick="startCaseEdit(row, 'steps')">{{ row.steps || '-' }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="expected_result" label="预期结果" min-width="180">
+              <template #default="{ row }">
+                <template v-if="editingCaseId === row.id && editingField === 'expected_result'">
+                  <el-input v-model="editingValue" type="textarea" :rows="3" @blur="saveCaseEdit(row)" @keyup.enter.ctrl="saveCaseEdit(row)" @keyup.esc="cancelCaseEdit" autofocus />
+                </template>
+                <div v-else @dblclick="startCaseEdit(row, 'expected_result')">{{ row.expected_result || '-' }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="actual_result" label="实际结果" min-width="180">
+              <template #default="{ row }">
+                <template v-if="editingCaseId === row.id && editingField === 'actual_result'">
+                  <el-input v-model="editingValue" type="textarea" :rows="3" @blur="saveCaseEdit(row)" @keyup.enter.ctrl="saveCaseEdit(row)" @keyup.esc="cancelCaseEdit" autofocus />
+                </template>
+                <div v-else @dblclick="startCaseEdit(row, 'actual_result')">{{ row.actual_result || '-' }}</div>
               </template>
             </el-table-column>
           </el-table>
@@ -224,7 +315,7 @@
               visible="parentSuitePopoverVisible"
               placement="bottom-start"
               trigger="click"
-              :width="0"
+              width="auto"
             >
               <template #reference>
                 <el-input
@@ -236,7 +327,7 @@
                 />
               </template>
               <!-- 弹出的套件树 -->
-              <div class="suite-tree-popover" style="width: fit-content; min-width: 200px;">
+              <div class="suite-tree-popover" style="width: 100%; min-width: 615px;">
                 <el-tree
                   :current-node-key="suiteForm.parent_id"
                   :data="getFolderTreeData()"
@@ -247,10 +338,10 @@
                     selectedParentSuitePath.value = getSelectedParentPath();
                     parentSuitePopoverVisible = false;
                   }"
-                  style="max-height: 300px; overflow-y: auto; width: fit-content; min-width: 200px; padding-right: 10px;"
+                  style="max-height: 300px; overflow-y: auto; width: 100%; padding-right: 10px;"
                 >
                   <template #default="{ node }">
-                    <span class="tree-node-content">
+                    <span class="tree-node-content" :class="{'current-node': node.key === suiteForm.parent_id}">
                       <el-icon class="node-icon">
                         <Folder />
                       </el-icon>
@@ -261,6 +352,26 @@
               </div>
             </el-popover>
           </div>
+        </el-form-item>
+        <el-form-item label="项目" v-if="suiteForm.type === 'suite'">
+          <el-select v-model="suiteForm.project_id" placeholder="请选择所属项目">
+            <!-- 实际应用中应该从API获取项目列表 -->
+            <el-option label="示例项目" value="1" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="需求" v-if="suiteForm.type === 'suite'">
+          <el-select v-model="suiteForm.version_requirement_id" placeholder="请选择关联需求">
+            <!-- 实际应用中应该根据选择的项目动态加载需求列表 -->
+            <el-option label="需求1" value="1" />
+            <el-option label="需求2" value="2" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="迭代" v-if="suiteForm.type === 'suite'">
+          <el-select v-model="suiteForm.iteration_id" placeholder="请选择所属迭代">
+            <!-- 实际应用中应该根据选择的项目动态加载迭代列表 -->
+            <el-option label="迭代1" value="1" />
+            <el-option label="迭代2" value="2" />
+          </el-select>
         </el-form-item>
         <el-form-item label="描述">
           <el-input
@@ -288,6 +399,9 @@
       <el-form :model="caseForm" label-width="100px">
         <el-form-item label="用例名称" required>
           <el-input v-model="caseForm.case_name" placeholder="请输入测试用例名称" />
+        </el-form-item>
+        <el-form-item label="用例编号">
+          <el-input v-model="caseForm.case_number" placeholder="请输入测试用例编号" />
         </el-form-item>
         <el-form-item label="所属套件" required>
           <el-select
@@ -357,9 +471,12 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Folder, Document, ArrowDown, ArrowUp } from '@element-plus/icons-vue'
 import { getTestSuiteTree, getSuiteCases, createTestSuite, updateTestSuite, deleteTestSuite } from '@/api/testSuite'
+
+// API导入
+import { updateTestCase, createTestCase, deleteTestCase, batchDeleteTestCases } from '@/api/testCase'
 
 // 树形组件相关
 const treeRef = ref(null)
@@ -405,7 +522,9 @@ const suiteForm = reactive({
   description: '',
   type: 'folder', // 默认类型为文件夹
   parent_id: null,
-  project_id: 1 // 默认项目ID，实际应从上下文获取
+  project_id: 1, // 默认项目ID，实际应从上下文获取
+  version_requirement_id: null,
+  iteration_id: null
 })
 
 // 存储套件选项，用于父级套件选择
@@ -413,12 +532,12 @@ const suiteOptions = ref([])
 
 const caseForm = reactive({
   id: null,
+  case_number: '',
   case_name: '',
   case_description: '',
   priority: 'P1',
   status: '',
   suite_id: null,
-  project_id: 1,
   preconditions: '',
   steps: '',
   expected_result: ''
@@ -431,6 +550,16 @@ const totalCases = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const viewMode = ref('list')
+
+// 用例内联编辑相关
+const editingCaseId = ref(null)
+const editingField = ref(null)
+const editingValue = ref('')
+
+// 选中删除相关
+const showSelection = ref(false)
+const selectedCases = ref([])
+const caseTableRef = ref(null)
 
 // 过滤节点方法
 const filterNode = (value, data) => {
@@ -657,7 +786,7 @@ const handleEditSuite = () => {
 // 删除套件
 const handleDeleteSuite = async () => {
   if (!selectedNode.value) return
-  ElMessage.confirm('确定要删除该测试套件吗？删除后将无法恢复。', '警告', {
+  ElMessageBox.confirm('确定要删除该测试套件吗？删除后将无法恢复。', '警告', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
@@ -821,37 +950,58 @@ const handleEditCase = (row) => {
 }
 
 // 删除用例
-const handleDeleteCase = (row) => {
-  ElMessage.confirm('确定要删除该测试用例吗？删除后将无法恢复。', '警告', {
+const handleDeleteCase = async (row) => {
+  ElMessageBox.confirm('确定要删除该测试用例吗？删除后将无法恢复。', '警告', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
-  }).then(() => {
-    // 调用删除API
-    console.log('Delete case:', row.id)
-    ElMessage.success('测试用例已删除')
-    loadTestCases(selectedSuite.value?.id)
+  }).then(async () => {
+    try {
+      // 调用删除API
+      await deleteTestCase(row.id)
+      ElMessage.success('测试用例已删除')
+      loadTestCases(selectedSuite.value?.id)
+    } catch (error) {
+      console.error('删除测试用例失败:', error)
+      ElMessage.error('删除测试用例失败')
+    }
   }).catch(() => {
     // 取消删除
   })
 }
 
 // 保存用例
-const handleSaveCase = () => {
-  // 调用保存API
-  console.log('Save case:', caseForm)
-  ElMessage.success(isEditCase.value ? '测试用例已更新' : '测试用例已创建')
-  caseDialogVisible.value = false
-  loadTestCases(selectedSuite.value?.id)
+const handleSaveCase = async () => {
+  try {
+    // 从caseForm中移除项目相关字段，这些字段将从所属套件继承
+    const { project_id, version_requirement_id, iteration_id, ...caseData } = caseForm
+    
+    if (isEditCase.value) {
+      // 编辑用例
+      await updateTestCase(caseForm.id, caseData)
+      ElMessage.success('测试用例已更新')
+    } else {
+      // 新增用例
+      await createTestCase(caseData)
+      ElMessage.success('测试用例已创建')
+    }
+    caseDialogVisible.value = false
+    loadTestCases(selectedSuite.value?.id)
+  } catch (error) {
+    console.error('保存测试用例失败:', error)
+    ElMessage.error(isEditCase.value ? '更新测试用例失败' : '创建测试用例失败')
+  }
 }
 
 // 重置用例表单
 const resetCaseForm = () => {
   caseForm.id = null
+  caseForm.case_number = ''
   caseForm.case_name = ''
   caseForm.case_description = ''
   caseForm.priority = 'P1'
   caseForm.status = ''
+  caseForm.suite_id = null
   caseForm.preconditions = ''
   caseForm.steps = ''
   caseForm.expected_result = ''
@@ -860,6 +1010,88 @@ const resetCaseForm = () => {
 // 切换视图模式
 const toggleViewMode = () => {
   viewMode.value = viewMode.value === 'list' ? 'mindmap' : 'list'
+}
+
+// 用例内联编辑相关方法
+const startCaseEdit = (row, field) => {
+  editingCaseId.value = row.id
+  editingField.value = field
+  editingValue.value = row[field] || ''
+}
+
+const saveCaseEdit = async (row) => {
+  try {
+    const updatedData = {
+      [editingField.value]: editingValue.value
+    }
+    
+    // 调用实际的API更新测试用例
+    await updateTestCase(row.id, updatedData)
+    
+    // 更新本地数据
+    Object.assign(row, updatedData)
+    
+    ElMessage.success('测试用例已更新')
+    
+    // 重置编辑状态
+    editingCaseId.value = null
+    editingField.value = null
+    editingValue.value = ''
+  } catch (error) {
+    console.error('更新测试用例失败:', error)
+    ElMessage.error('更新测试用例失败')
+  }
+}
+
+const cancelCaseEdit = () => {
+  editingCaseId.value = null
+  editingField.value = null
+  editingValue.value = ''
+}
+
+const handleCellClick = () => {
+  // 点击单元格时关闭编辑状态
+  cancelCaseEdit()
+}
+
+// 切换选择模式
+const toggleSelectionMode = () => {
+  showSelection.value = true
+  selectedCases.value = []
+}
+
+// 处理选择变化
+const handleSelectionChange = (selection) => {
+  selectedCases.value = selection
+}
+
+// 删除选中的用例
+const handleDeleteSelection = async () => {
+  if (selectedCases.value.length === 0) {
+    ElMessage.warning('请先选择要删除的测试用例')
+    return
+  }
+  
+  ElMessageBox.confirm(`确定要删除选中的 ${selectedCases.value.length} 个测试用例吗？删除后将无法恢复。`, '警告', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(async () => {
+    try {
+      // 批量删除用例
+      const caseIds = selectedCases.value.map(caseItem => caseItem.id)
+      await batchDeleteTestCases(caseIds)
+      ElMessage.success('测试用例已删除')
+      loadTestCases(selectedSuite.value?.id)
+      showSelection.value = false
+      selectedCases.value = []
+    } catch (error) {
+      console.error('删除测试用例失败:', error)
+      ElMessage.error('删除测试用例失败')
+    }
+  }).catch(() => {
+    // 取消删除
+  })
 }
 
 // 分页相关
@@ -1041,12 +1273,41 @@ const handleCurrentChange = (page) => {
       border-bottom: 1px solid #e4e7ed;
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
+      gap: 20px;
+      
+      .header-content {
+        flex: 1;
+      }
       
       h3 {
-        margin: 0;
+        margin: 0 0 10px 0;
         font-size: 16px;
         font-weight: 600;
+      }
+      
+      .suite-info {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+      }
+      
+      .info-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 14px;
+      }
+      
+      .label {
+        color: #909399;
+        font-weight: 400;
+      }
+      
+      .value {
+        color: #303133;
+        font-weight: 500;
       }
     }
     
@@ -1088,6 +1349,20 @@ const handleCurrentChange = (page) => {
     font-size: 12px;
     color: #909399;
   }
+}
+
+/* 选中节点样式 */
+.tree-node-content.current-node {
+  background-color: #ecf5ff;
+  color: #409eff;
+  font-weight: bold;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin: 0 -8px;
+}
+
+.tree-node-content.current-node .node-icon {
+  color: #409eff;
 }
 
 /* 右键菜单样式 */

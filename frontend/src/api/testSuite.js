@@ -86,26 +86,7 @@ export const copyTestSuite = (id, data = {}) => {
   })
 }
 
-// 导入Xmind到测试套件
-export const importXmindToSuite = (suiteId, formData) => {
-  return request({
-    url: `/test-suites/${suiteId}/import-xmind`,
-    method: 'post',
-    data: formData,
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  })
-}
-
-// 导出测试套件为Xmind
-export const exportSuiteToXmind = (suiteId) => {
-  return request({
-    url: `/test-suites/${suiteId}/export-xmind`,
-    method: 'get',
-    responseType: 'blob'
-  })
-}
+// Xmind相关功能已移除，暂时不再支持脑图实现
 
 // 获取测试套件中的测试用例
 export const getSuiteCases = (suiteId, params = {}) => {
@@ -179,8 +160,6 @@ export const testSuiteApi = {
   getTestSuiteOptions,
   moveTestSuite,
   copyTestSuite,
-  importXmindToSuite,
-  exportSuiteToXmind,
   getSuiteCases,
   addCasesToSuite,
   removeCasesFromSuite,

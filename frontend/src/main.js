@@ -11,6 +11,9 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 // 全局样式
 import './styles/index.scss'
 
+// 修复mousewheel事件监听器的passive选项问题
+import './utils/passiveEventListenerFix'
+
 const app = createApp(App)
 const pinia = createPinia()
 

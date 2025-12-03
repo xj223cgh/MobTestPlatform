@@ -18,7 +18,6 @@ def get_test_cases():
     search = request.args.get('search', '').strip()
     priority = request.args.get('priority', '').strip()
     status = request.args.get('status', '').strip()
-    module = request.args.get('module', '').strip()
     suite_id = request.args.get('suite_id', '').strip()
     
     # 构建查询
@@ -40,9 +39,7 @@ def get_test_cases():
     if status:
         query = query.filter(TestCase.status == status)
     
-    # 模块过滤
-    if module:
-        query = query.filter(TestCase.module == module)
+    # 模块过滤已移除，模块信息通过套件关联获取
     
     # 套件过滤
     if suite_id:
@@ -78,7 +75,7 @@ def get_test_case(case_id):
 
 @bp.route('', methods=['POST'])
 @login_required
-@validate_json_data(['case_name', 'priority', 'module'])
+@validate_json_data(['case_name'])
 def create_test_case():
     """创建测试用例"""
     data = request.get_json()
@@ -89,6 +86,9 @@ def create_test_case():
         if not suite:
             return error_response(400, "指定的测试套件不存在")
     
+    # 获取套件所属的项目ID
+    project_id = suite.project_id if suite else None
+    
     test_case = TestCase(
         case_name=data['case_name'],
         case_description=data.get('case_description', ''),
@@ -96,12 +96,13 @@ def create_test_case():
         steps=data.get('steps', ''),
         expected_result=data.get('expected_result', ''),
         actual_result=data.get('actual_result', ''),
-        priority=data['priority'],
+        test_data=data.get('test_data', ''),
+        priority=data.get('priority', 'P1'),
         status=data.get('status', ''),
-        module=data['module'],
-        author_id=current_user.id,
+        type=data.get('type', 'functional'),
+        creator_id=current_user.id,
         suite_id=data.get('suite_id'),
-        xmind_data=data.get('xmind_data')
+        project_id=project_id
     )
     
     try:
@@ -145,14 +146,17 @@ def update_test_case(case_id):
     if 'actual_result' in data:
         test_case.actual_result = data['actual_result']
     
+    if 'test_data' in data:
+        test_case.test_data = data['test_data']
+    
     if 'priority' in data:
         test_case.priority = data['priority']
     
     if 'status' in data:
         test_case.status = data['status']
     
-    if 'module' in data:
-        test_case.module = data['module']
+    if 'type' in data:
+        test_case.type = data['type']
     
     if 'suite_id' in data:
         # 验证套件是否存在
@@ -160,10 +164,30 @@ def update_test_case(case_id):
             suite = TestSuite.query.get(data['suite_id'])
             if not suite:
                 return error_response(400, "指定的测试套件不存在")
+            # 更新项目ID
+            test_case.project_id = suite.project_id
         test_case.suite_id = data['suite_id']
     
-    if 'xmind_data' in data:
-         test_case.xmind_data = data['xmind_data']
+    if 'assignee_id' in data:
+        test_case.assignee_id = data['assignee_id']
+    
+    if 'reviewer_id' in data:
+        test_case.reviewer_id = data['reviewer_id']
+    
+    if 'estimated_execution_time' in data:
+        test_case.estimated_execution_time = data['estimated_execution_time']
+    
+    if 'review_status' in data:
+        test_case.review_status = data['review_status']
+    
+    if 'review_comments' in data:
+        test_case.review_comments = data['review_comments']
+    
+    if 'version_info' in data:
+        test_case.version_info = data['version_info']
+    
+    if 'tags' in data:
+        test_case.tags = data['tags']
     
     try:
         db.session.commit()
@@ -232,83 +256,31 @@ def get_status_options():
     })
 
 
-@bp.route('/modules', methods=['GET'])
-@login_required
-def get_modules():
-    """获取模块列表"""
-    modules = [
-        {'value': 'login', 'label': '登录模块'},
-        {'value': 'user_management', 'label': '用户管理'},
-        {'value': 'device_management', 'label': '设备管理'},
-        {'value': 'test_management', 'label': '测试管理'},
-        {'value': 'bug_management', 'label': '缺陷管理'},
-        {'value': 'tools', 'label': '工具集'},
-        {'value': 'system', 'label': '系统设置'}
-    ]
-    
-    return success_response({
-        'modules': modules
-    })
+# 模块列表功能已移除，模块信息通过套件关联获取
 
 
-@bp.route('/xmind/import', methods=['POST'])
+# XMind相关功能已移除，因为不再支持xmind_data字段
+
+
+@bp.route('/batch-delete', methods=['POST'])
 @login_required
-def import_xmind():
-    """导入xmind文件，创建测试用例"""
+def batch_delete_test_cases():
+    """批量删除测试用例"""
     data = request.get_json()
+    case_ids = data.get('ids', [])
     
-    # 验证必要字段
-    if not data.get('xmind_data'):
-        return error_response(400, "xmind数据不能为空")
-    
-    if not data.get('suite_id'):
-        return error_response(400, "请指定测试套件")
-    
-    # 验证套件是否存在
-    suite = TestSuite.query.get(data['suite_id'])
-    if not suite:
-        return error_response(400, "指定的测试套件不存在")
+    if not case_ids or not isinstance(case_ids, list):
+        return error_response(400, "请提供要删除的测试用例ID列表")
     
     try:
-        # 创建一个基于xmind数据的测试用例
-        new_case = TestCase(
-            case_name=data.get('case_name', '从XMind导入的测试用例'),
-            case_description='从XMind导入',
-            module=data.get('module', '默认模块'),
-            priority=data.get('priority', 'P1'),
-            status=data.get('status', ''),
-            author_id=current_user.id,
-            suite_id=data['suite_id'],
-            xmind_data=data['xmind_data']
-        )
-        
-        db.session.add(new_case)
+        # 删除所有指定ID的测试用例
+        TestCase.query.filter(TestCase.id.in_(case_ids)).delete(synchronize_session=False)
         db.session.commit()
         
-        log_user_action("导入XMind测试用例", f"用例名称: {new_case.case_name}")
+        log_user_action("批量删除测试用例", f"删除了 {len(case_ids)} 个测试用例")
         
-        return success_response({
-            'test_case': new_case.to_dict()
-        }, "XMind测试用例导入成功")
+        return success_response(message="测试用例批量删除成功")
         
     except Exception as e:
         db.session.rollback()
-        return error_response(500, "XMind测试用例导入失败，请稍后重试")
-
-
-@bp.route('/<int:case_id>/export/xmind', methods=['GET'])
-@login_required
-def export_xmind(case_id):
-    """导出测试用例为xmind格式"""
-    test_case = TestCase.query.get_or_404(case_id)
-    
-    if not test_case.xmind_data:
-        return error_response(400, "该测试用例没有xmind数据")
-    
-    log_user_action("导出XMind测试用例", f"用例ID: {case_id}")
-    
-    return success_response({
-        'case_id': test_case.id,
-        'case_name': test_case.case_name,
-        'xmind_data': test_case.xmind_data
-    })
+        return error_response(500, "测试用例批量删除失败，请稍后重试")

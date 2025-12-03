@@ -77,15 +77,8 @@ def create_iteration(project_id):
 def get_iterations(project_id):
     """获取项目的迭代列表"""
     try:
-        # 检查用户是否有权限访问该项目
-        project_member = ProjectMember.query.filter_by(
-            project_id=project_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not project_member:
-            return jsonify({'error': '无权访问该项目'}), 403
-        
+        # 不需要检查用户是否有权限访问该项目，所有用户都可以查看
+
         # 获取迭代列表
         iterations = Iteration.query.filter_by(project_id=project_id).order_by(Iteration.start_date.desc()).all()
         
@@ -120,14 +113,14 @@ def get_iteration(iteration_id):
         if not iteration:
             return jsonify({'error': '迭代不存在'}), 404
         
-        # 检查用户是否有权限访问该项目
-        project_member = ProjectMember.query.filter_by(
-            project_id=iteration.project_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not project_member:
-            return jsonify({'error': '无权访问该迭代'}), 403
+        # 不需要检查用户是否有权限访问该项目，所有用户都可以查看
+        # project_member = ProjectMember.query.filter_by(
+        #     project_id=iteration.project_id,
+        #     user_id=current_user.id
+        # ).first()
+        # 
+        # if not project_member:
+        #     return jsonify({'error': '无权访问该迭代'}), 403
         
         return jsonify({
             'code': 200,
@@ -309,14 +302,14 @@ def get_iteration_stats(iteration_id):
         if not iteration:
             return jsonify({'error': '迭代不存在'}), 404
         
-        # 检查用户是否有权限访问该项目
-        project_member = ProjectMember.query.filter_by(
-            project_id=iteration.project_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not project_member:
-            return jsonify({'error': '无权访问该迭代'}), 403
+        # 不需要检查用户是否有权限访问该项目，所有用户都可以查看
+        # project_member = ProjectMember.query.filter_by(
+        #     project_id=iteration.project_id,
+        #     user_id=current_user.id
+        # ).first()
+        # 
+        # if not project_member:
+        #     return jsonify({'error': '无权访问该迭代'}), 403
         
         # 返回迭代的统计信息
         return jsonify({

@@ -212,7 +212,7 @@ class VersionRequirement(db.Model):
     iteration = db.relationship('Iteration', back_populates='version_requirements')
     creator = db.relationship('User', backref='created_requirements', foreign_keys=[created_by])
     assignee = db.relationship('User', backref='assigned_requirements', foreign_keys=[assigned_to])
-    test_case = db.relationship('TestCase', backref='version_requirement', uselist=False, cascade='all, delete-orphan')
+    test_cases = db.relationship('TestCase', backref='version_requirement', uselist=True, cascade='all, delete-orphan')
     
     def to_dict(self):
         """转换为字典"""
@@ -237,7 +237,8 @@ class VersionRequirement(db.Model):
             'end_date': self.end_date.isoformat() if self.end_date else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'is_deleted': self.is_deleted,
-            'has_test_case': self.test_case is not None
+            'has_test_cases': len(self.test_cases) > 0 if hasattr(self, 'test_cases') else False,
+            'test_cases_count': len(self.test_cases) if hasattr(self, 'test_cases') else 0
         }
 
 
@@ -310,7 +311,12 @@ class Iteration(db.Model):
         }
         
         # 计算用例执行统计
-        executions = [exec for req in self.version_requirements if req.test_case for exec in req.test_case.executions]
+        executions = []
+        for req in self.version_requirements:
+            if req.test_cases:
+                for test_case in req.test_cases:
+                    if test_case.executions:
+                        executions.extend(test_case.executions)
         execution_stats = {
             'total': len(executions),
             'pass': sum(1 for exec in executions if exec.status == 'pass'),
@@ -464,6 +470,8 @@ class TestSuite(db.Model):
     type = db.Column(db.Enum(*TEST_SUITE_TYPE), default='folder', comment='类型：folder-用例文件夹, suite-用例集')
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='创建者ID')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
+    version_requirement_id = db.Column(db.Integer, db.ForeignKey('version_requirements.id'), nullable=True, comment='关联的版本需求ID')
+    iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
     sort_order = db.Column(db.Integer, default=0, comment='排序顺序')
     created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
@@ -475,6 +483,10 @@ class TestSuite(db.Model):
     test_cases = db.relationship('TestCase', backref='suite', lazy='dynamic')
     # 与用户的多对一关系
     creator = db.relationship('User', backref='created_suites')
+    # 与版本需求的多对一关系
+    version_requirement = db.relationship('VersionRequirement', backref='test_suites')
+    # 与迭代的多对一关系
+    iteration = db.relationship('Iteration', backref='test_suites')
     # 移除重复的关系定义，因为Project模型中已经定义了完整的关系
     
     def to_dict(self):
@@ -488,6 +500,13 @@ class TestSuite(db.Model):
             'type': self.type,
             'creator_id': self.creator_id,
             'creator_name': self.creator.real_name if self.creator else None,
+            'project_id': self.project_id,
+            'project_name': self.project.project_name if self.project else None,
+            'version_requirement_id': self.version_requirement_id,
+            'version_requirement_name': self.version_requirement.requirement_name if self.version_requirement else None,
+            'version_requirement_module': self.version_requirement.module if self.version_requirement else None,
+            'iteration_id': self.iteration_id,
+            'iteration_name': self.iteration.iteration_name if self.iteration else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'sort_order': self.sort_order,
@@ -500,7 +519,8 @@ class TestCase(db.Model):
     """测试用例模型"""
     __tablename__ = 'test_cases'
     
-    id = db.Column(db.Integer, primary_key=True, comment='用例编号')
+    id = db.Column(db.Integer, primary_key=True, comment='数据库自增ID')
+    case_number = db.Column(db.String(50), nullable=True, comment='测试用例编号')
     case_name = db.Column(db.String(200), nullable=False, comment='用例名称')
     case_description = db.Column(db.Text, comment='用例描述')
     priority = db.Column(db.Enum(*TEST_CASE_PRIORITY), default='P1', comment='优先级')
@@ -509,10 +529,11 @@ class TestCase(db.Model):
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='创建者ID')
     suite_id = db.Column(db.Integer, db.ForeignKey('test_suites.id'), nullable=False, comment='所属套件ID（用于模块树）')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
-    version_requirement_id = db.Column(db.Integer, db.ForeignKey('version_requirements.id'), unique=True, nullable=True, comment='关联的版本需求ID')
+    version_requirement_id = db.Column(db.Integer, db.ForeignKey('version_requirements.id'), nullable=True, comment='关联的版本需求ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
     test_plan_id = db.Column(db.Integer, db.ForeignKey('test_plans.id'), nullable=True, comment='所属测试计划ID')
     assignee_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, comment='负责人ID')
+    reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, comment='审核人ID')
     
     # 用例内容
     preconditions = db.Column(db.Text, comment='前置条件')
@@ -520,9 +541,6 @@ class TestCase(db.Model):
     expected_result = db.Column(db.Text, comment='预期结果')
     actual_result = db.Column(db.Text, comment='实际结果')
     test_data = db.Column(db.Text, nullable=True, comment='测试数据')
-    
-    # 脑图支持
-    xmind_data = db.Column(db.Text, comment='xmind格式的用例数据（JSON字符串）')
     
     # 标签支持
     tags = db.Column(db.Text, comment='用例标签，JSON格式存储')
@@ -535,12 +553,20 @@ class TestCase(db.Model):
     # 版本信息
     version_info = db.Column(db.String(100), nullable=True, comment='版本信息')
     
+    # 预计执行时间（分钟）
+    estimated_execution_time = db.Column(db.Integer, nullable=True, comment='预计执行时间（分钟）')
+    
+    # 审核信息
+    review_status = db.Column(db.String(50), default='pending', comment='审核状态：pending, approved, rejected')
+    review_comments = db.Column(db.Text, comment='审核意见')
+    
     # 关系
     test_tasks = db.relationship('TestTask', secondary='task_case_relation', backref='test_cases')
     bugs = db.relationship('Bug', backref='test_case', lazy='dynamic')
     # 移除backref参数，避免与User模型中的created_cases冲突
     creator = db.relationship('User', foreign_keys=[creator_id])
     assignee = db.relationship('User', backref='assigned_cases', foreign_keys=[assignee_id])
+    reviewer = db.relationship('User', foreign_keys=[reviewer_id])
     
     def to_dict(self):
         """转换为字典"""
@@ -555,6 +581,7 @@ class TestCase(db.Model):
         
         return {
             'id': self.id,
+            'case_number': self.case_number,
             'case_name': self.case_name,
             'case_description': self.case_description,
             'priority': self.priority,
@@ -564,24 +591,32 @@ class TestCase(db.Model):
             'creator_name': self.creator.real_name if self.creator else None,
             'suite_id': self.suite_id,
             'suite_name': self.suite.suite_name if self.suite else None,
-            'project_id': self.project_id,
-            'version_requirement_id': self.version_requirement_id,
-            'version_requirement_name': self.version_requirement.requirement_name if hasattr(self, 'version_requirement') and self.version_requirement else None,
-            'iteration_id': self.iteration_id,
+            # 从套件继承项目、需求、迭代信息
+            'project_id': self.suite.project_id if self.suite else self.project_id,
+            'project_name': self.suite.project.project_name if self.suite and self.suite.project else None,
+            'version_requirement_id': self.suite.version_requirement_id if self.suite else self.version_requirement_id,
+            'version_requirement_name': self.suite.version_requirement.requirement_name if self.suite and self.suite.version_requirement else None,
+            'version_requirement_module': self.suite.version_requirement.module if self.suite and self.suite.version_requirement else None,
+            'iteration_id': self.suite.iteration_id if self.suite else self.iteration_id,
+            'iteration_name': self.suite.iteration.iteration_name if self.suite and self.suite.iteration else None,
             'test_plan_id': self.test_plan_id,
             'assignee_id': self.assignee_id,
             'assignee_name': self.assignee.real_name if hasattr(self, 'assignee') and self.assignee else None,
+            'reviewer_id': self.reviewer_id,
+            'reviewer_name': self.reviewer.real_name if hasattr(self, 'reviewer') and self.reviewer else None,
             'preconditions': self.preconditions,
             'steps': self.steps,
             'expected_result': self.expected_result,
             'actual_result': self.actual_result,
             'test_data': self.test_data,
-            'xmind_data': self.xmind_data,
             'tags': tags,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'executed_at': self.executed_at.isoformat() if self.executed_at else None,
-            'version_info': self.version_info
+            'version_info': self.version_info,
+            'estimated_execution_time': self.estimated_execution_time,
+            'review_status': self.review_status,
+            'review_comments': self.review_comments
         }
 
 
@@ -635,8 +670,7 @@ class TestCaseExecution(db.Model):
             'notes': self.notes,
             'case_info': {
                 'id': self.test_case.id,
-                'case_name': self.test_case.case_name,
-                'module': self.test_case.module
+                'case_name': self.test_case.case_name
             } if self.test_case else None
         }
 

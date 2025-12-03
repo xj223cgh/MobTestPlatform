@@ -6,7 +6,7 @@ import router from '@/router'
 // 创建axios实例
 const request = axios.create({
   baseURL: '/api', // API基础路径，用于Vite代理转发
-  timeout: 10000,
+  timeout: 30000, // 增加超时时间到30秒
   withCredentials: true, // 支持跨域cookie
   headers: {
     'Content-Type': 'application/json'

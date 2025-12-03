@@ -80,45 +80,7 @@ export const executeTestCase = (id, params = {}) => {
   })
 }
 
-// 导入Xmind测试用例
-export const importXmindTestCases = (formData) => {
-  return request({
-    url: '/test-cases/import-xmind',
-    method: 'post',
-    data: formData,
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  })
-}
-
-// 导出测试用例为Xmind
-export const exportXmindTestCases = (params = {}) => {
-  return request({
-    url: '/test-cases/export-xmind',
-    method: 'get',
-    params,
-    responseType: 'blob'
-  })
-}
-
-// 更新测试用例Xmind
-export const updateTestCaseXmind = (id, data) => {
-  return request({
-    url: `/test-cases/${id}/xmind`,
-    method: 'put',
-    data
-  })
-}
-
-// 获取测试用例Xmind
-export const getTestCaseXmind = (id) => {
-  return request({
-    url: `/test-cases/${id}/xmind`,
-    method: 'get',
-    responseType: 'blob'
-  })
-}
+// Xmind相关功能已移除，暂时不再支持脑图实现
 
 // 批量执行测试用例
 export const batchExecuteTestCases = (ids, params = {}) => {
