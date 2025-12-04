@@ -3,10 +3,15 @@
     <div class="page-header">
       <div class="header-content">
         <h1>测试任务管理</h1>
-        <p class="description">创建和管理测试任务</p>
+        <p class="description">
+          创建和管理测试任务
+        </p>
       </div>
       <div class="header-actions">
-        <el-button type="primary" @click="handleCreate">
+        <el-button
+          type="primary"
+          @click="handleCreate"
+        >
           <el-icon><Plus /></el-icon>
           创建任务
         </el-button>
@@ -26,8 +31,12 @@
               <el-icon><List /></el-icon>
             </div>
             <div class="stat-content">
-              <div class="stat-number">{{ stats.total }}</div>
-              <div class="stat-label">任务总数</div>
+              <div class="stat-number">
+                {{ stats.total }}
+              </div>
+              <div class="stat-label">
+                任务总数
+              </div>
             </div>
           </div>
         </el-col>
@@ -37,8 +46,12 @@
               <el-icon><VideoPlay /></el-icon>
             </div>
             <div class="stat-content">
-              <div class="stat-number">{{ stats.running }}</div>
-              <div class="stat-label">执行中</div>
+              <div class="stat-number">
+                {{ stats.running }}
+              </div>
+              <div class="stat-label">
+                执行中
+              </div>
             </div>
           </div>
         </el-col>
@@ -48,8 +61,12 @@
               <el-icon><CircleCheck /></el-icon>
             </div>
             <div class="stat-content">
-              <div class="stat-number">{{ stats.completed }}</div>
-              <div class="stat-label">已完成</div>
+              <div class="stat-number">
+                {{ stats.completed }}
+              </div>
+              <div class="stat-label">
+                已完成
+              </div>
             </div>
           </div>
         </el-col>
@@ -59,8 +76,12 @@
               <el-icon><CircleClose /></el-icon>
             </div>
             <div class="stat-content">
-              <div class="stat-number">{{ stats.failed }}</div>
-              <div class="stat-label">失败</div>
+              <div class="stat-number">
+                {{ stats.failed }}
+              </div>
+              <div class="stat-label">
+                失败
+              </div>
             </div>
           </div>
         </el-col>
@@ -69,7 +90,10 @@
 
     <!-- 搜索和筛选 -->
     <div class="search-section">
-      <el-form :model="searchForm" inline>
+      <el-form
+        :model="searchForm"
+        inline
+      >
         <el-form-item label="任务名称">
           <el-input
             v-model="searchForm.name"
@@ -84,9 +108,9 @@
             v-model="searchForm.suite_id"
             placeholder="选择测试套件"
             clearable
+            filterable
             @clear="handleSearch"
             @change="handleSearch"
-            filterable
           >
             <el-option
               v-for="option in suiteOptions"
@@ -104,11 +128,26 @@
             @clear="handleSearch"
             @change="handleSearch"
           >
-            <el-option label="待执行" value="pending" />
-            <el-option label="执行中" value="running" />
-            <el-option label="已完成" value="completed" />
-            <el-option label="失败" value="failed" />
-            <el-option label="已取消" value="cancelled" />
+            <el-option
+              label="待执行"
+              value="pending"
+            />
+            <el-option
+              label="执行中"
+              value="running"
+            />
+            <el-option
+              label="已完成"
+              value="completed"
+            />
+            <el-option
+              label="失败"
+              value="failed"
+            />
+            <el-option
+              label="已取消"
+              value="cancelled"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="优先级">
@@ -119,9 +158,18 @@
             @clear="handleSearch"
             @change="handleSearch"
           >
-            <el-option label="高" value="high" />
-            <el-option label="中" value="medium" />
-            <el-option label="低" value="low" />
+            <el-option
+              label="高"
+              value="high"
+            />
+            <el-option
+              label="中"
+              value="medium"
+            />
+            <el-option
+              label="低"
+              value="low"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="创建时间">
@@ -137,7 +185,10 @@
           />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleSearch">
+          <el-button
+            type="primary"
+            @click="handleSearch"
+          >
             <el-icon><Search /></el-icon>
             搜索
           </el-button>
@@ -159,24 +210,48 @@
         style="width: 100%"
         @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" width="55" />
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="name" label="任务名称" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column
+          type="selection"
+          width="55"
+        />
+        <el-table-column
+          prop="id"
+          label="ID"
+          width="80"
+        />
+        <el-table-column
+          prop="name"
+          label="任务名称"
+          min-width="200"
+          show-overflow-tooltip
+        />
+        <el-table-column
+          prop="status"
+          label="状态"
+          width="100"
+        >
           <template #default="{ row }">
             <el-tag :type="getStatusTagType(row.status)">
               {{ getStatusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="priority" label="优先级" width="80">
+        <el-table-column
+          prop="priority"
+          label="优先级"
+          width="80"
+        >
           <template #default="{ row }">
             <el-tag :type="getPriorityTagType(row.priority)">
               {{ getPriorityLabel(row.priority) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="progress" label="进度" width="120">
+        <el-table-column
+          prop="progress"
+          label="进度"
+          width="120"
+        >
           <template #default="{ row }">
             <el-progress
               :percentage="row.progress"
@@ -185,20 +260,44 @@
             />
           </template>
         </el-table-column>
-        <el-table-column prop="device_count" label="设备数量" width="100" />
-        <el-table-column prop="case_count" label="用例数量" width="100" />
-        <el-table-column prop="creator" label="创建者" width="100" />
-        <el-table-column prop="created_at" label="创建时间" width="160">
+        <el-table-column
+          prop="device_count"
+          label="设备数量"
+          width="100"
+        />
+        <el-table-column
+          prop="case_count"
+          label="用例数量"
+          width="100"
+        />
+        <el-table-column
+          prop="creator"
+          label="创建者"
+          width="100"
+        />
+        <el-table-column
+          prop="created_at"
+          label="创建时间"
+          width="160"
+        >
           <template #default="{ row }">
             {{ formatDateTime(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column prop="updated_at" label="更新时间" width="160">
+        <el-table-column
+          prop="updated_at"
+          label="更新时间"
+          width="160"
+        >
           <template #default="{ row }">
             {{ formatDateTime(row.updated_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="300" fixed="right">
+        <el-table-column
+          label="操作"
+          width="300"
+          fixed="right"
+        >
           <template #default="{ row }">
             <el-button
               type="primary"
@@ -234,16 +333,16 @@
             <el-button
               type="warning"
               size="small"
-              @click="handleEdit(row)"
               :disabled="row.status === 'running'"
+              @click="handleEdit(row)"
             >
               编辑
             </el-button>
             <el-button
               type="danger"
               size="small"
-              @click="handleDelete(row)"
               :disabled="row.status === 'running'"
+              @click="handleDelete(row)"
             >
               删除
             </el-button>
@@ -252,15 +351,27 @@
       </el-table>
 
       <!-- 批量操作 -->
-      <div class="batch-actions" v-if="selectedTasks.length > 0">
+      <div
+        v-if="selectedTasks.length > 0"
+        class="batch-actions"
+      >
         <span>已选择 {{ selectedTasks.length }} 项</span>
-        <el-button type="success" @click="handleBatchStart">
+        <el-button
+          type="success"
+          @click="handleBatchStart"
+        >
           批量启动
         </el-button>
-        <el-button type="warning" @click="handleBatchStop">
+        <el-button
+          type="warning"
+          @click="handleBatchStop"
+        >
           批量停止
         </el-button>
-        <el-button type="danger" @click="handleBatchDelete">
+        <el-button
+          type="danger"
+          @click="handleBatchDelete"
+        >
           批量删除
         </el-button>
       </div>
@@ -292,11 +403,24 @@
         :rules="taskRules"
         label-width="100px"
       >
-        <el-form-item label="任务名称" prop="name">
-          <el-input v-model="taskForm.name" placeholder="请输入任务名称" />
+        <el-form-item
+          label="任务名称"
+          prop="name"
+        >
+          <el-input
+            v-model="taskForm.name"
+            placeholder="请输入任务名称"
+          />
         </el-form-item>
-        <el-form-item label="测试套件" prop="suite_id">
-          <el-select v-model="taskForm.suite_id" placeholder="请选择测试套件" style="width: 100%">
+        <el-form-item
+          label="测试套件"
+          prop="suite_id"
+        >
+          <el-select
+            v-model="taskForm.suite_id"
+            placeholder="请选择测试套件"
+            style="width: 100%"
+          >
             <el-option
               v-for="suite in suiteOptions"
               :key="suite.id"
@@ -305,7 +429,10 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="任务描述" prop="description">
+        <el-form-item
+          label="任务描述"
+          prop="description"
+        >
           <el-input
             v-model="taskForm.description"
             type="textarea"
@@ -313,13 +440,28 @@
             placeholder="请输入任务描述"
           />
         </el-form-item>
-        <el-form-item label="文档链接" prop="document_link">
-          <el-input v-model="taskForm.document_link" placeholder="请输入相关文档链接" />
+        <el-form-item
+          label="文档链接"
+          prop="document_link"
+        >
+          <el-input
+            v-model="taskForm.document_link"
+            placeholder="请输入相关文档链接"
+          />
         </el-form-item>
-        <el-form-item label="版本信息" prop="version_info">
-          <el-input v-model="taskForm.version_info" placeholder="请输入版本信息" />
+        <el-form-item
+          label="版本信息"
+          prop="version_info"
+        >
+          <el-input
+            v-model="taskForm.version_info"
+            placeholder="请输入版本信息"
+          />
         </el-form-item>
-        <el-form-item label="计划开始时间" prop="planned_start_time">
+        <el-form-item
+          label="计划开始时间"
+          prop="planned_start_time"
+        >
           <el-date-picker
             v-model="taskForm.planned_start_time"
             type="datetime"
@@ -327,7 +469,10 @@
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item label="计划结束时间" prop="planned_end_time">
+        <el-form-item
+          label="计划结束时间"
+          prop="planned_end_time"
+        >
           <el-date-picker
             v-model="taskForm.planned_end_time"
             type="datetime"
@@ -335,7 +480,10 @@
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item label="备注" prop="notes">
+        <el-form-item
+          label="备注"
+          prop="notes"
+        >
           <el-input
             v-model="taskForm.notes"
             type="textarea"
@@ -343,14 +491,26 @@
             placeholder="请输入备注信息"
           />
         </el-form-item>
-        <el-form-item label="优先级" prop="priority">
+        <el-form-item
+          label="优先级"
+          prop="priority"
+        >
           <el-radio-group v-model="taskForm.priority">
-            <el-radio label="high">高</el-radio>
-            <el-radio label="medium">中</el-radio>
-            <el-radio label="low">低</el-radio>
+            <el-radio label="high">
+              高
+            </el-radio>
+            <el-radio label="medium">
+              中
+            </el-radio>
+            <el-radio label="low">
+              低
+            </el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="选择设备" prop="device_ids">
+        <el-form-item
+          label="选择设备"
+          prop="device_ids"
+        >
           <el-select
             v-model="taskForm.device_ids"
             placeholder="请选择设备"
@@ -365,7 +525,10 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="测试用例" prop="case_ids">
+        <el-form-item
+          label="测试用例"
+          prop="case_ids"
+        >
           <el-select
             v-model="taskForm.case_ids"
             placeholder="请选择测试用例"
@@ -380,18 +543,39 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="执行环境" prop="environment">
-          <el-select v-model="taskForm.environment" placeholder="请选择执行环境">
-            <el-option label="开发环境" value="development" />
-            <el-option label="测试环境" value="testing" />
-            <el-option label="预生产环境" value="staging" />
-            <el-option label="生产环境" value="production" />
+        <el-form-item
+          label="执行环境"
+          prop="environment"
+        >
+          <el-select
+            v-model="taskForm.environment"
+            placeholder="请选择执行环境"
+          >
+            <el-option
+              label="开发环境"
+              value="development"
+            />
+            <el-option
+              label="测试环境"
+              value="testing"
+            />
+            <el-option
+              label="预生产环境"
+              value="staging"
+            />
+            <el-option
+              label="生产环境"
+              value="production"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="执行配置">
           <el-row :gutter="20">
             <el-col :span="12">
-              <el-form-item label="并发数" prop="concurrency">
+              <el-form-item
+                label="并发数"
+                prop="concurrency"
+              >
                 <el-input-number
                   v-model="taskForm.concurrency"
                   :min="1"
@@ -401,7 +585,10 @@
               </el-form-item>
             </el-col>
             <el-col :span="12">
-              <el-form-item label="超时时间(秒)" prop="timeout">
+              <el-form-item
+                label="超时时间(秒)"
+                prop="timeout"
+              >
                 <el-input-number
                   v-model="taskForm.timeout"
                   :min="60"
@@ -412,7 +599,10 @@
             </el-col>
           </el-row>
         </el-form-item>
-        <el-form-item label="失败重试" prop="retry_count">
+        <el-form-item
+          label="失败重试"
+          prop="retry_count"
+        >
           <el-input-number
             v-model="taskForm.retry_count"
             :min="0"
@@ -422,9 +612,15 @@
         </el-form-item>
         <el-form-item label="通知设置">
           <el-checkbox-group v-model="taskForm.notification_types">
-            <el-checkbox label="email">邮件通知</el-checkbox>
-            <el-checkbox label="webhook">Webhook通知</el-checkbox>
-            <el-checkbox label="sms">短信通知</el-checkbox>
+            <el-checkbox label="email">
+              邮件通知
+            </el-checkbox>
+            <el-checkbox label="webhook">
+              Webhook通知
+            </el-checkbox>
+            <el-checkbox label="sms">
+              短信通知
+            </el-checkbox>
           </el-checkbox-group>
         </el-form-item>
       </el-form>
@@ -432,7 +628,11 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" :loading="submitLoading" @click="handleSubmit">
+          <el-button
+            type="primary"
+            :loading="submitLoading"
+            @click="handleSubmit"
+          >
             确定
           </el-button>
         </span>
@@ -445,26 +645,50 @@
       title="任务详情"
       width="1000px"
     >
-      <div class="task-detail" v-if="currentTask">
+      <div
+        v-if="currentTask"
+        class="task-detail"
+      >
         <el-tabs v-model="activeTab">
-          <el-tab-pane label="基本信息" name="basic">
-            <el-descriptions :column="2" border>
-              <el-descriptions-item label="任务ID">{{ currentTask.id }}</el-descriptions-item>
-              <el-descriptions-item label="任务名称">{{ currentTask.name }}</el-descriptions-item>
+          <el-tab-pane
+            label="基本信息"
+            name="basic"
+          >
+            <el-descriptions
+              :column="2"
+              border
+            >
+              <el-descriptions-item label="任务ID">
+                {{ currentTask.id }}
+              </el-descriptions-item>
+              <el-descriptions-item label="任务名称">
+                {{ currentTask.name }}
+              </el-descriptions-item>
               <el-descriptions-item label="测试套件">
                 {{ getSuiteName(currentTask.suite_id) }}
               </el-descriptions-item>
               <el-descriptions-item label="文档链接">
-                <a :href="currentTask.document_link" target="_blank" v-if="currentTask.document_link">
+                <a
+                  v-if="currentTask.document_link"
+                  :href="currentTask.document_link"
+                  target="_blank"
+                >
                   {{ currentTask.document_link }}
                 </a>
                 <span v-else>-</span>
               </el-descriptions-item>
-              <el-descriptions-item label="版本信息">{{ currentTask.version_info || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="版本信息">
+                {{ currentTask.version_info || '-' }}
+              </el-descriptions-item>
               <el-descriptions-item label="计划时间">
                 {{ formatDateRange(currentTask.planned_start_time, currentTask.planned_end_time) }}
               </el-descriptions-item>
-              <el-descriptions-item label="备注" :span="2">{{ currentTask.notes || '-' }}</el-descriptions-item>
+              <el-descriptions-item
+                label="备注"
+                :span="2"
+              >
+                {{ currentTask.notes || '-' }}
+              </el-descriptions-item>
               <el-descriptions-item label="状态">
                 <el-tag :type="getStatusTagType(currentTask.status)">
                   {{ getStatusLabel(currentTask.status) }}
@@ -481,22 +705,52 @@
                   :status="getProgressStatus(currentTask.status)"
                 />
               </el-descriptions-item>
-              <el-descriptions-item label="执行环境">{{ currentTask.environment }}</el-descriptions-item>
-              <el-descriptions-item label="创建者">{{ currentTask.creator }}</el-descriptions-item>
-              <el-descriptions-item label="创建时间">{{ formatDateTime(currentTask.created_at) }}</el-descriptions-item>
-              <el-descriptions-item label="开始时间">{{ formatDateTime(currentTask.started_at) }}</el-descriptions-item>
-              <el-descriptions-item label="结束时间">{{ formatDateTime(currentTask.ended_at) }}</el-descriptions-item>
-              <el-descriptions-item label="设备数量">{{ currentTask.device_count }}</el-descriptions-item>
-              <el-descriptions-item label="用例数量">{{ currentTask.case_count }}</el-descriptions-item>
-              <el-descriptions-item label="通过数量">{{ currentTask.passed_count }}</el-descriptions-item>
-              <el-descriptions-item label="失败数量">{{ currentTask.failed_count }}</el-descriptions-item>
-              <el-descriptions-item label="阻塞数量">{{ currentTask.blocked_count || 0 }}</el-descriptions-item>
-              <el-descriptions-item label="不适用数量">{{ currentTask.not_applicable_count || 0 }}</el-descriptions-item>
-              <el-descriptions-item label="描述" :span="2">{{ currentTask.description || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="执行环境">
+                {{ currentTask.environment }}
+              </el-descriptions-item>
+              <el-descriptions-item label="创建者">
+                {{ currentTask.creator }}
+              </el-descriptions-item>
+              <el-descriptions-item label="创建时间">
+                {{ formatDateTime(currentTask.created_at) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="开始时间">
+                {{ formatDateTime(currentTask.started_at) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="结束时间">
+                {{ formatDateTime(currentTask.ended_at) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="设备数量">
+                {{ currentTask.device_count }}
+              </el-descriptions-item>
+              <el-descriptions-item label="用例数量">
+                {{ currentTask.case_count }}
+              </el-descriptions-item>
+              <el-descriptions-item label="通过数量">
+                {{ currentTask.passed_count }}
+              </el-descriptions-item>
+              <el-descriptions-item label="失败数量">
+                {{ currentTask.failed_count }}
+              </el-descriptions-item>
+              <el-descriptions-item label="阻塞数量">
+                {{ currentTask.blocked_count || 0 }}
+              </el-descriptions-item>
+              <el-descriptions-item label="不适用数量">
+                {{ currentTask.not_applicable_count || 0 }}
+              </el-descriptions-item>
+              <el-descriptions-item
+                label="描述"
+                :span="2"
+              >
+                {{ currentTask.description || '-' }}
+              </el-descriptions-item>
             </el-descriptions>
           </el-tab-pane>
           
-          <el-tab-pane label="执行日志" name="logs">
+          <el-tab-pane
+            label="执行日志"
+            name="logs"
+          >
             <div class="logs-container">
               <el-timeline>
                 <el-timeline-item
@@ -514,7 +768,10 @@
             </div>
           </el-tab-pane>
           
-          <el-tab-pane label="执行结果" name="results">
+          <el-tab-pane
+            label="执行结果"
+            name="results"
+          >
             <div class="results-container">
               <el-table 
                 :data="executionResults" 
@@ -523,20 +780,47 @@
                 :row-style="{height: 'auto'}"
                 :cell-style="{padding: '10px', whiteSpace: 'normal', wordBreak: 'break-word'}"
               >
-                <el-table-column prop="device_name" label="设备名称" min-width="120" />
-                <el-table-column prop="case_name" label="用例名称" min-width="200" />
-                <el-table-column prop="status" label="状态" width="100">
+                <el-table-column
+                  prop="device_name"
+                  label="设备名称"
+                  min-width="120"
+                />
+                <el-table-column
+                  prop="case_name"
+                  label="用例名称"
+                  min-width="200"
+                />
+                <el-table-column
+                  prop="status"
+                  label="状态"
+                  width="100"
+                >
                   <template #default="{ row }">
                     <el-tag :type="getStatusTagType(row.status)">
                       {{ getStatusLabel(row.status) }}
                     </el-tag>
                   </template>
                 </el-table-column>
-                <el-table-column prop="duration" label="执行时长" width="100" />
-                <el-table-column prop="error_message" label="错误信息" min-width="300" />
-                <el-table-column label="操作" width="120">
+                <el-table-column
+                  prop="duration"
+                  label="执行时长"
+                  width="100"
+                />
+                <el-table-column
+                  prop="error_message"
+                  label="错误信息"
+                  min-width="300"
+                />
+                <el-table-column
+                  label="操作"
+                  width="120"
+                >
                   <template #default="{ row }">
-                    <el-button type="primary" size="small" @click="viewResultDetail(row)">
+                    <el-button
+                      type="primary"
+                      size="small"
+                      @click="viewResultDetail(row)"
+                    >
                       查看详情
                     </el-button>
                   </template>
@@ -545,53 +829,129 @@
             </div>
           </el-tab-pane>
           
-          <el-tab-pane label="思维导图视图" name="mindmap" @tab-click="refreshMindMap">
+          <el-tab-pane
+            label="思维导图视图"
+            name="mindmap"
+            @tab-click="refreshMindMap"
+          >
             <div class="mindmap-container">
               <div class="filter-controls">
-                <el-checkbox-group v-model="statusFilter" @change="filterMindMap">
-                  <el-checkbox label="passed">通过</el-checkbox>
-                  <el-checkbox label="failed">失败</el-checkbox>
-                  <el-checkbox label="blocked">阻塞</el-checkbox>
-                  <el-checkbox label="not_applicable">不适用</el-checkbox>
+                <el-checkbox-group
+                  v-model="statusFilter"
+                  @change="filterMindMap"
+                >
+                  <el-checkbox label="passed">
+                    通过
+                  </el-checkbox>
+                  <el-checkbox label="failed">
+                    失败
+                  </el-checkbox>
+                  <el-checkbox label="blocked">
+                    阻塞
+                  </el-checkbox>
+                  <el-checkbox label="not_applicable">
+                    不适用
+                  </el-checkbox>
                 </el-checkbox-group>
-                <el-button type="primary" size="small" @click="refreshMindMap">刷新</el-button>
-                <el-button size="small" @click="exportMindMap">导出</el-button>
+                <el-button
+                  type="primary"
+                  size="small"
+                  @click="refreshMindMap"
+                >
+                  刷新
+                </el-button>
+                <el-button
+                  size="small"
+                  @click="exportMindMap"
+                >
+                  导出
+                </el-button>
               </div>
               <div class="stats-summary">
                 <!-- 详细统计卡片 -->
-                <el-card shadow="hover" class="stat-card stat-passed">
-                  <div class="stat-value">{{ executionStats.passed?.count || 0 }}</div>
-                  <div class="stat-label">通过</div>
+                <el-card
+                  shadow="hover"
+                  class="stat-card stat-passed"
+                >
+                  <div class="stat-value">
+                    {{ executionStats.passed?.count || 0 }}
+                  </div>
+                  <div class="stat-label">
+                    通过
+                  </div>
                 </el-card>
-                <el-card shadow="hover" class="stat-card stat-failed">
-                  <div class="stat-value">{{ executionStats.failed?.count || 0 }}</div>
-                  <div class="stat-label">失败</div>
+                <el-card
+                  shadow="hover"
+                  class="stat-card stat-failed"
+                >
+                  <div class="stat-value">
+                    {{ executionStats.failed?.count || 0 }}
+                  </div>
+                  <div class="stat-label">
+                    失败
+                  </div>
                 </el-card>
-                <el-card shadow="hover" class="stat-card stat-blocked">
-                  <div class="stat-value">{{ executionStats.blocked?.count || 0 }}</div>
-                  <div class="stat-label">阻塞</div>
+                <el-card
+                  shadow="hover"
+                  class="stat-card stat-blocked"
+                >
+                  <div class="stat-value">
+                    {{ executionStats.blocked?.count || 0 }}
+                  </div>
+                  <div class="stat-label">
+                    阻塞
+                  </div>
                 </el-card>
-                <el-card shadow="hover" class="stat-card stat-not-applicable">
-                  <div class="stat-value">{{ executionStats.not_applicable?.count || 0 }}</div>
-                  <div class="stat-label">不适用</div>
+                <el-card
+                  shadow="hover"
+                  class="stat-card stat-not-applicable"
+                >
+                  <div class="stat-value">
+                    {{ executionStats.not_applicable?.count || 0 }}
+                  </div>
+                  <div class="stat-label">
+                    不适用
+                  </div>
                 </el-card>
-                <el-card shadow="hover" class="stat-card stat-total">
-                  <div class="stat-value">{{ totalTestCases }}</div>
-                  <div class="stat-label">总用例数</div>
+                <el-card
+                  shadow="hover"
+                  class="stat-card stat-total"
+                >
+                  <div class="stat-value">
+                    {{ totalTestCases }}
+                  </div>
+                  <div class="stat-label">
+                    总用例数
+                  </div>
                 </el-card>
-                <el-card shadow="hover" class="stat-card stat-pass-rate">
-                  <div class="stat-value">{{ executionStats.pass_rate || 0 }}%</div>
-                  <div class="stat-label">通过率</div>
+                <el-card
+                  shadow="hover"
+                  class="stat-card stat-pass-rate"
+                >
+                  <div class="stat-value">
+                    {{ executionStats.pass_rate || 0 }}%
+                  </div>
+                  <div class="stat-label">
+                    通过率
+                  </div>
                 </el-card>
               </div>
               
               <!-- 图表统计 -->
               <div class="chart-section">
-                <el-card shadow="hover" class="chart-card">
+                <el-card
+                  shadow="hover"
+                  class="chart-card"
+                >
                   <template #header>
                     <div class="card-header">
                       <span>测试结果分布</span>
-                      <el-button size="small" @click="refreshStats">刷新</el-button>
+                      <el-button
+                        size="small"
+                        @click="refreshStats"
+                      >
+                        刷新
+                      </el-button>
                     </div>
                   </template>
                   <div class="chart-container">
@@ -610,14 +970,25 @@
               </div>
               <div class="mindmap-content">
                 <!-- 这里将集成思维导图组件 -->
-                <div v-if="mindmapLoading" class="loading-container">
-                  <el-icon class="is-loading"><loading /></el-icon>
+                <div
+                  v-if="mindmapLoading"
+                  class="loading-container"
+                >
+                  <el-icon class="is-loading">
+                    <loading />
+                  </el-icon>
                   <span>加载思维导图中...</span>
                 </div>
-                <div v-else-if="!taskMindMapData" class="empty-state">
+                <div
+                  v-else-if="!taskMindMapData"
+                  class="empty-state"
+                >
                   <el-empty description="暂无思维导图数据" />
                 </div>
-                <div v-else class="mindmap-container">
+                <div
+                  v-else
+                  class="mindmap-container"
+                >
                   <el-tree
                     ref="mindmapTreeRef"
                     :data="filteredMindMapData"
@@ -628,9 +999,16 @@
                     @node-contextmenu="handleMindmapContextMenu"
                   >
                     <template #default="{ data }">
-                      <div class="mindmap-node" :class="`node-status-${data.status}`">
+                      <div
+                        class="mindmap-node"
+                        :class="`node-status-${data.status}`"
+                      >
                         <span class="node-name">{{ data.name }}</span>
-                        <span v-if="data.status" class="node-status-badge" :class="`badge-${data.status}`">{{ getMindmapStatusLabel(data.status) }}</span>
+                        <span
+                          v-if="data.status"
+                          class="node-status-badge"
+                          :class="`badge-${data.status}`"
+                        >{{ getMindmapStatusLabel(data.status) }}</span>
                       </div>
                     </template>
                   </el-tree>
@@ -642,20 +1020,35 @@
                     :style="{ left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px' }"
                     @click="contextMenuVisible = false"
                   >
-                    <div class="context-menu-item" @click.stop="setNodeStatus('passed')">
-                      <span class="status-indicator passed"></span>通过
+                    <div
+                      class="context-menu-item"
+                      @click.stop="setNodeStatus('passed')"
+                    >
+                      <span class="status-indicator passed" />通过
                     </div>
-                    <div class="context-menu-item" @click.stop="setNodeStatus('failed')">
-                      <span class="status-indicator failed"></span>失败
+                    <div
+                      class="context-menu-item"
+                      @click.stop="setNodeStatus('failed')"
+                    >
+                      <span class="status-indicator failed" />失败
                     </div>
-                    <div class="context-menu-item" @click.stop="setNodeStatus('blocked')">
-                      <span class="status-indicator blocked"></span>阻塞
+                    <div
+                      class="context-menu-item"
+                      @click.stop="setNodeStatus('blocked')"
+                    >
+                      <span class="status-indicator blocked" />阻塞
                     </div>
-                    <div class="context-menu-item" @click.stop="setNodeStatus('not_applicable')">
-                      <span class="status-indicator not-applicable"></span>不适用
+                    <div
+                      class="context-menu-item"
+                      @click.stop="setNodeStatus('not_applicable')"
+                    >
+                      <span class="status-indicator not-applicable" />不适用
                     </div>
-                    <div class="context-menu-item" @click.stop="setNodeStatus(null)">
-                      <span class="status-indicator clear"></span>清除状态
+                    <div
+                      class="context-menu-item"
+                      @click.stop="setNodeStatus(null)"
+                    >
+                      <span class="status-indicator clear" />清除状态
                     </div>
                   </div>
                 </div>

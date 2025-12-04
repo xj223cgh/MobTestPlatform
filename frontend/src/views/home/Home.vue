@@ -1,9 +1,14 @@
 <template>
   <div class="home">
     <div class="page-header">
-      <h1 class="title">首页</h1>
+      <h1 class="title">
+        首页
+      </h1>
       <div class="actions">
-        <el-button type="primary" @click="refreshData">
+        <el-button
+          type="primary"
+          @click="refreshData"
+        >
           <el-icon><Refresh /></el-icon>
           刷新数据
         </el-button>
@@ -12,33 +17,54 @@
 
     <!-- 统计卡片 -->
     <div class="stats-grid">
-      <div class="stat-card" v-loading="loading">
+      <div
+        v-loading="loading"
+        class="stat-card"
+      >
         <div class="stat-icon primary">
           <el-icon><User /></el-icon>
         </div>
         <div class="stat-content">
-          <div class="stat-number">{{ stats.users }}</div>
-          <div class="stat-label">用户总数</div>
+          <div class="stat-number">
+            {{ stats.users }}
+          </div>
+          <div class="stat-label">
+            用户总数
+          </div>
         </div>
       </div>
 
-      <div class="stat-card" v-loading="loading">
+      <div
+        v-loading="loading"
+        class="stat-card"
+      >
         <div class="stat-icon success">
           <el-icon><Monitor /></el-icon>
         </div>
         <div class="stat-content">
-          <div class="stat-number">{{ stats.devices }}</div>
-          <div class="stat-label">设备总数</div>
+          <div class="stat-number">
+            {{ stats.devices }}
+          </div>
+          <div class="stat-label">
+            设备总数
+          </div>
         </div>
       </div>
 
-      <div class="stat-card" v-loading="loading">
+      <div
+        v-loading="loading"
+        class="stat-card"
+      >
         <div class="stat-icon danger">
           <el-icon><List /></el-icon>
         </div>
         <div class="stat-content">
-          <div class="stat-number">{{ stats.testTasks }}</div>
-          <div class="stat-label">测试任务</div>
+          <div class="stat-number">
+            {{ stats.testTasks }}
+          </div>
+          <div class="stat-label">
+            测试任务
+          </div>
         </div>
       </div>
     </div>
@@ -49,14 +75,30 @@
       <div class="chart-card">
         <div class="chart-header">
           <h3>测试任务趋势</h3>
-          <el-select v-model="taskTrendPeriod" size="small" style="width: 120px">
-            <el-option label="最近7天" value="7d" />
-            <el-option label="最近30天" value="30d" />
-            <el-option label="最近90天" value="90d" />
+          <el-select
+            v-model="taskTrendPeriod"
+            size="small"
+            style="width: 120px"
+          >
+            <el-option
+              label="最近7天"
+              value="7d"
+            />
+            <el-option
+              label="最近30天"
+              value="30d"
+            />
+            <el-option
+              label="最近90天"
+              value="90d"
+            />
           </el-select>
         </div>
         <div class="chart-container">
-          <v-chart class="chart" :option="taskTrendOption" />
+          <v-chart
+            class="chart"
+            :option="taskTrendOption"
+          />
         </div>
       </div>
 
@@ -66,7 +108,10 @@
           <h3>设备状态分布</h3>
         </div>
         <div class="chart-container">
-          <v-chart class="chart" :option="deviceStatusOption" />
+          <v-chart
+            class="chart"
+            :option="deviceStatusOption"
+          />
         </div>
       </div>
     </div>
@@ -76,7 +121,12 @@
       <div class="card">
         <div class="card-header">
           <h3>最近活动</h3>
-          <el-link type="primary" @click="viewAllActivities">查看全部</el-link>
+          <el-link
+            type="primary"
+            @click="viewAllActivities"
+          >
+            查看全部
+          </el-link>
         </div>
         <div class="activity-list">
           <div
@@ -84,15 +134,24 @@
             :key="activity.id"
             class="activity-item"
           >
-            <div class="activity-icon" :class="activity.type">
+            <div
+              class="activity-icon"
+              :class="activity.type"
+            >
               <el-icon>
                 <component :is="getActivityIcon(activity.type)" />
               </el-icon>
             </div>
             <div class="activity-content">
-              <div class="activity-title">{{ activity.title }}</div>
-              <div class="activity-desc">{{ activity.description }}</div>
-              <div class="activity-time">{{ formatTime(activity.created_at) }}</div>
+              <div class="activity-title">
+                {{ activity.title }}
+              </div>
+              <div class="activity-desc">
+                {{ activity.description }}
+              </div>
+              <div class="activity-time">
+                {{ formatTime(activity.created_at) }}
+              </div>
             </div>
           </div>
         </div>

@@ -14,23 +14,36 @@
 
     <!-- 帮助分类 -->
     <div class="help-categories">
-      <el-card class="category-card" v-for="category in categories" :key="category.id">
-        <div class="category-header" @click="toggleCategory(category.id)">
+      <el-card
+        v-for="category in categories"
+        :key="category.id"
+        class="category-card"
+      >
+        <div
+          class="category-header"
+          @click="toggleCategory(category.id)"
+        >
           <el-icon class="category-icon">
             <component :is="category.icon" />
           </el-icon>
           <h3>{{ category.name }}</h3>
-          <el-icon class="expand-icon" :class="{ expanded: expandedCategories.includes(category.id) }">
+          <el-icon
+            class="expand-icon"
+            :class="{ expanded: expandedCategories.includes(category.id) }"
+          >
             <ArrowDown />
           </el-icon>
         </div>
         
-        <div class="category-content" v-show="expandedCategories.includes(category.id)">
+        <div
+          v-show="expandedCategories.includes(category.id)"
+          class="category-content"
+        >
           <div class="help-items">
             <div
-              class="help-item"
               v-for="item in category.items"
               :key="item.id"
+              class="help-item"
               @click="viewHelpItem(item)"
             >
               <h4>{{ item.title }}</h4>
@@ -54,12 +67,22 @@
       </template>
       
       <div class="quick-start-content">
-        <div class="step-item" v-for="(step, index) in quickStartSteps" :key="index">
-          <div class="step-number">{{ index + 1 }}</div>
+        <div
+          v-for="(step, index) in quickStartSteps"
+          :key="index"
+          class="step-item"
+        >
+          <div class="step-number">
+            {{ index + 1 }}
+          </div>
           <div class="step-content">
             <h4>{{ step.title }}</h4>
             <p>{{ step.description }}</p>
-            <el-button type="primary" size="small" @click="viewStepDetail(step)">
+            <el-button
+              type="primary"
+              size="small"
+              @click="viewStepDetail(step)"
+            >
               查看详情
             </el-button>
           </div>
@@ -72,7 +95,12 @@
       <template #header>
         <div class="card-header">
           <h3>常见问题</h3>
-          <el-button type="text" @click="refreshFAQ">刷新</el-button>
+          <el-button
+            type="text"
+            @click="refreshFAQ"
+          >
+            刷新
+          </el-button>
         </div>
       </template>
       
@@ -84,13 +112,24 @@
             :title="faq.question"
             :name="faq.id"
           >
-            <div class="faq-answer" v-html="faq.answer"></div>
+            <div
+              class="faq-answer"
+              v-html="faq.answer"
+            />
             <div class="faq-meta">
               <span class="helpful-count">有帮助 {{ faq.helpfulCount }} 次</span>
-              <el-button type="text" size="small" @click="markHelpful(faq)">
+              <el-button
+                type="text"
+                size="small"
+                @click="markHelpful(faq)"
+              >
                 👍 有帮助
               </el-button>
-              <el-button type="text" size="small" @click="markNotHelpful(faq)">
+              <el-button
+                type="text"
+                size="small"
+                @click="markNotHelpful(faq)"
+              >
                 👎 没帮助
               </el-button>
             </div>
@@ -104,19 +143,27 @@
       <template #header>
         <div class="card-header">
           <h3>视频教程</h3>
-          <el-button type="text" @click="viewAllVideos">查看全部</el-button>
+          <el-button
+            type="text"
+            @click="viewAllVideos"
+          >
+            查看全部
+          </el-button>
         </div>
       </template>
       
       <div class="video-grid">
         <div
-          class="video-item"
           v-for="video in videoList"
           :key="video.id"
+          class="video-item"
           @click="playVideo(video)"
         >
           <div class="video-thumbnail">
-            <img :src="video.thumbnail" :alt="video.title" />
+            <img
+              :src="video.thumbnail"
+              :alt="video.title"
+            >
             <div class="play-button">
               <el-icon><VideoPlay /></el-icon>
             </div>
@@ -143,26 +190,46 @@
       </template>
       
       <div class="support-options">
-        <div class="support-option" @click="openTicketDialog">
-          <el-icon class="support-icon"><Tickets /></el-icon>
+        <div
+          class="support-option"
+          @click="openTicketDialog"
+        >
+          <el-icon class="support-icon">
+            <Tickets />
+          </el-icon>
           <h4>提交工单</h4>
           <p>创建技术支持工单，获得专业帮助</p>
         </div>
         
-        <div class="support-option" @click="openChatDialog">
-          <el-icon class="support-icon"><ChatDotRound /></el-icon>
+        <div
+          class="support-option"
+          @click="openChatDialog"
+        >
+          <el-icon class="support-icon">
+            <ChatDotRound />
+          </el-icon>
           <h4>在线客服</h4>
           <p>与客服人员实时交流</p>
         </div>
         
-        <div class="support-option" @click="callSupport">
-          <el-icon class="support-icon"><Phone /></el-icon>
+        <div
+          class="support-option"
+          @click="callSupport"
+        >
+          <el-icon class="support-icon">
+            <Phone />
+          </el-icon>
           <h4>电话支持</h4>
           <p>工作日 9:00-18:00</p>
         </div>
         
-        <div class="support-option" @click="sendEmail">
-          <el-icon class="support-icon"><Message /></el-icon>
+        <div
+          class="support-option"
+          @click="sendEmail"
+        >
+          <el-icon class="support-icon">
+            <Message />
+          </el-icon>
           <h4>邮件支持</h4>
           <p>support@example.com</p>
         </div>
@@ -176,23 +243,29 @@
       width="80%"
       class="help-detail-dialog"
     >
-      <div class="help-detail-content" v-if="currentHelpItem">
+      <div
+        v-if="currentHelpItem"
+        class="help-detail-content"
+      >
         <div class="help-detail-header">
           <span class="help-category">{{ currentHelpItem.category }}</span>
           <span class="help-update-time">更新时间: {{ currentHelpItem.updateTime }}</span>
         </div>
         
-        <div class="help-detail-body" v-html="currentHelpItem.content"></div>
+        <div
+          class="help-detail-body"
+          v-html="currentHelpItem.content"
+        />
         
         <div class="help-detail-actions">
           <el-button @click="likeHelpItem">
-          <el-icon><Star /></el-icon>
-          有帮助
-        </el-button>
+            <el-icon><Star /></el-icon>
+            有帮助
+          </el-button>
           <el-button @click="dislikeHelpItem">
-          <el-icon><Close /></el-icon>
-          没帮助
-        </el-button>
+            <el-icon><Close /></el-icon>
+            没帮助
+          </el-button>
           <el-button @click="shareHelpItem">
             <el-icon><Share /></el-icon>
             分享
@@ -212,14 +285,17 @@
       width="80%"
       class="video-dialog"
     >
-      <div class="video-player" v-if="currentVideo">
+      <div
+        v-if="currentVideo"
+        class="video-player"
+      >
         <video
           ref="videoPlayer"
           :src="currentVideo.url"
           controls
           width="100%"
           height="400"
-        ></video>
+        />
         <div class="video-description">
           <p>{{ currentVideo.description }}</p>
         </div>
@@ -233,21 +309,51 @@
       width="60%"
       class="ticket-dialog"
     >
-      <el-form :model="ticketForm" label-width="100px">
-        <el-form-item label="问题类型" required>
-          <el-select v-model="ticketForm.type" placeholder="请选择问题类型">
-            <el-option label="功能问题" value="feature" />
-            <el-option label="技术问题" value="technical" />
-            <el-option label="账户问题" value="account" />
-            <el-option label="其他问题" value="other" />
+      <el-form
+        :model="ticketForm"
+        label-width="100px"
+      >
+        <el-form-item
+          label="问题类型"
+          required
+        >
+          <el-select
+            v-model="ticketForm.type"
+            placeholder="请选择问题类型"
+          >
+            <el-option
+              label="功能问题"
+              value="feature"
+            />
+            <el-option
+              label="技术问题"
+              value="technical"
+            />
+            <el-option
+              label="账户问题"
+              value="account"
+            />
+            <el-option
+              label="其他问题"
+              value="other"
+            />
           </el-select>
         </el-form-item>
         
-        <el-form-item label="问题标题" required>
-          <el-input v-model="ticketForm.title" placeholder="请输入问题标题" />
+        <el-form-item
+          label="问题标题"
+          required
+        >
+          <el-input
+            v-model="ticketForm.title"
+            placeholder="请输入问题标题"
+          />
         </el-form-item>
         
-        <el-form-item label="问题描述" required>
+        <el-form-item
+          label="问题描述"
+          required
+        >
           <el-input
             v-model="ticketForm.description"
             type="textarea"
@@ -274,13 +380,23 @@
         </el-form-item>
         
         <el-form-item label="联系方式">
-          <el-input v-model="ticketForm.contact" placeholder="邮箱或电话" />
+          <el-input
+            v-model="ticketForm.contact"
+            placeholder="邮箱或电话"
+          />
         </el-form-item>
       </el-form>
       
       <template #footer>
-        <el-button @click="ticketDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitTicket">提交</el-button>
+        <el-button @click="ticketDialogVisible = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          @click="submitTicket"
+        >
+          提交
+        </el-button>
       </template>
     </el-dialog>
   </div>

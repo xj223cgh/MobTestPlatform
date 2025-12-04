@@ -1,11 +1,24 @@
 <template>
   <div class="layout">
     <!-- 侧边栏 -->
-    <aside class="sidebar" :class="{ collapsed: isCollapsed }">
+    <aside
+      class="sidebar"
+      :class="{ collapsed: isCollapsed }"
+    >
       <div class="logo">
-            <h1 v-if="!isCollapsed" style="color: white; margin: 0; font-size: 18px;">MobTest</h1>
-            <h1 v-else style="color: white; margin: 0; font-size: 14px;">MT</h1>
-          </div>
+        <h1
+          v-if="!isCollapsed"
+          style="color: white; margin: 0; font-size: 18px;"
+        >
+          MobTest
+        </h1>
+        <h1
+          v-else
+          style="color: white; margin: 0; font-size: 14px;"
+        >
+          MT
+        </h1>
+      </div>
       
       <el-menu
         :default-active="$route.path"
@@ -38,7 +51,9 @@
                 <el-icon v-if="childRoute.meta.icon">
                   <component :is="childRoute.meta.icon" />
                 </el-icon>
-                <template #title>{{ childRoute.meta.title }}</template>
+                <template #title>
+                  {{ childRoute.meta.title }}
+                </template>
               </el-menu-item>
               <!-- 支持多级嵌套 -->
               <el-sub-menu 
@@ -53,11 +68,17 @@
                   {{ childRoute.meta.title }}
                 </template>
                 <!-- 递归渲染更深层级的子菜单 -->
-                <el-menu-item v-for="grandChildRoute in childRoute.children" :key="grandChildRoute.path" :index="`/${menuRoute.path}/${childRoute.path}/${grandChildRoute.path}`">
+                <el-menu-item
+                  v-for="grandChildRoute in childRoute.children"
+                  :key="grandChildRoute.path"
+                  :index="`/${menuRoute.path}/${childRoute.path}/${grandChildRoute.path}`"
+                >
                   <el-icon v-if="grandChildRoute.meta.icon">
                     <component :is="grandChildRoute.meta.icon" />
                   </el-icon>
-                  <template #title>{{ grandChildRoute.meta.title }}</template>
+                  <template #title>
+                    {{ grandChildRoute.meta.title }}
+                  </template>
                 </el-menu-item>
               </el-sub-menu>
             </template>
@@ -71,7 +92,9 @@
             <el-icon v-if="menuRoute.meta.icon">
               <component :is="menuRoute.meta.icon" />
             </el-icon>
-            <template #title>{{ menuRoute.meta.title }}</template>
+            <template #title>
+              {{ menuRoute.meta.title }}
+            </template>
           </el-menu-item>
         </template>
       </el-menu>
@@ -84,15 +107,20 @@
         <div class="header-left">
           <el-button
             type="text"
-            @click="toggleSidebar"
             class="collapse-btn"
+            @click="toggleSidebar"
           >
             <el-icon><Expand v-if="isCollapsed" /><Fold v-else /></el-icon>
           </el-button>
           
-          <el-breadcrumb separator="/" class="breadcrumb">
+          <el-breadcrumb
+            separator="/"
+            class="breadcrumb"
+          >
             <!-- 动态生成面包屑 -->
-            <el-breadcrumb-item :to="{ path: '/home' }">首页</el-breadcrumb-item>
+            <el-breadcrumb-item :to="{ path: '/home' }">
+              首页
+            </el-breadcrumb-item>
             
             <!-- 生成所有面包屑 -->
             <template v-if="breadcrumbItems.length > 0">
@@ -106,8 +134,8 @@
                   <el-button
                     type="text"
                     size="small"
-                    @click.stop="handleCloseBreadcrumb(item.path)"
                     class="breadcrumb-close-btn"
+                    @click.stop="handleCloseBreadcrumb(item.path)"
                   >
                     <el-icon><Close /></el-icon>
                   </el-button>
@@ -119,20 +147,35 @@
 
         <div class="header-right">
           <!-- 全屏按钮 -->
-          <el-tooltip content="全屏" placement="bottom">
-            <el-button type="text" @click="toggleFullscreen" class="header-btn">
+          <el-tooltip
+            content="全屏"
+            placement="bottom"
+          >
+            <el-button
+              type="text"
+              class="header-btn"
+              @click="toggleFullscreen"
+            >
               <el-icon><FullScreen /></el-icon>
             </el-button>
           </el-tooltip>
 
           <!-- 用户信息 -->
-          <el-dropdown @command="handleCommand" class="user-dropdown">
+          <el-dropdown
+            class="user-dropdown"
+            @command="handleCommand"
+          >
             <div class="user-info">
-              <el-avatar :size="32" :src="userStore.avatar">
+              <el-avatar
+                :size="32"
+                :src="userStore.avatar"
+              >
                 {{ userStore.userName.charAt(0).toUpperCase() }}
               </el-avatar>
               <span class="username">{{ userStore.userName }}</span>
-              <el-icon class="arrow"><ArrowDown /></el-icon>
+              <el-icon class="arrow">
+                <ArrowDown />
+              </el-icon>
             </div>
             <template #dropdown>
               <el-dropdown-menu>
@@ -140,7 +183,10 @@
                   <el-icon><User /></el-icon>
                   个人中心
                 </el-dropdown-item>
-                <el-dropdown-item divided command="logout">
+                <el-dropdown-item
+                  divided
+                  command="logout"
+                >
                   <el-icon><SwitchButton /></el-icon>
                   退出登录
                 </el-dropdown-item>

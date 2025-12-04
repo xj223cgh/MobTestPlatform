@@ -2,21 +2,35 @@
   <div class="error-container">
     <div class="error-content">
       <div class="error-icon">
-        <el-icon size="120" color="#f56c6c">
+        <el-icon
+          size="120"
+          color="#f56c6c"
+        >
           <Lock />
         </el-icon>
       </div>
-      <h1 class="error-title">403</h1>
-      <h2 class="error-subtitle">访问被拒绝</h2>
+      <h1 class="error-title">
+        403
+      </h1>
+      <h2 class="error-subtitle">
+        访问被拒绝
+      </h2>
       <p class="error-description">
         抱歉，您没有权限访问此页面。请联系管理员获取相应权限。
       </p>
       <div class="error-actions">
-        <el-button type="primary" size="large" @click="goBack">
+        <el-button
+          type="primary"
+          size="large"
+          @click="goBack"
+        >
           <el-icon><ArrowLeft /></el-icon>
           返回上页
         </el-button>
-        <el-button size="large" @click="goHome">
+        <el-button
+          size="large"
+          @click="goHome"
+        >
           <el-icon><HomeFilled /></el-icon>
           返回首页
         </el-button>

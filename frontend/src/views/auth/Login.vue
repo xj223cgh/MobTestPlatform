@@ -3,7 +3,10 @@
     <div class="login-card">
       <div class="login-header">
         <div class="logo-placeholder">
-          <el-icon size="80" color="#667eea">
+          <el-icon
+            size="80"
+            color="#667eea"
+          >
             <Monitor />
           </el-icon>
         </div>
@@ -43,8 +46,18 @@
 
         <el-form-item>
           <div class="login-options">
-            <el-checkbox v-model="loginForm.remember" @change="handleRememberChange">记住用户名密码</el-checkbox>
-            <el-link type="primary" @click="goToForgotPassword">忘记密码？</el-link>
+            <el-checkbox
+              v-model="loginForm.remember"
+              @change="handleRememberChange"
+            >
+              记住用户名密码
+            </el-checkbox>
+            <el-link
+              type="primary"
+              @click="goToForgotPassword"
+            >
+              忘记密码？
+            </el-link>
           </div>
         </el-form-item>
 
@@ -61,7 +74,12 @@
         </el-form-item>
 
         <div class="register-link">
-          <el-link type="primary" @click="goToRegister">还没有账号？立即注册</el-link>
+          <el-link
+            type="primary"
+            @click="goToRegister"
+          >
+            还没有账号？立即注册
+          </el-link>
         </div>
       </el-form>
     </div>

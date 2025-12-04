@@ -86,10 +86,13 @@ def create_test_case():
         if not suite:
             return error_response(400, "指定的测试套件不存在")
     
-    # 获取套件所属的项目ID
-    project_id = suite.project_id if suite else None
+    # 使用前端传递的项目相关信息，优先使用前端传递的值，否则从套件获取
+    project_id = data.get('project_id') or (suite.project_id if suite else None)
+    version_requirement_id = data.get('version_requirement_id') or (suite.version_requirement_id if suite else None)
+    iteration_id = data.get('iteration_id') or (suite.iteration_id if suite else None)
     
     test_case = TestCase(
+        case_number=data.get('case_number', ''),
         case_name=data['case_name'],
         case_description=data.get('case_description', ''),
         preconditions=data.get('preconditions', ''),
@@ -99,10 +102,12 @@ def create_test_case():
         test_data=data.get('test_data', ''),
         priority=data.get('priority', 'P1'),
         status=data.get('status', ''),
-        type=data.get('type', 'functional'),
         creator_id=current_user.id,
+        assignee_id=current_user.id,  # 默认将当前登录用户设为负责人
         suite_id=data.get('suite_id'),
-        project_id=project_id
+        project_id=project_id,
+        version_requirement_id=version_requirement_id,
+        iteration_id=iteration_id
     )
     
     try:
@@ -128,6 +133,9 @@ def update_test_case(case_id):
     data = request.get_json()
     
     # 更新字段
+    if 'case_number' in data:
+        test_case.case_number = data['case_number']
+    
     if 'case_name' in data:
         test_case.case_name = data['case_name']
     
@@ -154,9 +162,19 @@ def update_test_case(case_id):
     
     if 'status' in data:
         test_case.status = data['status']
+        # 当状态变化时，更新最后执行时间
+        from datetime import datetime
+        test_case.executed_at = datetime.utcnow()
     
-    if 'type' in data:
-        test_case.type = data['type']
+    # 直接传递的项目相关信息，优先级高于从套件获取
+    if 'project_id' in data:
+        test_case.project_id = data['project_id']
+    
+    if 'version_requirement_id' in data:
+        test_case.version_requirement_id = data['version_requirement_id']
+    
+    if 'iteration_id' in data:
+        test_case.iteration_id = data['iteration_id']
     
     if 'suite_id' in data:
         # 验证套件是否存在
@@ -164,8 +182,13 @@ def update_test_case(case_id):
             suite = TestSuite.query.get(data['suite_id'])
             if not suite:
                 return error_response(400, "指定的测试套件不存在")
-            # 更新项目ID
-            test_case.project_id = suite.project_id
+            # 如果没有直接传递项目相关信息，则从套件获取
+            if 'project_id' not in data:
+                test_case.project_id = suite.project_id
+            if 'version_requirement_id' not in data:
+                test_case.version_requirement_id = suite.version_requirement_id
+            if 'iteration_id' not in data:
+                test_case.iteration_id = suite.iteration_id
         test_case.suite_id = data['suite_id']
     
     if 'assignee_id' in data:
@@ -174,20 +197,8 @@ def update_test_case(case_id):
     if 'reviewer_id' in data:
         test_case.reviewer_id = data['reviewer_id']
     
-    if 'estimated_execution_time' in data:
-        test_case.estimated_execution_time = data['estimated_execution_time']
-    
-    if 'review_status' in data:
-        test_case.review_status = data['review_status']
-    
     if 'review_comments' in data:
         test_case.review_comments = data['review_comments']
-    
-    if 'version_info' in data:
-        test_case.version_info = data['version_info']
-    
-    if 'tags' in data:
-        test_case.tags = data['tags']
     
     try:
         db.session.commit()

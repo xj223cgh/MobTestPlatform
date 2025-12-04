@@ -235,6 +235,14 @@ def update_test_suite(suite_id):
             
             suite.type = new_type
         
+        # 更新评审人ID
+        if 'reviewer_id' in data:
+            suite.reviewer_id = data['reviewer_id']
+        
+        # 更新评审状态
+        if 'review_status' in data:
+            suite.review_status = data['review_status']
+        
         # 如果父级或排序发生变化，需要重新调整排序
         if ('parent_id' in data and data['parent_id'] != original_parent_id) or \
            ('sort_order' in data and data['sort_order'] != original_sort_order):
@@ -278,6 +286,39 @@ def update_test_suite(suite_id):
     except Exception as e:
         db.session.rollback()
         return error_response(f'更新测试套件失败: {str(e)}', 500)
+
+
+@bp.route('/<int:suite_id>/sync-reviewer', methods=['POST'])
+@login_required
+def sync_reviewer_to_cases(suite_id):
+    """同步评审人到用例集下的所有用例"""
+    try:
+        # 获取测试套件
+        suite = TestSuite.query.get_or_404(suite_id)
+        
+        # 检查是否为用例集
+        if suite.type != 'suite':
+            return error_response('只有用例集才能同步评审人到用例', 400)
+        
+        # 检查是否设置了评审人
+        if not suite.reviewer_id:
+            return error_response('请先为用例集设置评审人', 400)
+        
+        # 获取该用例集下的所有用例
+        from app.models.models import TestCase
+        cases = TestCase.query.filter_by(suite_id=suite_id).all()
+        
+        # 同步评审人ID到所有用例
+        for case in cases:
+            case.reviewer_id = suite.reviewer_id
+        
+        # 提交更改
+        db.session.commit()
+        
+        return success_response({"message": f"成功将评审人同步到{len(cases)}个用例", "cases_count": len(cases)})
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'同步评审人失败: {str(e)}', 500)
 
 
 @bp.route('/<int:suite_id>', methods=['DELETE'])

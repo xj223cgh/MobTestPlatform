@@ -4,7 +4,10 @@
     <div class="page-header">
       <h2>报告管理</h2>
       <div class="header-actions">
-        <el-button type="primary" @click="generateReport">
+        <el-button
+          type="primary"
+          @click="generateReport"
+        >
           <el-icon><Document /></el-icon>
           生成报告
         </el-button>
@@ -22,11 +25,20 @@
           <el-card class="stats-card">
             <div class="stats-content">
               <div class="stats-icon">
-                <el-icon size="40" color="#409EFF"><Document /></el-icon>
+                <el-icon
+                  size="40"
+                  color="#409EFF"
+                >
+                  <Document />
+                </el-icon>
               </div>
               <div class="stats-info">
-                <div class="stats-value">{{ stats.totalReports }}</div>
-                <div class="stats-label">总报告数</div>
+                <div class="stats-value">
+                  {{ stats.totalReports }}
+                </div>
+                <div class="stats-label">
+                  总报告数
+                </div>
               </div>
             </div>
           </el-card>
@@ -35,11 +47,20 @@
           <el-card class="stats-card">
             <div class="stats-content">
               <div class="stats-icon">
-                <el-icon size="40" color="#67C23A"><CircleCheck /></el-icon>
+                <el-icon
+                  size="40"
+                  color="#67C23A"
+                >
+                  <CircleCheck />
+                </el-icon>
               </div>
               <div class="stats-info">
-                <div class="stats-value">{{ stats.successReports }}</div>
-                <div class="stats-label">成功报告</div>
+                <div class="stats-value">
+                  {{ stats.successReports }}
+                </div>
+                <div class="stats-label">
+                  成功报告
+                </div>
               </div>
             </div>
           </el-card>
@@ -48,11 +69,20 @@
           <el-card class="stats-card">
             <div class="stats-content">
               <div class="stats-icon">
-                <el-icon size="40" color="#F56C6C"><CircleClose /></el-icon>
+                <el-icon
+                  size="40"
+                  color="#F56C6C"
+                >
+                  <CircleClose />
+                </el-icon>
               </div>
               <div class="stats-info">
-                <div class="stats-value">{{ stats.failedReports }}</div>
-                <div class="stats-label">失败报告</div>
+                <div class="stats-value">
+                  {{ stats.failedReports }}
+                </div>
+                <div class="stats-label">
+                  失败报告
+                </div>
               </div>
             </div>
           </el-card>
@@ -61,11 +91,20 @@
           <el-card class="stats-card">
             <div class="stats-content">
               <div class="stats-icon">
-                <el-icon size="40" color="#E6A23C"><Clock /></el-icon>
+                <el-icon
+                  size="40"
+                  color="#E6A23C"
+                >
+                  <Clock />
+                </el-icon>
               </div>
               <div class="stats-info">
-                <div class="stats-value">{{ stats.pendingReports }}</div>
-                <div class="stats-label">待处理报告</div>
+                <div class="stats-value">
+                  {{ stats.pendingReports }}
+                </div>
+                <div class="stats-label">
+                  待处理报告
+                </div>
               </div>
             </div>
           </el-card>
@@ -75,7 +114,10 @@
 
     <!-- 搜索和筛选 -->
     <el-card class="search-card">
-      <el-form :model="searchForm" inline>
+      <el-form
+        :model="searchForm"
+        inline
+      >
         <el-form-item label="报告名称">
           <el-input
             v-model="searchForm.name"
@@ -93,19 +135,51 @@
           />
         </el-form-item>
         <el-form-item label="报告类型">
-          <el-select v-model="searchForm.type" placeholder="请选择报告类型" clearable>
-            <el-option label="测试报告" value="test" />
-            <el-option label="性能报告" value="performance" />
-            <el-option label="覆盖率报告" value="coverage" />
-            <el-option label="错误报告" value="error" />
+          <el-select
+            v-model="searchForm.type"
+            placeholder="请选择报告类型"
+            clearable
+          >
+            <el-option
+              label="测试报告"
+              value="test"
+            />
+            <el-option
+              label="性能报告"
+              value="performance"
+            />
+            <el-option
+              label="覆盖率报告"
+              value="coverage"
+            />
+            <el-option
+              label="错误报告"
+              value="error"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="searchForm.status" placeholder="请选择状态" clearable>
-            <el-option label="成功" value="success" />
-            <el-option label="失败" value="failed" />
-            <el-option label="进行中" value="running" />
-            <el-option label="待处理" value="pending" />
+          <el-select
+            v-model="searchForm.status"
+            placeholder="请选择状态"
+            clearable
+          >
+            <el-option
+              label="成功"
+              value="success"
+            />
+            <el-option
+              label="失败"
+              value="failed"
+            />
+            <el-option
+              label="进行中"
+              value="running"
+            />
+            <el-option
+              label="待处理"
+              value="pending"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="创建时间">
@@ -120,7 +194,10 @@
           />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleSearch">
+          <el-button
+            type="primary"
+            @click="handleSearch"
+          >
             <el-icon><Search /></el-icon>
             搜索
           </el-button>
@@ -141,25 +218,52 @@
         style="width: 100%"
         @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" width="55" />
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="name" label="报告名称" min-width="150" />
-        <el-table-column prop="taskName" label="任务名称" min-width="150" />
-        <el-table-column prop="type" label="报告类型" width="120">
+        <el-table-column
+          type="selection"
+          width="55"
+        />
+        <el-table-column
+          prop="id"
+          label="ID"
+          width="80"
+        />
+        <el-table-column
+          prop="name"
+          label="报告名称"
+          min-width="150"
+        />
+        <el-table-column
+          prop="taskName"
+          label="任务名称"
+          min-width="150"
+        />
+        <el-table-column
+          prop="type"
+          label="报告类型"
+          width="120"
+        >
           <template #default="{ row }">
             <el-tag :type="getReportTypeTag(row.type)">
               {{ getReportTypeText(row.type) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column
+          prop="status"
+          label="状态"
+          width="100"
+        >
           <template #default="{ row }">
             <el-tag :type="getStatusTag(row.status)">
               {{ getStatusText(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="successRate" label="成功率" width="100">
+        <el-table-column
+          prop="successRate"
+          label="成功率"
+          width="100"
+        >
           <template #default="{ row }">
             <el-progress
               :percentage="row.successRate"
@@ -168,9 +272,21 @@
             />
           </template>
         </el-table-column>
-        <el-table-column prop="duration" label="执行时长" width="120" />
-        <el-table-column prop="createdAt" label="创建时间" width="160" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column
+          prop="duration"
+          label="执行时长"
+          width="120"
+        />
+        <el-table-column
+          prop="createdAt"
+          label="创建时间"
+          width="160"
+        />
+        <el-table-column
+          label="操作"
+          width="200"
+          fixed="right"
+        >
           <template #default="{ row }">
             <el-button
               type="primary"
@@ -187,14 +303,28 @@
               下载
             </el-button>
             <el-dropdown @command="(command) => handleCommand(command, row)">
-              <el-button type="info" size="small">
-                更多<el-icon class="el-icon--right"><arrow-down /></el-icon>
+              <el-button
+                type="info"
+                size="small"
+              >
+                更多<el-icon class="el-icon--right">
+                  <arrow-down />
+                </el-icon>
               </el-button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="share">分享</el-dropdown-item>
-                  <el-dropdown-item command="compare">比较</el-dropdown-item>
-                  <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                  <el-dropdown-item command="share">
+                    分享
+                  </el-dropdown-item>
+                  <el-dropdown-item command="compare">
+                    比较
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    command="delete"
+                    divided
+                  >
+                    删除
+                  </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -229,11 +359,24 @@
         :rules="generateRules"
         label-width="100px"
       >
-        <el-form-item label="报告名称" prop="name">
-          <el-input v-model="generateForm.name" placeholder="请输入报告名称" />
+        <el-form-item
+          label="报告名称"
+          prop="name"
+        >
+          <el-input
+            v-model="generateForm.name"
+            placeholder="请输入报告名称"
+          />
         </el-form-item>
-        <el-form-item label="任务选择" prop="taskId">
-          <el-select v-model="generateForm.taskId" placeholder="请选择任务" style="width: 100%">
+        <el-form-item
+          label="任务选择"
+          prop="taskId"
+        >
+          <el-select
+            v-model="generateForm.taskId"
+            placeholder="请选择任务"
+            style="width: 100%"
+          >
             <el-option
               v-for="task in taskList"
               :key="task.id"
@@ -242,36 +385,79 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="报告类型" prop="type">
-          <el-select v-model="generateForm.type" placeholder="请选择报告类型" style="width: 100%">
-            <el-option label="测试报告" value="test" />
-            <el-option label="性能报告" value="performance" />
-            <el-option label="覆盖率报告" value="coverage" />
-            <el-option label="错误报告" value="error" />
+        <el-form-item
+          label="报告类型"
+          prop="type"
+        >
+          <el-select
+            v-model="generateForm.type"
+            placeholder="请选择报告类型"
+            style="width: 100%"
+          >
+            <el-option
+              label="测试报告"
+              value="test"
+            />
+            <el-option
+              label="性能报告"
+              value="performance"
+            />
+            <el-option
+              label="覆盖率报告"
+              value="coverage"
+            />
+            <el-option
+              label="错误报告"
+              value="error"
+            />
           </el-select>
         </el-form-item>
-        <el-form-item label="报告格式" prop="format">
+        <el-form-item
+          label="报告格式"
+          prop="format"
+        >
           <el-checkbox-group v-model="generateForm.format">
-            <el-checkbox label="html">HTML</el-checkbox>
-            <el-checkbox label="pdf">PDF</el-checkbox>
-            <el-checkbox label="json">JSON</el-checkbox>
-            <el-checkbox label="excel">Excel</el-checkbox>
+            <el-checkbox label="html">
+              HTML
+            </el-checkbox>
+            <el-checkbox label="pdf">
+              PDF
+            </el-checkbox>
+            <el-checkbox label="json">
+              JSON
+            </el-checkbox>
+            <el-checkbox label="excel">
+              Excel
+            </el-checkbox>
           </el-checkbox-group>
         </el-form-item>
         <el-form-item label="包含内容">
           <el-checkbox-group v-model="generateForm.includeContent">
-            <el-checkbox label="summary">摘要</el-checkbox>
-            <el-checkbox label="details">详细信息</el-checkbox>
-            <el-checkbox label="charts">图表</el-checkbox>
-            <el-checkbox label="logs">日志</el-checkbox>
-            <el-checkbox label="screenshots">截图</el-checkbox>
+            <el-checkbox label="summary">
+              摘要
+            </el-checkbox>
+            <el-checkbox label="details">
+              详细信息
+            </el-checkbox>
+            <el-checkbox label="charts">
+              图表
+            </el-checkbox>
+            <el-checkbox label="logs">
+              日志
+            </el-checkbox>
+            <el-checkbox label="screenshots">
+              截图
+            </el-checkbox>
           </el-checkbox-group>
         </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="generateDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleGenerateReport">生成</el-button>
+          <el-button
+            type="primary"
+            @click="handleGenerateReport"
+          >生成</el-button>
         </span>
       </template>
     </el-dialog>
@@ -284,11 +470,22 @@
       top="5vh"
       @close="handleDetailDialogClose"
     >
-      <div v-if="currentReport" class="report-detail">
+      <div
+        v-if="currentReport"
+        class="report-detail"
+      >
         <!-- 报告基本信息 -->
-        <el-descriptions title="基本信息" :column="3" border>
-          <el-descriptions-item label="报告名称">{{ currentReport.name }}</el-descriptions-item>
-          <el-descriptions-item label="任务名称">{{ currentReport.taskName }}</el-descriptions-item>
+        <el-descriptions
+          title="基本信息"
+          :column="3"
+          border
+        >
+          <el-descriptions-item label="报告名称">
+            {{ currentReport.name }}
+          </el-descriptions-item>
+          <el-descriptions-item label="任务名称">
+            {{ currentReport.taskName }}
+          </el-descriptions-item>
           <el-descriptions-item label="报告类型">
             <el-tag :type="getReportTypeTag(currentReport.type)">
               {{ getReportTypeText(currentReport.type) }}
@@ -299,11 +496,21 @@
               {{ getStatusText(currentReport.status) }}
             </el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="成功率">{{ currentReport.successRate }}%</el-descriptions-item>
-          <el-descriptions-item label="执行时长">{{ currentReport.duration }}</el-descriptions-item>
-          <el-descriptions-item label="创建时间">{{ currentReport.createdAt }}</el-descriptions-item>
-          <el-descriptions-item label="更新时间">{{ currentReport.updatedAt }}</el-descriptions-item>
-          <el-descriptions-item label="文件大小">{{ currentReport.fileSize }}</el-descriptions-item>
+          <el-descriptions-item label="成功率">
+            {{ currentReport.successRate }}%
+          </el-descriptions-item>
+          <el-descriptions-item label="执行时长">
+            {{ currentReport.duration }}
+          </el-descriptions-item>
+          <el-descriptions-item label="创建时间">
+            {{ currentReport.createdAt }}
+          </el-descriptions-item>
+          <el-descriptions-item label="更新时间">
+            {{ currentReport.updatedAt }}
+          </el-descriptions-item>
+          <el-descriptions-item label="文件大小">
+            {{ currentReport.fileSize }}
+          </el-descriptions-item>
         </el-descriptions>
 
         <!-- 测试结果统计 -->
@@ -312,26 +519,42 @@
           <el-row :gutter="20">
             <el-col :span="6">
               <div class="stat-item">
-                <div class="stat-value success">{{ currentReport.totalCases }}</div>
-                <div class="stat-label">总用例数</div>
+                <div class="stat-value success">
+                  {{ currentReport.totalCases }}
+                </div>
+                <div class="stat-label">
+                  总用例数
+                </div>
               </div>
             </el-col>
             <el-col :span="6">
               <div class="stat-item">
-                <div class="stat-value success">{{ currentReport.passedCases }}</div>
-                <div class="stat-label">通过用例</div>
+                <div class="stat-value success">
+                  {{ currentReport.passedCases }}
+                </div>
+                <div class="stat-label">
+                  通过用例
+                </div>
               </div>
             </el-col>
             <el-col :span="6">
               <div class="stat-item">
-                <div class="stat-value failed">{{ currentReport.failedCases }}</div>
-                <div class="stat-label">失败用例</div>
+                <div class="stat-value failed">
+                  {{ currentReport.failedCases }}
+                </div>
+                <div class="stat-label">
+                  失败用例
+                </div>
               </div>
             </el-col>
             <el-col :span="6">
               <div class="stat-item">
-                <div class="stat-value warning">{{ currentReport.skippedCases }}</div>
-                <div class="stat-label">跳过用例</div>
+                <div class="stat-value warning">
+                  {{ currentReport.skippedCases }}
+                </div>
+                <div class="stat-label">
+                  跳过用例
+                </div>
               </div>
             </el-col>
           </el-row>
@@ -341,25 +564,56 @@
         <div class="report-content">
           <h3>报告内容</h3>
           <el-tabs v-model="activeTab">
-            <el-tab-pane label="摘要" name="summary">
-              <div v-html="currentReport.summary" class="report-html"></div>
+            <el-tab-pane
+              label="摘要"
+              name="summary"
+            >
+              <div
+                class="report-html"
+                v-html="currentReport.summary"
+              />
             </el-tab-pane>
-            <el-tab-pane label="详细信息" name="details">
-              <div v-html="currentReport.details" class="report-html"></div>
+            <el-tab-pane
+              label="详细信息"
+              name="details"
+            >
+              <div
+                class="report-html"
+                v-html="currentReport.details"
+              />
             </el-tab-pane>
-            <el-tab-pane label="图表" name="charts">
-              <div v-if="currentReport.charts" class="report-charts">
-                <div v-for="(chart, index) in currentReport.charts" :key="index" class="chart-item">
-                  <div :id="`chart-${index}`" style="width: 100%; height: 400px;"></div>
+            <el-tab-pane
+              label="图表"
+              name="charts"
+            >
+              <div
+                v-if="currentReport.charts"
+                class="report-charts"
+              >
+                <div
+                  v-for="(chart, index) in currentReport.charts"
+                  :key="index"
+                  class="chart-item"
+                >
+                  <div
+                    :id="`chart-${index}`"
+                    style="width: 100%; height: 400px;"
+                  />
                 </div>
               </div>
             </el-tab-pane>
-            <el-tab-pane label="日志" name="logs">
+            <el-tab-pane
+              label="日志"
+              name="logs"
+            >
               <div class="report-logs">
                 <pre>{{ currentReport.logs }}</pre>
               </div>
             </el-tab-pane>
-            <el-tab-pane label="截图" name="screenshots">
+            <el-tab-pane
+              label="截图"
+              name="screenshots"
+            >
               <div class="report-screenshots">
                 <el-image
                   v-for="(screenshot, index) in currentReport.screenshots"

@@ -268,6 +268,9 @@ def update_case_execution(task_id, case_id):
             execution.notes = data['notes']
         execution.execution_time = datetime.utcnow()
         
+        # 更新测试用例的最后执行时间
+        test_case.executed_at = datetime.utcnow()
+        
         db.session.commit()
         
         return success_response(execution.to_dict())

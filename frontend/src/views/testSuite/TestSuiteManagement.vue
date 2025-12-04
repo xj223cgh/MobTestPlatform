@@ -3,7 +3,10 @@
     <div class="page-header">
       <h1>测试套件管理</h1>
       <div class="header-actions">
-        <el-button type="primary" @click="showCreateSuiteDialog">
+        <el-button
+          type="primary"
+          @click="showCreateSuiteDialog"
+        >
           <el-icon><Plus /></el-icon>
           新建测试套件
         </el-button>
@@ -31,10 +34,10 @@
           :props="defaultProps"
           :expand-on-click-node="false"
           :default-expand-all="true"
-          @node-click="handleNodeClick"
-          @node-contextmenu="handleContextMenu"
           :allow-drop="allowDrop"
           :allow-drag="allowDrag"
+          @node-click="handleNodeClick"
+          @node-contextmenu="handleContextMenu"
           @node-drop="handleNodeDrop"
         >
           <template #default="{ data }">
@@ -43,10 +46,16 @@
                 {{ data.name }}
               </span>
               <div class="node-actions">
-                <el-icon class="action-icon" @click.stop="showEditSuiteDialog(data)">
+                <el-icon
+                  class="action-icon"
+                  @click.stop="showEditSuiteDialog(data)"
+                >
                   <Edit />
                 </el-icon>
-                <el-icon class="action-icon" @click.stop="deleteSuite(data.id)">
+                <el-icon
+                  class="action-icon"
+                  @click.stop="deleteSuite(data.id)"
+                >
                   <Delete />
                 </el-icon>
               </div>
@@ -57,11 +66,19 @@
 
       <!-- 右侧内容区域 -->
       <div class="content-container">
-        <div v-if="!selectedNode" class="empty-state">
-          <el-icon class="empty-icon"><Folder /></el-icon>
+        <div
+          v-if="!selectedNode"
+          class="empty-state"
+        >
+          <el-icon class="empty-icon">
+            <Folder />
+          </el-icon>
           <p>请选择或创建一个测试套件</p>
         </div>
-        <div v-else class="suite-details">
+        <div
+          v-else
+          class="suite-details"
+        >
           <div class="suite-header">
             <h2>{{ selectedNode.name }}</h2>
             <div class="suite-actions">
@@ -73,7 +90,10 @@
                 <el-icon><Download /></el-icon>
                 导出Xmind
               </el-button>
-              <el-button type="primary" @click="createTestCase">
+              <el-button
+                type="primary"
+                @click="createTestCase"
+              >
                 <el-icon><Plus /></el-icon>
                 新建测试用例
               </el-button>
@@ -83,31 +103,69 @@
           <!-- 测试用例表格 -->
           <div class="test-cases-section">
             <h3>测试用例列表</h3>
-            <el-table :data="testCasesData" style="width: 100%">
-              <el-table-column prop="id" label="ID" width="80" />
-              <el-table-column prop="case_name" label="用例名称" min-width="200" />
-              <el-table-column prop="module" label="模块" width="150" />
-              <el-table-column prop="priority" label="优先级" width="100">
+            <el-table
+              :data="testCasesData"
+              style="width: 100%"
+            >
+              <el-table-column
+                prop="id"
+                label="ID"
+                width="80"
+              />
+              <el-table-column
+                prop="case_name"
+                label="用例名称"
+                min-width="200"
+              />
+              <el-table-column
+                prop="module"
+                label="模块"
+                width="150"
+              />
+              <el-table-column
+                prop="priority"
+                label="优先级"
+                width="100"
+              >
                 <template #default="scope">
                   <el-tag :type="getPriorityType(scope.row.priority)">
                     {{ scope.row.priority }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="status" label="状态" width="100">
+              <el-table-column
+                prop="status"
+                label="状态"
+                width="100"
+              >
                 <template #default="scope">
                   <el-tag :type="getStatusType(scope.row.status)">
                     {{ scope.row.status }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="created_at" label="创建时间" width="180" />
-              <el-table-column label="操作" width="150" fixed="right">
+              <el-table-column
+                prop="created_at"
+                label="创建时间"
+                width="180"
+              />
+              <el-table-column
+                label="操作"
+                width="150"
+                fixed="right"
+              >
                 <template #default="scope">
-                  <el-button size="small" @click="editTestCase(scope.row)">
+                  <el-button
+                    size="small"
+                    @click="editTestCase(scope.row)"
+                  >
                     编辑
                   </el-button>
-                  <el-button size="small" type="danger" @click="deleteTestCase(scope.row.id)">
+                  <el-button
+                    size="small"
+                    type="danger"
+                    @click="deleteTestCase(scope.row.id)"
+                  >
                     删除
                   </el-button>
                 </template>
@@ -119,13 +177,31 @@
     </div>
 
     <!-- 创建测试套件对话框 -->
-    <el-dialog v-model="createDialogVisible" title="创建测试套件" width="500px">
-      <el-form :model="createForm" :rules="createRules" ref="createFormRef" label-width="100px">
-        <el-form-item label="套件名称" prop="name">
-          <el-input v-model="createForm.name" placeholder="请输入测试套件名称" />
+    <el-dialog
+      v-model="createDialogVisible"
+      title="创建测试套件"
+      width="500px"
+    >
+      <el-form
+        ref="createFormRef"
+        :model="createForm"
+        :rules="createRules"
+        label-width="100px"
+      >
+        <el-form-item
+          label="套件名称"
+          prop="name"
+        >
+          <el-input
+            v-model="createForm.name"
+            placeholder="请输入测试套件名称"
+          />
         </el-form-item>
         <el-form-item label="父级套件">
-          <el-select v-model="createForm.parent_id" placeholder="选择父级套件">
+          <el-select
+            v-model="createForm.parent_id"
+            placeholder="选择父级套件"
+          >
             <el-option
               v-for="option in suiteOptions"
               :key="option.value"
@@ -135,23 +211,47 @@
           </el-select>
         </el-form-item>
         <el-form-item label="项目">
-          <el-select v-model="createForm.project_id" placeholder="请选择所属项目">
+          <el-select
+            v-model="createForm.project_id"
+            placeholder="请选择所属项目"
+          >
             <!-- 实际应用中应该从API获取项目列表 -->
-            <el-option label="示例项目" value="1" />
+            <el-option
+              label="示例项目"
+              value="1"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="需求">
-          <el-select v-model="createForm.version_requirement_id" placeholder="请选择关联需求">
+          <el-select
+            v-model="createForm.version_requirement_id"
+            placeholder="请选择关联需求"
+          >
             <!-- 实际应用中应该根据选择的项目动态加载需求列表 -->
-            <el-option label="需求1" value="1" />
-            <el-option label="需求2" value="2" />
+            <el-option
+              label="需求1"
+              value="1"
+            />
+            <el-option
+              label="需求2"
+              value="2"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="迭代">
-          <el-select v-model="createForm.iteration_id" placeholder="请选择所属迭代">
+          <el-select
+            v-model="createForm.iteration_id"
+            placeholder="请选择所属迭代"
+          >
             <!-- 实际应用中应该根据选择的项目动态加载迭代列表 -->
-            <el-option label="迭代1" value="1" />
-            <el-option label="迭代2" value="2" />
+            <el-option
+              label="迭代1"
+              value="1"
+            />
+            <el-option
+              label="迭代2"
+              value="2"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="描述">
@@ -166,35 +266,77 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="createDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleCreateSuite">确定</el-button>
+          <el-button
+            type="primary"
+            @click="handleCreateSuite"
+          >确定</el-button>
         </span>
       </template>
     </el-dialog>
 
     <!-- 编辑测试套件对话框 -->
-    <el-dialog v-model="editDialogVisible" title="编辑测试套件" width="500px">
-      <el-form :model="editForm" :rules="editRules" ref="editFormRef" label-width="100px">
-        <el-form-item label="套件名称" prop="name">
-          <el-input v-model="editForm.name" placeholder="请输入测试套件名称" />
+    <el-dialog
+      v-model="editDialogVisible"
+      title="编辑测试套件"
+      width="500px"
+    >
+      <el-form
+        ref="editFormRef"
+        :model="editForm"
+        :rules="editRules"
+        label-width="100px"
+      >
+        <el-form-item
+          label="套件名称"
+          prop="name"
+        >
+          <el-input
+            v-model="editForm.name"
+            placeholder="请输入测试套件名称"
+          />
         </el-form-item>
         <el-form-item label="项目">
-          <el-select v-model="editForm.project_id" placeholder="请选择所属项目">
+          <el-select
+            v-model="editForm.project_id"
+            placeholder="请选择所属项目"
+          >
             <!-- 实际应用中应该从API获取项目列表 -->
-            <el-option label="示例项目" value="1" />
+            <el-option
+              label="示例项目"
+              value="1"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="需求">
-          <el-select v-model="editForm.version_requirement_id" placeholder="请选择关联需求">
+          <el-select
+            v-model="editForm.version_requirement_id"
+            placeholder="请选择关联需求"
+          >
             <!-- 实际应用中应该根据选择的项目动态加载需求列表 -->
-            <el-option label="需求1" value="1" />
-            <el-option label="需求2" value="2" />
+            <el-option
+              label="需求1"
+              value="1"
+            />
+            <el-option
+              label="需求2"
+              value="2"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="迭代">
-          <el-select v-model="editForm.iteration_id" placeholder="请选择所属迭代">
+          <el-select
+            v-model="editForm.iteration_id"
+            placeholder="请选择所属迭代"
+          >
             <!-- 实际应用中应该根据选择的项目动态加载迭代列表 -->
-            <el-option label="迭代1" value="1" />
-            <el-option label="迭代2" value="2" />
+            <el-option
+              label="迭代1"
+              value="1"
+            />
+            <el-option
+              label="迭代2"
+              value="2"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="描述">
@@ -209,32 +351,58 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="editDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleEditSuite">确定</el-button>
+          <el-button
+            type="primary"
+            @click="handleEditSuite"
+          >确定</el-button>
         </span>
       </template>
     </el-dialog>
 
     <!-- 右键菜单 -->
-    <el-dropdown-menu ref="contextMenuRef" trigger="manual" v-model="contextMenuVisible">
-      <el-dropdown-item @click="showCreateSuiteDialog">新建测试套件</el-dropdown-item>
-      <el-dropdown-item @click="showEditSuiteDialog(selectedNode)">编辑测试套件</el-dropdown-item>
-      <el-dropdown-item @click="deleteSuite(selectedNode.id)" type="danger">删除测试套件</el-dropdown-item>
-      <el-dropdown-item @click="importXmind">导入Xmind</el-dropdown-item>
-      <el-dropdown-item @click="exportXmind">导出Xmind</el-dropdown-item>
+    <el-dropdown-menu
+      ref="contextMenuRef"
+      v-model="contextMenuVisible"
+      trigger="manual"
+    >
+      <el-dropdown-item @click="showCreateSuiteDialog">
+        新建测试套件
+      </el-dropdown-item>
+      <el-dropdown-item @click="showEditSuiteDialog(selectedNode)">
+        编辑测试套件
+      </el-dropdown-item>
+      <el-dropdown-item
+        type="danger"
+        @click="deleteSuite(selectedNode.id)"
+      >
+        删除测试套件
+      </el-dropdown-item>
+      <el-dropdown-item @click="importXmind">
+        导入Xmind
+      </el-dropdown-item>
+      <el-dropdown-item @click="exportXmind">
+        导出Xmind
+      </el-dropdown-item>
     </el-dropdown-menu>
 
     <!-- Xmind导入对话框 -->
-    <el-dialog v-model="importDialogVisible" title="导入Xmind" width="500px">
+    <el-dialog
+      v-model="importDialogVisible"
+      title="导入Xmind"
+      width="500px"
+    >
       <el-upload
-        class="upload-demo"
         ref="uploadRef"
+        class="upload-demo"
         :action="''"
         :auto-upload="false"
         :on-change="handleXmindFileChange"
         :show-file-list="true"
         accept=".xmind"
       >
-        <el-button type="primary">选择Xmind文件</el-button>
+        <el-button type="primary">
+          选择Xmind文件
+        </el-button>
         <template #tip>
           <div class="el-upload__tip">
             请上传.xmind格式的文件
@@ -244,13 +412,20 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="importDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleImportXmind">确定导入</el-button>
+          <el-button
+            type="primary"
+            @click="handleImportXmind"
+          >确定导入</el-button>
         </span>
       </template>
     </el-dialog>
 
     <!-- 添加测试用例对话框 -->
-    <el-dialog v-model="addCaseDialogVisible" title="添加测试用例" width="800px">
+    <el-dialog
+      v-model="addCaseDialogVisible"
+      title="添加测试用例"
+      width="800px"
+    >
       <div class="add-case-dialog-content">
         <!-- 搜索和筛选 -->
         <div class="search-filter-section">
@@ -280,9 +455,18 @@
             clearable
             @change="handleAvailableCasesSearch"
           >
-            <el-option label="高" value="high" />
-            <el-option label="中" value="medium" />
-            <el-option label="低" value="low" />
+            <el-option
+              label="高"
+              value="high"
+            />
+            <el-option
+              label="中"
+              value="medium"
+            />
+            <el-option
+              label="低"
+              value="low"
+            />
           </el-select>
         </div>
         
@@ -293,13 +477,29 @@
             :data="availableCasesData"
             style="width: 100%"
             height="300px"
-            @row-click="selectAvailableCase"
             :row-class-name="rowClassName"
+            @row-click="selectAvailableCase"
           >
-            <el-table-column prop="id" label="ID" width="80" />
-            <el-table-column prop="case_name" label="用例名称" min-width="250" />
-            <el-table-column prop="module" label="模块" width="150" />
-            <el-table-column prop="priority" label="优先级" width="100">
+            <el-table-column
+              prop="id"
+              label="ID"
+              width="80"
+            />
+            <el-table-column
+              prop="case_name"
+              label="用例名称"
+              min-width="250"
+            />
+            <el-table-column
+              prop="module"
+              label="模块"
+              width="150"
+            />
+            <el-table-column
+              prop="priority"
+              label="优先级"
+              width="100"
+            >
               <template #default="scope">
                 <el-tag :type="getPriorityType(scope.row.priority)">
                   {{ scope.row.priority }}
@@ -325,16 +525,27 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="cancelAddCases">取消</el-button>
-          <el-button type="primary" @click="confirmAddCases">确定添加</el-button>
+          <el-button
+            type="primary"
+            @click="confirmAddCases"
+          >确定添加</el-button>
         </span>
       </template>
     </el-dialog>
 
     <!-- 移动测试用例对话框 -->
-    <el-dialog v-model="moveCaseDialogVisible" title="移动测试用例" width="500px">
+    <el-dialog
+      v-model="moveCaseDialogVisible"
+      title="移动测试用例"
+      width="500px"
+    >
       <el-form label-width="100px">
         <el-form-item label="选择目标套件">
-          <el-select v-model="targetSuiteId" placeholder="请选择目标测试套件" filterable>
+          <el-select
+            v-model="targetSuiteId"
+            placeholder="请选择目标测试套件"
+            filterable
+          >
             <el-option
               v-for="option in projectSuiteOptions"
               :key="option.value"
@@ -352,7 +563,10 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="moveCaseDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="confirmMoveCases">确认移动</el-button>
+          <el-button
+            type="primary"
+            @click="confirmMoveCases"
+          >确认移动</el-button>
         </span>
       </template>
     </el-dialog>

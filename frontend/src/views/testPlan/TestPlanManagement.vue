@@ -3,7 +3,12 @@
     <div class="header-section">
       <h1>测试计划管理</h1>
       <div class="header-actions">
-        <el-select v-model="currentProjectId" placeholder="选择项目" clearable @change="loadTestPlans">
+        <el-select
+          v-model="currentProjectId"
+          placeholder="选择项目"
+          clearable
+          @change="loadTestPlans"
+        >
           <el-option
             v-for="project in projects"
             :key="project.id"
@@ -11,7 +16,12 @@
             :value="project.id"
           />
         </el-select>
-        <el-select v-model="currentIterationId" placeholder="选择迭代(可选)" clearable @change="loadTestPlans">
+        <el-select
+          v-model="currentIterationId"
+          placeholder="选择迭代(可选)"
+          clearable
+          @change="loadTestPlans"
+        >
           <el-option
             v-for="iteration in iterations"
             :key="iteration.id"
@@ -19,7 +29,12 @@
             :value="iteration.id"
           />
         </el-select>
-        <el-button type="primary" @click="openCreatePlanDialog">创建测试计划</el-button>
+        <el-button
+          type="primary"
+          @click="openCreatePlanDialog"
+        >
+          创建测试计划
+        </el-button>
       </div>
     </div>
 
@@ -38,10 +53,22 @@
         clearable
         @change="handleSearch"
       >
-        <el-option label="草稿" value="draft" />
-        <el-option label="进行中" value="active" />
-        <el-option label="已完成" value="completed" />
-        <el-option label="已取消" value="cancelled" />
+        <el-option
+          label="草稿"
+          value="draft"
+        />
+        <el-option
+          label="进行中"
+          value="active"
+        />
+        <el-option
+          label="已完成"
+          value="completed"
+        />
+        <el-option
+          label="已取消"
+          value="cancelled"
+        />
       </el-select>
       <el-date-picker
         v-model="dateRange"
@@ -58,40 +85,99 @@
       <el-table
         :data="testPlansData"
         style="width: 100%"
-        @row-click="viewPlanDetail"
         row-key="id"
+        @row-click="viewPlanDetail"
       >
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="plan_name" label="测试计划名称" min-width="200">
+        <el-table-column
+          prop="id"
+          label="ID"
+          width="80"
+        />
+        <el-table-column
+          prop="plan_name"
+          label="测试计划名称"
+          min-width="200"
+        >
           <template #default="scope">
             <div class="plan-name-container">
               <span class="plan-name">{{ scope.row.plan_name }}</span>
-              <el-tag :type="getStatusType(scope.row.status)" class="status-tag">
+              <el-tag
+                :type="getStatusType(scope.row.status)"
+                class="status-tag"
+              >
                 {{ scope.row.status }}
               </el-tag>
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="project_name" label="所属项目" width="150" />
-        <el-table-column prop="iteration_name" label="所属迭代" width="150" />
-        <el-table-column prop="created_by_name" label="创建者" width="120" />
-        <el-table-column prop="start_date" label="开始日期" width="150">
+        <el-table-column
+          prop="project_name"
+          label="所属项目"
+          width="150"
+        />
+        <el-table-column
+          prop="iteration_name"
+          label="所属迭代"
+          width="150"
+        />
+        <el-table-column
+          prop="created_by_name"
+          label="创建者"
+          width="120"
+        />
+        <el-table-column
+          prop="start_date"
+          label="开始日期"
+          width="150"
+        >
           <template #default="scope">
             {{ formatDate(scope.row.start_date) }}
           </template>
         </el-table-column>
-        <el-table-column prop="end_date" label="结束日期" width="150">
+        <el-table-column
+          prop="end_date"
+          label="结束日期"
+          width="150"
+        >
           <template #default="scope">
             {{ formatDate(scope.row.end_date) }}
           </template>
         </el-table-column>
-        <el-table-column prop="case_count" label="关联用例数" width="120" />
-        <el-table-column prop="task_count" label="任务数" width="100" />
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column
+          prop="case_count"
+          label="关联用例数"
+          width="120"
+        />
+        <el-table-column
+          prop="task_count"
+          label="任务数"
+          width="100"
+        />
+        <el-table-column
+          label="操作"
+          width="180"
+          fixed="right"
+        >
           <template #default="scope">
-            <el-button size="small" @click.stop="editTestPlan(scope.row)">编辑</el-button>
-            <el-button size="small" type="primary" @click.stop="addTestCasesToPlan(scope.row)">添加用例</el-button>
-            <el-button size="small" type="danger" @click.stop="deleteTestPlan(scope.row)" :disabled="scope.row.status !== 'draft'"></el-button>
+            <el-button
+              size="small"
+              @click.stop="editTestPlan(scope.row)"
+            >
+              编辑
+            </el-button>
+            <el-button
+              size="small"
+              type="primary"
+              @click.stop="addTestCasesToPlan(scope.row)"
+            >
+              添加用例
+            </el-button>
+            <el-button
+              size="small"
+              type="danger"
+              :disabled="scope.row.status !== 'draft'"
+              @click.stop="deleteTestPlan(scope.row)"
+            />
           </template>
         </el-table-column>
       </el-table>
@@ -111,18 +197,36 @@
     </div>
 
     <!-- 创建/编辑测试计划对话框 -->
-    <el-dialog v-model="planDialogVisible" :title="isEdit ? '编辑测试计划' : '创建测试计划'" width="700px">
+    <el-dialog
+      v-model="planDialogVisible"
+      :title="isEdit ? '编辑测试计划' : '创建测试计划'"
+      width="700px"
+    >
       <el-form
         ref="planFormRef"
         :model="planForm"
         :rules="planRules"
         label-width="100px"
       >
-        <el-form-item label="测试计划名称" prop="plan_name">
-          <el-input v-model="planForm.plan_name" placeholder="请输入测试计划名称" />
+        <el-form-item
+          label="测试计划名称"
+          prop="plan_name"
+        >
+          <el-input
+            v-model="planForm.plan_name"
+            placeholder="请输入测试计划名称"
+          />
         </el-form-item>
-        <el-form-item label="所属项目" prop="project_id">
-          <el-select v-model="planForm.project_id" placeholder="请选择所属项目" disabled v-if="isEdit">
+        <el-form-item
+          label="所属项目"
+          prop="project_id"
+        >
+          <el-select
+            v-if="isEdit"
+            v-model="planForm.project_id"
+            placeholder="请选择所属项目"
+            disabled
+          >
             <el-option
               v-for="project in projects"
               :key="project.id"
@@ -130,7 +234,11 @@
               :value="project.id"
             />
           </el-select>
-          <el-select v-model="planForm.project_id" placeholder="请选择所属项目" v-else>
+          <el-select
+            v-else
+            v-model="planForm.project_id"
+            placeholder="请选择所属项目"
+          >
             <el-option
               v-for="project in projects"
               :key="project.id"
@@ -140,7 +248,10 @@
           </el-select>
         </el-form-item>
         <el-form-item label="所属迭代">
-          <el-select v-model="planForm.iteration_id" placeholder="请选择所属迭代(可选)">
+          <el-select
+            v-model="planForm.iteration_id"
+            placeholder="请选择所属迭代(可选)"
+          >
             <el-option
               v-for="iteration in projectIterations"
               :key="iteration.id"
@@ -149,7 +260,10 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="测试范围" prop="scope">
+        <el-form-item
+          label="测试范围"
+          prop="scope"
+        >
           <el-input
             v-model="planForm.scope"
             type="textarea"
@@ -157,7 +271,10 @@
             placeholder="请输入测试范围"
           />
         </el-form-item>
-        <el-form-item label="测试环境" prop="test_environment">
+        <el-form-item
+          label="测试环境"
+          prop="test_environment"
+        >
           <el-input
             v-model="planForm.test_environment"
             type="textarea"
@@ -189,70 +306,131 @@
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item label="状态" v-if="isEdit">
-          <el-select v-model="planForm.status" placeholder="请选择状态">
-            <el-option label="草稿" value="draft" />
-            <el-option label="进行中" value="active" />
-            <el-option label="已完成" value="completed" />
-            <el-option label="已取消" value="cancelled" />
+        <el-form-item
+          v-if="isEdit"
+          label="状态"
+        >
+          <el-select
+            v-model="planForm.status"
+            placeholder="请选择状态"
+          >
+            <el-option
+              label="草稿"
+              value="draft"
+            />
+            <el-option
+              label="进行中"
+              value="active"
+            />
+            <el-option
+              label="已完成"
+              value="completed"
+            />
+            <el-option
+              label="已取消"
+              value="cancelled"
+            />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="closePlanDialog">取消</el-button>
-          <el-button type="primary" @click="submitPlanForm">确定</el-button>
+          <el-button
+            type="primary"
+            @click="submitPlanForm"
+          >确定</el-button>
         </span>
       </template>
     </el-dialog>
 
     <!-- 测试计划详情对话框 -->
-    <el-dialog v-model="planDetailVisible" title="测试计划详情" width="900px">
+    <el-dialog
+      v-model="planDetailVisible"
+      title="测试计划详情"
+      width="900px"
+    >
       <div class="plan-detail-container">
         <div class="detail-header">
           <h2>{{ selectedPlan.plan_name }}</h2>
-          <el-tag :type="getStatusType(selectedPlan.status)">{{ selectedPlan.status }}</el-tag>
+          <el-tag :type="getStatusType(selectedPlan.status)">
+            {{ selectedPlan.status }}
+          </el-tag>
         </div>
         
         <div class="detail-content">
           <div class="detail-section">
             <h3>基本信息</h3>
             <el-descriptions :column="{ xs: 1, sm: 2, md: 2, lg: 2, xl: 2 }">
-              <el-descriptions-item label="所属项目">{{ selectedPlan.project_name }}</el-descriptions-item>
-              <el-descriptions-item label="所属迭代">{{ selectedPlan.iteration_name || '-' }}</el-descriptions-item>
-              <el-descriptions-item label="创建者">{{ selectedPlan.created_by_name }}</el-descriptions-item>
-              <el-descriptions-item label="创建时间">{{ formatDateTime(selectedPlan.created_at) }}</el-descriptions-item>
-              <el-descriptions-item label="开始日期">{{ formatDate(selectedPlan.start_date) }}</el-descriptions-item>
-              <el-descriptions-item label="结束日期">{{ formatDate(selectedPlan.end_date) }}</el-descriptions-item>
-              <el-descriptions-item label="关联用例数" :span="2">{{ selectedPlan.case_count }}</el-descriptions-item>
+              <el-descriptions-item label="所属项目">
+                {{ selectedPlan.project_name }}
+              </el-descriptions-item>
+              <el-descriptions-item label="所属迭代">
+                {{ selectedPlan.iteration_name || '-' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="创建者">
+                {{ selectedPlan.created_by_name }}
+              </el-descriptions-item>
+              <el-descriptions-item label="创建时间">
+                {{ formatDateTime(selectedPlan.created_at) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="开始日期">
+                {{ formatDate(selectedPlan.start_date) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="结束日期">
+                {{ formatDate(selectedPlan.end_date) }}
+              </el-descriptions-item>
+              <el-descriptions-item
+                label="关联用例数"
+                :span="2"
+              >
+                {{ selectedPlan.case_count }}
+              </el-descriptions-item>
             </el-descriptions>
           </div>
           
           <div class="detail-section">
             <h3>测试范围</h3>
-            <div class="detail-text">{{ selectedPlan.scope || '-' }}</div>
+            <div class="detail-text">
+              {{ selectedPlan.scope || '-' }}
+            </div>
           </div>
           
           <div class="detail-section">
             <h3>测试环境</h3>
-            <div class="detail-text">{{ selectedPlan.test_environment || '-' }}</div>
+            <div class="detail-text">
+              {{ selectedPlan.test_environment || '-' }}
+            </div>
           </div>
           
           <div class="detail-section">
             <h3>风险评估</h3>
-            <div class="detail-text">{{ selectedPlan.risk || '-' }}</div>
+            <div class="detail-text">
+              {{ selectedPlan.risk || '-' }}
+            </div>
           </div>
         </div>
         
         <div class="detail-footer">
-          <el-button @click="addTestCasesToPlan(selectedPlan)">添加测试用例</el-button>
-          <el-button type="primary" @click="exportTestPlan(selectedPlan)">导出测试计划</el-button>
+          <el-button @click="addTestCasesToPlan(selectedPlan)">
+            添加测试用例
+          </el-button>
+          <el-button
+            type="primary"
+            @click="exportTestPlan(selectedPlan)"
+          >
+            导出测试计划
+          </el-button>
         </div>
       </div>
     </el-dialog>
 
     <!-- 添加测试用例对话框 -->
-    <el-dialog v-model="addCaseDialogVisible" title="添加测试用例" width="800px">
+    <el-dialog
+      v-model="addCaseDialogVisible"
+      title="添加测试用例"
+      width="800px"
+    >
       <div class="add-case-dialog-content">
         <!-- 搜索和筛选 -->
         <div class="search-filter-section">
@@ -282,9 +460,18 @@
             clearable
             @change="handleAvailableCasesSearch"
           >
-            <el-option label="高" value="high" />
-            <el-option label="中" value="medium" />
-            <el-option label="低" value="low" />
+            <el-option
+              label="高"
+              value="high"
+            />
+            <el-option
+              label="中"
+              value="medium"
+            />
+            <el-option
+              label="低"
+              value="low"
+            />
           </el-select>
         </div>
         
@@ -295,13 +482,29 @@
             :data="availableCasesData"
             style="width: 100%"
             height="400px"
-            @row-click="selectAvailableCase"
             :row-class-name="rowClassName"
+            @row-click="selectAvailableCase"
           >
-            <el-table-column prop="id" label="ID" width="80" />
-            <el-table-column prop="case_name" label="用例名称" min-width="250" />
-            <el-table-column prop="module" label="模块" width="150" />
-            <el-table-column prop="priority" label="优先级" width="100">
+            <el-table-column
+              prop="id"
+              label="ID"
+              width="80"
+            />
+            <el-table-column
+              prop="case_name"
+              label="用例名称"
+              min-width="250"
+            />
+            <el-table-column
+              prop="module"
+              label="模块"
+              width="150"
+            />
+            <el-table-column
+              prop="priority"
+              label="优先级"
+              width="100"
+            >
               <template #default="scope">
                 <el-tag :type="getPriorityType(scope.row.priority)">
                   {{ scope.row.priority }}
@@ -327,7 +530,10 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="cancelAddCases">取消</el-button>
-          <el-button type="primary" @click="confirmAddCases">确定添加</el-button>
+          <el-button
+            type="primary"
+            @click="confirmAddCases"
+          >确定添加</el-button>
         </span>
       </template>
     </el-dialog>

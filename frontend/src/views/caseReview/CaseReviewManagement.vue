@@ -3,13 +3,15 @@
     <div class="page-header">
       <div class="header-content">
         <h1>用例评审管理</h1>
-        <p class="description">管理测试用例的评审过程和结果</p>
+        <p class="description">
+          管理测试用例的评审过程和结果
+        </p>
       </div>
     </div>
     
     <!-- 简化的用例评审页面，仅保留基本结构 -->
     <div class="simple-content">
-      <el-empty description="用例评审页面内容已清除，保留入口"></el-empty>
+      <el-empty description="用例评审页面内容已清除，保留入口" />
     </div>
   </div>
 </template>

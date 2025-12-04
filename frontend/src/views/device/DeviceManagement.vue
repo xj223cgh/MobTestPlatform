@@ -3,10 +3,15 @@
     <div class="page-header">
       <div class="header-content">
         <h1>设备管理</h1>
-        <p class="description">管理测试设备和设备状态</p>
+        <p class="description">
+          管理测试设备和设备状态
+        </p>
       </div>
       <div class="header-actions">
-        <el-button type="primary" @click="handleAdd">
+        <el-button
+          type="primary"
+          @click="handleAdd"
+        >
           <el-icon><Plus /></el-icon>
           添加设备
         </el-button>
@@ -26,8 +31,12 @@
               <el-icon><Monitor /></el-icon>
             </div>
             <div class="stat-content">
-              <div class="stat-number">{{ stats.online }}</div>
-              <div class="stat-label">在线设备</div>
+              <div class="stat-number">
+                {{ stats.online }}
+              </div>
+              <div class="stat-label">
+                在线设备
+              </div>
             </div>
           </div>
         </el-col>
@@ -37,8 +46,12 @@
               <el-icon><Monitor /></el-icon>
             </div>
             <div class="stat-content">
-              <div class="stat-number">{{ stats.offline }}</div>
-              <div class="stat-label">离线设备</div>
+              <div class="stat-number">
+                {{ stats.offline }}
+              </div>
+              <div class="stat-label">
+                离线设备
+              </div>
             </div>
           </div>
         </el-col>
@@ -48,8 +61,12 @@
               <el-icon><Loading /></el-icon>
             </div>
             <div class="stat-content">
-              <div class="stat-number">{{ stats.busy }}</div>
-              <div class="stat-label">忙碌设备</div>
+              <div class="stat-number">
+                {{ stats.busy }}
+              </div>
+              <div class="stat-label">
+                忙碌设备
+              </div>
             </div>
           </div>
         </el-col>
@@ -59,8 +76,12 @@
               <el-icon><DataBoard /></el-icon>
             </div>
             <div class="stat-content">
-              <div class="stat-number">{{ stats.total }}</div>
-              <div class="stat-label">设备总数</div>
+              <div class="stat-number">
+                {{ stats.total }}
+              </div>
+              <div class="stat-label">
+                设备总数
+              </div>
             </div>
           </div>
         </el-col>
@@ -69,7 +90,10 @@
 
     <!-- 搜索和筛选 -->
     <div class="search-section">
-      <el-form :model="searchForm" inline>
+      <el-form
+        :model="searchForm"
+        inline
+      >
         <el-form-item label="设备名称">
           <el-input
             v-model="searchForm.name"
@@ -87,10 +111,22 @@
             @clear="handleSearch"
             @change="handleSearch"
           >
-            <el-option label="Android手机" value="android_phone" />
-            <el-option label="iOS手机" value="ios_phone" />
-            <el-option label="Android平板" value="android_tablet" />
-            <el-option label="iOS平板" value="ios_tablet" />
+            <el-option
+              label="Android手机"
+              value="android_phone"
+            />
+            <el-option
+              label="iOS手机"
+              value="ios_phone"
+            />
+            <el-option
+              label="Android平板"
+              value="android_tablet"
+            />
+            <el-option
+              label="iOS平板"
+              value="ios_tablet"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
@@ -101,14 +137,29 @@
             @clear="handleSearch"
             @change="handleSearch"
           >
-            <el-option label="在线" value="online" />
-            <el-option label="离线" value="offline" />
-            <el-option label="忙碌" value="busy" />
-            <el-option label="维护" value="maintenance" />
+            <el-option
+              label="在线"
+              value="online"
+            />
+            <el-option
+              label="离线"
+              value="offline"
+            />
+            <el-option
+              label="忙碌"
+              value="busy"
+            />
+            <el-option
+              label="维护"
+              value="maintenance"
+            />
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleSearch">
+          <el-button
+            type="primary"
+            @click="handleSearch"
+          >
             <el-icon><Search /></el-icon>
             搜索
           </el-button>
@@ -129,37 +180,73 @@
         border
         style="width: 100%"
       >
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="name" label="设备名称" min-width="150" />
-        <el-table-column prop="type" label="设备类型" width="120">
+        <el-table-column
+          prop="id"
+          label="ID"
+          width="80"
+        />
+        <el-table-column
+          prop="name"
+          label="设备名称"
+          min-width="150"
+        />
+        <el-table-column
+          prop="type"
+          label="设备类型"
+          width="120"
+        >
           <template #default="{ row }">
             <el-tag :type="getDeviceTypeTagType(row.type)">
               {{ getDeviceTypeLabel(row.type) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="platform" label="平台" width="80">
+        <el-table-column
+          prop="platform"
+          label="平台"
+          width="80"
+        >
           <template #default="{ row }">
             <el-tag :type="row.platform === 'android' ? 'success' : 'primary'">
               {{ row.platform.toUpperCase() }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="os_version" label="系统版本" width="100" />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column
+          prop="os_version"
+          label="系统版本"
+          width="100"
+        />
+        <el-table-column
+          prop="status"
+          label="状态"
+          width="100"
+        >
           <template #default="{ row }">
             <el-tag :type="getStatusTagType(row.status)">
               {{ getStatusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="ip_address" label="IP地址" width="130" />
-        <el-table-column prop="last_seen" label="最后在线" width="160">
+        <el-table-column
+          prop="ip_address"
+          label="IP地址"
+          width="130"
+        />
+        <el-table-column
+          prop="last_seen"
+          label="最后在线"
+          width="160"
+        >
           <template #default="{ row }">
             {{ formatDateTime(row.last_seen) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="250" fixed="right">
+        <el-table-column
+          label="操作"
+          width="250"
+          fixed="right"
+        >
           <template #default="{ row }">
             <el-button
               type="primary"
@@ -171,8 +258,8 @@
             <el-button
               type="success"
               size="small"
-              @click="handleConnect(row)"
               :disabled="row.status !== 'online'"
+              @click="handleConnect(row)"
             >
               连接
             </el-button>
@@ -221,39 +308,76 @@
         :rules="deviceRules"
         label-width="100px"
       >
-        <el-form-item label="设备名称" prop="name">
+        <el-form-item
+          label="设备名称"
+          prop="name"
+        >
           <el-input
             v-model="deviceForm.name"
             placeholder="请输入设备名称"
           />
         </el-form-item>
-        <el-form-item label="设备类型" prop="type">
-          <el-select v-model="deviceForm.type" placeholder="请选择设备类型">
-            <el-option label="Android手机" value="android_phone" />
-            <el-option label="iOS手机" value="ios_phone" />
-            <el-option label="Android平板" value="android_tablet" />
-            <el-option label="iOS平板" value="ios_tablet" />
+        <el-form-item
+          label="设备类型"
+          prop="type"
+        >
+          <el-select
+            v-model="deviceForm.type"
+            placeholder="请选择设备类型"
+          >
+            <el-option
+              label="Android手机"
+              value="android_phone"
+            />
+            <el-option
+              label="iOS手机"
+              value="ios_phone"
+            />
+            <el-option
+              label="Android平板"
+              value="android_tablet"
+            />
+            <el-option
+              label="iOS平板"
+              value="ios_tablet"
+            />
           </el-select>
         </el-form-item>
-        <el-form-item label="平台" prop="platform">
+        <el-form-item
+          label="平台"
+          prop="platform"
+        >
           <el-radio-group v-model="deviceForm.platform">
-            <el-radio label="android">Android</el-radio>
-            <el-radio label="ios">iOS</el-radio>
+            <el-radio label="android">
+              Android
+            </el-radio>
+            <el-radio label="ios">
+              iOS
+            </el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="系统版本" prop="os_version">
+        <el-form-item
+          label="系统版本"
+          prop="os_version"
+        >
           <el-input
             v-model="deviceForm.os_version"
             placeholder="请输入系统版本"
           />
         </el-form-item>
-        <el-form-item label="IP地址" prop="ip_address">
+        <el-form-item
+          label="IP地址"
+          prop="ip_address"
+        >
           <el-input
             v-model="deviceForm.ip_address"
             placeholder="请输入IP地址"
           />
         </el-form-item>
-        <el-form-item label="端口" prop="port">
+        <el-form-item
+          label="端口"
+          prop="port"
+        >
           <el-input-number
             v-model="deviceForm.port"
             :min="1"
@@ -261,7 +385,10 @@
             placeholder="请输入端口号"
           />
         </el-form-item>
-        <el-form-item label="描述" prop="description">
+        <el-form-item
+          label="描述"
+          prop="description"
+        >
           <el-input
             v-model="deviceForm.description"
             type="textarea"
@@ -274,7 +401,11 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" :loading="submitLoading" @click="handleSubmit">
+          <el-button
+            type="primary"
+            :loading="submitLoading"
+            @click="handleSubmit"
+          >
             确定
           </el-button>
         </span>
@@ -287,10 +418,20 @@
       title="设备详情"
       width="800px"
     >
-      <div class="device-detail" v-if="currentDevice">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="设备ID">{{ currentDevice.id }}</el-descriptions-item>
-          <el-descriptions-item label="设备名称">{{ currentDevice.name }}</el-descriptions-item>
+      <div
+        v-if="currentDevice"
+        class="device-detail"
+      >
+        <el-descriptions
+          :column="2"
+          border
+        >
+          <el-descriptions-item label="设备ID">
+            {{ currentDevice.id }}
+          </el-descriptions-item>
+          <el-descriptions-item label="设备名称">
+            {{ currentDevice.name }}
+          </el-descriptions-item>
           <el-descriptions-item label="设备类型">
             <el-tag :type="getDeviceTypeTagType(currentDevice.type)">
               {{ getDeviceTypeLabel(currentDevice.type) }}
@@ -301,17 +442,32 @@
               {{ currentDevice.platform.toUpperCase() }}
             </el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="系统版本">{{ currentDevice.os_version }}</el-descriptions-item>
+          <el-descriptions-item label="系统版本">
+            {{ currentDevice.os_version }}
+          </el-descriptions-item>
           <el-descriptions-item label="状态">
             <el-tag :type="getStatusTagType(currentDevice.status)">
               {{ getStatusLabel(currentDevice.status) }}
             </el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="IP地址">{{ currentDevice.ip_address }}</el-descriptions-item>
-          <el-descriptions-item label="端口">{{ currentDevice.port }}</el-descriptions-item>
-          <el-descriptions-item label="最后在线">{{ formatDateTime(currentDevice.last_seen) }}</el-descriptions-item>
-          <el-descriptions-item label="创建时间">{{ formatDateTime(currentDevice.created_at) }}</el-descriptions-item>
-          <el-descriptions-item label="描述" :span="2">{{ currentDevice.description || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="IP地址">
+            {{ currentDevice.ip_address }}
+          </el-descriptions-item>
+          <el-descriptions-item label="端口">
+            {{ currentDevice.port }}
+          </el-descriptions-item>
+          <el-descriptions-item label="最后在线">
+            {{ formatDateTime(currentDevice.last_seen) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="创建时间">
+            {{ formatDateTime(currentDevice.created_at) }}
+          </el-descriptions-item>
+          <el-descriptions-item
+            label="描述"
+            :span="2"
+          >
+            {{ currentDevice.description || '-' }}
+          </el-descriptions-item>
         </el-descriptions>
       </div>
     </el-dialog>

@@ -3,10 +3,16 @@
     <div class="page-header">
       <div class="header-content">
         <h1>需求管理</h1>
-        <p class="description">管理所属项目迭代的版本需求信息</p>
+        <p class="description">
+          管理所属项目迭代的版本需求信息
+        </p>
       </div>
       <div class="header-actions">
-        <el-button type="primary" @click="handleCreateRequirement" :loading="loading">
+        <el-button
+          type="primary"
+          :loading="loading"
+          @click="handleCreateRequirement"
+        >
           <el-icon><Plus /></el-icon>
           创建需求
         </el-button>
@@ -15,7 +21,10 @@
 
     <!-- 搜索和筛选 -->
     <div class="search-section">
-      <el-form :model="searchForm" inline>
+      <el-form
+        :model="searchForm"
+        inline
+      >
         <el-form-item label="时间">
           <el-date-picker
             v-model="timeRangeFilter"
@@ -25,8 +34,8 @@
             end-placeholder="结束年月"
             format="YYYY-MM"
             value-format="YYYY-MM"
-            @change="handleTimeRangeChange"
             style="width: 220px"
+            @change="handleTimeRangeChange"
           />
         </el-form-item>
         <el-form-item label="所属项目">
@@ -35,15 +44,15 @@
             placeholder="请选择所属项目" 
             multiple
             clearable 
-            @change="handleProjectFilterChange"
             style="width: 180px"
+            @change="handleProjectFilterChange"
           >
             <el-option 
               v-for="project in projectOptions" 
               :key="project.id" 
               :label="project.project_name" 
               :value="project.id"
-            ></el-option>
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="所属迭代">
@@ -52,16 +61,16 @@
             placeholder="请选择所属迭代" 
             multiple
             clearable 
-            @change="handleIterationFilterChange"
             :disabled="!projectFilter || projectFilter.length === 0"
             style="width:180px"
+            @change="handleIterationFilterChange"
           >
             <el-option 
               v-for="iteration in iterationOptions" 
               :key="iteration.id" 
               :label="iteration.iteration_name" 
               :value="iteration.id"
-            ></el-option>
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="创建者">
@@ -70,18 +79,18 @@
             placeholder="请选择创建者" 
             multiple
             clearable 
-            @change="getRequirementList"
             filterable
             allow-create
             default-first-option
             style="width: 180px"
+            @change="getRequirementList"
           >
             <el-option 
               v-for="user in creatorOptions" 
               :key="user.id" 
               :label="user.real_name" 
               :value="user.id"
-            ></el-option>
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="负责人">
@@ -90,22 +99,25 @@
             placeholder="请选择负责人" 
             multiple
             clearable 
-            @change="getRequirementList"
             filterable
             allow-create
             default-first-option
             style="width: 180px"
+            @change="getRequirementList"
           >
             <el-option 
               v-for="user in assigneeOptions" 
               :key="user.id" 
               :label="user.real_name" 
               :value="user.id"
-            ></el-option>
+            />
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button @click="resetFilters" :loading="loading">
+          <el-button
+            :loading="loading"
+            @click="resetFilters"
+          >
             <el-icon><Refresh /></el-icon>
             重置
           </el-button>
@@ -116,77 +128,172 @@
     <!-- 需求列表 -->
     <div class="table-section">
       <el-table
-        :data="requirementList"
         v-loading="loading"
+        :data="requirementList"
         stripe
         border
         style="width: 100%"
         fit
       >
-        <el-table-column prop="id" label="ID" width="80" align="center"></el-table-column>
-        <el-table-column prop="requirement_name" label="需求名称" min-width="140" align="center">
+        <el-table-column
+          prop="id"
+          label="ID"
+          width="80"
+          align="center"
+        />
+        <el-table-column
+          prop="requirement_name"
+          label="需求名称"
+          min-width="150"
+          align="center"
+        >
           <template #default="scope">
             {{ scope.row.requirement_name }}
           </template>
         </el-table-column>
         
-        <el-table-column prop="project_name" label="所属项目" min-width="120" align="center"></el-table-column>
-        <el-table-column prop="iteration_name" label="所属迭代" min-width="120" align="center">
+        <el-table-column
+          prop="project_name"
+          label="所属项目"
+          min-width="120"
+          align="center"
+        />
+        <el-table-column
+          prop="iteration_name"
+          label="所属迭代"
+          min-width="100"
+          align="center"
+        >
           <template #default="scope">
             {{ scope.row.iteration_name || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" min-width="80" align="center">
+        <el-table-column
+          prop="status"
+          label="状态"
+          min-width="85"
+          align="center"
+        >
           <template #default="scope">
-            <el-tag :type="getStatusType(scope.row.status)">{{ getStatusText(scope.row.status) }}</el-tag>
+            <el-tag :type="getStatusType(scope.row.status)">
+              {{ getStatusText(scope.row.status) }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="priority" label="优先级" min-width="80" align="center">
+        <el-table-column
+          prop="priority"
+          label="优先级"
+          min-width="85"
+          align="center"
+        >
           <template #default="scope">
-            <el-tag :type="getPriorityType(scope.row.priority)">{{ getPriorityText(scope.row.priority) }}</el-tag>
+            <el-tag :type="getPriorityType(scope.row.priority)">
+              {{ getPriorityText(scope.row.priority) }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="environment" label="环境" min-width="95" align="center">
+        <el-table-column
+          prop="environment"
+          label="环境"
+          min-width="95"
+          align="center"
+        >
           <template #default="scope">
-            <el-tag :type="getEnvironmentType(scope.row.environment)">{{ getEnvironmentText(scope.row.environment) }}</el-tag>
+            <el-tag :type="getEnvironmentType(scope.row.environment)">
+              {{ getEnvironmentText(scope.row.environment) }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_by_name" label="创建者" min-width="100" align="center"></el-table-column>
-        <el-table-column prop="updated_at" label="更新时间" min-width="130" align="center">
+        <el-table-column
+          prop="created_by_name"
+          label="创建者"
+          min-width="110"
+          align="center"
+        />
+        <el-table-column
+          prop="updated_at"
+          label="更新时间"
+          min-width="120"
+          align="center"
+        >
           <template #default="scope">
             {{ formatDateTime(scope.row.updated_at) || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="start_date" label="开始时间" min-width="130" align="center">
+        <el-table-column
+          prop="start_date"
+          label="开始时间"
+          min-width="120"
+          align="center"
+        >
           <template #default="scope">
             {{ formatDateTime(scope.row.start_date) || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="end_date" label="结束时间" min-width="130" align="center">
+        <el-table-column
+          prop="end_date"
+          label="结束时间"
+          min-width="120"
+          align="center"
+        >
           <template #default="scope">
             {{ formatDateTime(scope.row.end_date) || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="estimated_hours" label="预估工时" min-width="90" align="center">
+        <el-table-column
+          prop="estimated_hours"
+          label="预估工时"
+          min-width="90"
+          align="center"
+        >
           <template #default="scope">
             {{ scope.row.estimated_hours || '-' }}h
           </template>
         </el-table-column>
-        <el-table-column prop="actual_hours" label="实际工时" min-width="90" align="center">
+        <el-table-column
+          prop="actual_hours"
+          label="实际工时"
+          min-width="90"
+          align="center"
+        >
           <template #default="scope">
             {{ scope.row.actual_hours || '-' }}h
           </template>
         </el-table-column>
-        <el-table-column prop="requirement_description" label="需求描述" min-width="200" align="center">
+        <el-table-column
+          prop="requirement_description"
+          label="需求描述"
+          min-width="200"
+          align="center"
+        >
           <template #default="scope">
-            <div class="wrap-text">{{ scope.row.requirement_description || '-' }}</div>
+            <div class="wrap-text">
+              {{ scope.row.requirement_description || '-' }}
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" min-width="140" fixed="right" align="center">
+        <el-table-column
+          label="操作"
+          min-width="140"
+          fixed="right"
+          align="center"
+        >
           <template #default="scope">
             <div class="operation-buttons">
-              <el-button type="success" size="small" @click="handleEditRequirement(scope.row)">编辑</el-button>
-              <el-button type="danger" size="small" @click="handleDeleteRequirement(scope.row)">删除</el-button>
+              <el-button
+                type="success"
+                size="small"
+                @click="handleEditRequirement(scope.row)"
+              >
+                编辑
+              </el-button>
+              <el-button
+                type="danger"
+                size="small"
+                @click="handleDeleteRequirement(scope.row)"
+              >
+                删除
+              </el-button>
             </div>
           </template>
         </el-table-column>
@@ -711,8 +818,6 @@ const getOptionData = async () => {
         allIterations.push(...projectIterations)
       } catch (error) {
         console.error(`获取项目${project.project_name}的迭代失败:`, error)
-        // 如果是403错误，说明用户没有权限访问该项目，跳过即可
-        // 继续处理其他项目
       }
     }
     

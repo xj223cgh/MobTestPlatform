@@ -3,7 +3,9 @@
     <div class="register-card">
       <div class="register-header">
         <h1>用户注册</h1>
-        <p class="register-subtitle">Mobile Test Platform</p>
+        <p class="register-subtitle">
+          Mobile Test Platform
+        </p>
       </div>
 
       <el-form
@@ -60,9 +62,21 @@
           <div class="agreement-options">
             <el-checkbox v-model="registerForm.agreement">
               我已阅读并同意
-              <el-link type="primary" @click="showAgreement" style="vertical-align: baseline;">《用户协议》</el-link>
+              <el-link
+                type="primary"
+                style="vertical-align: baseline;"
+                @click="showAgreement"
+              >
+                《用户协议》
+              </el-link>
               和
-              <el-link type="primary" @click="showPrivacy" style="vertical-align: baseline;">《隐私政策》</el-link>
+              <el-link
+                type="primary"
+                style="vertical-align: baseline;"
+                @click="showPrivacy"
+              >
+                《隐私政策》
+              </el-link>
             </el-checkbox>
           </div>
         </el-form-item>
@@ -81,7 +95,12 @@
         </el-form-item>
 
         <div class="login-link">
-          <el-link type="primary" @click="goToLogin">已有账号？立即登录</el-link>
+          <el-link
+            type="primary"
+            @click="goToLogin"
+          >
+            已有账号？立即登录
+          </el-link>
         </div>
       </el-form>
     </div>

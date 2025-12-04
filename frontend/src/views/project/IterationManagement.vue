@@ -3,37 +3,60 @@
     <div class="management-header">
       <h2>迭代管理</h2>
       <div class="header-actions">
-        <el-select v-model="selectedProjectId" placeholder="选择项目" style="width: 200px; margin-right: 15px;" @change="handleProjectChange">
+        <el-select
+          v-model="selectedProjectId"
+          placeholder="选择项目"
+          style="width: 200px; margin-right: 15px;"
+          @change="handleProjectChange"
+        >
           <el-option
             v-for="project in projects"
             :key="project.id"
             :label="project.name"
             :value="project.id"
-          ></el-option>
+          />
         </el-select>
-        <el-button type="primary" @click="showCreateIterationDialog">
-          <i class="el-icon-plus"></i> 创建迭代
+        <el-button
+          type="primary"
+          @click="showCreateIterationDialog"
+        >
+          <i class="el-icon-plus" /> 创建迭代
         </el-button>
       </div>
     </div>
 
     <!-- 视图切换 -->
     <div class="view-tabs">
-      <el-tabs v-model="activeTab" @tab-change="handleTabChange">
-        <el-tab-pane label="甘特图" name="gantt"></el-tab-pane>
-        <el-tab-pane label="列表视图" name="list"></el-tab-pane>
+      <el-tabs
+        v-model="activeTab"
+        @tab-change="handleTabChange"
+      >
+        <el-tab-pane
+          label="甘特图"
+          name="gantt"
+        />
+        <el-tab-pane
+          label="列表视图"
+          name="list"
+        />
       </el-tabs>
     </div>
 
     <!-- 甘特图视图 -->
-    <el-card v-if="activeTab === 'gantt'" class="list-card">
+    <el-card
+      v-if="activeTab === 'gantt'"
+      class="list-card"
+    >
       <div class="gantt-container">
         <v-chart :option="ganttChartOption" />
       </div>
     </el-card>
 
     <!-- 测试经理视图 -->
-    <el-card v-if="activeTab === 'list'" class="list-card">
+    <el-card
+      v-if="activeTab === 'list'"
+      class="list-card"
+    >
       <!-- 搜索和筛选 -->
       <div class="search-bar">
         <el-input
@@ -41,41 +64,81 @@
           placeholder="搜索迭代名称"
           prefix-icon="el-icon-search"
           style="width: 300px; margin-right: 10px;"
-        ></el-input>
-        <el-select v-model="statusFilter" placeholder="状态筛选" style="width: 150px; margin-right: 10px;">
-          <el-option label="全部状态" value=""></el-option>
-          <el-option label="计划中" value="planning"></el-option>
-          <el-option label="进行中" value="active"></el-option>
-          <el-option label="已完成" value="completed"></el-option>
-          <el-option label="已取消" value="cancelled"></el-option>
+        />
+        <el-select
+          v-model="statusFilter"
+          placeholder="状态筛选"
+          style="width: 150px; margin-right: 10px;"
+        >
+          <el-option
+            label="全部状态"
+            value=""
+          />
+          <el-option
+            label="计划中"
+            value="planning"
+          />
+          <el-option
+            label="进行中"
+            value="active"
+          />
+          <el-option
+            label="已完成"
+            value="completed"
+          />
+          <el-option
+            label="已取消"
+            value="cancelled"
+          />
         </el-select>
-        <el-button type="primary" @click="loadIterations">查询</el-button>
+        <el-button
+          type="primary"
+          @click="loadIterations"
+        >
+          查询
+        </el-button>
       </div>
 
       <!-- 概览卡片 -->
       <div class="overview-cards">
         <el-card class="overview-card">
           <div class="overview-content">
-            <div class="overview-title">进行中迭代</div>
-            <div class="overview-value">{{ activeIterationsCount }}</div>
+            <div class="overview-title">
+              进行中迭代
+            </div>
+            <div class="overview-value">
+              {{ activeIterationsCount }}
+            </div>
           </div>
         </el-card>
         <el-card class="overview-card">
           <div class="overview-content">
-            <div class="overview-title">已完成迭代</div>
-            <div class="overview-value">{{ completedIterationsCount }}</div>
+            <div class="overview-title">
+              已完成迭代
+            </div>
+            <div class="overview-value">
+              {{ completedIterationsCount }}
+            </div>
           </div>
         </el-card>
         <el-card class="overview-card">
           <div class="overview-content">
-            <div class="overview-title">缺陷总数</div>
-            <div class="overview-value">{{ totalBugsCount }}</div>
+            <div class="overview-title">
+              缺陷总数
+            </div>
+            <div class="overview-value">
+              {{ totalBugsCount }}
+            </div>
           </div>
         </el-card>
         <el-card class="overview-card">
           <div class="overview-content">
-            <div class="overview-title">平均通过率</div>
-            <div class="overview-value">{{ averagePassRate }}%</div>
+            <div class="overview-title">
+              平均通过率
+            </div>
+            <div class="overview-value">
+              {{ averagePassRate }}%
+            </div>
           </div>
         </el-card>
       </div>
@@ -89,10 +152,18 @@
         </template>
         <div class="kanban-container">
           <div class="kanban-column">
-            <div class="kanban-column-header">计划中</div>
+            <div class="kanban-column-header">
+              计划中
+            </div>
             <div class="kanban-items">
-              <div v-for="iteration in plannedIterations" :key="iteration.id" class="kanban-item planning">
-                <div class="kanban-item-title">{{ iteration.iteration_name }}</div>
+              <div
+                v-for="iteration in plannedIterations"
+                :key="iteration.id"
+                class="kanban-item planning"
+              >
+                <div class="kanban-item-title">
+                  {{ iteration.iteration_name }}
+                </div>
                 <div class="kanban-item-meta">
                   <span class="kanban-item-date">{{ iteration.start_date }} - {{ iteration.end_date }}</span>
                 </div>
@@ -100,12 +171,23 @@
             </div>
           </div>
           <div class="kanban-column">
-            <div class="kanban-column-header">进行中</div>
+            <div class="kanban-column-header">
+              进行中
+            </div>
             <div class="kanban-items">
-              <div v-for="iteration in activeIterations" :key="iteration.id" class="kanban-item active">
-                <div class="kanban-item-title">{{ iteration.iteration_name }}</div>
+              <div
+                v-for="iteration in activeIterations"
+                :key="iteration.id"
+                class="kanban-item active"
+              >
+                <div class="kanban-item-title">
+                  {{ iteration.iteration_name }}
+                </div>
                 <div class="kanban-item-progress">
-                  <el-progress :percentage="calculateRequirementProgress(iteration.requirement_stats)" :stroke-width="4" />
+                  <el-progress
+                    :percentage="calculateRequirementProgress(iteration.requirement_stats)"
+                    :stroke-width="4"
+                  />
                 </div>
                 <div class="kanban-item-meta">
                   <span class="kanban-item-date">{{ iteration.start_date }} - {{ iteration.end_date }}</span>
@@ -115,10 +197,18 @@
             </div>
           </div>
           <div class="kanban-column">
-            <div class="kanban-column-header">已完成</div>
+            <div class="kanban-column-header">
+              已完成
+            </div>
             <div class="kanban-items">
-              <div v-for="iteration in completedIterations" :key="iteration.id" class="kanban-item completed">
-                <div class="kanban-item-title">{{ iteration.iteration_name }}</div>
+              <div
+                v-for="iteration in completedIterations"
+                :key="iteration.id"
+                class="kanban-item completed"
+              >
+                <div class="kanban-item-title">
+                  {{ iteration.iteration_name }}
+                </div>
                 <div class="kanban-item-meta">
                   <span class="kanban-item-date">{{ iteration.start_date }} - {{ iteration.end_date }}</span>
                   <span class="kanban-item-pass-rate">通过率: {{ calculatePassRate(iteration.execution_stats) }}%</span>
@@ -139,7 +229,10 @@
             </div>
           </template>
           <div class="chart-wrapper">
-            <v-chart :option="qualityTrendOption" autoresize />
+            <v-chart
+              :option="qualityTrendOption"
+              autoresize
+            />
           </div>
         </el-card>
 
@@ -151,7 +244,10 @@
             </div>
           </template>
           <div class="chart-wrapper">
-            <v-chart :option="bugStatsOption" autoresize />
+            <v-chart
+              :option="bugStatsOption"
+              autoresize
+            />
           </div>
         </el-card>
       </div>
@@ -163,18 +259,37 @@
             <span>迭代详情</span>
           </div>
         </template>
-        <el-table :data="iterationsData || []" stripe style="width: 100%; max-height: 800px; overflow-y: auto;">
-          <el-table-column prop="iteration_name" label="迭代名称" min-width="180">
+        <el-table
+          :data="iterationsData || []"
+          stripe
+          style="width: 100%; max-height: 800px; overflow-y: auto;"
+        >
+          <el-table-column
+            prop="iteration_name"
+            label="迭代名称"
+            min-width="180"
+          >
             <template #default="scope">
-              <a href="#" @click.stop="showIterationDetail(scope.row)">{{ scope.row?.iteration_name || '-' }}</a>
+              <a
+                href="#"
+                @click.stop="showIterationDetail(scope.row)"
+              >{{ scope.row?.iteration_name || '-' }}</a>
             </template>
           </el-table-column>
-          <el-table-column label="所属项目" min-width="120" align="center">
+          <el-table-column
+            label="所属项目"
+            min-width="120"
+            align="center"
+          >
             <template #default="scope">
               {{ scope.row?.project_name || '-' }}
             </template>
           </el-table-column>
-          <el-table-column label="状态" min-width="100" align="center">
+          <el-table-column
+            label="状态"
+            min-width="100"
+            align="center"
+          >
             <template #default="scope">
               <el-tag
                 :type="getTagTypeByStatus(scope.row?.status || 'planning')"
@@ -184,45 +299,91 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="开始日期" min-width="120" align="center">
+          <el-table-column
+            label="开始日期"
+            min-width="120"
+            align="center"
+          >
             <template #default="scope">
               {{ scope.row?.start_date || '-' }}
             </template>
           </el-table-column>
-          <el-table-column label="结束日期" min-width="120" align="center">
+          <el-table-column
+            label="结束日期"
+            min-width="120"
+            align="center"
+          >
             <template #default="scope">
               {{ scope.row?.end_date || '-' }}
             </template>
           </el-table-column>
-          <el-table-column label="需求进度" min-width="150" align="center">
+          <el-table-column
+            label="需求进度"
+            min-width="150"
+            align="center"
+          >
             <template #default="scope">
               <el-progress
                 :percentage="calculateRequirementProgress(scope.row?.requirement_stats)"
                 :stroke-width="8"
                 :color="getProgressColor(calculateRequirementProgress(scope.row?.requirement_stats))"
-              ></el-progress>
+              />
             </template>
           </el-table-column>
-          <el-table-column label="通过率" min-width="100" align="center">
+          <el-table-column
+            label="通过率"
+            min-width="100"
+            align="center"
+          >
             <template #default="scope">
               <div class="pass-rate">
                 {{ calculatePassRate(scope.row?.execution_stats) }}%
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="缺陷数" min-width="100" align="center">
+          <el-table-column
+            label="缺陷数"
+            min-width="100"
+            align="center"
+          >
             <template #default="scope">
               <div class="bug-count">
                 {{ scope.row?.bug_stats?.total || 0 }}
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="操作" min-width="180" fixed="right" align="center">
+          <el-table-column
+            label="操作"
+            min-width="180"
+            fixed="right"
+            align="center"
+          >
             <template #default="scope">
               <div class="operation-buttons">
-                <el-button size="small" type="primary" icon="el-icon-edit" @click="editIteration(scope.row)">编辑</el-button>
-                <el-button size="small" type="info" icon="el-icon-document-copy" @click="copyIterationDialog(scope.row)">复制</el-button>
-                <el-button size="small" type="danger" icon="el-icon-delete" @click="deleteIteration(scope.row)">删除</el-button>
+                <el-button
+                  size="small"
+                  type="primary"
+                  icon="el-icon-edit"
+                  @click="editIteration(scope.row)"
+                >
+                  编辑
+                </el-button>
+                <el-button
+                  size="small"
+                  type="info"
+                  icon="el-icon-document-copy"
+                  @click="copyIterationDialog(scope.row)"
+                >
+                  复制
+                </el-button>
+                <el-button
+                  size="small"
+                  type="danger"
+                  icon="el-icon-delete"
+                  @click="deleteIteration(scope.row)"
+                >
+                  删除
+                </el-button>
               </div>
             </template>
           </el-table-column>
@@ -232,134 +393,268 @@
 
     <!-- 创建/编辑迭代对话框 -->
     <el-dialog
+      v-model:visible="iterationDialogVisible"
       :title="iterationDialogTitle"
-      :visible.sync="iterationDialogVisible"
       width="600px"
       @close="resetIterationForm"
     >
-      <el-form ref="iterationForm" :model="iterationForm" :rules="iterationRules" label-width="120px">
-        <el-form-item label="项目" prop="project_id">
-          <el-select v-model="iterationForm.project_id" placeholder="选择项目" disabled>
+      <el-form
+        ref="iterationForm"
+        :model="iterationForm"
+        :rules="iterationRules"
+        label-width="120px"
+      >
+        <el-form-item
+          label="项目"
+          prop="project_id"
+        >
+          <el-select
+            v-model="iterationForm.project_id"
+            placeholder="选择项目"
+            disabled
+          >
             <el-option
               v-for="project in projects"
               :key="project.id"
               :label="project.name"
               :value="project.id"
-            ></el-option>
+            />
           </el-select>
         </el-form-item>
-        <el-form-item label="迭代名称" prop="iteration_name">
-          <el-input v-model="iterationForm.iteration_name" placeholder="请输入迭代名称"></el-input>
+        <el-form-item
+          label="迭代名称"
+          prop="iteration_name"
+        >
+          <el-input
+            v-model="iterationForm.iteration_name"
+            placeholder="请输入迭代名称"
+          />
         </el-form-item>
-        <el-form-item label="迭代目标" prop="goal">
-          <el-input v-model="iterationForm.goal" type="textarea" placeholder="请输入迭代目标" :rows="3"></el-input>
+        <el-form-item
+          label="迭代目标"
+          prop="goal"
+        >
+          <el-input
+            v-model="iterationForm.goal"
+            type="textarea"
+            placeholder="请输入迭代目标"
+            :rows="3"
+          />
         </el-form-item>
-        <el-form-item label="测试版本" prop="version">
-          <el-input v-model="iterationForm.version" placeholder="请输入测试版本"></el-input>
+        <el-form-item
+          label="测试版本"
+          prop="version"
+        >
+          <el-input
+            v-model="iterationForm.version"
+            placeholder="请输入测试版本"
+          />
         </el-form-item>
-        <el-form-item label="开始日期" prop="start_date">
+        <el-form-item
+          label="开始日期"
+          prop="start_date"
+        >
           <el-date-picker
             v-model="iterationForm.start_date"
             type="date"
             placeholder="选择开始日期"
             style="width: 100%;"
-          ></el-date-picker>
+          />
         </el-form-item>
-        <el-form-item label="结束日期" prop="end_date">
+        <el-form-item
+          label="结束日期"
+          prop="end_date"
+        >
           <el-date-picker
             v-model="iterationForm.end_date"
             type="date"
             placeholder="选择结束日期"
             style="width: 100%;"
-          ></el-date-picker>
+          />
         </el-form-item>
-        <el-form-item label="状态" prop="status">
-          <el-select v-model="iterationForm.status" placeholder="选择状态">
-            <el-option label="计划中" value="planning"></el-option>
-            <el-option label="进行中" value="active"></el-option>
-            <el-option label="已完成" value="completed"></el-option>
-            <el-option label="已取消" value="cancelled"></el-option>
+        <el-form-item
+          label="状态"
+          prop="status"
+        >
+          <el-select
+            v-model="iterationForm.status"
+            placeholder="选择状态"
+          >
+            <el-option
+              label="计划中"
+              value="planning"
+            />
+            <el-option
+              label="进行中"
+              value="active"
+            />
+            <el-option
+              label="已完成"
+              value="completed"
+            />
+            <el-option
+              label="已取消"
+              value="cancelled"
+            />
           </el-select>
         </el-form-item>
-        <el-form-item label="备注" prop="description">
-          <el-input v-model="iterationForm.description" type="textarea" placeholder="请输入备注信息" :rows="3"></el-input>
+        <el-form-item
+          label="备注"
+          prop="description"
+        >
+          <el-input
+            v-model="iterationForm.description"
+            type="textarea"
+            placeholder="请输入备注信息"
+            :rows="3"
+          />
         </el-form-item>
       </el-form>
-      <div slot="footer" class="dialog-footer">
-        <el-button @click="closeIterationDialog">取消</el-button>
-        <el-button type="primary" @click="submitIterationForm">确定</el-button>
-      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="closeIterationDialog">
+            取消
+          </el-button>
+          <el-button
+            type="primary"
+            @click="submitIterationForm"
+          >
+            确定
+          </el-button>
+        </div>
+      </template>
     </el-dialog>
 
     <!-- 复制迭代对话框 -->
     <el-dialog
+      v-model:visible="copyDialogVisible"
       title="复制迭代"
-      :visible.sync="copyDialogVisible"
       width="500px"
     >
-      <el-form ref="copyForm" :model="copyForm" :rules="copyRules" label-width="120px">
-        <el-form-item label="新迭代名称" prop="name">
-          <el-input v-model="copyForm.name" placeholder="请输入新迭代名称"></el-input>
+      <el-form
+        ref="copyForm"
+        :model="copyForm"
+        :rules="copyRules"
+        label-width="120px"
+      >
+        <el-form-item
+          label="新迭代名称"
+          prop="name"
+        >
+          <el-input
+            v-model="copyForm.name"
+            placeholder="请输入新迭代名称"
+          />
         </el-form-item>
-        <el-form-item label="开始日期" prop="start_date">
+        <el-form-item
+          label="开始日期"
+          prop="start_date"
+        >
           <el-date-picker
             v-model="copyForm.start_date"
             type="date"
             placeholder="选择开始日期"
             style="width: 100%;"
-          ></el-date-picker>
+          />
         </el-form-item>
-        <el-form-item label="结束日期" prop="end_date">
+        <el-form-item
+          label="结束日期"
+          prop="end_date"
+        >
           <el-date-picker
             v-model="copyForm.end_date"
             type="date"
             placeholder="选择结束日期"
             style="width: 100%;"
-          ></el-date-picker>
+          />
         </el-form-item>
         <el-form-item label="复制测试计划">
-          <el-switch v-model="copyForm.copy_test_plans"></el-switch>
+          <el-switch v-model="copyForm.copy_test_plans" />
         </el-form-item>
       </el-form>
-      <div slot="footer" class="dialog-footer">
-        <el-button @click="copyDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitCopyForm">确定</el-button>
-      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="copyDialogVisible = false">
+            取消
+          </el-button>
+          <el-button
+            type="primary"
+            @click="submitCopyForm"
+          >
+            确定
+          </el-button>
+        </div>
+      </template>
     </el-dialog>
 
     <!-- 迭代详情对话框 -->
     <el-dialog
+      v-model:visible="detailDialogVisible"
       title="迭代详情"
-      :visible.sync="detailDialogVisible"
       width="900px"
       :before-close="handleDetailDialogClose"
     >
-      <div v-if="currentIteration" class="iteration-detail">
+      <div
+        v-if="currentIteration"
+        class="iteration-detail"
+      >
         <!-- 基本信息 -->
-        <el-descriptions border column="2" label-align="left" class="basic-info">
-          <el-descriptions-item label="迭代名称">{{ currentIteration.iteration_name }}</el-descriptions-item>
-          <el-descriptions-item label="所属项目">{{ currentIteration.project_name }}</el-descriptions-item>
-          <el-descriptions-item label="迭代目标">{{ currentIteration.goal }}</el-descriptions-item>
-          <el-descriptions-item label="测试版本">{{ currentIteration.version }}</el-descriptions-item>
+        <el-descriptions
+          border
+          column="2"
+          label-align="left"
+          class="basic-info"
+        >
+          <el-descriptions-item label="迭代名称">
+            {{ currentIteration.iteration_name }}
+          </el-descriptions-item>
+          <el-descriptions-item label="所属项目">
+            {{ currentIteration.project_name }}
+          </el-descriptions-item>
+          <el-descriptions-item label="迭代目标">
+            {{ currentIteration.goal }}
+          </el-descriptions-item>
+          <el-descriptions-item label="测试版本">
+            {{ currentIteration.version }}
+          </el-descriptions-item>
           <el-descriptions-item label="状态">
             <el-tag :type="getTagTypeByStatus(currentIteration.status)">
               {{ getStatusText(currentIteration.status) }}
             </el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="开始日期">{{ currentIteration.start_date }}</el-descriptions-item>
-          <el-descriptions-item label="结束日期">{{ currentIteration.end_date }}</el-descriptions-item>
-          <el-descriptions-item label="创建时间">{{ formatDate(currentIteration.created_at) }}</el-descriptions-item>
-          <el-descriptions-item label="创建人">{{ currentIteration.created_by_name }}</el-descriptions-item>
-          <el-descriptions-item label="更新人">{{ currentIteration.updated_by_name || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="备注" :span="2">{{ currentIteration.description || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="开始日期">
+            {{ currentIteration.start_date }}
+          </el-descriptions-item>
+          <el-descriptions-item label="结束日期">
+            {{ currentIteration.end_date }}
+          </el-descriptions-item>
+          <el-descriptions-item label="创建时间">
+            {{ formatDate(currentIteration.created_at) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="创建人">
+            {{ currentIteration.created_by_name }}
+          </el-descriptions-item>
+          <el-descriptions-item label="更新人">
+            {{ currentIteration.updated_by_name || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item
+            label="备注"
+            :span="2"
+          >
+            {{ currentIteration.description || '-' }}
+          </el-descriptions-item>
         </el-descriptions>
 
         <!-- 统计卡片 -->
         <div class="stats-cards">
           <el-card class="stat-card">
             <div class="stat-content">
-              <div class="stat-title">需求统计</div>
-              <div class="stat-value">{{ currentIteration.requirement_count }}</div>
+              <div class="stat-title">
+                需求统计
+              </div>
+              <div class="stat-value">
+                {{ currentIteration.requirement_count }}
+              </div>
               <div class="stat-detail">
                 <span class="stat-item">已完成: {{ currentIteration.requirement_stats?.completed || 0 }}</span>
                 <span class="stat-item">进行中: {{ currentIteration.requirement_stats?.in_progress || 0 }}</span>
@@ -370,14 +665,18 @@
                 :stroke-width="6"
                 :color="getProgressColor(calculateRequirementProgress(currentIteration.requirement_stats))"
                 style="margin-top: 10px"
-              ></el-progress>
+              />
             </div>
           </el-card>
 
           <el-card class="stat-card">
             <div class="stat-content">
-              <div class="stat-title">用例执行</div>
-              <div class="stat-value">{{ currentIteration.execution_stats?.total || 0 }}</div>
+              <div class="stat-title">
+                用例执行
+              </div>
+              <div class="stat-value">
+                {{ currentIteration.execution_stats?.total || 0 }}
+              </div>
               <div class="stat-detail">
                 <span class="stat-item pass">通过: {{ currentIteration.execution_stats?.pass || 0 }}</span>
                 <span class="stat-item fail">失败: {{ currentIteration.execution_stats?.fail || 0 }}</span>
@@ -388,14 +687,18 @@
                 :stroke-width="6"
                 :color="getPassRateColor(calculatePassRate(currentIteration.execution_stats))"
                 style="margin-top: 10px"
-              ></el-progress>
+              />
             </div>
           </el-card>
 
           <el-card class="stat-card">
             <div class="stat-content">
-              <div class="stat-title">缺陷统计</div>
-              <div class="stat-value">{{ currentIteration.bug_count }}</div>
+              <div class="stat-title">
+                缺陷统计
+              </div>
+              <div class="stat-value">
+                {{ currentIteration.bug_count }}
+              </div>
               <div class="stat-detail">
                 <span class="stat-item critical">严重: {{ currentIteration.bug_stats?.critical || 0 }}</span>
                 <span class="stat-item high">高: {{ currentIteration.bug_stats?.high || 0 }}</span>
@@ -412,70 +715,179 @@
         </div>
 
         <!-- 相关数据标签页 -->
-        <el-tabs v-model="detailActiveTab" class="detail-tabs">
-          <el-tab-pane label="需求列表" name="requirements">
-            <el-table :data="currentIteration?.version_requirements || []" stripe style="width: 100%" size="small">
-              <el-table-column prop="id" label="ID" width="80"></el-table-column>
-              <el-table-column prop="requirement_name" label="需求名称"></el-table-column>
-              <el-table-column prop="status" label="状态" width="100">
+        <el-tabs
+          v-model="detailActiveTab"
+          class="detail-tabs"
+        >
+          <el-tab-pane
+            label="需求列表"
+            name="requirements"
+          >
+            <el-table
+              :data="currentIteration?.version_requirements || []"
+              stripe
+              style="width: 100%"
+              size="small"
+            >
+              <el-table-column
+                prop="id"
+                label="ID"
+                width="80"
+              />
+              <el-table-column
+                prop="requirement_name"
+                label="需求名称"
+              />
+              <el-table-column
+                prop="status"
+                label="状态"
+                width="100"
+              >
                 <template #default="scope">
                   <el-tag :type="getRequirementStatusType(scope.row?.status || 'new')">
                     {{ getRequirementStatusText(scope.row?.status || 'new') }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="priority" label="优先级" width="100"></el-table-column>
-              <el-table-column prop="assigned_to_name" label="负责人" width="120"></el-table-column>
-              <el-table-column prop="start_date" label="开始日期" width="120"></el-table-column>
-              <el-table-column prop="end_date" label="结束日期" width="120"></el-table-column>
+              <el-table-column
+                prop="priority"
+                label="优先级"
+                width="100"
+              />
+              <el-table-column
+                prop="assigned_to_name"
+                label="负责人"
+                width="120"
+              />
+              <el-table-column
+                prop="start_date"
+                label="开始日期"
+                width="120"
+              />
+              <el-table-column
+                prop="end_date"
+                label="结束日期"
+                width="120"
+              />
             </el-table>
           </el-tab-pane>
 
-          <el-tab-pane label="测试任务" name="tasks">
-            <el-table :data="currentIteration?.test_tasks || []" stripe style="width: 100%" size="small">
-              <el-table-column prop="id" label="ID" width="80"></el-table-column>
-              <el-table-column prop="task_name" label="任务名称"></el-table-column>
-              <el-table-column prop="status" label="状态" width="100">
+          <el-tab-pane
+            label="测试任务"
+            name="tasks"
+          >
+            <el-table
+              :data="currentIteration?.test_tasks || []"
+              stripe
+              style="width: 100%"
+              size="small"
+            >
+              <el-table-column
+                prop="id"
+                label="ID"
+                width="80"
+              />
+              <el-table-column
+                prop="task_name"
+                label="任务名称"
+              />
+              <el-table-column
+                prop="status"
+                label="状态"
+                width="100"
+              >
                 <template #default="scope">
                   <el-tag :type="getTaskStatusType(scope.row?.status || 'pending')">
                     {{ scope.row?.status || 'pending' }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="executor_name" label="执行人" width="120"></el-table-column>
-              <el-table-column prop="scheduled_time" label="计划时间" width="150"></el-table-column>
-              <el-table-column prop="statistics.pass_rate" label="通过率" width="100"></el-table-column>
+              <el-table-column
+                prop="executor_name"
+                label="执行人"
+                width="120"
+              />
+              <el-table-column
+                prop="scheduled_time"
+                label="计划时间"
+                width="150"
+              />
+              <el-table-column
+                prop="statistics.pass_rate"
+                label="通过率"
+                width="100"
+              />
             </el-table>
           </el-tab-pane>
 
-          <el-tab-pane label="缺陷列表" name="bugs">
-            <el-table :data="currentIteration?.bugs || []" stripe style="width: 100%" size="small">
-              <el-table-column prop="id" label="ID" width="80"></el-table-column>
-              <el-table-column prop="bug_title" label="缺陷标题"></el-table-column>
-              <el-table-column prop="severity" label="严重程度" width="120">
+          <el-tab-pane
+            label="缺陷列表"
+            name="bugs"
+          >
+            <el-table
+              :data="currentIteration?.bugs || []"
+              stripe
+              style="width: 100%"
+              size="small"
+            >
+              <el-table-column
+                prop="id"
+                label="ID"
+                width="80"
+              />
+              <el-table-column
+                prop="bug_title"
+                label="缺陷标题"
+              />
+              <el-table-column
+                prop="severity"
+                label="严重程度"
+                width="120"
+              >
                 <template #default="scope">
                   <el-tag :type="getBugSeverityType(scope.row?.severity || 'medium')">
                     {{ scope.row?.severity || 'medium' }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="status" label="状态" width="100">
+              <el-table-column
+                prop="status"
+                label="状态"
+                width="100"
+              >
                 <template #default="scope">
                   <el-tag :type="getBugStatusType(scope.row?.status || 'open')">
                     {{ scope.row?.status || 'open' }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="reporter_name" label="报告人" width="120"></el-table-column>
-              <el-table-column prop="created_at" label="创建时间" width="150"></el-table-column>
+              <el-table-column
+                prop="reporter_name"
+                label="报告人"
+                width="120"
+              />
+              <el-table-column
+                prop="created_at"
+                label="创建时间"
+                width="150"
+              />
             </el-table>
           </el-tab-pane>
         </el-tabs>
       </div>
-      <div slot="footer" class="dialog-footer">
-        <el-button @click="detailDialogVisible = false">关闭</el-button>
-        <el-button type="primary" @click="generateIterationReport">生成报告</el-button>
-      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="detailDialogVisible = false">
+            关闭
+          </el-button>
+          <el-button
+            type="primary"
+            @click="generateIterationReport"
+          >
+            生成报告
+          </el-button>
+        </div>
+      </template>
     </el-dialog>
   </div>
 </template>
@@ -1018,9 +1430,6 @@ export default {
       detailActiveTab: 'requirements' // 详情页默认标签
     }
   },
-  mounted() {
-    this.initProjects()
-  },
   watch: {
     searchQuery() {
       this.filterIterations()
@@ -1028,6 +1437,9 @@ export default {
     statusFilter() {
       this.filterIterations()
     }
+  },
+  mounted() {
+    this.initProjects()
   },
   methods: {
     // 初始化项目列表

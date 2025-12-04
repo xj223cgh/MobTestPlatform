@@ -10,6 +10,7 @@ TEST_CASE_STATUS = ('', 'pass', 'fail', 'blocked', 'not_applicable')
 TEST_CASE_PRIORITY = ('P0', 'P1', 'P2', 'P3', 'P4')
 TEST_SUITE_STATUS = ('active', 'inactive')
 TEST_SUITE_TYPE = ('folder', 'suite')  # folder: 用例文件夹, suite: 用例集
+TEST_SUITE_REVIEW_STATUS = ('not_submitted', 'pending', 'approved', 'rejected')  # 评审状态：未提交、待审核、已通过、已拒绝
 TEST_TASK_STATUS = ('pending', 'running', 'completed', 'paused')
 TEST_EXECUTION_STATUS = ('pass', 'fail', 'blocked', 'not_applicable')
 PROJECT_STATUS = ('not_started', 'in_progress', 'paused', 'completed', 'closed')
@@ -469,6 +470,8 @@ class TestSuite(db.Model):
     status = db.Column(db.Enum(*TEST_SUITE_STATUS), default='active', comment='状态')
     type = db.Column(db.Enum(*TEST_SUITE_TYPE), default='folder', comment='类型：folder-用例文件夹, suite-用例集')
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='创建者ID')
+    reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, comment='评审人ID，用于用例集评审')
+    review_status = db.Column(db.Enum(*TEST_SUITE_REVIEW_STATUS), default='not_submitted', comment='评审状态：not_submitted-未提交, pending-待审核, approved-已通过, rejected-已拒绝')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
     version_requirement_id = db.Column(db.Integer, db.ForeignKey('version_requirements.id'), nullable=True, comment='关联的版本需求ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
@@ -482,7 +485,8 @@ class TestSuite(db.Model):
     # 与测试用例的一对多关系
     test_cases = db.relationship('TestCase', backref='suite', lazy='dynamic')
     # 与用户的多对一关系
-    creator = db.relationship('User', backref='created_suites')
+    creator = db.relationship('User', backref='created_suites', foreign_keys=[creator_id])
+    reviewer = db.relationship('User', backref='reviewed_suites', foreign_keys=[reviewer_id])
     # 与版本需求的多对一关系
     version_requirement = db.relationship('VersionRequirement', backref='test_suites')
     # 与迭代的多对一关系
@@ -500,6 +504,9 @@ class TestSuite(db.Model):
             'type': self.type,
             'creator_id': self.creator_id,
             'creator_name': self.creator.real_name if self.creator else None,
+            'reviewer_id': self.reviewer_id,
+            'reviewer_name': self.reviewer.real_name if self.reviewer else None,
+            'review_status': self.review_status,
             'project_id': self.project_id,
             'project_name': self.project.project_name if self.project else None,
             'version_requirement_id': self.version_requirement_id,
@@ -525,7 +532,6 @@ class TestCase(db.Model):
     case_description = db.Column(db.Text, comment='用例描述')
     priority = db.Column(db.Enum(*TEST_CASE_PRIORITY), default='P1', comment='优先级')
     status = db.Column(db.Enum(*TEST_CASE_STATUS), default='', comment='状态')
-    type = db.Column(db.String(50), default='functional', comment='用例类型：functional, performance, security, etc.')
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='创建者ID')
     suite_id = db.Column(db.Integer, db.ForeignKey('test_suites.id'), nullable=False, comment='所属套件ID（用于模块树）')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
@@ -542,22 +548,12 @@ class TestCase(db.Model):
     actual_result = db.Column(db.Text, comment='实际结果')
     test_data = db.Column(db.Text, nullable=True, comment='测试数据')
     
-    # 标签支持
-    tags = db.Column(db.Text, comment='用例标签，JSON格式存储')
-    
     # 时间字段
     created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
     executed_at = db.Column(db.DateTime, nullable=True, comment='最后执行时间')
     
-    # 版本信息
-    version_info = db.Column(db.String(100), nullable=True, comment='版本信息')
-    
-    # 预计执行时间（分钟）
-    estimated_execution_time = db.Column(db.Integer, nullable=True, comment='预计执行时间（分钟）')
-    
     # 审核信息
-    review_status = db.Column(db.String(50), default='pending', comment='审核状态：pending, approved, rejected')
     review_comments = db.Column(db.Text, comment='审核意见')
     
     # 关系
@@ -570,15 +566,6 @@ class TestCase(db.Model):
     
     def to_dict(self):
         """转换为字典"""
-        import json
-        # 处理tags字段，防止JSONDecodeError
-        tags = []
-        if self.tags:
-            try:
-                tags = json.loads(self.tags)
-            except (json.JSONDecodeError, TypeError):
-                tags = []
-        
         return {
             'id': self.id,
             'case_number': self.case_number,
@@ -586,7 +573,6 @@ class TestCase(db.Model):
             'case_description': self.case_description,
             'priority': self.priority,
             'status': self.status,
-            'type': self.type,
             'creator_id': self.creator_id,
             'creator_name': self.creator.real_name if self.creator else None,
             'suite_id': self.suite_id,
@@ -609,13 +595,9 @@ class TestCase(db.Model):
             'expected_result': self.expected_result,
             'actual_result': self.actual_result,
             'test_data': self.test_data,
-            'tags': tags,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'executed_at': self.executed_at.isoformat() if self.executed_at else None,
-            'version_info': self.version_info,
-            'estimated_execution_time': self.estimated_execution_time,
-            'review_status': self.review_status,
             'review_comments': self.review_comments
         }
 

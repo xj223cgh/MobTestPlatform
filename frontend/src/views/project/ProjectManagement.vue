@@ -3,10 +3,16 @@
     <div class="page-header">
       <div class="header-content">
         <h1>项目管理</h1>
-        <p class="description">管理系统项目信息</p>
+        <p class="description">
+          管理系统项目信息
+        </p>
       </div>
       <div class="header-actions">
-        <el-button type="primary" @click="handleCreateProject" :loading="loading">
+        <el-button
+          type="primary"
+          :loading="loading"
+          @click="handleCreateProject"
+        >
           <el-icon><Plus /></el-icon>
           创建项目
         </el-button>
@@ -15,15 +21,18 @@
 
     <!-- 搜索和筛选 -->
     <div class="search-section">
-      <el-form :model="searchForm" inline>
+      <el-form
+        :model="searchForm"
+        inline
+      >
         <el-form-item label="项目名称">
           <el-input
             v-model="searchQuery"
             placeholder="请输入项目名称"
             clearable
+            style="width: 200px"
             @clear="getProjectList"
             @keyup.enter="getProjectList"
-            style="width: 200px"
           />
         </el-form-item>
         <el-form-item label="状态">
@@ -31,15 +40,33 @@
             v-model="statusFilter" 
             placeholder="全部状态" 
             clearable 
-            @clear="getProjectList"
             style="width: 120px"
+            @clear="getProjectList"
           >
-            <el-option label="全部" value=""></el-option>
-            <el-option label="未开始" value="not_started"></el-option>
-            <el-option label="进行中" value="in_progress"></el-option>
-            <el-option label="已暂停" value="paused"></el-option>
-            <el-option label="已完成" value="completed"></el-option>
-            <el-option label="已关闭" value="closed"></el-option>
+            <el-option
+              label="全部"
+              value=""
+            />
+            <el-option
+              label="未开始"
+              value="not_started"
+            />
+            <el-option
+              label="进行中"
+              value="in_progress"
+            />
+            <el-option
+              label="已暂停"
+              value="paused"
+            />
+            <el-option
+              label="已完成"
+              value="completed"
+            />
+            <el-option
+              label="已关闭"
+              value="closed"
+            />
           </el-select>
         </el-form-item>
 
@@ -48,21 +75,40 @@
             v-model="priorityFilter" 
             placeholder="全部优先级" 
             clearable 
-            @clear="getProjectList"
             style="width: 120px"
+            @clear="getProjectList"
           >
-            <el-option label="全部" value=""></el-option>
-            <el-option label="高" value="high"></el-option>
-            <el-option label="中" value="medium"></el-option>
-            <el-option label="低" value="low"></el-option>
+            <el-option
+              label="全部"
+              value=""
+            />
+            <el-option
+              label="高"
+              value="high"
+            />
+            <el-option
+              label="中"
+              value="medium"
+            />
+            <el-option
+              label="低"
+              value="low"
+            />
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="getProjectList" :loading="loading">
+          <el-button
+            type="primary"
+            :loading="loading"
+            @click="getProjectList"
+          >
             <el-icon><Search /></el-icon>
             搜索
           </el-button>
-          <el-button @click="resetFilters" :loading="loading">
+          <el-button
+            :loading="loading"
+            @click="resetFilters"
+          >
             <el-icon><Refresh /></el-icon>
             重置
           </el-button>
@@ -80,54 +126,122 @@
         style="width: 100%"
         fit
       >
-      <el-table-column prop="id" label="项目ID" type="index" width="100" fixed="left" align="center"></el-table-column>
-      <el-table-column prop="project_name" label="项目名称" min-width="150" fixed="left" align="center">
+        <el-table-column
+          prop="id"
+          label="项目ID"
+          type="index"
+          width="100"
+          fixed="left"
+          align="center"
+        />
+        <el-table-column
+          prop="project_name"
+          label="项目名称"
+          min-width="150"
+          fixed="left"
+          align="center"
+        >
           <template #default="scope">
             {{ scope.row.project_name || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" min-width="80" align="center">
+        <el-table-column
+          prop="status"
+          label="状态"
+          min-width="80"
+          align="center"
+        >
           <template #default="scope">
-            <el-tag :type="getStatusType(scope.row.status)">{{ getStatusText(scope.row.status) }}</el-tag>
+            <el-tag :type="getStatusType(scope.row.status)">
+              {{ getStatusText(scope.row.status) }}
+            </el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column prop="priority" label="优先级" min-width="80" align="center">
+        <el-table-column
+          prop="priority"
+          label="优先级"
+          min-width="80"
+          align="center"
+        >
           <template #default="scope">
-            <el-tag :type="getPriorityType(scope.row.priority)">{{ getPriorityText(scope.row.priority) || '-' }}</el-tag>
+            <el-tag :type="getPriorityType(scope.row.priority)">
+              {{ getPriorityText(scope.row.priority) || '-' }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="creator_name" label="创建者" min-width="100" align="center">
+        <el-table-column
+          prop="creator_name"
+          label="创建者"
+          min-width="100"
+          align="center"
+        >
           <template #default="scope">
             {{ scope.row.creator_name || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="owner_name" label="负责人" min-width="100" align="center">
+        <el-table-column
+          prop="owner_name"
+          label="负责人"
+          min-width="100"
+          align="center"
+        >
           <template #default="scope">
             {{ scope.row.owner_name || '-' }}
           </template>
         </el-table-column>   
-        <el-table-column label="开始日期" min-width="120" align="center">
+        <el-table-column
+          label="开始日期"
+          min-width="120"
+          align="center"
+        >
           <template #default="scope">
             {{ formatDateTime(scope.row.start_date) }}
           </template>
         </el-table-column>
-        <el-table-column label="结束日期" min-width="120" align="center">
+        <el-table-column
+          label="结束日期"
+          min-width="120"
+          align="center"
+        >
           <template #default="scope">
             {{ formatDateTime(scope.row.end_date) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" min-width="190" fixed="right" align="center">
+        <el-table-column
+          label="操作"
+          min-width="190"
+          fixed="right"
+          align="center"
+        >
           <template #default="scope">
             <div class="operation-buttons">
-              <el-button type="primary" size="small" @click="handleViewProject(scope.row)">查看</el-button>
-              <el-button type="success" size="small" @click="handleEditProject(scope.row)">编辑</el-button>
-              <el-button type="danger" size="small" @click="handleDeleteProject(scope.row)" :disabled="scope.row.is_owner">删除</el-button>
+              <el-button
+                type="primary"
+                size="small"
+                @click="handleViewProject(scope.row)"
+              >
+                查看
+              </el-button>
+              <el-button
+                type="success"
+                size="small"
+                @click="handleEditProject(scope.row)"
+              >
+                编辑
+              </el-button>
+              <el-button
+                type="danger"
+                size="small"
+                :disabled="scope.row.is_owner"
+                @click="handleDeleteProject(scope.row)"
+              >
+                删除
+              </el-button>
             </div>
           </template>
         </el-table-column>
       </el-table>
-      
     </div>
     
     <!-- 分页 - 固定在右侧区域底部 -->
