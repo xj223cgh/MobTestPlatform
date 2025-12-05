@@ -49,7 +49,7 @@
 
     <div class="main-content">
       <!-- 左侧树形组件 -->
-      <div class="left-panel">
+      <div class="left-panel" :class="{ collapsed: isLeftPanelCollapsed }">
         <div class="panel-header">
           <el-input
             v-model="searchText"
@@ -73,6 +73,13 @@
               circle
               title="新增套件"
               @click="handleAddSuite"
+            />
+            <el-button
+              size="small"
+              :icon="isLeftPanelCollapsed ? 'ArrowRight' : 'ArrowLeft'"
+              circle
+              :title="isLeftPanelCollapsed ? '展开套件树' : '收起套件树'"
+              @click="toggleLeftPanel"
             />
           </div>
         </div>
@@ -188,6 +195,42 @@
               </div>
             </div>
           </div>
+          
+          <!-- 用例进度条 -->
+          <div class="case-progress-container" v-if="selectedSuite && selectedSuite.type === 'suite'">
+            <div class="progress-wrapper">
+              <!-- 进度条上方显示执行情况 -->
+              <div class="progress-execution-info">
+                用例执行进度：{{ executionRate }}%
+              </div>
+              <div class="progress-bar">
+                <div
+                  v-for="item in statusProgress"
+                  :key="item.status"
+                  class="progress-segment"
+                  :class="`status-${item.status}`"
+                  :style="{ width: `${item.percentage}%` }"
+                  :title="`${item.label}: ${item.count}条 (${item.percentage}%)`"
+                >
+                </div>
+              </div>
+              <!-- 进度数据显示在右侧末尾 -->
+              <div class="progress-data-right">
+                {{ notExecutedCount }}/{{ totalCases }}
+              </div>
+              <!-- 水平分布的属性标签 -->
+              <div class="progress-labels-horizontal">
+                <span
+                  v-for="item in positionedLabels"
+                  :key="item.status"
+                  class="stat-item horizontal"
+                  :class="`status-${item.status}`"
+                >
+                  {{ item.label }}: {{ item.count }} ({{ item.percentage }}%)
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- 用例列表 -->
@@ -205,7 +248,6 @@
               :cell-style="{padding: '10px', whiteSpace: 'normal', wordBreak: 'break-word', textAlign: 'center'}"
               :header-cell-style="{textAlign: 'center'}"
               row-key="id"
-              @cell-click="handleCellClick"
               @selection-change="handleSelectionChange"
               @select="handleSelect"
               @select-all="handleSelectAll"
@@ -225,6 +267,7 @@
                     <el-input
                       v-model="editingValue"
                       autofocus
+                      style="width: 100%"
                       @blur="saveCaseEdit(row)"
                       @keyup.enter="saveCaseEdit(row)"
                       @keyup.esc="cancelCaseEdit"
@@ -248,6 +291,7 @@
                     <el-input
                       v-model="editingValue"
                       autofocus
+                      style="width: 100%"
                       @blur="saveCaseEdit(row)"
                       @keyup.enter="saveCaseEdit(row)"
                       @keyup.esc="cancelCaseEdit"
@@ -264,7 +308,7 @@
               <el-table-column
                 prop="priority"
                 label="优先级"
-                width="76"
+                width="100"
               >
                 <template #default="{ row }">
                   <template v-if="editingCaseId === row.id && editingField === 'priority'">
@@ -309,6 +353,9 @@
                 prop="test_data"
                 label="测试数据"
                 min-width="90"
+                align="left"
+                header-align="left"
+                :cell-style="{ textAlign: 'left' }"
               >
                 <template #default="{ row }">
                   <template v-if="editingCaseId === row.id && editingField === 'test_data'">
@@ -325,6 +372,7 @@
                   <div
                     v-else
                     @dblclick="startCaseEdit(row, 'test_data')"
+                    style="text-align: left"
                   >
                     {{ row.test_data || '-' }}
                   </div>
@@ -334,6 +382,9 @@
                 prop="preconditions"
                 label="前置条件"
                 min-width="130"
+                align="left"
+                header-align="left"
+                :cell-style="{ textAlign: 'left' }"
               >
                 <template #default="{ row }">
                   <template v-if="editingCaseId === row.id && editingField === 'preconditions'">
@@ -350,6 +401,7 @@
                   <div
                     v-else
                     @dblclick="startCaseEdit(row, 'preconditions')"
+                    style="text-align: left"
                   >
                     {{ row.preconditions || '-' }}
                   </div>
@@ -359,6 +411,9 @@
                 prop="steps"
                 label="操作步骤"
                 min-width="140"
+                align="left"
+                header-align="left"
+                :cell-style="{ textAlign: 'left' }"
               >
                 <template #default="{ row }">
                   <template v-if="editingCaseId === row.id && editingField === 'steps'">
@@ -375,6 +430,7 @@
                   <div
                     v-else
                     @dblclick="startCaseEdit(row, 'steps')"
+                    style="text-align: left"
                   >
                     {{ row.steps || '-' }}
                   </div>
@@ -384,6 +440,9 @@
                 prop="expected_result"
                 label="预期结果"
                 min-width="130"
+                align="left"
+                header-align="left"
+                :cell-style="{ textAlign: 'left' }"
               >
                 <template #default="{ row }">
                   <template v-if="editingCaseId === row.id && editingField === 'expected_result'">
@@ -400,6 +459,7 @@
                   <div
                     v-else
                     @dblclick="startCaseEdit(row, 'expected_result')"
+                    style="text-align: left"
                   >
                     {{ row.expected_result || '-' }}
                   </div>
@@ -409,6 +469,9 @@
                 prop="actual_result"
                 label="实际结果"
                 min-width="130"
+                align="left"
+                header-align="left"
+                :cell-style="{ textAlign: 'left' }"
               >
                 <template #default="{ row }">
                   <template v-if="editingCaseId === row.id && editingField === 'actual_result'">
@@ -425,6 +488,7 @@
                   <div
                     v-else
                     @dblclick="startCaseEdit(row, 'actual_result')"
+                    style="text-align: left"
                   >
                     {{ row.actual_result || '-' }}
                   </div>
@@ -444,6 +508,7 @@
                       style="width: 90%"
                       :popper-class="'status-select-popper'"
                       @change="handleStatusChange(row)"
+                      placeholder="未执行"
                     >
                       <template #prefix>
                         <span
@@ -501,6 +566,7 @@
       v-model="suiteDialogVisible"
       :title="isEditSuite ? '编辑测试套件' : '新增测试套件'"
       width="750px"
+      @close="parentSuitePopoverVisible = false"
     >
       <el-form
         :model="suiteForm"
@@ -540,22 +606,35 @@
             <el-popover
               :visible="parentSuitePopoverVisible"
               placement="bottom-start"
-              trigger="click"
+              trigger="manual"
               width="auto"
+              teleport="body"
+              @clickoutside="parentSuitePopoverVisible = false"
             >
               <template #reference>
-                <el-input
-                  v-model="selectedParentSuitePath"
-                  placeholder="点击选择父套件（默认根套件）"
-                  readonly
-                  style="width: 100%; min-width: 640px;"
-                  @click="parentSuitePopoverVisible = true"
-                />
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <el-input
+                    v-model="selectedParentSuitePath"
+                    placeholder="点击选择父套件（默认根套件）"
+                    readonly
+                    style="flex: 1; min-width: 568px;"
+                    @click="parentSuitePopoverVisible = !parentSuitePopoverVisible"
+                  />
+                  <el-button
+                    size="small"
+                    style="height: 32px; margin-left: -2px;"
+                    icon="Refresh"
+                    @click.stop="clearParentSuiteSelection"
+                    title="重置选择"
+                  >
+                    重置
+                  </el-button>
+                </div>
               </template>
               <!-- 弹出的套件树 -->
               <div
                 class="suite-tree-popover"
-                style="width: 100%; min-width: 615px;"
+                style="width: 100%; min-width: 543px;"
               >
                 <el-tree
                   :current-node-key="suiteForm.parent_id"
@@ -563,21 +642,18 @@
                   :props="defaultProps"
                   node-key="id"
                   style="max-height: 300px; overflow-y: auto; width: 100%; padding-right: 10px;"
-                  @node-click="(data) => {
-                    suiteForm.parent_id = data.id;
-                    selectedParentSuitePath.value = getSelectedParentPath();
-                    parentSuitePopoverVisible = false;
-                  }"
+                  expand-on-click-node="false"
+                  @node-click="handleParentSuiteSelect"
                 >
-                  <template #default="{ node }">
+                  <template #default="{ node, data }">
                     <span
                       class="tree-node-content"
                       :class="{'current-node': node.key === suiteForm.parent_id}"
                     >
-                      <el-icon class="node-icon">
+                      <el-icon class="node-icon" @click.stop="handleParentSuiteSelect(data)">
                         <Folder />
                       </el-icon>
-                      <span>{{ node.label }}</span>
+                      <span @click.stop="handleParentSuiteSelect(data)">{{ node.label }}</span>
                     </span>
                   </template>
                 </el-tree>
@@ -649,7 +725,7 @@
       </el-form>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="suiteDialogVisible = false">取消</el-button>
+          <el-button @click="handleCancelSuite">取消</el-button>
           <el-button
             type="primary"
             @click="handleSaveSuite"
@@ -663,6 +739,7 @@
       v-model="caseDialogVisible"
       :title="isEditCase ? '编辑测试用例' : '新增测试用例'"
       width="700px"
+      @close="caseSuitePopoverVisible = false"
     >
       <el-form
         ref="caseFormRef"
@@ -699,8 +776,10 @@
             <el-popover
               :visible="caseSuitePopoverVisible"
               placement="bottom-start"
-              trigger="click"
+              trigger="manual"
               width="auto"
+              teleport="body"
+              @clickoutside="caseSuitePopoverVisible = false"
             >
               <template #reference>
                 <el-input
@@ -708,7 +787,7 @@
                   placeholder="点击选择所属用例集"
                   readonly
                   style="width: 100%; min-width: 568px;"
-                  @click="caseSuitePopoverVisible = true"
+                  @click="caseSuitePopoverVisible = !caseSuitePopoverVisible"
                 />
               </template>
               <!-- 弹出的套件树 -->
@@ -722,6 +801,7 @@
                   :props="defaultProps"
                   node-key="id"
                   style="max-height: 300px; overflow-y: auto; width: 100%; padding-right: 10px;"
+                  expand-on-click-node="false"
                   @node-click="handleCaseSuiteSelect"
                 >
                   <template #default="{ node, data }">
@@ -729,11 +809,11 @@
                       class="tree-node-content"
                       :class="{'current-node': node.key === caseForm.suite_id}"
                     >
-                      <el-icon class="node-icon">
+                      <el-icon class="node-icon" @click.stop="handleCaseSuiteSelect(data)">
                         <Document v-if="data.type === 'suite'" />
                         <Folder v-else />
                       </el-icon>
-                      <span>{{ node.label }}</span>
+                      <span @click.stop="handleCaseSuiteSelect(data)">{{ node.label }}</span>
                       <span
                         v-if="data.type === 'suite' && data.cases_count > 0"
                         class="case-count"
@@ -778,10 +858,10 @@
         <el-form-item label="状态">
           <el-select
             v-model="caseForm.status"
-            placeholder="默认无状态"
+            placeholder="默认未执行"
           >
             <el-option
-              label="无状态"
+              label="未执行"
               value=""
             />
             <el-option
@@ -846,7 +926,7 @@
       </el-form>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="caseDialogVisible = false">取消</el-button>
+          <el-button @click="handleCancelCase">取消</el-button>
           <el-button
             type="primary"
             @click="handleSaveCase"
@@ -954,7 +1034,8 @@ const caseFormRules = reactive({
 
 // 用例列表相关
 const selectedSuite = ref(null)
-const testCases = ref([])
+const testCases = ref([]) // 当前页数据
+const allTestCases = ref([]) // 所有数据
 const totalCases = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -1194,9 +1275,28 @@ const loadTestCases = async (suiteId) => {
         })
       }
     }, 100)
+    
+    // 加载所有测试用例用于统计
+    loadAllTestCases(suiteId)
   } catch (error) {
     ElMessage.error('加载测试用例失败')
     console.error('Failed to load test cases:', error)
+  }
+}
+
+// 加载所有测试用例用于统计
+const loadAllTestCases = async (suiteId) => {
+  try {
+    // 加载所有数据，page_size设置为较大值
+    const response = await getSuiteCases(suiteId, {
+      page: 1,
+      page_size: 10000 // 足够大的值，确保获取所有数据
+    })
+    allTestCases.value = response.data.items
+  } catch (error) {
+    console.error('Failed to load all test cases:', error)
+    // 失败时使用当前页数据作为备选
+    allTestCases.value = [...testCases.value]
   }
 }
 
@@ -1255,6 +1355,12 @@ const handleMoveSuite = () => {
   closeContextMenu()
 }
 
+// 取消套件操作
+const handleCancelSuite = () => {
+  suiteDialogVisible.value = false
+  parentSuitePopoverVisible.value = false
+}
+
 // 保存套件
 const handleSaveSuite = async () => {
   try {
@@ -1268,6 +1374,7 @@ const handleSaveSuite = async () => {
       ElMessage.success('测试套件已创建')
     }
     suiteDialogVisible.value = false
+    parentSuitePopoverVisible.value = false
     loadTreeData()
   } catch (error) {
     console.error('保存测试套件失败:', error)
@@ -1286,7 +1393,7 @@ const resetSuiteForm = () => {
 // 刷新树形数据
 const handleRefresh = () => {
   loadTreeData()
-  ElMessage.info('已刷新测试套件')
+  ElMessage.success('已刷新测试套件')
 }
 
 // 过滤只显示文件夹类型的节点
@@ -1372,10 +1479,12 @@ const clearCaseSuiteSelection = () => {
   selectedCaseSuitePath.value = ''
 }
 
-// 原函数保留，确保兼容性
+// 处理父套件选择
 const handleParentSuiteSelect = (data) => {
   suiteForm.parent_id = data.id
   selectedParentSuitePath.value = getSelectedParentPath()
+  // 选择后关闭弹出框
+  parentSuitePopoverVisible.value = false
 }
 
 // 处理用例集选择
@@ -1385,6 +1494,8 @@ const handleCaseSuiteSelect = (data) => {
     caseForm.suite_id = data.id
     // 更新选中路径显示
     selectedCaseSuitePath.value = getSelectedCaseSuitePath()
+    // 选择后关闭弹出框
+    caseSuitePopoverVisible.value = false
   }
 }
 
@@ -1455,6 +1566,12 @@ const handleDeleteCase = async (row) => {
   })
 }
 
+// 取消用例操作
+const handleCancelCase = () => {
+  caseDialogVisible.value = false
+  caseSuitePopoverVisible.value = false
+}
+
 // 保存用例
 const handleSaveCase = async () => {
   try {
@@ -1482,6 +1599,7 @@ const handleSaveCase = async () => {
       ElMessage.success('测试用例已创建')
     }
     caseDialogVisible.value = false
+    caseSuitePopoverVisible.value = false
     loadTestCases(selectedSuite.value?.id)
   } catch (error) {
     if (error.name === 'ValidateError') {
@@ -1514,11 +1632,195 @@ const toggleViewMode = () => {
   viewMode.value = viewMode.value === 'list' ? 'mindmap' : 'list'
 }
 
+// 左侧面板收起/展开状态
+const isLeftPanelCollapsed = ref(false)
+
+// 切换左侧面板显示状态
+const toggleLeftPanel = () => {
+  isLeftPanelCollapsed.value = !isLeftPanelCollapsed.value
+}
+
+// 计算无状态用例数量
+const notExecutedCount = computed(() => {
+  return allTestCases.value.filter(caseItem => !caseItem.status || caseItem.status === '' || caseItem.status === 'none').length
+})
+
+// 计算已执行用例数量
+const executedCount = computed(() => {
+  return allTestCases.value.filter(caseItem => caseItem.status && caseItem.status !== '' && caseItem.status !== 'none').length
+})
+
+// 计算执行率
+const executionRate = computed(() => {
+  if (totalCases.value === 0) return 0
+  return Math.round((executedCount.value / totalCases.value) * 100)
+})
+
+// 状态进度计算
+const statusProgress = computed(() => {
+  // 统计各状态数量
+  const statusCount = {
+    pass: 0,
+    fail: 0,
+    blocked: 0,
+    not_applicable: 0,
+    none: 0
+  }
+  
+  // 统计测试用例状态
+  allTestCases.value.forEach(caseItem => {
+    const status = caseItem.status === '' ? 'none' : (caseItem.status || 'none')
+    statusCount[status]++
+  })
+  
+  // 计算百分比
+  const total = totalCases.value || 1 // 避免除以0
+  const progress = [
+    { status: 'pass', label: '通过', count: statusCount.pass, percentage: Math.round((statusCount.pass / total) * 100) },
+    { status: 'fail', label: '失败', count: statusCount.fail, percentage: Math.round((statusCount.fail / total) * 100) },
+    { status: 'blocked', label: '阻塞', count: statusCount.blocked, percentage: Math.round((statusCount.blocked / total) * 100) },
+    { status: 'not_applicable', label: '不适用', count: statusCount.not_applicable, percentage: Math.round((statusCount.not_applicable / total) * 100) },
+    { status: 'none', label: '未执行', count: statusCount.none, percentage: Math.round((statusCount.none / total) * 100) }
+  ]
+  
+  // 过滤掉数量为0的状态
+  return progress.filter(item => item.count > 0)
+})
+
+// 计算标签位置，确保不重叠
+const positionedLabels = computed(() => {
+  if (!statusProgress.value.length) return []
+  
+  const labels = [...statusProgress.value]
+  const positioned = []
+  let currentPosition = 0
+  
+  // 先计算每个标签的初始位置
+  const initialPositions = labels.map((item, index) => {
+    const segmentStart = currentPosition
+    const segmentEnd = segmentStart + item.percentage
+    const middlePosition = segmentStart + item.percentage / 2
+    
+    // 更新当前位置
+    currentPosition = segmentEnd
+    
+    return {
+      ...item,
+      position: middlePosition,
+      originalPosition: middlePosition
+    }
+  })
+  
+  // 碰撞检测和位置调整
+  const labelWidth = 120 // 估算每个标签的宽度，单位：百分比
+  const minDistance = 2 // 标签之间的最小距离，单位：百分比
+  
+  // 第一次调整：从左到右
+  for (let i = 1; i < initialPositions.length; i++) {
+    const prevLabel = initialPositions[i - 1]
+    const currentLabel = initialPositions[i]
+    const distance = currentLabel.position - prevLabel.position
+    
+    if (distance < labelWidth + minDistance) {
+      // 调整当前标签位置
+      currentLabel.position = prevLabel.position + labelWidth + minDistance
+      
+      // 确保不超过总宽度
+      if (currentLabel.position > 100) {
+        currentLabel.position = 100 - labelWidth / 2
+      }
+    }
+  }
+  
+  // 第二次调整：从右到左，确保不超过边界
+  for (let i = initialPositions.length - 2; i >= 0; i--) {
+    const nextLabel = initialPositions[i + 1]
+    const currentLabel = initialPositions[i]
+    const distance = nextLabel.position - currentLabel.position
+    
+    if (distance < labelWidth + minDistance) {
+      // 调整当前标签位置
+      currentLabel.position = nextLabel.position - (labelWidth + minDistance)
+      
+      // 确保不小于0
+      if (currentLabel.position < 0) {
+        currentLabel.position = labelWidth / 2
+      }
+    }
+  }
+  
+  // 第三次调整：特殊处理短状态段
+  initialPositions.forEach((label, index) => {
+    const segmentStart = label.originalPosition - (label.percentage / 2)
+    const segmentEnd = label.originalPosition + (label.percentage / 2)
+    
+    // 如果标签位置超出了对应状态段太多，则调整到状态段边缘
+    if (label.position < segmentStart - 5) {
+      label.position = segmentStart + minDistance
+    } else if (label.position > segmentEnd + 5) {
+      label.position = segmentEnd - minDistance
+    }
+    
+    // 确保最终位置在合理范围内
+    label.position = Math.max(0, Math.min(100, label.position))
+  })
+  
+  return initialPositions
+})
+
 // 用例内联编辑相关方法
 const startCaseEdit = (row, field) => {
   editingCaseId.value = row.id
   editingField.value = field
   editingValue.value = row[field] || ''
+  
+  // 跟踪是否正在进行拖动选择操作
+  let isDragging = false
+  
+  // 添加鼠标按下事件监听，检测是否在编辑区域内开始拖动
+  const handleMouseDown = (event) => {
+    const editInputs = document.querySelectorAll('.el-table__cell .el-input, .el-table__cell .el-textarea, .el-table__cell .el-select')
+    const isInside = Array.from(editInputs).some(input => input.contains(event.target))
+    if (isInside) {
+      isDragging = true
+    }
+  }
+  
+  // 添加鼠标释放事件监听，重置拖动状态
+  const handleMouseUp = () => {
+    isDragging = false
+  }
+  
+  // 添加点击外部区域取消编辑的事件监听
+  const handleClickOutside = (event) => {
+    // 如果是拖动选择操作，不取消编辑
+    if (isDragging) {
+      return
+    }
+    
+    const editInputs = document.querySelectorAll('.el-table__cell .el-input, .el-table__cell .el-textarea, .el-table__cell .el-select')
+    const isClickInside = Array.from(editInputs).some(input => input.contains(event.target))
+    
+    if (!isClickInside) {
+      cancelCaseEdit()
+      // 移除所有事件监听器
+      document.removeEventListener('click', handleClickOutside)
+      document.removeEventListener('mousedown', handleMouseDown)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }
+  
+  // 延迟添加事件监听，避免触发当前点击事件
+  setTimeout(() => {
+    document.addEventListener('click', handleClickOutside)
+    document.addEventListener('mousedown', handleMouseDown)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, 0)
+  
+  // 保存事件监听器引用，以便后续移除
+  window.__editClickOutsideHandler = handleClickOutside
+  window.__editMouseDownHandler = handleMouseDown
+  window.__editMouseUpHandler = handleMouseUp
 }
 
 const saveCaseEdit = async (row) => {
@@ -1539,6 +1841,20 @@ const saveCaseEdit = async (row) => {
     editingCaseId.value = null
     editingField.value = null
     editingValue.value = ''
+    
+    // 移除所有事件监听器
+    if (window.__editClickOutsideHandler) {
+      document.removeEventListener('click', window.__editClickOutsideHandler)
+      window.__editClickOutsideHandler = null
+    }
+    if (window.__editMouseDownHandler) {
+      document.removeEventListener('mousedown', window.__editMouseDownHandler)
+      window.__editMouseDownHandler = null
+    }
+    if (window.__editMouseUpHandler) {
+      document.removeEventListener('mouseup', window.__editMouseUpHandler)
+      window.__editMouseUpHandler = null
+    }
   } catch (error) {
     console.error('更新测试用例失败:', error)
     ElMessage.error('更新测试用例失败')
@@ -1550,11 +1866,25 @@ const cancelCaseEdit = () => {
   editingCaseId.value = null
   editingField.value = ''
   editingValue.value = ''
+  
+  // 移除所有事件监听器
+  if (window.__editClickOutsideHandler) {
+    document.removeEventListener('click', window.__editClickOutsideHandler)
+    window.__editClickOutsideHandler = null
+  }
+  if (window.__editMouseDownHandler) {
+    document.removeEventListener('mousedown', window.__editMouseDownHandler)
+    window.__editMouseDownHandler = null
+  }
+  if (window.__editMouseUpHandler) {
+    document.removeEventListener('mouseup', window.__editMouseUpHandler)
+    window.__editMouseUpHandler = null
+  }
 }
 
 // 状态选项
 const statusOptions = [
-  { label: '无状态', value: '' },
+  { label: '未执行', value: '' },
   { label: '通过', value: 'pass' },
   { label: '失败', value: 'fail' },
   { label: '阻塞', value: 'blocked' },
@@ -1727,11 +2057,348 @@ const handleCurrentChange = (page) => {
 </script>
 
 <style lang="scss" scoped>
+/* 内联编辑输入框样式优化 */
+:deep(.el-table__cell) {
+  position: relative;
+  
+  /* 普通输入框样式 - 与文本域保持一致 */
+  .el-input:not(.el-input--textarea) {
+    width: 100%;
+    margin: 0;
+    
+    .el-input__wrapper {
+      box-shadow: none;
+      border: 1px solid #ebeef5;
+      border-radius: 0;
+      padding: 10px;
+      background-color: transparent;
+      min-height: auto;
+      
+      &:hover,
+      &.is-focus {
+        box-shadow: none;
+        border-color: #409eff;
+      }
+    }
+    
+    .el-input__inner {
+      border: none;
+      box-shadow: none;
+      background: transparent;
+      padding: 0;
+      height: auto;
+      line-height: 1.5;
+      font-size: inherit;
+      color: inherit;
+      text-align: center;
+      resize: none;
+    }
+  }
+  
+  /* 文本域样式 */
+  .el-textarea,
+  .el-input--textarea {
+    width: 100%;
+    margin: 0;
+    
+    .el-textarea__wrapper,
+    .el-input__wrapper {
+      box-shadow: none;
+      border: 1px solid #ebeef5;
+      border-radius: 0;
+      padding: 10px;
+      min-height: auto;
+      background-color: transparent;
+      
+      &:hover,
+      &.is-focus {
+        box-shadow: none;
+        border-color: #409eff;
+      }
+    }
+    
+    .el-textarea__inner,
+    .el-input__inner {
+      border: none;
+      box-shadow: none;
+      background: transparent;
+      padding: 0;
+      resize: none;
+      font-size: inherit;
+      color: inherit;
+      line-height: 1.5;
+      text-align: center;
+      min-height: auto;
+    }
+  }
+  
+  /* 下拉选择框样式 */
+  .el-select {
+    width: 100%;
+    margin: 0;
+    
+    .el-select__wrapper {
+      box-shadow: none;
+      border: 1px solid #ebeef5;
+      border-radius: 0;
+      padding: 10px;
+      background-color: transparent;
+      min-height: auto;
+      
+      &:hover,
+      &.is-focus {
+        box-shadow: none;
+        border-color: #409eff;
+      }
+    }
+    
+    .el-select__input {
+      font-size: inherit;
+      color: inherit;
+      height: auto;
+      line-height: 1.5;
+    }
+  }
+  
+  /* 确保非编辑状态下的文本与编辑状态一致 */
+  > div {
+    padding: 10px;
+    text-align: center;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  
+  /* 确保编辑状态下的文本也居中显示 */
+  .el-input__inner,
+  .el-textarea__inner {
+    text-align: center;
+  }
+}
+
 .test-case-management {
   padding: 0;
   background-color: white;
   min-height: 100vh;
   overflow-x: auto;
+}
+
+/* 进度条样式 */
+.panel-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.case-progress-container {
+  flex: 1;
+  min-width: 300px;
+  background-color: transparent;
+  border-radius: 4px;
+  padding: 5px 0;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.progress-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  font-size: 14px;
+  color: #303133;
+}
+
+.progress-title {
+  font-weight: 500;
+}
+
+.progress-percentage {
+  color: #606266;
+  font-size: 12px;
+}
+
+.progress-wrapper {
+  position: relative;
+  margin: 20px 0 20px 0; /* 增加上方空白，为执行情况文字预留空间 */
+  height: 30px; /* 固定高度 */
+  display: flex;
+  align-items: center;
+}
+
+/* 执行情况文字样式 */
+.progress-execution-info {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  font-weight: 500;
+  color: #303133;
+  white-space: nowrap;
+  background-color: transparent;
+  z-index: 10;
+}
+
+.progress-bar {
+  flex: 1;
+  margin-right: 35px; /* 右侧间隔 */
+  display: flex;
+  height: 9px; /* 进度条高度 */
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: #e4e7ed;
+  transition: height 0.2s ease;
+  position: relative;
+  z-index: 1;
+  
+  &:hover {
+    height: 11px; /* 悬停高度 */
+  }
+}
+
+/* 右侧进度数据 */
+.progress-data-right {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: #606266;
+  margin-left: 5px; /* 减小与进度条的间隔 */
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+.progress-segment {
+  height: 100%;
+  transition: width 0.3s ease;
+  position: relative;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.1) 0%, transparent 100%);
+  }
+}
+
+/* 水平分布的属性标签 */
+.progress-labels-horizontal {
+  position: absolute;
+  left: 0;
+  right: 10px; /* 右侧预留空间，与进度条保持一致 */
+  top: 100%;
+  margin-top: 8px;
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  flex-wrap: wrap;
+  z-index: 2;
+}
+
+/* 水平分布的状态项 */
+:deep(.stat-item.horizontal) {
+  margin: 0;
+  padding: 2px 5px;
+  border-radius: 3px;
+  background-color: #f5f7fa !important;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background-color: #ecf5ff !important;
+    color: #409eff;
+  }
+}
+
+.label-text {
+  pointer-events: auto;
+}
+
+/* 状态颜色 */
+.progress-segment.status-pass {
+  background-color: #67c23a;
+}
+
+.progress-segment.status-fail {
+  background-color: #f56c6c;
+}
+
+.progress-segment.status-blocked {
+  background-color: #e6a23c;
+}
+
+.progress-segment.status-not_applicable {
+  background-color: #9370db;
+}
+
+.progress-segment.status-none {
+  background-color: #e4e7ed;
+}
+
+.progress-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  font-size: 12px;
+  color: #606266;
+  justify-content: flex-end;
+}
+
+:deep(.stat-item) {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 0;
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  box-shadow: none !important;
+  font-size: 12px;
+  line-height: 1;
+  
+  &:hover {
+    background-color: transparent !important;
+    transform: none !important;
+    box-shadow: none !important;
+    color: #409eff;
+  }
+}
+
+:deep(.stat-item::before) {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+:deep(.stat-item.status-pass::before) {
+  background-color: #67c23a;
+}
+
+:deep(.stat-item.status-fail::before) {
+  background-color: #f56c6c;
+}
+
+:deep(.stat-item.status-blocked::before) {
+  background-color: #e6a23c;
+}
+
+:deep(.stat-item.status-not_applicable::before) {
+  background-color: #9370db;
+}
+
+:deep(.stat-item.status-none::before) {
+  background-color: #e4e7ed;
 }
 
 .page-header {
@@ -1778,6 +2445,30 @@ const handleCurrentChange = (page) => {
       transition: all 0.3s ease;
       flex-shrink: 0;
       
+      /* 收起状态 */
+      &.collapsed {
+        min-width: 50px;
+        width: 50px;
+        
+        .panel-header {
+          justify-content: center;
+          
+          .el-input {
+            display: none;
+          }
+          
+          .header-actions {
+            .el-button:not(:last-child) {
+              display: none; /* 隐藏除了最后一个按钮（展开按钮）外的所有按钮 */
+            }
+          }
+        }
+        
+        .tree-container {
+          display: none;
+        }
+      }
+      
       .panel-header {
           padding: 12px 15px;
           border-bottom: 1px solid #f0f2f5;
@@ -1793,6 +2484,7 @@ const handleCurrentChange = (page) => {
             
             /* 增大搜索框 */
             --el-input-height: 32px;
+            transition: all 0.3s ease;
           }
           
           .el-input__wrapper {
@@ -1807,17 +2499,16 @@ const handleCurrentChange = (page) => {
           
           .header-actions {
             display: flex;
-            gap: 0px;
             align-items: center;
             flex-shrink: 0;
             width: fit-content;
           }
           
           .header-actions .el-button {
-            padding: 4px;
-            min-width: 28px;
-            height: 28px;
-            font-size: 16px;
+            padding: 2px;
+            min-width: 26px; /* 按钮大小 */
+            height: 26px; /* 按钮高度 */
+            font-size: 16px; /* 图标大小 */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -1831,6 +2522,7 @@ const handleCurrentChange = (page) => {
       background-color: #ffffff;
       width: fit-content;
       min-width: 100%;
+      transition: all 0.3s ease;
     }
     
     /* 确保树节点内容不被截断 */
@@ -1950,8 +2642,39 @@ const handleCurrentChange = (page) => {
     }
     
     .table-wrapper :deep(.el-table) {
-      width: 100%;
-    }
+  width: 100%;
+}
+
+/* 为特定属性列添加左对齐样式 */
+/* 测试数据列 */
+.table-wrapper :deep(.el-table__header-wrapper th[aria-label='测试数据']),
+.table-wrapper :deep(.el-table__body-wrapper td:nth-child(7)) {
+  text-align: left !important;
+}
+
+/* 前置条件列 */
+.table-wrapper :deep(.el-table__header-wrapper th[aria-label='前置条件']),
+.table-wrapper :deep(.el-table__body-wrapper td:nth-child(8)) {
+  text-align: left !important;
+}
+
+/* 操作步骤列 */
+.table-wrapper :deep(.el-table__header-wrapper th[aria-label='操作步骤']),
+.table-wrapper :deep(.el-table__body-wrapper td:nth-child(9)) {
+  text-align: left !important;
+}
+
+/* 预期结果列 */
+.table-wrapper :deep(.el-table__header-wrapper th[aria-label='预期结果']),
+.table-wrapper :deep(.el-table__body-wrapper td:nth-child(10)) {
+  text-align: left !important;
+}
+
+/* 实际结果列 */
+.table-wrapper :deep(.el-table__header-wrapper th[aria-label='实际结果']),
+.table-wrapper :deep(.el-table__body-wrapper td:nth-child(11)) {
+  text-align: left !important;
+}
     
     .table-wrapper :deep(.el-table__body-wrapper) {
       overflow: auto;
@@ -2014,11 +2737,11 @@ const handleCurrentChange = (page) => {
 }
 
 .status-not_applicable {
-  background-color: #909399;
+  background-color: #9370db;
 }
 
 .status-none {
-  background-color: #909399;
+  background-color: #e4e7ed;
 }
 
 /* 状态选项内容 */
