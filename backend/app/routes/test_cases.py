@@ -81,18 +81,34 @@ def create_test_case():
     data = request.get_json()
     
     # 验证套件是否存在
+    suite = None
     if data.get('suite_id'):
         suite = TestSuite.query.get(data['suite_id'])
         if not suite:
             return error_response(400, "指定的测试套件不存在")
     
+    # 验证用例编号格式
+    case_number = data.get('case_number', '')
+    if case_number:
+        import re
+        # 放宽用例编号格式验证，允许纯数字格式，用于导入场景
+        if not re.match(r'^(?:.+-.+-.+)?\d{1,3}$', case_number):
+            return error_response(400, "用例编号格式不正确，应为：xxx-xxx-xxx001~xxx-xxx-xxx999 或纯数字")
+        # 验证数字部分在1-999之间
+        num_match = re.search(r'\d+$', case_number)
+        if num_match:
+            num = int(num_match.group(0))
+            if num < 1 or num > 999:
+                return error_response(400, "用例编号数字部分必须在001-999之间")
+    
     # 使用前端传递的项目相关信息，优先使用前端传递的值，否则从套件获取
+    # 支持前端传递ID或名称，名称需要额外处理（当前版本暂不支持名称匹配，优先使用套件信息）
     project_id = data.get('project_id') or (suite.project_id if suite else None)
     version_requirement_id = data.get('version_requirement_id') or (suite.version_requirement_id if suite else None)
     iteration_id = data.get('iteration_id') or (suite.iteration_id if suite else None)
     
     test_case = TestCase(
-        case_number=data.get('case_number', ''),
+        case_number=case_number,
         case_name=data['case_name'],
         case_description=data.get('case_description', ''),
         preconditions=data.get('preconditions', ''),
@@ -134,7 +150,18 @@ def update_test_case(case_id):
     
     # 更新字段
     if 'case_number' in data:
-        test_case.case_number = data['case_number']
+        case_number = data['case_number']
+        if case_number:
+            import re
+            if not re.match(r'^.+-.+-.+\d{3}$', case_number):
+                return error_response(400, "用例编号格式不正确，应为：xxx-xxx-xxx001~xxx-xxx-xxx999")
+            # 验证数字部分在1-999之间
+            num_match = re.search(r'\d{3}$', case_number)
+            if num_match:
+                num = int(num_match.group(0))
+                if num < 1 or num > 999:
+                    return error_response(400, "用例编号数字部分必须在001-999之间")
+        test_case.case_number = case_number
     
     if 'case_name' in data:
         test_case.case_name = data['case_name']
@@ -163,8 +190,10 @@ def update_test_case(case_id):
     if 'status' in data:
         test_case.status = data['status']
         # 当状态变化时，更新最后执行时间
-        from datetime import datetime
-        test_case.executed_at = datetime.utcnow()
+        from datetime import datetime, timezone, timedelta
+        # 使用UTC+8本地时间
+        local_timezone = timezone(timedelta(hours=8))
+        test_case.executed_at = datetime.now(local_timezone)
     
     # 直接传递的项目相关信息，优先级高于从套件获取
     if 'project_id' in data:

@@ -44,6 +44,14 @@
         >
           {{ viewMode === 'list' ? '脑图视图' : '列表视图' }}
         </el-button>
+        <!-- 导入/导出用例按钮 -->
+        <el-button
+          type="primary"
+          icon="Download"
+          @click="showImportExportDialog"
+        >
+          导入/导出
+        </el-button>
       </div>
     </div>
 
@@ -136,29 +144,28 @@
           :style="contextMenuStyle"
           class="context-menu"
         >
+          <!-- 新增套件：只有在右键用例文件夹时才显示 -->
           <div
+            v-if="selectedNode && selectedNode.type === 'folder'"
             class="menu-item"
             @click="handleAddSuiteFromMenu"
           >
             <el-icon><Plus /></el-icon> 新增套件
           </div>
+          <!-- 编辑套件：只有在右键用例集时才显示 -->
           <div
+            v-if="selectedNode && selectedNode.type === 'suite'"
             class="menu-item"
             @click="handleEditSuite"
           >
             <el-icon><Edit /></el-icon> 编辑套件
           </div>
+          <!-- 删除套件：始终显示 -->
           <div
             class="menu-item"
             @click="handleDeleteSuite"
           >
             <el-icon><Delete /></el-icon> 删除套件
-          </div>
-          <div
-            class="menu-item"
-            @click="handleMoveSuite"
-          >
-            <el-icon><Rank /></el-icon> 移动套件
           </div>
         </div>
       </div>
@@ -569,12 +576,14 @@
       @close="parentSuitePopoverVisible = false"
     >
       <el-form
+        ref="suiteFormRef"
         :model="suiteForm"
+        :rules="suiteFormRules"
         label-width="80px"
       >
         <el-form-item
           label="套件名称"
-          required
+          prop="suite_name"
         >
           <el-input
             v-model="suiteForm.suite_name"
@@ -584,7 +593,7 @@
         <el-form-item
           v-if="!isEditSuite"
           label="套件类型"
-          required
+          prop="type"
         >
           <el-select
             v-model="suiteForm.type"
@@ -600,7 +609,11 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="父套件">
+        <!-- 父套件字段：只有非右键菜单操作时显示 -->
+        <el-form-item
+          v-if="!isContextMenuAction"
+          label="父套件"
+        >
           <div class="parent-suite-selector">
             <!-- 显示当前选中的父套件路径 -->
             <el-popover
@@ -664,53 +677,89 @@
         <el-form-item
           v-if="suiteForm.type === 'suite'"
           label="项目"
+          prop="project_id"
         >
           <el-select
             v-model="suiteForm.project_id"
             placeholder="请选择所属项目"
+            filterable
           >
-            <!-- 实际应用中应该从API获取项目列表 -->
+            <template #empty>
+              <div v-if="projects.length === 0">
+                <span>暂无项目数据</span>
+                <el-button type="text" size="small" @click="loadProjects">重新加载</el-button>
+              </div>
+              <div v-else>
+                未找到匹配的项目
+              </div>
+            </template>
             <el-option
-              label="示例项目"
-              value="1"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item
-          v-if="suiteForm.type === 'suite'"
-          label="需求"
-        >
-          <el-select
-            v-model="suiteForm.version_requirement_id"
-            placeholder="请选择关联需求"
-          >
-            <!-- 实际应用中应该根据选择的项目动态加载需求列表 -->
-            <el-option
-              label="需求1"
-              value="1"
-            />
-            <el-option
-              label="需求2"
-              value="2"
+              v-for="project in filteredProjects"
+              :key="project.id"
+              :label="project.project_name"
+              :value="project.id"
             />
           </el-select>
         </el-form-item>
         <el-form-item
           v-if="suiteForm.type === 'suite'"
           label="迭代"
+          prop="iteration_id"
         >
           <el-select
             v-model="suiteForm.iteration_id"
             placeholder="请选择所属迭代"
+            :disabled="!suiteForm.project_id"
+            filterable
           >
-            <!-- 实际应用中应该根据选择的项目动态加载迭代列表 -->
+            <template #empty>
+              <div v-if="!suiteForm.project_id">
+                请先选择项目
+              </div>
+              <div v-else-if="iterations.length === 0">
+                <span>暂无迭代数据</span>
+                <el-button type="text" size="small" @click="loadIterations(suiteForm.project_id)">重新加载</el-button>
+              </div>
+              <div v-else>
+                未找到匹配的迭代
+              </div>
+            </template>
             <el-option
-              label="迭代1"
-              value="1"
+              v-for="iteration in filteredIterations"
+              :key="iteration.id"
+              :label="iteration.iteration_name"
+              :value="iteration.id"
             />
+          </el-select>
+        </el-form-item> 
+        <el-form-item
+          v-if="suiteForm.type === 'suite'"
+          label="需求"
+          prop="version_requirement_id"
+        >
+          <el-select
+            v-model="suiteForm.version_requirement_id"
+            placeholder="请选择关联需求"
+            :disabled="!suiteForm.iteration_id"
+            filterable
+          >
+            <template #empty>
+              <div v-if="!suiteForm.iteration_id">
+                请先选择迭代
+              </div>
+              <div v-else-if="requirements.length === 0">
+                <span>暂无需求数据</span>
+                <el-button type="text" size="small" @click="loadRequirements(suiteForm.project_id, suiteForm.iteration_id)">重新加载</el-button>
+              </div>
+              <div v-else>
+                未找到匹配的需求
+              </div>
+            </template>
             <el-option
-              label="迭代2"
-              value="2"
+              v-for="requirement in filteredRequirements"
+              :key="requirement.id"
+              :label="requirement.requirement_name"
+              :value="requirement.id"
             />
           </el-select>
         </el-form-item>
@@ -741,7 +790,17 @@
       width="700px"
       @close="caseSuitePopoverVisible = false"
     >
+      <!-- 新增：创建方式选择 -->
+      <div v-if="!isEditCase" class="create-type-selector">
+        <el-radio-group v-model="createCaseType" style="margin-bottom: 20px; display: flex; justify-content: center; gap: 20px;">
+          <el-radio label="manual">手动创建</el-radio>
+          <el-radio label="auto">自动生成</el-radio>
+        </el-radio-group>
+      </div>
+      
+      <!-- 手动创建表单 -->
       <el-form
+        v-if="isEditCase || createCaseType === 'manual'"
         ref="caseFormRef"
         :model="caseForm"
         :rules="caseFormRules"
@@ -761,17 +820,45 @@
           label="用例编号"
           prop="case_number"
         >
-          <el-input
-            v-model="caseForm.case_number"
-            placeholder="请输入测试用例编号"
-          />
+          <div class="case-number-input-group">
+            <el-input
+              v-model="caseNumberParts.part1"
+              placeholder="编号前缀1"
+              class="case-number-part"
+              @input="updateCaseNumber"
+            />
+            <span class="case-number-separator">-</span>
+            <el-input
+              v-model="caseNumberParts.part2"
+              placeholder="编号前缀2"
+              class="case-number-part"
+              @input="updateCaseNumber"
+            />
+            <span class="case-number-separator">-</span>
+            <el-input
+              v-model="caseNumberParts.part3"
+              placeholder="编号前缀3"
+              class="case-number-part"
+              @input="updateCaseNumber"
+            />
+            <el-input
+              v-model="caseNumberParts.part4"
+              placeholder="001"
+              class="case-number-part number-part"
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              maxlength="3"
+              @input="handleNumberInput"
+            />
+          </div>
         </el-form-item>
         <el-form-item
           label="所属用例集"
           prop="suite_id"
           required
         >
-          <div class="parent-suite-selector">
+          <div class="case-suite-selector">
             <!-- 显示当前选中的用例集路径 -->
             <el-popover
               :visible="caseSuitePopoverVisible"
@@ -924,28 +1011,443 @@
         </el-form-item>
         
       </el-form>
+      
+      <!-- 自动生成表单 -->
+      <el-form
+        v-else-if="createCaseType === 'auto'"
+        ref="autoCaseFormRef"
+        :model="autoCaseForm"
+        :rules="autoCaseFormRules"
+        label-width="100px"
+      >
+        <el-form-item
+          label="用例名称"
+          prop="case_name"
+          required
+        >
+          <el-input
+            v-model="autoCaseForm.case_name"
+            placeholder="请输入测试用例名称"
+          />
+        </el-form-item>
+        
+        <el-form-item
+          label="所属用例集"
+          prop="suite_id"
+          required
+        >
+          <div class="case-suite-selector">
+            <!-- 显示当前选中的用例集路径 -->
+            <el-popover
+              :visible="caseSuitePopoverVisible"
+              placement="bottom-start"
+              trigger="manual"
+              width="auto"
+              teleport="body"
+              @clickoutside="caseSuitePopoverVisible = false"
+            >
+              <template #reference>
+                <el-input
+                  v-model="selectedCaseSuitePath"
+                  placeholder="点击选择所属用例集"
+                  readonly
+                  style="width: 100%; min-width: 568px;"
+                  @click="caseSuitePopoverVisible = !caseSuitePopoverVisible"
+                />
+              </template>
+              <!-- 弹出的套件树 -->
+              <div
+                class="suite-tree-popover"
+                style="width: 100%; min-width: 540px;"
+              >
+                <el-tree
+                  :current-node-key="autoCaseForm.suite_id"
+                  :data="getSuiteTreeData()"
+                  :props="defaultProps"
+                  node-key="id"
+                  style="max-height: 300px; overflow-y: auto; width: 100%; padding-right: 10px;"
+                  expand-on-click-node="false"
+                  @node-click="handleAutoCaseSuiteSelect"
+                >
+                  <template #default="{ node, data }">
+                    <span
+                      class="tree-node-content"
+                      :class="{'current-node': node.key === autoCaseForm.suite_id}"
+                    >
+                      <el-icon class="node-icon" @click.stop="handleAutoCaseSuiteSelect(data)">
+                        <Document v-if="data.type === 'suite'" />
+                        <Folder v-else />
+                      </el-icon>
+                      <span @click.stop="handleAutoCaseSuiteSelect(data)">{{ node.label }}</span>
+                      <span
+                        v-if="data.type === 'suite' && data.cases_count > 0"
+                        class="case-count"
+                      >({{ data.cases_count }})</span>
+                    </span>
+                  </template>
+                </el-tree>
+              </div>
+            </el-popover>
+          </div>
+        </el-form-item>
+        
+        <el-form-item
+          label="需求描述"
+          prop="requirement_desc"
+        >
+          <el-input
+            v-model="autoCaseForm.requirement_desc"
+            type="textarea"
+            :rows="4"
+            placeholder="请输入需求描述"
+          />
+        </el-form-item>
+        
+        <el-form-item
+          label="需求文档上传"
+        >
+          <el-upload
+            ref="requirementUploadRef"
+            :auto-upload="false"
+            :headers="{ 'Content-Type': 'multipart/form-data' }"
+            accept=".docx,.pdf,.txt"
+            :on-change="handleRequirementFileChange"
+            :file-list="requirementFileList"
+            :on-remove="handleRequirementFileRemove"
+            :limit="1"
+            :on-exceed="handleRequirementFileExceed"
+          >
+            <el-button type="primary">选择文件</el-button>
+            <template #tip>
+              <div class="el-upload__tip">
+                支持上传.docx、.pdf和.txt格式的文件，大小不超过10MB
+              </div>
+            </template>
+          </el-upload>
+        </el-form-item>
+        
+      </el-form>
+      
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="handleCancelCase">取消</el-button>
           <el-button
+            v-if="createCaseType === 'auto'"
+            type="primary"
+            @click="handleGenerateCase"
+          >生成用例</el-button>
+          <el-button
+            v-if="isEditCase || createCaseType === 'manual'"
             type="primary"
             @click="handleSaveCase"
           >确定</el-button>
         </span>
       </template>
     </el-dialog>
+    
+    <!-- 导入/导出用例对话框 -->
+    <el-dialog
+      v-model="importExportVisible"
+      title="导入/导出用例"
+      width="800px"
+    >
+      <el-form
+        ref="importExportFormRef"
+        :model="importExportForm"
+        label-width="100px"
+      >
+        <!-- 类型选择 -->
+        <el-form-item label="操作类型">
+          <el-radio-group v-model="importExportForm.type">
+            <el-radio label="import">导入</el-radio>
+            <el-radio label="export">导出</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        
+        <!-- 导入选项 -->
+        <template v-if="importExportForm.type === 'import'">
+          <!-- 本地文件上传 -->
+          <el-form-item label="本地文件">
+            <el-upload
+              ref="importUploadRef"
+              :auto-upload="false"
+              :headers="{ 'Content-Type': 'multipart/form-data' }"
+              accept=".xlsx, .xls"
+              :on-change="handleFileChange"
+              :file-list="fileList"
+              :on-remove="handleFileRemove"
+              :limit="1"
+              :on-exceed="handleFileExceed"
+              class="upload-with-clear"
+            >
+              <el-button type="primary">选择文件</el-button>
+              <template #tip>
+                <div class="el-upload__tip">
+                  支持上传.xlsx和.xls格式的文件，大小不超过10MB
+                </div>
+                <div class="form-help-text">
+                  注意：导入的用例需要手动编辑以关联所属项目、迭代和需求
+                </div>
+              </template>
+            </el-upload>
+          </el-form-item>
+          
+          <!-- 目标位置 -->
+          <el-form-item label="目标位置">
+            <div class="parent-suite-selector">
+              <!-- 显示当前选中的父套件路径 -->
+              <el-popover
+                :visible="importParentSuiteVisible"
+                placement="bottom-start"
+                trigger="manual"
+                width="auto"
+                teleport="body"
+                @clickoutside="importParentSuiteVisible = false"
+              >
+                <template #reference>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <el-input
+                      v-model="importSelectedParentSuitePath"
+                      placeholder="点击选择父套件（默认根套件）"
+                      readonly
+                      style="flex: 1; min-width: 568px;"
+                      @click="importParentSuiteVisible = !importParentSuiteVisible"
+                    />
+                    <el-button
+                      size="small"
+                      style="height: 32px; margin-left: -2px;"
+                      icon="Refresh"
+                      @click.stop="clearImportParentSuiteSelection"
+                      title="重置选择"
+                    >
+                      重置
+                    </el-button>
+                  </div>
+                </template>
+                <!-- 弹出的套件树 -->
+                <div
+                  class="suite-tree-popover"
+                  style="width: 100%; min-width: 543px;"
+                >
+                  <el-tree
+                    :current-node-key="importExportForm.parent_id"
+                    :data="getFolderTreeData()"
+                    :props="defaultProps"
+                    node-key="id"
+                    expand-on-click-node="false"
+                    @node-click="handleImportParentSuiteSelect"
+                  >
+                    <template #default="{ node, data }">
+                      <span class="tree-node-content">
+                        <el-icon class="node-icon">
+                          <Folder />
+                        </el-icon>
+                        <span @click.stop="handleImportParentSuiteSelect(data)">{{ node.label }}</span>
+                      </span>
+                    </template>
+                  </el-tree>
+                </div>
+              </el-popover>
+            </div>
+          </el-form-item>
+        </template>
+        
+        <!-- 导出选项 -->
+        <template v-else-if="importExportForm.type === 'export'">
+          <!-- 导出的用例集 -->
+          <el-form-item label="导出的用例集">
+            <div class="case-suite-selector">
+              <!-- 显示当前选中的用例集路径 -->
+              <el-popover
+                :visible="exportCaseSuiteVisible"
+                placement="bottom-start"
+                trigger="manual"
+                width="auto"
+                teleport="body"
+                @clickoutside="exportCaseSuiteVisible = false"
+              >
+                <template #reference>
+                  <el-input
+                    v-model="exportSelectedCaseSuitePath"
+                    placeholder="点击选择所属用例集"
+                    readonly
+                    style="width: 100%; min-width: 568px;"
+                    @click="exportCaseSuiteVisible = !exportCaseSuiteVisible"
+                  />
+                </template>
+                <!-- 弹出的套件树 -->
+                <div
+                  class="suite-tree-popover"
+                  style="width: 100%; min-width: 543px;"
+                >
+                  <el-tree
+                    :current-node-key="importExportForm.suite_id"
+                    :data="treeData"
+                    :props="defaultProps"
+                    node-key="id"
+                    expand-on-click-node="false"
+                    @node-click="handleExportCaseSuiteSelect"
+                  >
+                    <template #default="{ node, data }">
+                      <span class="tree-node-content">
+                        <el-icon class="node-icon">
+                          <Folder v-if="data.type === 'folder'" />
+                          <Document v-else />
+                        </el-icon>
+                        <span @click.stop="handleExportCaseSuiteSelect(data)">{{ node.label }}</span>
+                        <span
+                          v-if="data.type === 'suite' && data.cases_count > 0"
+                          class="case-count"
+                        >({{ data.cases_count }})</span>
+                      </span>
+                    </template>
+                  </el-tree>
+                </div>
+              </el-popover>
+            </div>
+          </el-form-item>
+        </template>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="importExportVisible = false">取消</el-button>
+          <el-button
+            type="primary"
+            @click="handleImportExportAction"
+            :loading="isImporting"
+            :disabled="isImporting"
+          >
+            {{ importExportForm.type === 'import' ? '导入' : '导出' }}
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+    
+    <!-- 隐藏的文件上传组件 -->
+    <el-upload
+      ref="uploadRef"
+      :auto-upload="false"
+      :headers="{ 'Content-Type': 'multipart/form-data' }"
+      accept=".xlsx, .xls"
+      :before-upload="(file) => {
+        const isExcel = file.type === 'application/vnd.ms-excel' || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        const isLt10M = file.size / 1024 / 1024 < 10
+        
+        if (!isExcel) {
+          ElMessage.error('只能上传Excel文件！')
+          return false
+        }
+        if (!isLt10M) {
+          ElMessage.error('上传文件大小不能超过 10MB！')
+          return false
+        }
+        
+        excelFile.value = file
+        // 手动处理文件
+        const reader = new FileReader()
+        reader.onload = async (e) => {
+          try {
+            const data = new Uint8Array(e.target.result)
+            const workbook = XLSX.read(data, { type: 'array' })
+            const sheetName = workbook.SheetNames[0]
+            const worksheet = workbook.Sheets[sheetName]
+            
+            // 解析Excel数据
+            const excelData = XLSX.utils.sheet_to_json(worksheet)
+            
+            if (excelData.length === 0) {
+              ElMessage.warning('Excel文件中没有测试用例数据')
+              return
+            }
+            
+            // 获取目标用例集详情，获取项目相关信息
+            if (!importExportForm.parent_id) {
+              ElMessage.error('请选择导入的目标位置')
+              return
+            }
+            
+            const suiteDetail = await getTestSuiteDetail(importExportForm.parent_id)
+            
+            // 处理导入的数据
+            let importedCount = 0
+            let errorCount = 0
+            
+            // 遍历处理每条数据
+            for (const item of excelData) {
+              try {
+                // 将中文状态转换为对应的状态值
+                const statusValue = statusOptions.find(option => option.label === item['状态'])?.value || ''
+                
+                // 构建完整的用例数据
+                const caseData = {
+                  case_number: item['用例编号'] || '',
+                  case_name: item['用例名称'] || '',
+                  priority: item['优先级'] || 'P1',
+                  status: statusValue,
+                  preconditions: item['前置条件'] || '',
+                  test_data: item['测试数据'] || '',
+                  steps: item['操作步骤'] || '',
+                  expected_result: item['预期结果'] || '',
+                  actual_result: item['实际结果'] || '',
+                  suite_id: importExportForm.parent_id,
+                  project_id: suiteDetail.data.project_id,
+                  version_requirement_id: suiteDetail.data.version_requirement_id,
+                  iteration_id: suiteDetail.data.iteration_id,
+                  // 其他字段根据实际需求添加
+                  // 评审人id和时间属性会由后端自动处理，这里可以根据实际情况添加
+                  // reviewer_id: ...,
+                  // created_at: new Date().toISOString(),
+                  // updated_at: new Date().toISOString()
+                }
+                
+                // 调用API创建测试用例
+                await createTestCase(caseData)
+                importedCount++
+              } catch (error) {
+                console.error('导入单条测试用例失败:', error)
+                errorCount++
+              }
+            }
+            
+            // 显示导入结果
+            ElMessage.success(`成功导入 ${importedCount} 条测试用例，失败 ${errorCount} 条`)
+            
+            // 刷新用例列表
+            if (selectedSuite.value && selectedSuite.value.type === 'suite') {
+              loadTestCases(selectedSuite.value.id)
+            }
+            
+            // 关闭对话框
+            importExportVisible.value = false
+          } catch (error) {
+            console.error('导入测试用例失败:', error)
+            ElMessage.error('导入测试用例失败，请检查文件格式和内容')
+          }
+        }
+        reader.readAsArrayBuffer(file.raw)
+        
+        return false // 阻止自动上传
+      }"
+      style="display: none"
+    >
+      <el-button type="primary" ref="uploadBtnRef">上传</el-button>
+    </el-upload>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Folder, Document, ArrowDown, ArrowUp } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox, ElUpload, ElButton, ElLoading } from 'element-plus'
+import { Folder, Document, ArrowDown, ArrowUp, Download, Upload, DocumentCopy } from '@element-plus/icons-vue'
 import { getTestSuiteTree, getSuiteCases, createTestSuite, updateTestSuite, deleteTestSuite } from '@/api/testSuite'
+import * as XLSX from 'xlsx'
+import { saveAs } from 'file-saver'
+import { useUserStore } from '@/stores/user'
 
 // API导入
 import { updateTestCase, createTestCase, deleteTestCase, batchDeleteTestCases } from '@/api/testCase'
 import { getTestSuiteDetail } from '@/api/testSuite'
+import { getProjects, getProjectIterations, getProjectVersionRequirements } from '@/api/project'
 
 // 树形组件相关
 const treeRef = ref(null)
@@ -983,6 +1485,8 @@ const suiteDialogVisible = ref(false)
 const caseDialogVisible = ref(false)
 const isEditSuite = ref(false)
 const isEditCase = ref(false)
+// 标识是否是从右键菜单触发的操作
+const isContextMenuAction = ref(false)
 
 // 表单数据
 const suiteForm = reactive({
@@ -991,7 +1495,7 @@ const suiteForm = reactive({
   description: '',
   type: 'folder', // 默认类型为文件夹
   parent_id: null,
-  project_id: 1, // 默认项目ID，实际应从上下文获取
+  project_id: null, // 默认项目ID，实际应从上下文获取
   version_requirement_id: null,
   iteration_id: null
 })
@@ -999,10 +1503,119 @@ const suiteForm = reactive({
 // 存储套件选项，用于父级套件选择
 const suiteOptions = ref([])
 
+// 套件表单引用和验证规则
+const suiteFormRef = ref(null)
+
+// 标记是否正在初始化表单，用于控制观察者行为
+const isInitializingForm = ref(false)
+const suiteFormRules = reactive({
+  suite_name: [
+    { required: true, message: '请输入测试套件名称', trigger: 'blur' }
+  ],
+  type: [
+    { required: true, message: '请选择套件类型', trigger: 'change' }
+  ],
+  project_id: [
+    {
+      required: (rule, value, callback) => {
+        // 只有用例集类型才需要选择项目
+        return suiteForm.type === 'suite'
+      },
+      message: '请选择所属项目',
+      trigger: 'change'
+    }
+  ],
+  iteration_id: [
+    {
+      required: (rule, value, callback) => {
+        // 只有用例集类型才需要选择迭代
+        return suiteForm.type === 'suite'
+      },
+      message: '请选择所属迭代',
+      trigger: 'change'
+    }
+  ],
+  version_requirement_id: [
+    {
+      required: (rule, value, callback) => {
+        // 只有用例集类型才需要选择需求
+        return suiteForm.type === 'suite'
+      },
+      message: '请选择关联需求',
+      trigger: 'change'
+    }
+  ]
+})
+
+// 项目、迭代、需求列表
+const projects = ref([])
+const iterations = ref([])
+const requirements = ref([])
+
+// 搜索关键词
+const searchKeywords = reactive({
+  project: '',
+  iteration: '',
+  requirement: ''
+})
+
+// 过滤后的列表（计算属性）
+const filteredProjects = computed(() => {
+  if (!searchKeywords.project) {
+    return projects.value
+  }
+  return projects.value.filter(project => 
+    project.project_name.includes(searchKeywords.project)
+  )
+})
+
+const filteredIterations = computed(() => {
+  if (!searchKeywords.iteration) {
+    return iterations.value
+  }
+  return iterations.value.filter(iteration => 
+    iteration.iteration_name.includes(searchKeywords.iteration)
+  )
+})
+
+const filteredRequirements = computed(() => {
+  if (!searchKeywords.requirement) {
+    return requirements.value
+  }
+  return requirements.value.filter(requirement => 
+    requirement.requirement_name.includes(searchKeywords.requirement)
+  )
+})
+
 // 用例集选择相关
 const caseSuitePopoverVisible = ref(false)
 const selectedCaseSuitePath = ref('')
 const caseFormRef = ref(null)
+
+// 新增：创建方式选择
+const createCaseType = ref('manual')
+
+// 自动生成用例表单相关
+const autoCaseFormRef = ref(null)
+const autoCaseForm = reactive({
+  case_name: '',
+  suite_id: null,
+  requirement_desc: '',
+  file: null
+})
+
+const autoCaseFormRules = reactive({
+  case_name: [
+    { required: true, message: '请输入测试用例名称', trigger: 'blur' }
+  ],
+  suite_id: [
+    { required: true, message: '请选择所属用例集', trigger: 'change' }
+  ]
+})
+
+// 需求文档上传相关
+const requirementUploadRef = ref(null)
+const requirementFileList = ref([])
 
 const caseForm = reactive({
   id: null,
@@ -1019,13 +1632,86 @@ const caseForm = reactive({
   actual_result: ''
 })
 
+// 用例编号分段输入
+const caseNumberParts = reactive({
+  part1: '',
+  part2: '',
+  part3: '',
+  part4: ''
+})
+
+// 更新用例编号
+const updateCaseNumber = () => {
+  // 确保数字部分是1-999之间的整数
+  let numberPart = caseNumberParts.part4 ? parseInt(caseNumberParts.part4) : 1
+  // 确保数字在1-999之间
+  if (isNaN(numberPart) || numberPart < 1) {
+    numberPart = 1
+  } else if (numberPart > 999) {
+    numberPart = 999
+  }
+  // 确保数字部分是3位格式
+  const formattedNumber = numberPart.toString().padStart(3, '0')
+  
+  caseForm.case_number = `${caseNumberParts.part1}-${caseNumberParts.part2}-${caseNumberParts.part3}${formattedNumber}`
+}
+
+// 处理数字输入框输入
+const handleNumberInput = () => {
+  // 过滤掉非数字字符
+  let inputValue = caseNumberParts.part4.replace(/[^0-9]/g, '')
+  
+  // 限制输入长度为3位
+  if (inputValue.length > 3) {
+    inputValue = inputValue.slice(0, 3)
+  }
+  
+  // 确保输入的是数字，且在1-999之间
+  let num = parseInt(inputValue) || 1
+  if (num < 1) {
+    num = 1
+  } else if (num > 999) {
+    num = 999
+  }
+  
+  // 格式化为3位数字，前面补0
+  caseNumberParts.part4 = num.toString().padStart(3, '0')
+  
+  // 更新用例编号
+  updateCaseNumber()
+}
+
 // 表单验证规则
 const caseFormRules = reactive({
   case_name: [
     { required: true, message: '请输入测试用例名称', trigger: 'blur' }
   ],
   case_number: [
-    { required: true, message: '请输入测试用例编号', trigger: 'blur' }
+    { required: true, message: '请输入测试用例编号', trigger: 'blur' },
+    {
+      validator: (rule, value, callback) => {
+        // 验证用例编号格式: XXX-XXX-XXX001~XXX-XXX-XXX999
+        const regex = /^.+-.+-.+\d{3}$/
+        if (!regex.test(value)) {
+          callback(new Error('用例编号格式不正确，应为: XXX-XXX-XXX001~XXX-XXX-XXX999'))
+        } else {
+          // 验证数字部分在1-999之间
+          const numRegex = /\d{3}$/
+          const match = value.match(numRegex)
+          if (match) {
+            const num = parseInt(match[0])
+            if (num < 1 || num > 999) {
+              callback(new Error('用例编号数字部分必须在001-999之间'))
+            } else {
+              callback()
+            }
+          } else {
+            callback(new Error('用例编号格式不正确，应为：xxx-xxx-xxx001~xxx-xxx-xxx999'))
+          }
+        }
+      },
+      trigger: ['blur', 'change']
+    }
   ],
   suite_id: [
     { required: true, message: '请选择所属用例集', trigger: 'change' }
@@ -1200,12 +1886,27 @@ const handleNodeDrop = async (draggingNode, dropNode, dropType) => {
 }
 
 // 右键菜单事件
-const handleContextMenu = (event, node) => {
+const handleContextMenu = (event, data, node) => {
+  // 阻止默认的右键菜单
   event.preventDefault()
-  selectedNode.value = node
-  contextMenuStyle.left = `${event.clientX}px`
-  contextMenuStyle.top = `${event.clientY}px`
+  
+  // 保存选中的节点数据
+  selectedNode.value = data
+  
+  // 设置右键菜单位置
+  // 考虑页面滚动和视口边界
+  const x = event.clientX + window.scrollX
+  const y = event.clientY + window.scrollY
+  
+  // 设置菜单位置
+  contextMenuStyle.left = `${x}px`
+  contextMenuStyle.top = `${y}px`
+  
+  // 强制显示菜单
   contextMenuVisible.value = true
+  
+  // 确保菜单在最顶层
+  contextMenuStyle.zIndex = 10000
 }
 
 // 关闭右键菜单
@@ -1215,8 +1916,26 @@ const closeContextMenu = () => {
 
 // 点击页面其他地方关闭右键菜单
 onMounted(() => {
-  document.addEventListener('click', closeContextMenu)
+  // 使用mousedown事件而不是click事件，因为contextmenu事件会在mousedown事件之后，click事件之前触发
+  // 这样可以避免右键点击时立即关闭菜单
+  document.addEventListener('mousedown', (event) => {
+    // 只有左键点击才关闭菜单
+    if (event.button === 0) {
+      // 检查点击的不是右键菜单本身
+      if (contextMenuRef.value && !contextMenuRef.value.contains(event.target)) {
+        closeContextMenu()
+      }
+    }
+  })
   loadTreeData()
+})
+
+// 组件销毁时移除事件监听器
+onUnmounted(() => {
+  // 移除mousedown事件监听器，注意这里不能直接传递closeContextMenu函数
+  // 因为添加的是一个匿名函数，需要重新获取并移除
+  // 或者使用命名函数来处理
+  document.removeEventListener('click', handleGlobalClick)
 })
 
 // 递归获取所有节点ID
@@ -1249,6 +1968,152 @@ const loadTreeData = async () => {
   } catch (error) {
     ElMessage.error('加载测试套件失败')
     console.error('Failed to load test suites:', error)
+  }
+}
+
+// 加载项目列表
+const loadProjects = async () => {
+  try {
+    const response = await getProjects()
+    // 检查API返回的数据结构
+    console.log('Projects API response:', response)
+    if (response && response.code === 200 && response.data && response.data.items) {
+      projects.value = response.data.items
+    } else if (response && response.data && Array.isArray(response.data)) {
+      // 兼容旧版API返回格式
+      projects.value = response.data
+    } else {
+      projects.value = []
+      console.error('Projects API returned invalid data structure')
+    }
+  } catch (error) {
+    ElMessage.error('加载项目列表失败')
+    console.error('Failed to load projects:', error)
+    // 确保projects是数组
+    projects.value = []
+  }
+}
+
+// 加载迭代列表
+const loadIterations = async (projectId) => {
+  if (!projectId) {
+    iterations.value = []
+    return
+  }
+  
+  try {
+    const response = await getProjectIterations(projectId)
+    let allIterations = []
+    
+    // 处理API返回的数据格式
+    if (response && response.code === 200 && response.data && response.data.items) {
+      allIterations = response.data.items
+    } else if (response && response.data && Array.isArray(response.data)) {
+      // 兼容旧版API返回格式
+      allIterations = response.data
+    }
+    
+    // 获取当前选中的迭代ID
+    const currentIterationId = suiteForm.iteration_id
+    
+    // 如果当前有选中的迭代，但不在结果中，尝试添加到列表中
+    if (currentIterationId) {
+      const isIterationInList = allIterations.some(iter => iter.id === currentIterationId)
+      if (!isIterationInList) {
+        // 检查selectedNode中是否有当前迭代的完整信息
+        if (selectedNode.value && selectedNode.value.iteration_name) {
+          // 将当前迭代添加到列表中，确保它能显示在下拉列表中
+          allIterations.push({
+            id: currentIterationId,
+            iteration_name: selectedNode.value.iteration_name
+          })
+        }
+      }
+    }
+    
+    iterations.value = allIterations
+  } catch (error) {
+    ElMessage.error('加载迭代列表失败')
+    console.error('Failed to load iterations:', error)
+    
+    // 即使API调用失败，也要确保当前选中的迭代能显示
+    const currentIterationId = suiteForm.iteration_id
+    if (currentIterationId) {
+      // 创建一个包含当前选中迭代的临时列表
+      iterations.value = [{
+        id: currentIterationId,
+        iteration_name: selectedNode.value?.iteration_name || '当前选中迭代'
+      }]
+    } else {
+      iterations.value = []
+    }
+  }
+}
+
+// 加载需求列表
+const loadRequirements = async (projectId, iterationId) => {
+  if (!projectId || !iterationId) {
+    requirements.value = []
+    return
+  }
+  
+  try {
+    const response = await getProjectVersionRequirements(projectId)
+    let allRequirements = []
+    
+    // 处理API返回的数据格式
+    if (response && response.code === 200 && response.data && response.data.items) {
+      allRequirements = response.data.items
+    } else if (response && response.data && Array.isArray(response.data)) {
+      // 兼容旧版API返回格式
+      allRequirements = response.data
+    }
+    
+    // 根据迭代筛选需求
+    const filteredRequirements = allRequirements.filter(req => req.iteration_id === iterationId)
+    
+    // 获取当前选中的需求ID
+    const currentRequirementId = suiteForm.version_requirement_id
+    
+    // 如果当前有选中的需求，但不在筛选结果中，尝试添加到列表中
+    if (currentRequirementId) {
+      const isRequirementInList = filteredRequirements.some(req => req.id === currentRequirementId)
+      if (!isRequirementInList) {
+        // 从所有需求中查找当前选中的需求
+        let currentRequirement = allRequirements.find(req => req.id === currentRequirementId)
+        
+        // 如果在所有需求中找不到当前需求，使用selectedNode中的信息创建一个
+        if (!currentRequirement && selectedNode.value && selectedNode.value.version_requirement_name) {
+          currentRequirement = {
+            id: currentRequirementId,
+            requirement_name: selectedNode.value.version_requirement_name,
+            iteration_id: iterationId
+          }
+        }
+        
+        // 将当前需求添加到筛选结果中，确保它能显示在下拉列表中
+        if (currentRequirement) {
+          filteredRequirements.push(currentRequirement)
+        }
+      }
+    }
+    
+    requirements.value = filteredRequirements
+  } catch (error) {
+    ElMessage.error('加载需求列表失败')
+    console.error('Failed to load requirements:', error)
+    
+    // 即使API调用失败，也要确保当前选中的需求能显示
+    const currentRequirementId = suiteForm.version_requirement_id
+    if (currentRequirementId) {
+      // 创建一个包含当前选中需求的临时列表，使用真实需求名称
+      requirements.value = [{ 
+        id: currentRequirementId, 
+        requirement_name: selectedNode.value?.version_requirement_name || '当前选中需求' 
+      }]
+    } else {
+      requirements.value = []
+    }
   }
 }
 
@@ -1303,39 +2168,105 @@ const loadAllTestCases = async (suiteId) => {
 // 新增套件
 const handleAddSuite = () => {
   isEditSuite.value = false
+  isContextMenuAction.value = false
   resetSuiteForm()
+  
+  // 确保项目、迭代、需求参数为空
+  suiteForm.project_id = null
+  suiteForm.iteration_id = null
+  suiteForm.version_requirement_id = null
+  
   suiteDialogVisible.value = true
+  // 加载项目列表
+  loadProjects()
 }
 
 // 从右键菜单新增套件
 const handleAddSuiteFromMenu = () => {
   isEditSuite.value = false
+  isContextMenuAction.value = true
   resetSuiteForm()
+  
+  // 在重置表单后设置parent_id，避免被重置
   if (selectedNode.value) {
-    suiteForm.parent_id = selectedNode.value.data.id
+    suiteForm.parent_id = selectedNode.value.id
   }
+  
+  // 确保项目、迭代、需求参数为空
+  suiteForm.project_id = null
+  suiteForm.iteration_id = null
+  suiteForm.version_requirement_id = null
+  
   suiteDialogVisible.value = true
   closeContextMenu()
+  
+  // 加载项目列表
+  loadProjects()
 }
 
 // 编辑套件
 const handleEditSuite = () => {
   if (!selectedNode.value) return
-  startEdit(selectedNode.value.data)
+  isEditSuite.value = true
+  isContextMenuAction.value = true
+  
+  const suiteData = selectedNode.value
+  
+  // 设置初始化标志，跳过观察者触发的字段重置
+  isInitializingForm.value = true
+  
+  // 直接填充套件表单数据，不等待API调用
+  suiteForm.id = suiteData.id
+  suiteForm.suite_name = suiteData.suite_name
+  suiteForm.description = suiteData.description || ''
+  suiteForm.type = suiteData.type
+  suiteForm.parent_id = suiteData.parent_id
+  suiteForm.project_id = suiteData.project_id
+  suiteForm.iteration_id = suiteData.iteration_id || null
+  suiteForm.version_requirement_id = suiteData.version_requirement_id || null
+  
+  // 立即显示对话框，避免用户等待
+  suiteDialogVisible.value = true
   closeContextMenu()
+  
+  // 异步加载数据，不阻塞UI
+  const loadDataAsync = async () => {
+    try {
+      // 加载项目列表
+      await loadProjects()
+      
+      // 如果有项目ID，加载对应的迭代和需求
+      if (suiteData.project_id) {
+        await loadIterations(suiteData.project_id)
+        // 如果有迭代ID，加载对应的需求
+        if (suiteData.iteration_id) {
+          await loadRequirements(suiteData.project_id, suiteData.iteration_id)
+        }
+      }
+    } catch (error) {
+      console.error('加载套件数据失败:', error)
+      ElMessage.error('加载套件数据失败，请刷新重试')
+    } finally {
+      // 初始化完成，恢复观察者功能
+      isInitializingForm.value = false
+    }
+  }
+  
+  // 启动异步加载
+  loadDataAsync()
 }
 
 // 删除套件
 const handleDeleteSuite = async () => {
   if (!selectedNode.value) return
-  ElMessageBox.confirm('确定要删除该测试套件吗？删除后将无法恢复。', '警告', {
+  ElMessageBox.confirm('确定要删除该测试套件吗？删除将包括所有子套件（文件夹和用例集）以及关联的所有用例数据，删除后将无法恢复。', '警告', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
   }).then(async () => {
     try {
-      await deleteTestSuite(selectedNode.value.data.id)
-      ElMessage.success('测试套件已删除')
+      await deleteTestSuite(selectedNode.value.id)
+      ElMessage.success('测试套件及其子套件和用例数据已删除')
       loadTreeData()
     } catch (error) {
       console.error('删除测试套件失败:', error)
@@ -1359,11 +2290,16 @@ const handleMoveSuite = () => {
 const handleCancelSuite = () => {
   suiteDialogVisible.value = false
   parentSuitePopoverVisible.value = false
+  // 重置右键菜单操作标志
+  isContextMenuAction.value = false
 }
 
 // 保存套件
 const handleSaveSuite = async () => {
   try {
+    // 表单验证
+    await suiteFormRef.value.validate()
+    
     if (isEditSuite.value) {
       // 编辑套件
       await updateTestSuite(suiteForm.id, suiteForm)
@@ -1375,10 +2311,16 @@ const handleSaveSuite = async () => {
     }
     suiteDialogVisible.value = false
     parentSuitePopoverVisible.value = false
+    // 重置右键菜单操作标志
+    isContextMenuAction.value = false
     loadTreeData()
   } catch (error) {
     console.error('保存测试套件失败:', error)
-    ElMessage.error(isEditSuite.value ? '更新测试套件失败' : '创建测试套件失败')
+    // 表单验证失败时，Element Plus会自动显示错误信息，不需要额外提示
+    // 只有当API请求失败时，才显示错误信息
+    if (error.response || error.message && !error.name.includes('Validate')) {
+      ElMessage.error(isEditSuite.value ? '更新测试套件失败' : '创建测试套件失败')
+    }
   }
 }
 
@@ -1387,7 +2329,16 @@ const resetSuiteForm = () => {
   suiteForm.id = null
   suiteForm.suite_name = ''
   suiteForm.description = ''
+  suiteForm.type = 'folder' // 默认类型为文件夹
   suiteForm.parent_id = null
+  suiteForm.project_id = null // 默认项目ID，实际应从上下文获取
+  suiteForm.version_requirement_id = null
+  suiteForm.iteration_id = null
+  
+  // 重置表单验证状态
+  if (suiteFormRef.value) {
+    suiteFormRef.value.resetFields()
+  }
 }
 
 // 刷新树形数据
@@ -1432,7 +2383,12 @@ const getSelectedParentPath = () => {
 
 // 获取选中的用例集路径
 const getSelectedCaseSuitePath = () => {
-  if (!caseForm.suite_id) return ''
+  // 获取当前选中的suite_id，根据创建方式选择从哪个表单获取
+  const suiteId = createCaseType.value === 'manual' || isEditCase.value 
+    ? caseForm.suite_id 
+    : autoCaseForm.suite_id
+  
+  if (!suiteId) return ''
   
   const findNodePath = (nodes, id, path = []) => {
     for (const node of nodes) {
@@ -1447,7 +2403,7 @@ const getSelectedCaseSuitePath = () => {
     return null
   }
   
-  const path = findNodePath(treeData.value, caseForm.suite_id)
+  const path = findNodePath(treeData.value, suiteId)
   return path ? path.join(' / ') : ''
 }
 
@@ -1467,10 +2423,97 @@ watch(() => caseForm.suite_id, () => {
   selectedCaseSuitePath.value = getSelectedCaseSuitePath()
 })
 
+// 监听项目ID变化，加载迭代列表
+watch(() => suiteForm.project_id, (newProjectId, oldProjectId) => {
+  // 初始化表单时跳过观察者
+  if (isInitializingForm.value) return
+  
+  if (newProjectId !== oldProjectId && newProjectId !== undefined) {
+    // 重置迭代和需求列表
+    iterations.value = []
+    requirements.value = []
+    
+    // 重置迭代和需求ID
+    suiteForm.iteration_id = null
+    suiteForm.version_requirement_id = null
+    
+    // 加载新的迭代列表
+    if (newProjectId) {
+      loadIterations(newProjectId)
+    }
+  }
+})
+
+// 监听迭代ID变化，加载需求列表
+watch(() => suiteForm.iteration_id, (newIterationId, oldIterationId) => {
+  // 初始化表单时跳过观察者
+  if (isInitializingForm.value) return
+  
+  if (newIterationId !== oldIterationId && newIterationId !== undefined) {
+    // 重置需求列表
+    requirements.value = []
+    
+    // 重置需求ID
+    suiteForm.version_requirement_id = null
+    
+    // 加载新的需求列表
+    if (suiteForm.project_id && newIterationId) {
+      loadRequirements(suiteForm.project_id, newIterationId)
+    }
+  }
+})
+
+// 监听父套件弹出层可见性变化，添加或移除全局点击事件监听器
+watch(() => parentSuitePopoverVisible, (newValue) => {
+  if (newValue) {
+    // 添加全局点击事件监听器
+    document.addEventListener('click', handleGlobalClick)
+  } else if (!caseSuitePopoverVisible.value) {
+    // 只有当所有弹出层都关闭时，才移除监听器
+    document.removeEventListener('click', handleGlobalClick)
+  }
+})
+
+// 监听用例集弹出层可见性变化，添加或移除全局点击事件监听器
+watch(() => caseSuitePopoverVisible, (newValue) => {
+  if (newValue) {
+    // 添加全局点击事件监听器
+    document.addEventListener('click', handleGlobalClick)
+  } else if (!parentSuitePopoverVisible.value) {
+    // 只有当所有弹出层都关闭时，才移除监听器
+    document.removeEventListener('click', handleGlobalClick)
+  }
+})
+
+// 全局点击事件处理函数
+const handleGlobalClick = (event) => {
+  // 检查父套件选择器
+  const parentSuiteSelector = document.querySelector('.parent-suite-selector')
+  const parentPopover = document.querySelector('.el-popover')
+  
+  // 检查用例集选择器
+  const caseSuiteSelector = document.querySelector('.case-suite-selector')
+  const casePopover = document.querySelectorAll('.el-popover')[1] // 获取第二个popover
+  
+  // 关闭父套件弹出层
+  if (parentSuiteSelector && !parentSuiteSelector.contains(event.target) && 
+      parentPopover && !parentPopover.contains(event.target)) {
+    parentSuitePopoverVisible.value = false
+  }
+  
+  // 关闭用例集弹出层
+  if (caseSuiteSelector && !caseSuiteSelector.contains(event.target) && 
+      casePopover && !casePopover.contains(event.target)) {
+    caseSuitePopoverVisible.value = false
+  }
+}
+
 // 清除父套件选择
 const clearParentSuiteSelection = () => {
   suiteForm.parent_id = null
   selectedParentSuitePath.value = ''
+  // 关闭弹出的下拉页面
+  parentSuitePopoverVisible.value = false
 }
 
 // 清除用例集选择
@@ -1491,11 +2534,50 @@ const handleParentSuiteSelect = (data) => {
 const handleCaseSuiteSelect = (data) => {
   // 只有类型为suite的节点才能被选择
   if (data.type === 'suite') {
-    caseForm.suite_id = data.id
+    // 根据当前创建方式选择设置哪个表单的suite_id
+    if (createCaseType.value === 'manual' || isEditCase.value) {
+      caseForm.suite_id = data.id
+    } else {
+      autoCaseForm.suite_id = data.id
+    }
     // 更新选中路径显示
     selectedCaseSuitePath.value = getSelectedCaseSuitePath()
     // 选择后关闭弹出框
     caseSuitePopoverVisible.value = false
+  }
+}
+
+// 新增：处理自动生成用例的用例集选择
+const handleAutoCaseSuiteSelect = (data) => {
+  handleCaseSuiteSelect(data)
+}
+
+// 新增：处理需求文档文件变化
+const handleRequirementFileChange = (file) => {
+  autoCaseForm.file = file.raw
+  requirementFileList.value = [file]
+}
+
+// 新增：处理需求文档文件移除
+const handleRequirementFileRemove = () => {
+  autoCaseForm.file = null
+  requirementFileList.value = []
+}
+
+// 新增：处理需求文档文件超出限制
+const handleRequirementFileExceed = () => {
+  ElMessage.warning('只能上传一个需求文档文件')
+}
+
+// 新增：生成用例按钮点击事件
+const handleGenerateCase = async () => {
+  try {
+    await autoCaseFormRef.value.validate()
+    
+    // 这里暂不实现具体生成用例功能，只给出提示
+    ElMessage.success('用例生成功能暂未实现，点击生成用例成功')
+  } catch (error) {
+    ElMessage.error('请填写必填字段')
   }
 }
 
@@ -1530,19 +2612,132 @@ const handleAddCase = () => {
   isEditCase.value = false
   resetCaseForm()
   
+  // 新增：重置创建方式为手动创建
+  createCaseType.value = 'manual'
+  
+  // 新增：重置自动生成用例表单
+  Object.assign(autoCaseForm, {
+    case_name: '',
+    suite_id: null,
+    requirement_desc: '',
+    file: null
+  })
+  
+  // 新增：重置需求文档文件列表
+  requirementFileList.value = []
+  
   // 如果有选中的套件且类型为用例集，设置为默认值
   if (selectedSuite.value && selectedSuite.value.type === 'suite') {
     caseForm.suite_id = selectedSuite.value.id
+    autoCaseForm.suite_id = selectedSuite.value.id
+    
+    // 自动生成下一个用例编号
+    generateNextCaseNumber(selectedSuite.value.id)
+  } else {
+    autoCaseForm.suite_id = null
   }
   
   caseDialogVisible.value = true
+}
+
+// 自动生成下一个用例编号
+const generateNextCaseNumber = async (suiteId) => {
+  try {
+    // 加载所有用例以获取最新编号
+    const response = await getSuiteCases(suiteId, {
+      page: 1,
+      page_size: 10000
+    })
+    
+    const cases = response.data.items
+    if (cases.length === 0) {
+      // 没有用例，设置默认值
+      caseNumberParts.part1 = ''
+      caseNumberParts.part2 = ''
+      caseNumberParts.part3 = ''
+      caseNumberParts.part4 = '001'
+      updateCaseNumber()
+      return
+    }
+    
+    // 找到最新的用例编号
+    let latestNumber = 0
+    let prefix1 = ''
+    let prefix2 = ''
+    let prefix3 = ''
+    
+    cases.forEach(caseItem => {
+      const caseNumber = caseItem.case_number
+      if (!caseNumber) return
+      
+      // 解析用例编号格式：xxx-xxx-xxx001
+      const regex = /^(.*?)-(.*?)-(.*?)(\d{3})$/g
+      const match = regex.exec(caseNumber)
+      if (match) {
+        const num = parseInt(match[4])
+        if (num > latestNumber) {
+          latestNumber = num
+          prefix1 = match[1]
+          prefix2 = match[2]
+          prefix3 = match[3]
+        }
+      }
+    })
+    
+    // 设置下一个编号，格式化为3位
+    caseNumberParts.part1 = prefix1
+    caseNumberParts.part2 = prefix2
+    caseNumberParts.part3 = prefix3
+    caseNumberParts.part4 = (latestNumber + 1).toString().padStart(3, '0')
+    updateCaseNumber()
+  } catch (error) {
+    console.error('生成用例编号失败:', error)
+    // 失败时设置默认值
+    caseNumberParts.part1 = ''
+    caseNumberParts.part2 = ''
+    caseNumberParts.part3 = ''
+    caseNumberParts.part4 = '001'
+    updateCaseNumber()
+  }
 }
 
 // 编辑用例
 const handleEditCase = (row) => {
   isEditCase.value = true
   Object.assign(caseForm, row)
+  
+  // 解析用例编号到分段输入框
+  parseCaseNumber(row.case_number)
+  
   caseDialogVisible.value = true
+}
+
+// 解析用例编号到分段输入框
+const parseCaseNumber = (caseNumber) => {
+  if (!caseNumber) {
+    caseNumberParts.part1 = ''
+    caseNumberParts.part2 = ''
+    caseNumberParts.part3 = ''
+    caseNumberParts.part4 = ''
+    return
+  }
+  
+  // 解析用例编号格式：xxx-xxx-xxx001
+  const regex = /^(.*?)-(.*?)-(.*?)(\d{3})$/g
+  const match = regex.exec(caseNumber)
+  if (match) {
+    caseNumberParts.part1 = match[1]
+    caseNumberParts.part2 = match[2]
+    caseNumberParts.part3 = match[3]
+    // 保持数字部分为3位格式
+    caseNumberParts.part4 = match[4]
+  } else {
+    // 解析失败，设置默认值
+    caseNumberParts.part1 = ''
+    caseNumberParts.part2 = ''
+    caseNumberParts.part3 = ''
+    caseNumberParts.part4 = ''
+  }
 }
 
 // 删除用例
@@ -1602,12 +2797,12 @@ const handleSaveCase = async () => {
     caseSuitePopoverVisible.value = false
     loadTestCases(selectedSuite.value?.id)
   } catch (error) {
-    if (error.name === 'ValidateError') {
-      // 表单验证失败，不处理，由Element Plus自动显示错误信息
-      return
+    // 表单验证失败时，Element Plus会自动显示错误信息，不需要额外提示
+    // 只有当API请求失败时，才显示错误信息
+    if (error.response || error.message && !error.name.includes('Validate')) {
+      console.error('保存测试用例失败:', error)
+      ElMessage.error(isEditCase.value ? '更新测试用例失败' : '创建测试用例失败')
     }
-    console.error('保存测试用例失败:', error)
-    ElMessage.error(isEditCase.value ? '更新测试用例失败' : '创建测试用例失败')
   }
 }
 
@@ -1625,6 +2820,17 @@ const resetCaseForm = () => {
   caseForm.expected_result = ''
   caseForm.test_data = ''
   caseForm.actual_result = ''
+  
+  // 重置用例编号分段输入
+  caseNumberParts.part1 = ''
+  caseNumberParts.part2 = ''
+  caseNumberParts.part3 = ''
+  caseNumberParts.part4 = ''
+  
+  // 重置表单验证状态
+  if (caseFormRef.value) {
+    caseFormRef.value.resetFields()
+  }
 }
 
 // 切换视图模式
@@ -1638,6 +2844,153 @@ const isLeftPanelCollapsed = ref(false)
 // 切换左侧面板显示状态
 const toggleLeftPanel = () => {
   isLeftPanelCollapsed.value = !isLeftPanelCollapsed.value
+}
+
+// 文件上传相关
+const uploadRef = ref(null)
+const excelFile = ref(null)
+
+// 导出Excel
+const handleExportExcel = async () => {
+  try {
+    // 如果是从导入导出对话框调用，使用选择的用例集ID
+    let suiteId = importExportForm.suite_id
+    
+    // 如果没有选择用例集ID（直接调用），使用当前选中的套件ID
+    if (!suiteId && selectedSuite.value && selectedSuite.value.type === 'suite') {
+      suiteId = selectedSuite.value.id
+    }
+    
+    if (!suiteId) {
+      ElMessage.error('请选择要导出的用例集')
+      return
+    }
+    
+    // 准备导出数据
+    ElMessage.info('正在准备导出数据，请稍候...')
+    
+    // 加载所有测试用例数据
+    const response = await getSuiteCases(suiteId, {
+      page: 1,
+      page_size: 10000 // 足够大的值，确保获取所有数据
+    })
+    
+    const cases = response.data.items
+    if (cases.length === 0) {
+      ElMessage.warning('该用例集下没有测试用例')
+      return
+    }
+    
+    // 获取测试套件详情，获取项目相关信息
+    const suiteDetail = await getTestSuiteDetail(suiteId)
+    
+    // 准备导出数据
+    const exportData = cases.map(caseItem => {
+      // 将状态值转换为中文显示
+      const statusLabel = statusOptions.find(option => option.value === caseItem.status)?.label || '未执行'
+      return {
+        '用例编号': caseItem.case_number || '',
+        '用例名称': caseItem.case_name || '',
+        '所属项目': suiteDetail.data.project_name || '',
+        '所属迭代': suiteDetail.data.iteration_name || '',
+        '关联需求': suiteDetail.data.version_requirement_name || '',
+        '优先级': caseItem.priority || '',
+        '状态': statusLabel,
+        '前置条件': caseItem.preconditions || '',
+        '测试数据': caseItem.test_data || '',
+        '操作步骤': caseItem.steps || '',
+        '预期结果': caseItem.expected_result || '',
+        '实际结果': caseItem.actual_result || ''
+      }
+    })
+    
+    // 创建工作簿和工作表
+    const ws = XLSX.utils.json_to_sheet(exportData)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '测试用例')
+    
+    // 设置样式
+    ws['!cols'] = [
+      { wch: 20 }, // 用例编号
+      { wch: 30 }, // 用例名称
+      { wch: 20 }, // 所属项目
+      { wch: 20 }, // 所属迭代
+      { wch: 20 }, // 关联需求
+      { wch: 10 }, // 优先级
+      { wch: 15 }, // 状态
+      { wch: 25 }, // 前置条件
+      { wch: 25 }, // 测试数据
+      { wch: 40 }, // 操作步骤
+      { wch: 30 }, // 预期结果
+      { wch: 30 }  // 实际结果
+    ]
+    
+    // 生成Excel文件并下载
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    saveAs(blob, `测试用例_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    
+    ElMessage.success('Excel导出成功')
+  } catch (error) {
+    console.error('导出Excel失败:', error)
+    ElMessage.error('导出Excel失败，请重试')
+  }
+}
+
+// 导入Excel
+const handleImportExcel = () => {
+  // 直接触发隐藏的上传按钮点击
+  if (uploadBtnRef.value) {
+    uploadBtnRef.value.click()
+  }
+}
+
+// 下载Excel模板
+const downloadExcelTemplate = () => {
+  try {
+    // 准备模板数据
+    const templateData = [
+      {
+        '用例编号': '示例-需求-功能001',
+        '用例名称': '示例用例',
+        '优先级': 'P1',
+        '状态': '',
+        '前置条件': '前置条件示例',
+        '测试数据': '测试数据示例',
+        '操作步骤': '操作步骤示例\n步骤1\n步骤2\n步骤3',
+        '预期结果': '预期结果示例',
+        '实际结果': ''
+      }
+    ]
+    
+    // 创建工作簿和工作表
+    const ws = XLSX.utils.json_to_sheet(templateData)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '测试用例模板')
+    
+    // 设置样式
+    ws['!cols'] = [
+      { wch: 20 }, // 用例编号
+      { wch: 30 }, // 用例名称
+      { wch: 10 }, // 优先级
+      { wch: 15 }, // 状态
+      { wch: 25 }, // 前置条件
+      { wch: 25 }, // 测试数据
+      { wch: 40 }, // 操作步骤
+      { wch: 30 }, // 预期结果
+      { wch: 30 }  // 实际结果
+    ]
+    
+    // 生成Excel文件并下载
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    saveAs(blob, '测试用例模板.xlsx')
+    
+    ElMessage.success('模板下载成功')
+  } catch (error) {
+    console.error('下载模板失败:', error)
+    ElMessage.error('下载模板失败')
+  }
 }
 
 // 计算无状态用例数量
@@ -1768,6 +3121,285 @@ const positionedLabels = computed(() => {
   return initialPositions
 })
 
+// 导入/导出用例对话框相关
+const importExportVisible = ref(false)
+const importExportFormRef = ref(null)
+const importParentSuiteVisible = ref(false)
+const importSelectedParentSuitePath = ref('')
+const exportCaseSuiteVisible = ref(false)
+const exportSelectedCaseSuitePath = ref('')
+const importUploadRef = ref(null)
+const uploadBtnRef = ref(null)
+
+// 导入状态管理
+const isImporting = ref(false)
+
+// 存储导入的文件数据
+const importedFile = ref(null)
+
+// 文件列表
+const fileList = ref([])
+
+// 导入导出表单数据
+const importExportForm = reactive({
+  type: 'import', // 默认导入
+  fileName: '',
+  parent_id: null,
+  suite_id: null,
+  targetPath: ''
+})
+
+// 显示导入导出对话框
+const showImportExportDialog = () => {
+  importExportVisible.value = true
+}
+
+// 处理文件选择变化
+const handleFileChange = (file, fileList) => {
+  // on-change事件传递的file参数直接是文件对象
+  const isExcel = file.raw.type === 'application/vnd.ms-excel' || file.raw.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  const isLt10M = file.raw.size / 1024 / 1024 < 10
+  
+  if (!isExcel) {
+    ElMessage.error('只能上传Excel文件！')
+    return
+  }
+  if (!isLt10M) {
+    ElMessage.error('上传文件大小不能超过 10MB！')
+    return
+  }
+  
+  // 保存文件和文件名
+  importedFile.value = file.raw
+  importExportForm.fileName = file.name
+  // 更新文件列表，只保留最新选择的文件
+  fileList.value = fileList.slice(-1)
+}
+
+// 处理文件移除
+const handleFileRemove = () => {
+  importedFile.value = null
+  importExportForm.fileName = ''
+  fileList.value = []
+}
+
+// 处理文件超出限制
+const handleFileExceed = () => {
+  ElMessage.error('一次只能导入一个文件')
+}
+
+// 清除导入父套件选择
+const clearImportParentSuiteSelection = () => {
+  importExportForm.parent_id = null
+  importSelectedParentSuitePath.value = ''
+  importParentSuiteVisible.value = false
+}
+
+// 处理导入父套件选择
+const handleImportParentSuiteSelect = (data) => {
+  importExportForm.parent_id = data.id
+  // 更新显示路径
+  const findPath = (nodes, id, path = []) => {
+    for (const node of nodes) {
+      if (node.id === id) {
+        return [...path, node.suite_name]
+      }
+      if (node.children && node.children.length) {
+        const result = findPath(node.children, id, [...path, node.suite_name])
+        if (result) return result
+      }
+    }
+    return null
+  }
+  const path = findPath(treeData.value, data.id)
+  importSelectedParentSuitePath.value = path ? path.join(' / ') : ''
+  importParentSuiteVisible.value = false
+}
+
+// 处理导出用例集选择
+const handleExportCaseSuiteSelect = (data) => {
+  if (data.type === 'suite') {
+    importExportForm.suite_id = data.id
+    // 更新显示路径
+    const findPath = (nodes, id, path = []) => {
+      for (const node of nodes) {
+        if (node.id === id) {
+          return [...path, node.suite_name]
+        }
+        if (node.children && node.children.length) {
+          const result = findPath(node.children, id, [...path, node.suite_name])
+          if (result) return result
+        }
+      }
+      return null
+    }
+    const path = findPath(treeData.value, data.id)
+    exportSelectedCaseSuitePath.value = path ? path.join(' / ') : ''
+    exportCaseSuiteVisible.value = false
+  }
+}
+
+// 选择导出路径
+const selectExportPath = () => {
+  // 在实际应用中，这里应该调用系统文件选择对话框
+  // 由于浏览器限制，我们可以模拟一个路径选择
+  const defaultPath = `D:/测试用例_${new Date().toISOString().slice(0, 10)}.xlsx`
+  importExportForm.targetPath = defaultPath
+  ElMessage.success(`已设置默认导出路径：${defaultPath}`)
+}
+
+// 处理导入导出操作
+const handleImportExportAction = async () => {
+  try {
+    if (importExportForm.type === 'import') {
+      // 处理导入逻辑
+      if (!importExportForm.fileName) {
+        ElMessage.error('请选择要导入的文件')
+        return
+      }
+      if (!importExportForm.parent_id) {
+        ElMessage.error('请选择导入的目标位置')
+        return
+      }
+      if (!importedFile.value) {
+        ElMessage.error('请选择要导入的文件')
+        return
+      }
+      
+      // 设置导入状态为true
+      isImporting.value = true
+      
+      // 显示导入进度提示
+      const loading = ElLoading.service({
+        lock: true,
+        text: '正在导入测试用例，请稍候...',
+        background: 'rgba(0, 0, 0, 0.7)'
+      })
+      
+      // 处理导入的文件
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        try {
+          const data = new Uint8Array(e.target.result)
+          const workbook = XLSX.read(data, { type: 'array' })
+          const sheetName = workbook.SheetNames[0]
+          const worksheet = workbook.Sheets[sheetName]
+          
+          // 解析Excel数据
+          const excelData = XLSX.utils.sheet_to_json(worksheet)
+          
+          if (excelData.length === 0) {
+            ElMessage.warning('Excel文件中没有测试用例数据')
+            // 关闭加载提示和重置状态
+            loading.close()
+            isImporting.value = false
+            return
+          }
+          
+          // 获取当前登录用户信息
+          const { userInfo } = useUserStore()
+          
+          // 从Excel数据中获取项目、迭代、需求信息（取第一条数据的值，因为同一Excel中值相同）
+          const firstItem = excelData[0]
+          const projectName = firstItem['所属项目'] || ''
+          const iterationName = firstItem['迭代'] || ''
+          const requirementName = firstItem['需求'] || ''
+          
+          // 创建测试套件名称（使用文件名，去掉后缀）
+          const suiteName = importExportForm.fileName.replace(/\.(xlsx|xls)$/, '')
+          
+          // 创建测试套件
+          const suiteData = {
+            suite_name: suiteName,
+            type: 'suite', // 用例集类型
+            parent_id: importExportForm.parent_id,
+            // 项目相关字段：暂时使用空值，后续可扩展为从名称映射到ID
+            project_id: null,
+            version_requirement_id: null,
+            iteration_id: null
+          }
+          
+          const createSuiteResponse = await createTestSuite(suiteData)
+          const newSuiteId = createSuiteResponse.data.id
+          
+          // 处理导入的用例数据
+          let importedCount = 0
+          let errorCount = 0
+          
+          // 遍历处理每条数据
+          for (const item of excelData) {
+            try {
+              // 将中文状态转换为对应的状态值
+              const statusValue = statusOptions.find(option => option.label === item['状态'])?.value || ''
+              
+              // 构建完整的用例数据
+              const caseData = {
+                case_number: item['用例编号'] || '',
+                case_name: item['用例名称'] || '',
+                case_description: item['用例描述'] || '', // 添加用例描述字段
+                priority: item['优先级'] || 'P1',
+                status: statusValue,
+                preconditions: item['前置条件'] || '',
+                test_data: item['测试数据'] || '',
+                steps: item['操作步骤'] || '',
+                expected_result: item['预期结果'] || '',
+                actual_result: item['实际结果'] || '',
+                suite_id: newSuiteId,
+                // 项目相关字段：暂时使用空值，后续可扩展为从名称映射到ID
+                project_id: null,
+                version_requirement_id: null,
+                iteration_id: null
+              }
+              
+              // 调用API创建测试用例
+              await createTestCase(caseData)
+              importedCount++
+              // 添加延迟，避免请求过于频繁
+              await new Promise(resolve => setTimeout(resolve, 100))
+            } catch (error) {
+              console.error('导入单条测试用例失败:', error)
+              errorCount++
+            }
+          }
+          
+          // 刷新用例树
+          await loadTreeData()
+          
+          // 关闭加载提示和重置状态
+          loading.close()
+          isImporting.value = false
+          
+          // 显示导入结果
+          ElMessage.success(`成功导入 ${importedCount} 条测试用例，失败 ${errorCount} 条`)
+          
+          // 关闭对话框
+          importExportVisible.value = false
+        } catch (error) {
+          console.error('导入测试用例失败:', error)
+          // 关闭加载提示和重置状态
+          loading.close()
+          isImporting.value = false
+          ElMessage.error('导入测试用例失败，请检查文件格式和内容')
+        }
+      }
+      reader.readAsArrayBuffer(importedFile.value)
+    } else if (importExportForm.type === 'export') {
+      // 处理导出逻辑
+      if (!importExportForm.suite_id) {
+        ElMessage.error('请选择要导出的用例集')
+        return
+      }
+      
+      // 调用现有的导出Excel函数
+      handleExportExcel()
+      importExportVisible.value = false
+    }
+  } catch (error) {
+    console.error('导入导出操作失败:', error)
+    ElMessage.error('操作失败，请重试')
+  }
+}
+
 // 用例内联编辑相关方法
 const startCaseEdit = (row, field) => {
   editingCaseId.value = row.id
@@ -1825,6 +3457,30 @@ const startCaseEdit = (row, field) => {
 
 const saveCaseEdit = async (row) => {
   try {
+    // 如果编辑的是用例编号，验证格式
+    if (editingField.value === 'case_number') {
+      const value = editingValue.value.trim()
+      const regex = /^.+-.+-.+\d{3}$/
+      if (!regex.test(value)) {
+        ElMessage.error('用例编号格式不正确，应为：xxx-xxx-xxx001~xxx-xxx-xxx999')
+        return
+      } else {
+        // 验证数字部分在1-999之间
+        const numRegex = /\d{3}$/
+        const match = value.match(numRegex)
+        if (match) {
+          const num = parseInt(match[0])
+          if (num < 1 || num > 999) {
+            ElMessage.error('用例编号数字部分必须在001-999之间')
+            return
+          }
+        } else {
+          ElMessage.error('用例编号格式不正确，应为：xxx-xxx-xxx001~xxx-xxx-xxx999')
+          return
+        }
+      }
+    }
+    
     const updatedData = {
       [editingField.value]: editingValue.value
     }
@@ -2055,6 +3711,32 @@ const handleCurrentChange = (page) => {
   loadTestCases(selectedSuite.value?.id)
 }
 </script>
+
+<style scoped>
+  .case-number-input-group {
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+  
+  .case-number-part {
+    flex: 1;
+    margin: 0;
+    min-width: 0;
+  }
+  
+  .case-number-part.number-part {
+    width: 100px;
+    flex: none;
+  }
+  
+  .case-number-separator {
+    margin: 0 5px;
+    color: #606266;
+    width: 10px;
+    text-align: center;
+  }
+</style>
 
 <style lang="scss" scoped>
 /* 内联编辑输入框样式优化 */
@@ -2827,5 +4509,13 @@ const handleCurrentChange = (page) => {
       background-color: #f5f7fa;
     }
   }
+}
+
+/* 表单帮助文本样式 */
+.form-help-text {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.5;
 }
 </style>

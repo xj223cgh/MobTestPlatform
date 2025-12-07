@@ -140,10 +140,10 @@ def update_test_task(task_id):
         test_task.status = data['status']
         # 如果任务状态变为运行中，记录开始时间
         if data['status'] == 'running' and test_task.start_time is None:
-            test_task.start_time = datetime.utcnow()
+            test_task.start_time = datetime.now(timezone(timedelta(hours=8)))
         # 如果任务状态变为已完成，记录结束时间
         elif data['status'] == 'completed' and test_task.end_time is None:
-            test_task.end_time = datetime.utcnow()
+            test_task.end_time = datetime.now(timezone(timedelta(hours=8)))
     
     if 'result' in data:
         test_task.result = data['result']
@@ -266,10 +266,10 @@ def update_case_execution(task_id, case_id):
         execution.status = data['status']
         if 'notes' in data:
             execution.notes = data['notes']
-        execution.execution_time = datetime.utcnow()
+        execution.execution_time = datetime.now(timezone(timedelta(hours=8)))
         
         # 更新测试用例的最后执行时间
-        test_case.executed_at = datetime.utcnow()
+        test_case.executed_at = datetime.now(timezone(timedelta(hours=8)))
         
         db.session.commit()
         

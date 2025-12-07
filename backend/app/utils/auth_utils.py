@@ -1,7 +1,10 @@
 import secrets
 import hashlib
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+# 设置本地时区为UTC+8
+LOCAL_TIMEZONE = timezone(timedelta(hours=8))
 from itsdangerous import URLSafeTimedSerializer
 import pyotp
 import qrcode
@@ -93,7 +96,7 @@ class SessionManager:
         """创建会话"""
         session['user_id'] = user_id
         session['authenticated'] = True
-        session['created_at'] = datetime.utcnow().isoformat()
+        session['created_at'] = datetime.now(LOCAL_TIMEZONE).isoformat()
         
         if user_data:
             session['user_data'] = user_data

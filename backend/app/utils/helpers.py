@@ -22,24 +22,31 @@ def validate_username(username):
 def success_response(data=None, message="Operation successful"):
     """统一成功响应格式"""
     from datetime import datetime
-    return jsonify({
+    # 创建响应对象，确保HTTP响应行使用英文状态消息
+    response = jsonify({
         'code': 200,
         'message': message,
         'data': data,
         'timestamp': datetime.now().isoformat()
     })
+    # 明确设置状态码，使用Flask内置的英文状态消息
+    response.status_code = 200
+    return response
 
 
 def error_response(message, code, data=None):
     """统一错误响应格式"""
     from datetime import datetime
-    # Flask会自动处理HTTP状态消息，只需要返回状态码即可
-    return jsonify({
+    # 创建响应对象，确保HTTP响应行使用英文状态消息
+    response = jsonify({
         'code': code,
         'message': message,
         'data': data,
         'timestamp': datetime.now().isoformat()
-    }), code
+    })
+    # 明确设置状态码，使用Flask内置的英文状态消息
+    response.status_code = code
+    return response
 
 
 def get_pagination_params():

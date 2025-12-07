@@ -210,8 +210,16 @@ def update_project(project_id):
             project.doc_url = data['doc_url']
         if 'pipeline_url' in data:
             project.pipeline_url = data['pipeline_url']
-        
-        project.updated_at = datetime.utcnow()
+        if 'creator_id' in data:
+            # 检查新的创建者是否是项目成员
+            new_creator = ProjectMember.query.filter_by(
+                project_id=project_id,
+                user_id=data['creator_id']
+            ).first()
+            if new_creator:
+                project.creator_id = data['creator_id']
+            else:
+                return jsonify({'error': '新创建者必须是项目成员'}), 400
         
         db.session.commit()
         return jsonify({'message': '项目更新成功', 'project': project.to_dict()}), 200
@@ -479,8 +487,6 @@ def update_project_version_requirement(project_id, requirement_id):
             requirement.assigned_to = data['assigned_to']
         if 'completed_at' in data and data['completed_at']:
             requirement.completed_at = datetime.strptime(data['completed_at'], '%Y-%m-%d %H:%M:%S')
-        
-        requirement.updated_at = datetime.utcnow()
         
         db.session.commit()
         

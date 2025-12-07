@@ -146,6 +146,11 @@ def create_test_suite():
             status=data.get('status', 'active'),
             type=suite_type,
             creator_id=current_user.id,
+            reviewer_id=data.get('reviewer_id'),
+            review_status=data.get('review_status', 'not_submitted'),
+            project_id=data.get('project_id'),
+            version_requirement_id=data.get('version_requirement_id'),
+            iteration_id=data.get('iteration_id'),
             sort_order=new_sort_order
         )
         
@@ -242,6 +247,14 @@ def update_test_suite(suite_id):
         # 更新评审状态
         if 'review_status' in data:
             suite.review_status = data['review_status']
+        
+        # 更新项目相关信息
+        if 'project_id' in data:
+            suite.project_id = data['project_id']
+        if 'version_requirement_id' in data:
+            suite.version_requirement_id = data['version_requirement_id']
+        if 'iteration_id' in data:
+            suite.iteration_id = data['iteration_id']
         
         # 如果父级或排序发生变化，需要重新调整排序
         if ('parent_id' in data and data['parent_id'] != original_parent_id) or \

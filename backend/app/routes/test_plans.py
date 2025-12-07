@@ -1,7 +1,10 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from app.models.models import db, Project, ProjectMember, Iteration, TestPlan, TestCase, plan_case_relation
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+# 设置本地时区为UTC+8
+LOCAL_TIMEZONE = timezone(timedelta(hours=8))
 import json
 
 bp = Blueprint('test_plans', __name__)
@@ -181,7 +184,6 @@ def update_test_plan(plan_id):
             test_plan.iteration_id = data['iteration_id']
         
         test_plan.updated_by = current_user.id
-        test_plan.updated_at = datetime.utcnow()
         
         db.session.commit()
         return jsonify({'message': '测试计划更新成功', 'test_plan': test_plan.to_dict()}), 200
@@ -234,7 +236,6 @@ def add_test_cases_to_plan(plan_id):
                     added_count += 1
         
         test_plan.updated_by = current_user.id
-        test_plan.updated_at = datetime.utcnow()
         
         db.session.commit()
         return jsonify({'message': f'成功添加{added_count}个测试用例'}), 200
@@ -272,7 +273,7 @@ def remove_test_case_from_plan(plan_id, case_id):
             return jsonify({'error': '测试用例未关联到该测试计划'}), 404
         
         test_plan.updated_by = current_user.id
-        test_plan.updated_at = datetime.utcnow()
+        test_plan.updated_at = datetime.now(LOCAL_TIMEZONE)
         
         db.session.commit()
         return jsonify({'message': '测试用例移除成功'}), 200

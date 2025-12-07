@@ -618,7 +618,8 @@ const handleToggleStatus = (row) => {
 // 提交表单
 const handleSubmit = async () => {
   if (!userFormRef.value) return;
-  await userFormRef.value.validate();
+  const isValid = await userFormRef.value.validate();
+  if (!isValid) return;
   submitLoading.value = true;
   try {
     // 构建提交数据

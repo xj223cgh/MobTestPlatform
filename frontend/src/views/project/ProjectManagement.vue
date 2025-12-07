@@ -172,12 +172,37 @@
         </el-table-column>
         <el-table-column
           prop="creator_name"
-          label="创建者"
-          min-width="100"
+          label="项目成员"
+          min-width="140"
           align="center"
         >
           <template #default="scope">
-            {{ scope.row.creator_name || '-' }}
+            <div class="creator-select-wrapper">
+              <!-- 使用临时变量存储当前显示的值，避免修改原始数据 -->
+              <el-select
+                v-model="scope.row._displayUserId"
+                placeholder="项目成员"
+                size="small"
+                style="width: 90%"
+                @change="handleCreatorChange(scope.row)"
+              >
+                <!-- 先显示创建者选项 -->
+                <el-option
+                  v-if="scope.row.creator_id && scope.row.creator_name"
+                  :key="scope.row.creator_id"
+                  :label="scope.row.creator_name + '（创建者）'"
+                  :value="scope.row.creator_id"
+                />
+                
+                <!-- 遍历项目成员，过滤掉创建者（已经单独显示） -->
+                <el-option
+                  v-for="member in (scope.row.members || []).filter(member => member.user_id !== scope.row.creator_id)"
+                  :key="member.user_id"
+                  :label="member.user_name"
+                  :value="member.user_id"
+                />
+              </el-select>
+            </div>
           </template>
         </el-table-column>
         <el-table-column
@@ -263,7 +288,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Search, Refresh } from '@element-plus/icons-vue'
-import { getProjects } from '@/api/project'
+import { getProjects, updateProject } from '@/api/project'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 
@@ -357,6 +382,10 @@ const getProjectList = async () => {
     const response = await getProjects(params)
     // 后端返回标准格式：{code: 200, message: 'success', data: {items: [...], total: 10}}
     projectList.value = response.data?.items || []
+    // 为每个项目添加_displayUserId字段，初始值为creator_id
+    projectList.value.forEach(project => {
+      project._displayUserId = project.creator_id
+    })
     pagination.total = response.data?.total || 0
   } catch (error) {
     console.error('获取项目列表失败:', error)
@@ -412,6 +441,29 @@ const handleEditProject = (row) => {
 const handleDeleteProject = (row) => {
   // 这里可以实现删除项目功能
   ElMessage.info(`删除项目: ${row.project_name}`)
+}
+
+// 获取创建者选项列表 - 直接使用后端返回的项目成员数据
+const getCreatorOptions = (row) => {
+  // 确保使用项目成员表的数据
+  if (row.members && row.members.length > 0) {
+    return row.members
+  }
+  
+  // 如果没有成员数据，至少包含当前创建者
+  if (row.creator_id && row.creator_name) {
+    return [{
+      user_id: row.creator_id,
+      user_name: row.creator_name
+    }]
+  }
+  
+  return []
+}
+// 处理创建者变更 - 恢复原始值，实现可展开但不可选择
+const handleCreatorChange = (row) => {
+  // 恢复_displayUserId为creator_id，而不是修改原始creator_id
+  row._displayUserId = row.creator_id
 }
 
 // 生命周期钩子 - 组件挂载时获取项目列表

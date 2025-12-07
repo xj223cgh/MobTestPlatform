@@ -171,7 +171,6 @@ def update_iteration(iteration_id):
                 return jsonify({'error': '结束日期格式错误，请使用YYYY-MM-DD格式'}), 400
         
         iteration.updated_by = current_user.id
-        iteration.updated_at = datetime.utcnow()
         
         db.session.commit()
         return jsonify({

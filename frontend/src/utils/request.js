@@ -36,6 +36,8 @@ request.interceptors.response.use(
       return Promise.reject(new Error(res.message || '操作失败'))
     }
     
+    // 为成功响应添加success字段
+    res.success = true
     return res
   },
   async (error) => {

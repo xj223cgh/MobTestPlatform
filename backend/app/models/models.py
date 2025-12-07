@@ -1,4 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+# 设置本地时区为UTC+8
+LOCAL_TIMEZONE = timezone(timedelta(hours=8))
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -35,8 +38,8 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(255), nullable=False, comment='密码（哈希存储）')
     role = db.Column(db.Enum('super', 'manager', 'tester', 'admin'), nullable=False, default='admin', comment='角色类型')
     is_active = db.Column(db.Boolean, default=True, comment='是否激活')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
     # 关系
     created_devices = db.relationship('Device', backref='owner', lazy='dynamic', foreign_keys='Device.owner_id')
@@ -79,8 +82,8 @@ class Project(db.Model):
     project_name = db.Column(db.String(200), nullable=False, unique=True, comment='项目名称')
     description = db.Column(db.Text, comment='项目描述')
     status = db.Column(db.Enum(*PROJECT_STATUS), default='not_started', comment='项目状态')
-    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='项目负责人ID')
-    creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='项目创建者ID')
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='项目负责人ID')
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='项目创建者ID')
     start_date = db.Column(db.DateTime, comment='开始日期')
     end_date = db.Column(db.DateTime, comment='结束日期')
     tags = db.Column(db.Text, comment='项目标签，JSON格式存储')
@@ -88,8 +91,8 @@ class Project(db.Model):
     doc_url = db.Column(db.String(500), comment='项目文档链接')
     pipeline_url = db.Column(db.String(500), comment='流水线链接')
     is_deleted = db.Column(db.Boolean, default=False, comment='是否逻辑删除')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
     # 关系
     owner = db.relationship('User', backref='owned_projects', foreign_keys=[owner_id])
@@ -155,6 +158,13 @@ class Project(db.Model):
             'cancelled': sum(1 for req in self.version_requirements if req.status == 'cancelled')
         }
         
+        # 处理项目成员，将user_id为NULL的成员显示为"未知用户"
+        members = [{
+            'user_id': member.user_id,
+            'user_name': member.user.real_name if member.user else "未知用户",
+            'role': member.role
+        } for member in self.project_members]
+        
         return {
             'id': self.id,
             'project_name': self.project_name,
@@ -181,7 +191,8 @@ class Project(db.Model):
             'case_stats': case_stats,
             'iteration_stats': iteration_stats,
             'requirement_stats': requirement_stats,
-            'iterations': [iteration.iteration_name for iteration in self.iterations]
+            'iterations': [iteration.iteration_name for iteration in self.iterations],
+            'members': members
         }
 
 
@@ -200,12 +211,12 @@ class VersionRequirement(db.Model):
     environment = db.Column(db.Enum(*PROJECT_ENVIRONMENT), default='test', comment='需求环境')
     estimated_hours = db.Column(db.Float, comment='预估工时')
     actual_hours = db.Column(db.Float, comment='实际工时')
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='创建者ID')
-    assigned_to = db.Column(db.Integer, db.ForeignKey('users.id'), comment='分配给ID')
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建者ID')
+    assigned_to = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='分配给ID')
     start_date = db.Column(db.DateTime, comment='开始时间')
     end_date = db.Column(db.DateTime, comment='结束时间')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     is_deleted = db.Column(db.Boolean, default=False, comment='是否逻辑删除')
     
     # 关系
@@ -249,15 +260,16 @@ class ProjectMember(db.Model):
     
     id = db.Column(db.Integer, primary_key=True, comment='成员ID')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='项目ID')
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='用户ID')
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='用户ID')
     role = db.Column(db.Enum(*PROJECT_ROLE), default='tester', comment='项目角色')
-    joined_at = db.Column(db.DateTime, default=datetime.utcnow, comment='加入时间')
+    joined_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='加入时间')
     
     # 唯一约束，确保用户在项目中只有一个角色
+    # 注意：MySQL不支持NULL值的唯一约束，所以这个约束只在user_id不为NULL时生效
     __table_args__ = (db.UniqueConstraint('project_id', 'user_id', name='_project_user_uc'),)
     
     # 关系
-    user = db.relationship('User', backref='project_memberships')
+    user = db.relationship('User', backref=db.backref('project_memberships', cascade='all, delete-orphan'))
     
     def to_dict(self):
         """转换为字典"""
@@ -286,10 +298,10 @@ class Iteration(db.Model):
     start_date = db.Column(db.DateTime, nullable=False, comment='开始日期')
     end_date = db.Column(db.DateTime, nullable=False, comment='结束日期')
     version = db.Column(db.String(100), comment='版本信息')
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), comment='创建者ID')
-    updated_by = db.Column(db.Integer, db.ForeignKey('users.id'), comment='更新者ID')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建者ID')
+    updated_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='更新者ID')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
     # 关系
     test_plans = db.relationship('TestPlan', backref='iteration', cascade='all, delete-orphan')
@@ -379,11 +391,11 @@ class TestPlan(db.Model):
     scope = db.Column(db.Text, comment='测试范围')
     test_environment = db.Column(db.Text, comment='测试环境')
     risk = db.Column(db.Text, comment='风险评估')
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='创建者ID')
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建者ID')
     start_date = db.Column(db.DateTime, comment='开始日期')
     end_date = db.Column(db.DateTime, comment='结束日期')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
     # 关系
     created_by_user = db.relationship('User', backref='created_test_plans')
@@ -434,9 +446,9 @@ class Device(db.Model):
     os_version = db.Column(db.String(50), nullable=False, comment='操作系统版本')
     device_id = db.Column(db.String(100), unique=True, nullable=False, comment='设备唯一标识')
     status = db.Column(db.Enum('online', 'offline', 'busy', 'maintenance'), default='offline', comment='设备状态')
-    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), comment='设备负责人ID')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='设备负责人ID')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
     # 关系
     test_tasks = db.relationship('TestTask', backref='device', lazy='dynamic')
@@ -469,15 +481,15 @@ class TestSuite(db.Model):
     parent_id = db.Column(db.Integer, db.ForeignKey('test_suites.id'), nullable=True, comment='父套件ID，用于构建目录结构')
     status = db.Column(db.Enum(*TEST_SUITE_STATUS), default='active', comment='状态')
     type = db.Column(db.Enum(*TEST_SUITE_TYPE), default='folder', comment='类型：folder-用例文件夹, suite-用例集')
-    creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='创建者ID')
-    reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, comment='评审人ID，用于用例集评审')
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建者ID')
+    reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='评审人ID，用于用例集评审')
     review_status = db.Column(db.Enum(*TEST_SUITE_REVIEW_STATUS), default='not_submitted', comment='评审状态：not_submitted-未提交, pending-待审核, approved-已通过, rejected-已拒绝')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
     version_requirement_id = db.Column(db.Integer, db.ForeignKey('version_requirements.id'), nullable=True, comment='关联的版本需求ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
     sort_order = db.Column(db.Integer, default=0, comment='排序顺序')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
     # 关系
     # 自引用关系，用于构建目录树结构
@@ -532,14 +544,14 @@ class TestCase(db.Model):
     case_description = db.Column(db.Text, comment='用例描述')
     priority = db.Column(db.Enum(*TEST_CASE_PRIORITY), default='P1', comment='优先级')
     status = db.Column(db.Enum(*TEST_CASE_STATUS), default='', comment='状态')
-    creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='创建者ID')
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建者ID')
     suite_id = db.Column(db.Integer, db.ForeignKey('test_suites.id'), nullable=False, comment='所属套件ID（用于模块树）')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
     version_requirement_id = db.Column(db.Integer, db.ForeignKey('version_requirements.id'), nullable=True, comment='关联的版本需求ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
     test_plan_id = db.Column(db.Integer, db.ForeignKey('test_plans.id'), nullable=True, comment='所属测试计划ID')
-    assignee_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, comment='负责人ID')
-    reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, comment='审核人ID')
+    assignee_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='负责人ID')
+    reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='审核人ID')
     
     # 用例内容
     preconditions = db.Column(db.Text, comment='前置条件')
@@ -549,9 +561,9 @@ class TestCase(db.Model):
     test_data = db.Column(db.Text, nullable=True, comment='测试数据')
     
     # 时间字段
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
-    executed_at = db.Column(db.DateTime, nullable=True, comment='最后执行时间')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
+    executed_at = db.Column(db.DateTime(timezone=True), nullable=True, comment='最后执行时间')
     
     # 审核信息
     review_comments = db.Column(db.Text, comment='审核意见')
@@ -620,8 +632,8 @@ class TestCaseExecution(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=True, comment='所属项目ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
     status = db.Column(db.Enum(*TEST_EXECUTION_STATUS), comment='执行状态：通过、失败、阻塞、不适用')
-    executor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, comment='执行人ID')
-    execution_time = db.Column(db.DateTime, default=datetime.utcnow, comment='执行时间')
+    executor_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='执行人ID')
+    execution_time = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='执行时间')
     notes = db.Column(db.Text, comment='执行备注')
     
     # 关系
@@ -670,18 +682,18 @@ class TestTask(db.Model):
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
     test_plan_id = db.Column(db.Integer, db.ForeignKey('test_plans.id'), nullable=True, comment='所属测试计划ID')
     status = db.Column(db.Enum(*TEST_TASK_STATUS), default='pending', comment='任务状态')
-    creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='创建者ID')
-    executor_id = db.Column(db.Integer, db.ForeignKey('users.id'), comment='执行者ID')
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建者ID')
+    executor_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='执行者ID')
     # 添加与测试套件的关联
     suite_id = db.Column(db.Integer, db.ForeignKey('test_suites.id'), nullable=True, comment='关联的测试套件ID')
     # 添加任务相关信息
     documentation_url = db.Column(db.Text, comment='相关文档链接')
     version_info = db.Column(db.String(100), comment='版本信息')
-    scheduled_time = db.Column(db.DateTime, comment='计划执行时间')
-    started_time = db.Column(db.DateTime, comment='开始执行时间')
-    completed_time = db.Column(db.DateTime, comment='完成时间')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
+    scheduled_time = db.Column(db.DateTime(timezone=True), comment='计划执行时间')
+    started_time = db.Column(db.DateTime(timezone=True), comment='开始执行时间')
+    completed_time = db.Column(db.DateTime(timezone=True), comment='完成时间')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     # 添加缺失的字段
     case_ids = db.Column(db.Text, nullable=False, comment='测试用例ID列表，JSON格式存储')
     
@@ -757,14 +769,14 @@ class Bug(db.Model):
     device_id = db.Column(db.Integer, db.ForeignKey('devices.id'), comment='相关设备ID')
     case_id = db.Column(db.Integer, db.ForeignKey('test_cases.id'), comment='相关用例ID')
     task_id = db.Column(db.Integer, db.ForeignKey('test_tasks.id'), comment='相关任务ID')
-    reporter_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='报告者ID')
-    assignee_id = db.Column(db.Integer, db.ForeignKey('users.id'), comment='分配给ID')
+    reporter_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='报告者ID')
+    assignee_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='分配给ID')
     # 添加与项目和迭代的关联
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=True, comment='所属项目ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
-    resolved_at = db.Column(db.DateTime, comment='解决时间')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
+    resolved_at = db.Column(db.DateTime(timezone=True), comment='解决时间')
     
     def to_dict(self):
         """转换为字典"""
@@ -807,9 +819,9 @@ class Tool(db.Model):
     tool_path = db.Column(db.String(500), nullable=False, comment='工具路径')
     tool_config = db.Column(db.Text, comment='工具配置（JSON格式）')
     status = db.Column(db.Enum('active', 'inactive', 'maintenance'), default='active', comment='状态')
-    creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='创建者ID')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建者ID')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
     def to_dict(self):
         """转换为字典"""
@@ -835,7 +847,7 @@ class ExecutionBugRelation(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True, comment='关联编号')
     execution_id = db.Column(db.Integer, db.ForeignKey('test_case_executions.id'), nullable=False, comment='执行记录ID')
     bug_id = db.Column(db.Integer, db.ForeignKey('bugs.id'), nullable=False, comment='缺陷ID')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
     
     # 关系
     execution = db.relationship('TestCaseExecution', backref='bug_relations')
@@ -860,9 +872,9 @@ class TestExecution(db.Model):
     environment_id = db.Column(db.Integer, nullable=True, comment='环境ID')
     device_id = db.Column(db.Integer, db.ForeignKey('devices.id'), nullable=False, comment='设备ID')
     execution_status = db.Column(db.String(20), nullable=False, comment='执行状态')
-    start_time = db.Column(db.DateTime, nullable=True, comment='开始时间')
-    end_time = db.Column(db.DateTime, nullable=True, comment='结束时间')
-    executor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, comment='执行人ID')
+    start_time = db.Column(db.DateTime(timezone=True), nullable=True, comment='开始时间')
+    end_time = db.Column(db.DateTime(timezone=True), nullable=True, comment='结束时间')
+    executor_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='执行人ID')
     
     # 关系
     task = db.relationship('TestTask', backref='executions')

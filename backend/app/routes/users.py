@@ -1,7 +1,7 @@
 from flask import Blueprint, request
 from flask_login import login_required, current_user
 
-from app.models.models import User, db
+from app.models.models import User, ProjectMember, db
 from app.utils.helpers import (
     success_response, error_response, validate_phone, 
     validate_username, get_pagination_params, log_user_action,
@@ -89,27 +89,27 @@ def create_user():
     
     # 验证输入
     if not validate_username(username):
-        return error_response(400, "用户名长度必须在3-14个字节之间")
+        return error_response("用户名长度必须在3-14个字节之间", 400)
     
     if not validate_phone(phone):
-        return error_response(400, "手机号格式不正确")
+        return error_response("手机号格式不正确", 400)
     
     if len(password) < 6:
-        return error_response(400, "密码长度不能少于6位")
+        return error_response("密码长度不能少于6位", 400)
     
     if not real_name:
-        return error_response(400, "真实姓名不能为空")
+        return error_response("真实姓名不能为空", 400)
     
     if role not in ['super', 'manager', 'tester', 'admin']:
-        return error_response(400, "无效的角色类型")
+        return error_response("无效的角色类型", 400)
     
     # 检查用户名是否已存在
     if User.query.filter_by(username=username).first():
-        return error_response(400, "用户名已存在")
+        return error_response("用户名已存在", 400)
     
     # 检查手机号是否已存在
     if User.query.filter_by(phone=phone).first():
-        return error_response(400, "手机号已注册")
+        return error_response("手机号已注册", 400)
     
     # 创建新用户
     user = User(
@@ -134,7 +134,7 @@ def create_user():
         
     except Exception as e:
         db.session.rollback()
-        return error_response(500, "用户创建失败，请稍后重试")
+        return error_response("用户创建失败，请稍后重试", 500)
 
 
 @bp.route('/<int:user_id>', methods=['PUT'])
@@ -149,7 +149,7 @@ def update_user(user_id):
     if 'real_name' in data:
         real_name = data['real_name'].strip()
         if not real_name:
-            return error_response(400, "真实姓名不能为空")
+            return error_response("真实姓名不能为空", 400)
         user.real_name = real_name
     
     if 'gender' in data:
@@ -163,21 +163,21 @@ def update_user(user_id):
     if 'phone' in data:
         phone = data['phone'].strip()
         if not validate_phone(phone):
-            return error_response(400, "手机号格式不正确")
+            return error_response("手机号格式不正确", 400)
         
         # 检查手机号是否已被其他用户使用
         existing_user = User.query.filter(
             User.phone == phone, User.id != user_id
         ).first()
         if existing_user:
-            return error_response(400, "手机号已被其他用户使用")
+            return error_response("手机号已被其他用户使用", 400)
         
         user.phone = phone
     
     if 'role' in data:
         role = data['role']
         if role not in ['super', 'manager', 'tester', 'admin']:
-            return error_response(400, "无效的角色类型")
+            return error_response("无效的角色类型", 400)
         
         user.role = role
     
@@ -195,7 +195,7 @@ def update_user(user_id):
         
     except Exception as e:
         db.session.rollback()
-        return error_response(500, "用户信息更新失败，请稍后重试")
+        return error_response("用户信息更新失败，请稍后重试", 500)
 
 
 @bp.route('/<int:user_id>', methods=['DELETE'])
@@ -205,6 +205,62 @@ def delete_user(user_id):
     user = User.query.get_or_404(user_id)
     
     try:
+        # 导入所有需要的模型
+        from app.models.models import (
+            Project, ProjectMember, VersionRequirement, Iteration, TestPlan,
+            TestSuite, TestCase, TestTask, Bug, Tool, TestCaseExecution,
+            TestExecution, Device
+        )
+        
+        # 1. 将与该用户相关的所有项目成员记录的user_id设置为NULL
+        ProjectMember.query.filter_by(user_id=user_id).update({'user_id': None}, synchronize_session=False)
+        
+        # 2. 处理所有关联表，将外键设置为NULL
+        # 项目表
+        Project.query.filter_by(owner_id=user_id).update({'owner_id': None}, synchronize_session=False)
+        Project.query.filter_by(creator_id=user_id).update({'creator_id': None}, synchronize_session=False)
+        
+        # 版本需求表
+        VersionRequirement.query.filter_by(created_by=user_id).update({'created_by': None}, synchronize_session=False)
+        VersionRequirement.query.filter_by(assigned_to=user_id).update({'assigned_to': None}, synchronize_session=False)
+        
+        # 迭代表
+        Iteration.query.filter_by(created_by=user_id).update({'created_by': None}, synchronize_session=False)
+        Iteration.query.filter_by(updated_by=user_id).update({'updated_by': None}, synchronize_session=False)
+        
+        # 测试计划表
+        TestPlan.query.filter_by(created_by=user_id).update({'created_by': None}, synchronize_session=False)
+        
+        # 测试套件表
+        TestSuite.query.filter_by(creator_id=user_id).update({'creator_id': None}, synchronize_session=False)
+        TestSuite.query.filter_by(reviewer_id=user_id).update({'reviewer_id': None}, synchronize_session=False)
+        
+        # 测试用例表
+        TestCase.query.filter_by(creator_id=user_id).update({'creator_id': None}, synchronize_session=False)
+        TestCase.query.filter_by(assignee_id=user_id).update({'assignee_id': None}, synchronize_session=False)
+        TestCase.query.filter_by(reviewer_id=user_id).update({'reviewer_id': None}, synchronize_session=False)
+        
+        # 测试任务表
+        TestTask.query.filter_by(creator_id=user_id).update({'creator_id': None}, synchronize_session=False)
+        TestTask.query.filter_by(executor_id=user_id).update({'executor_id': None}, synchronize_session=False)
+        
+        # 缺陷表
+        Bug.query.filter_by(reporter_id=user_id).update({'reporter_id': None}, synchronize_session=False)
+        Bug.query.filter_by(assignee_id=user_id).update({'assignee_id': None}, synchronize_session=False)
+        
+        # 工具表
+        Tool.query.filter_by(creator_id=user_id).update({'creator_id': None}, synchronize_session=False)
+        
+        # 测试用例执行表
+        TestCaseExecution.query.filter_by(executor_id=user_id).update({'executor_id': None}, synchronize_session=False)
+        
+        # 测试执行表
+        TestExecution.query.filter_by(executor_id=user_id).update({'executor_id': None}, synchronize_session=False)
+        
+        # 设备表
+        Device.query.filter_by(owner_id=user_id).update({'owner_id': None}, synchronize_session=False)
+        
+        # 3. 然后删除用户
         db.session.delete(user)
         db.session.commit()
         
@@ -213,8 +269,12 @@ def delete_user(user_id):
         return success_response(message="用户删除成功")
         
     except Exception as e:
+        import traceback
         db.session.rollback()
-        return error_response(500, "用户删除失败，请稍后重试")
+        # 打印详细的错误信息到控制台
+        print(f"删除用户失败，详细错误: {traceback.format_exc()}")
+        # 返回具体的错误信息
+        return error_response(f"用户删除失败: {str(e)}", 500)
 
 
 @bp.route('/<int:user_id>/reset-password', methods=['POST'])
@@ -227,7 +287,7 @@ def reset_user_password(user_id):
     new_password = data.get('new_password', '')
     
     if len(new_password) < 6:
-        return error_response(400, "新密码长度不能少于6位")
+        return error_response("新密码长度不能少于6位", 400)
     
     user.set_password(new_password)
     
@@ -240,7 +300,7 @@ def reset_user_password(user_id):
         
     except Exception as e:
         db.session.rollback()
-        return error_response(500, "密码重置失败，请稍后重试")
+        return error_response("密码重置失败，请稍后重试", 500)
 
 
 @bp.route('/<int:user_id>/toggle-status', methods=['POST'])
@@ -264,7 +324,7 @@ def toggle_user_status(user_id):
         
     except Exception as e:
         db.session.rollback()
-        return error_response(500, "用户状态切换失败，请稍后重试")
+        return error_response("用户状态切换失败，请稍后重试", 500)
 
 
 @bp.route('/roles', methods=['GET'])

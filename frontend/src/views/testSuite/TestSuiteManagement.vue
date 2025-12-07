@@ -743,13 +743,16 @@ export default {
     }
     
     const showCreateSuiteDialog = () => {
-      // 重置表单
+      // 完全重置表单所有属性
       Object.assign(createForm, {
         name: '',
         parent_id: selectedNode.value?.id || null,
+        project_id: null,
+        version_requirement_id: null,
+        iteration_id: null,
         description: ''
       })
-      createFormRef.value?.resetFields()
+      // 不调用resetFields()，避免将字段重置为可能被污染的初始值
       createDialogVisible.value = true
     }
     
@@ -776,6 +779,7 @@ export default {
     }
     
     const showEditSuiteDialog = (data) => {
+      // 为编辑表单赋值，确保不会影响新增表单
       Object.assign(editForm, {
         id: data.id,
         name: data.name,
@@ -784,7 +788,7 @@ export default {
         iteration_id: data.iteration_id || null,
         description: data.description || ''
       })
-      editFormRef.value?.resetFields()
+      // 移除resetFields()调用，避免将字段重置为初始值
       editDialogVisible.value = true
     }
     

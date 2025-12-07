@@ -393,7 +393,7 @@
 
     <!-- 创建/编辑迭代对话框 -->
     <el-dialog
-      v-model:visible="iterationDialogVisible"
+      :visible="iterationDialogVisible"
       :title="iterationDialogTitle"
       width="600px"
       @close="resetIterationForm"
@@ -527,7 +527,7 @@
 
     <!-- 复制迭代对话框 -->
     <el-dialog
-      v-model:visible="copyDialogVisible"
+      :visible="copyDialogVisible"
       title="复制迭代"
       width="500px"
     >
@@ -589,7 +589,7 @@
 
     <!-- 迭代详情对话框 -->
     <el-dialog
-      v-model:visible="detailDialogVisible"
+      :visible="detailDialogVisible"
       title="迭代详情"
       width="900px"
       :before-close="handleDetailDialogClose"
@@ -632,7 +632,7 @@
             {{ formatDate(currentIteration.created_at) }}
           </el-descriptions-item>
           <el-descriptions-item label="创建人">
-            {{ currentIteration.created_by_name }}
+            {{ currentIteration.created_by_name || '未知用户' }}
           </el-descriptions-item>
           <el-descriptions-item label="更新人">
             {{ currentIteration.updated_by_name || '-' }}
@@ -758,7 +758,11 @@
                 prop="assigned_to_name"
                 label="负责人"
                 width="120"
-              />
+              >
+                <template #default="scope">
+                  {{ scope.row.assigned_to_name || '未知用户' }}
+                </template>
+              </el-table-column>
               <el-table-column
                 prop="start_date"
                 label="开始日期"

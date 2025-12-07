@@ -209,7 +209,11 @@
           label="创建者"
           min-width="110"
           align="center"
-        />
+        >
+          <template #default="scope">
+            {{ scope.row.created_by_name || '未知用户' }}
+          </template>
+        </el-table-column>
         <el-table-column
           prop="updated_at"
           label="更新时间"
