@@ -64,7 +64,7 @@ def get_test_suites():
                 'pages': pagination.pages
             })
     except Exception as e:
-        return error_response(f'获取测试套件失败: {str(e)}', 500)
+        return error_response(500, f'获取测试套件失败: {str(e)}')
 
 
 @bp.route('/<int:suite_id>', methods=['GET'])
@@ -75,7 +75,7 @@ def get_test_suite(suite_id):
         suite = TestSuite.query.get_or_404(suite_id)
         return success_response(suite.to_dict())
     except Exception as e:
-        return error_response(f'获取测试套件详情失败: {str(e)}', 500)
+        return error_response(500, f'获取测试套件详情失败: {str(e)}')
 
 
 def get_suite_depth(suite_id):
@@ -96,12 +96,12 @@ def create_test_suite():
         
         # 验证必需字段
         if not data.get('suite_name'):
-            return error_response('套件名称不能为空', 400)
+            return error_response(400, '套件名称不能为空')
         
         # 验证type字段
         suite_type = data.get('type', 'folder')
         if suite_type not in ['folder', 'suite']:
-            return error_response('套件类型无效，只能是folder或suite', 400)
+            return error_response(400, '套件类型无效，只能是folder或suite')
         
         parent_id = data.get('parent_id')
         
@@ -110,22 +110,22 @@ def create_test_suite():
         if parent_id is not None:
             parent_suite = TestSuite.query.get(parent_id)
             if not parent_suite:
-                return error_response('父套件不存在', 400)
+                return error_response(400, '父套件不存在')
             
             # 如果有父套件，验证父套件类型
             if parent_suite.type != 'folder':
-                return error_response('只能在文件夹中创建子套件', 400)
+                return error_response(400, '只能在文件夹中创建子套件')
             
             # 计算新套件的深度
             depth = get_suite_depth(parent_id) + 1
             
             # 限制深度不超过5层
             if depth >= 5:
-                return error_response('测试套件深度不能超过5层', 400)
+                return error_response(400, '测试套件深度不能超过5层')
             
             # 最深一层只能是用例集
             if depth == 4 and suite_type != 'suite':
-                return error_response('最深一层只能创建用例集', 400)
+                return error_response(400, '最深一层只能创建用例集')
         
         # 计算新节点的sort_order，默认添加到尾部
         # 查找同级别最大的sort_order值
@@ -146,8 +146,6 @@ def create_test_suite():
             status=data.get('status', 'active'),
             type=suite_type,
             creator_id=current_user.id,
-            reviewer_id=data.get('reviewer_id'),
-            review_status=data.get('review_status', 'not_submitted'),
             project_id=data.get('project_id'),
             version_requirement_id=data.get('version_requirement_id'),
             iteration_id=data.get('iteration_id'),
@@ -160,7 +158,7 @@ def create_test_suite():
         return success_response(new_suite.to_dict(), 201)
     except Exception as e:
         db.session.rollback()
-        return error_response(f'创建测试套件失败: {str(e)}', 500)
+        return error_response(500, f'创建测试套件失败: {str(e)}')
 
 
 @bp.route('/<int:suite_id>', methods=['PUT'])
@@ -191,21 +189,21 @@ def update_test_suite(suite_id):
                     current = parent
                     while current:
                         if current.id == suite_id:
-                            return error_response('不能将套件设置为自己的子套件或间接子套件', 400)
+                            return error_response(400, '不能将套件设置为自己的子套件或间接子套件')
                         current = current.parent
                     # 验证父套件类型必须是folder
                     if parent.type != 'folder':
-                        return error_response('只能将套件移动到文件夹中', 400)
+                        return error_response(400, '只能将套件移动到文件夹中')
                     
                     # 计算新的深度
                     new_depth = get_suite_depth(new_parent_id) + 1
                     # 限制深度不超过5层
                     if new_depth >= 5:
-                        return error_response('测试套件深度不能超过5层', 400)
+                        return error_response(400, '测试套件深度不能超过5层')
                     
                     # 最深一层只能是用例集
                     if new_depth == 4 and suite.type != 'suite':
-                        return error_response('最深一层只能是用例集', 400)
+                        return error_response(400, '最深一层只能是用例集')
             else:
                 # 根套件深度为0
                 new_depth = 0
@@ -217,36 +215,30 @@ def update_test_suite(suite_id):
         if 'type' in data:
             new_type = data['type']
             if new_type not in ['folder', 'suite']:
-                return error_response('套件类型无效，只能是folder或suite', 400)
+                return error_response(400, '套件类型无效，只能是folder或suite')
             
             # 计算当前套件的深度
             depth = get_suite_depth(suite.id)
             
             # 最深一层只能是用例集
             if depth == 4 and new_type != 'suite':
-                return error_response('最深一层只能是用例集', 400)
+                return error_response(400, '最深一层只能是用例集')
             
             # 验证类型变更的合法性
             if new_type == 'suite':
                 # 如果要改为用例集，必须没有子套件
                 if len(suite.children) > 0:
-                    return error_response('包含子套件的套件不能改为用例集', 400)
+                    return error_response(400, '包含子套件的套件不能改为用例集')
             
             # 如果要改为文件夹，需要确保父套件类型合法
             if new_type == 'folder' and suite.parent_id is not None:
                 parent = TestSuite.query.get(suite.parent_id)
                 if parent and parent.type != 'folder':
-                    return error_response('只能在文件夹中创建文件夹', 400)
+                    return error_response(400, '只能在文件夹中创建文件夹')
             
             suite.type = new_type
         
-        # 更新评审人ID
-        if 'reviewer_id' in data:
-            suite.reviewer_id = data['reviewer_id']
-        
-        # 更新评审状态
-        if 'review_status' in data:
-            suite.review_status = data['review_status']
+        # 移除评审相关字段的直接更新，评审状态由评审任务管理
         
         # 更新项目相关信息
         if 'project_id' in data:
@@ -298,40 +290,33 @@ def update_test_suite(suite_id):
         return success_response(suite.to_dict())
     except Exception as e:
         db.session.rollback()
-        return error_response(f'更新测试套件失败: {str(e)}', 500)
+        return error_response(500, f'更新测试套件失败: {str(e)}')
 
 
 @bp.route('/<int:suite_id>/sync-reviewer', methods=['POST'])
 @login_required
 def sync_reviewer_to_cases(suite_id):
-    """同步评审人到用例集下的所有用例"""
+    """同步评审人到用例集下的所有用例（已废弃，评审人信息从评审任务中获取）"""
     try:
         # 获取测试套件
         suite = TestSuite.query.get_or_404(suite_id)
         
         # 检查是否为用例集
         if suite.type != 'suite':
-            return error_response('只有用例集才能同步评审人到用例', 400)
-        
-        # 检查是否设置了评审人
-        if not suite.reviewer_id:
-            return error_response('请先为用例集设置评审人', 400)
+            return error_response(400, '只有用例集才能同步评审人到用例')
         
         # 获取该用例集下的所有用例
         from app.models.models import TestCase
         cases = TestCase.query.filter_by(suite_id=suite_id).all()
         
-        # 同步评审人ID到所有用例
-        for case in cases:
-            case.reviewer_id = suite.reviewer_id
-        
+        # 评审人信息从评审任务中获取，不再需要同步
         # 提交更改
         db.session.commit()
         
-        return success_response({"message": f"成功将评审人同步到{len(cases)}个用例", "cases_count": len(cases)})
+        return success_response({"message": f"评审人同步功能已废弃，评审人信息从评审任务中获取", "cases_count": len(cases)})
     except Exception as e:
         db.session.rollback()
-        return error_response(f'同步评审人失败: {str(e)}', 500)
+        return error_response(500, f'同步评审人失败: {str(e)}')
 
 
 @bp.route('/<int:suite_id>', methods=['DELETE'])
@@ -343,11 +328,11 @@ def delete_test_suite(suite_id):
         
         # 检查是否有子套件
         if suite.children.count() > 0:
-            return error_response('该套件包含子套件，无法删除', 400)
+            return error_response(400, '该套件包含子套件，无法删除')
         
         # 检查是否有测试用例
         if suite.test_cases.count() > 0:
-            return error_response('该套件包含测试用例，无法删除', 400)
+            return error_response(400, '该套件包含测试用例，无法删除')
         
         db.session.delete(suite)
         db.session.commit()
@@ -355,7 +340,7 @@ def delete_test_suite(suite_id):
         return success_response({'message': '测试套件已成功删除'})
     except Exception as e:
         db.session.rollback()
-        return error_response(f'删除测试套件失败: {str(e)}', 500)
+        return error_response(500, f'删除测试套件失败: {str(e)}')
 
 
 @bp.route('/tree', methods=['GET'])
@@ -378,7 +363,7 @@ def get_suite_tree():
         
         return success_response(tree_data)
     except Exception as e:
-        return error_response(f'获取套件树结构失败: {str(e)}', 500)
+        return error_response(500, f'获取套件树结构失败: {str(e)}')
 
 
 @bp.route('/<int:suite_id>/tree', methods=['GET'])
@@ -401,7 +386,7 @@ def get_suite_tree_by_id(suite_id):
         
         return success_response([tree_data])
     except Exception as e:
-        return error_response(f'获取套件树结构失败: {str(e)}', 500)
+        return error_response(500, f'获取套件树结构失败: {str(e)}')
 
 
 @bp.route('/options', methods=['GET'])
@@ -425,7 +410,7 @@ def get_suite_options():
         
         return success_response(options)
     except Exception as e:
-        return error_response(f'获取套件选项失败: {str(e)}', 500)
+        return error_response(500, f'获取套件选项失败: {str(e)}')
 
 
 @bp.route('/<int:suite_id>/test-cases', methods=['GET'])
@@ -456,4 +441,4 @@ def get_suite_test_cases(suite_id):
             'per_page': size
         })
     except Exception as e:
-        return error_response(f'获取套件测试用例失败: {str(e)}', 500)
+        return error_response(500, f'获取套件测试用例失败: {str(e)}')

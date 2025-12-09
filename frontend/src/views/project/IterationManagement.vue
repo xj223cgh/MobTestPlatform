@@ -568,9 +568,6 @@
             style="width: 100%;"
           />
         </el-form-item>
-        <el-form-item label="复制测试计划">
-          <el-switch v-model="copyForm.copy_test_plans" />
-        </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
@@ -1418,8 +1415,7 @@ export default {
       copyForm: {
         name: '',
         start_date: '',
-        end_date: '',
-        copy_test_plans: false
+        end_date: ''
       },
       copyRules: {
         name: [{ required: true, message: '请输入新迭代名称', trigger: 'blur' }],
@@ -1848,8 +1844,7 @@ export default {
       this.copyForm = {
         name: `${iteration.iteration_name || '迭代'}_副本`,
         start_date: '',
-        end_date: '',
-        copy_test_plans: false
+        end_date: ''
       }
       this.copyDialogVisible = true
     },

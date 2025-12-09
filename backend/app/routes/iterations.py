@@ -201,9 +201,9 @@ def delete_iteration(iteration_id):
         if not project_member or project_member.role not in ['owner', 'manager']:
             return jsonify({'error': '无权删除该迭代'}), 403
         
-        # 检查迭代是否有相关的测试计划或测试任务
-        if iteration.test_plans or iteration.test_tasks:
-            return jsonify({'error': '该迭代下存在测试计划或测试任务，无法删除'}), 400
+        # 检查迭代是否有相关的测试任务
+        if iteration.test_tasks:
+            return jsonify({'error': '该迭代下存在测试任务，无法删除'}), 400
         
         # 删除迭代
         db.session.delete(iteration)

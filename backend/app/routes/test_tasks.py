@@ -230,7 +230,7 @@ def get_task_executions(task_id):
         
         return success_response(execution_list)
     except Exception as e:
-        return error_response(f'获取执行结果失败: {str(e)}', 500)
+        return error_response(500, f'获取执行结果失败: {str(e)}')
 
 
 @bp.route('/<int:task_id>/executions/<int:case_id>', methods=['POST'])
@@ -246,7 +246,7 @@ def update_case_execution(task_id, case_id):
         
         # 验证状态值
         if 'status' not in data or data['status'] not in TEST_EXECUTION_STATUS:
-            return error_response('无效的执行状态', 400)
+            return error_response(400, '无效的执行状态')
         
         # 查找或创建执行记录
         execution = TestCaseExecution.query.filter_by(
@@ -276,7 +276,7 @@ def update_case_execution(task_id, case_id):
         return success_response(execution.to_dict())
     except Exception as e:
         db.session.rollback()
-        return error_response(f'更新执行状态失败: {str(e)}', 500)
+        return error_response(500, f'更新执行状态失败: {str(e)}')
 
 
 @bp.route('/<int:task_id>/statistics', methods=['GET'])
@@ -322,7 +322,7 @@ def get_task_statistics(task_id):
             }
         })
     except Exception as e:
-        return error_response(f'获取统计信息失败: {str(e)}', 500)
+        return error_response(500, f'获取统计信息失败: {str(e)}')
 
 
 # XMind视图功能已移除，暂时不再支持脑图实现
@@ -370,4 +370,4 @@ def get_task_options():
             'execution_status_options': list(TEST_EXECUTION_STATUS)
         })
     except Exception as e:
-        return error_response(f'获取任务选项失败: {str(e)}', 500)
+        return error_response(500, f'获取任务选项失败: {str(e)}')

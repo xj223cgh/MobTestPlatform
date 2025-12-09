@@ -86,12 +86,7 @@ const routes = [
           component: () => import('@/views/caseReview/CaseReviewManagement.vue'),
           meta: { title: '用例评审', icon: 'ChatRound' }
         },
-        {
-          path: 'test-plans',
-          name: 'TestPlans',
-          component: () => import('@/views/testPlan/TestPlanManagement.vue'),
-          meta: { title: '测试计划', icon: 'Tickets' }
-        },
+
       {
           path: 'test-tasks',
           name: 'TestTasks',

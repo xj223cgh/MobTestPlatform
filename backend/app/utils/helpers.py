@@ -34,7 +34,7 @@ def success_response(data=None, message="Operation successful"):
     return response
 
 
-def error_response(message, code, data=None):
+def error_response(code, message, data=None):
     """统一错误响应格式"""
     from datetime import datetime
     # 创建响应对象，确保HTTP响应行使用英文状态消息

@@ -281,6 +281,149 @@
         @current-change="handleCurrentChange"
       />
     </div>
+
+    <!-- 创建/编辑项目对话框 -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="dialogTitle"
+      width="600px"
+      @close="resetForm"
+    >
+      <el-form
+        ref="projectFormRef"
+        :model="projectForm"
+        :rules="projectRules"
+        label-width="100px"
+      >
+        <el-form-item
+          label="项目名称"
+          prop="project_name"
+        >
+          <el-input
+            v-model="projectForm.project_name"
+            placeholder="请输入项目名称"
+          />
+        </el-form-item>
+        <el-form-item
+          label="项目描述"
+          prop="description"
+        >
+          <el-input
+            v-model="projectForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入项目描述"
+          />
+        </el-form-item>
+        <el-form-item
+          label="状态"
+          prop="status"
+        >
+          <el-select
+            v-model="projectForm.status"
+            placeholder="请选择项目状态"
+          >
+            <el-option
+              label="未开始"
+              value="not_started"
+            />
+            <el-option
+              label="进行中"
+              value="in_progress"
+            />
+            <el-option
+              label="已暂停"
+              value="paused"
+            />
+            <el-option
+              label="已完成"
+              value="completed"
+            />
+            <el-option
+              label="已关闭"
+              value="closed"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item
+          label="优先级"
+          prop="priority"
+        >
+          <el-select
+            v-model="projectForm.priority"
+            placeholder="请选择项目优先级"
+          >
+            <el-option
+              label="高"
+              value="high"
+            />
+            <el-option
+              label="中"
+              value="medium"
+            />
+            <el-option
+              label="低"
+              value="low"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item
+          label="开始日期"
+          prop="start_date"
+        >
+          <el-date-picker
+            v-model="projectForm.start_date"
+            type="datetime"
+            placeholder="请选择开始日期"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item
+          label="结束日期"
+          prop="end_date"
+        >
+          <el-date-picker
+            v-model="projectForm.end_date"
+            type="datetime"
+            placeholder="请选择结束日期"
+            style="width: 100%"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="dialogLoading"
+          @click="handleSaveProject"
+        >
+          保存
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 删除项目确认对话框 -->
+    <el-dialog
+      v-model="deleteDialogVisible"
+      title="删除项目"
+      width="400px"
+    >
+      <p>确定要删除项目 "{{ deleteProjectName }}" 吗？此操作不可撤销！</p>
+      <template #footer>
+        <el-button @click="deleteDialogVisible = false">
+          取消
+        </el-button>
+        <el-button
+          type="danger"
+          :loading="dialogLoading"
+          @click="handleConfirmDelete"
+        >
+          删除
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -288,7 +431,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Search, Refresh } from '@element-plus/icons-vue'
-import { getProjects, updateProject } from '@/api/project'
+import { getProjects, createProject, updateProject, deleteProject } from '@/api/project'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 
@@ -302,7 +445,6 @@ const router = useRouter()
 // 搜索和筛选
 const searchQuery = ref('')
 const statusFilter = ref('')
-
 const priorityFilter = ref('')
 
 // 搜索表单
@@ -344,8 +486,6 @@ const getStatusText = (status) => {
   return statusMap[status] || status || '-'  
 }
 
-
-
 // 优先级类型映射
 const getPriorityType = (priority) => {
   const priorityMap = {
@@ -366,6 +506,44 @@ const getPriorityText = (priority) => {
   return priorityMap[priority] || priority
 }
 
+// 创建/编辑项目对话框
+const dialogVisible = ref(false)
+const dialogTitle = ref('')
+const dialogLoading = ref(false)
+const editingProjectId = ref(null)
+
+// 删除项目对话框
+const deleteDialogVisible = ref(false)
+const deleteProjectId = ref(null)
+const deleteProjectName = ref('')
+
+// 表单引用
+const projectFormRef = ref(null)
+
+// 表单数据
+const projectForm = reactive({
+  project_name: '',
+  description: '',
+  status: 'not_started',
+  priority: 'medium',
+  start_date: '',
+  end_date: ''
+})
+
+// 表单验证规则
+const projectRules = {
+  project_name: [
+    { required: true, message: '请输入项目名称', trigger: 'blur' },
+    { min: 1, max: 100, message: '项目名称长度在 1 到 100 个字符', trigger: 'blur' }
+  ],
+  status: [
+    { required: true, message: '请选择项目状态', trigger: 'change' }
+  ],
+  priority: [
+    { required: true, message: '请选择项目优先级', trigger: 'change' }
+  ]
+}
+
 // 获取项目列表
 const getProjectList = async () => {
   loading.value = true
@@ -375,7 +553,6 @@ const getProjectList = async () => {
       size: pagination.pageSize,
       search: searchQuery.value,
       status: statusFilter.value,
-
       priority: priorityFilter.value
     }
     
@@ -419,28 +596,102 @@ const handleCurrentChange = (current) => {
   getProjectList()
 }
 
-// 创建项目
+// 重置表单
+const resetForm = () => {
+  if (projectFormRef.value) {
+    projectFormRef.value.resetFields()
+  }
+  editingProjectId.value = null
+  Object.assign(projectForm, {
+    project_name: '',
+    description: '',
+    status: 'not_started',
+    priority: 'medium',
+    start_date: '',
+    end_date: ''
+  })
+}
+
+// 打开创建项目对话框
 const handleCreateProject = () => {
-  // 这里可以跳转到创建项目页面或打开创建项目对话框
-  ElMessage.info('创建项目功能待实现')
+  dialogTitle.value = '创建项目'
+  resetForm()
+  dialogVisible.value = true
+}
+
+// 打开编辑项目对话框
+const handleEditProject = (row) => {
+  dialogTitle.value = '编辑项目'
+  editingProjectId.value = row.id
+  Object.assign(projectForm, {
+    project_name: row.project_name || '',
+    description: row.description || '',
+    status: row.status || 'not_started',
+    priority: row.priority || 'medium',
+    start_date: row.start_date || '',
+    end_date: row.end_date || ''
+  })
+  dialogVisible.value = true
+}
+
+// 保存项目
+const handleSaveProject = async () => {
+  if (!projectFormRef.value) return
+  
+  await projectFormRef.value.validate()
+  
+  dialogLoading.value = true
+  try {
+    let response
+    if (editingProjectId.value) {
+      // 编辑项目
+      response = await updateProject(editingProjectId.value, projectForm)
+      ElMessage.success('项目更新成功')
+    } else {
+      // 创建项目
+      response = await createProject(projectForm)
+      ElMessage.success('项目创建成功')
+    }
+    
+    dialogVisible.value = false
+    getProjectList() // 重新获取项目列表
+  } catch (error) {
+    console.error('保存项目失败:', error)
+    ElMessage.error(editingProjectId.value ? '项目更新失败' : '项目创建失败')
+  } finally {
+    dialogLoading.value = false
+  }
+}
+
+// 打开删除项目对话框
+const handleDeleteProject = (row) => {
+  deleteProjectId.value = row.id
+  deleteProjectName.value = row.project_name || '未知项目'
+  deleteDialogVisible.value = true
+}
+
+// 确认删除项目
+const handleConfirmDelete = async () => {
+  if (!deleteProjectId.value) return
+  
+  dialogLoading.value = true
+  try {
+    await deleteProject(deleteProjectId.value)
+    ElMessage.success('项目删除成功')
+    deleteDialogVisible.value = false
+    getProjectList() // 重新获取项目列表
+  } catch (error) {
+    console.error('删除项目失败:', error)
+    ElMessage.error('项目删除失败')
+  } finally {
+    dialogLoading.value = false
+  }
 }
 
 // 查看项目
 const handleViewProject = (row) => {
   // 跳转到项目详情页面
   router.push(`/projects/${row.id}`)
-}
-
-// 编辑项目
-const handleEditProject = (row) => {
-  // 这里可以跳转到编辑项目页面或打开编辑项目对话框
-  ElMessage.info(`编辑项目: ${row.project_name}`)
-}
-
-// 删除项目
-const handleDeleteProject = (row) => {
-  // 这里可以实现删除项目功能
-  ElMessage.info(`删除项目: ${row.project_name}`)
 }
 
 // 获取创建者选项列表 - 直接使用后端返回的项目成员数据
@@ -460,6 +711,7 @@ const getCreatorOptions = (row) => {
   
   return []
 }
+
 // 处理创建者变更 - 恢复原始值，实现可展开但不可选择
 const handleCreatorChange = (row) => {
   // 恢复_displayUserId为creator_id，而不是修改原始creator_id

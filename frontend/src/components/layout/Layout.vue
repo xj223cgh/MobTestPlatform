@@ -29,60 +29,82 @@
       >
         <!-- 递归生成菜单，支持嵌套路由 -->
         <template v-for="menuRoute in menuRoutes">
-          <!-- 如果有子路由，使用 el-sub-menu -->
-          <el-sub-menu 
-            v-if="menuRoute.children && menuRoute.children.length > 0" 
-            :key="`${menuRoute.path}-submenu`"
-            :index="`/${menuRoute.path}`"
-          >
-            <template #title>
-              <el-icon v-if="menuRoute.meta.icon">
-                <component :is="menuRoute.meta.icon" />
-              </el-icon>
-              {{ menuRoute.meta.title }}
-            </template>
-            <!-- 递归渲染子菜单 -->
-            <template v-for="childRoute in menuRoute.children">
-              <el-menu-item 
-                v-if="!childRoute.children || childRoute.children.length === 0" 
-                :key="`${childRoute.path}-item`"
-                :index="`/${menuRoute.path}/${childRoute.path}`"
-              >
-                <el-icon v-if="childRoute.meta.icon">
-                  <component :is="childRoute.meta.icon" />
-                </el-icon>
-                <template #title>
-                  {{ childRoute.meta.title }}
-                </template>
-              </el-menu-item>
-              <!-- 支持多级嵌套 -->
+          <!-- 检查是否有可见的子路由 -->
+          <template v-if="menuRoute.children && menuRoute.children.length > 0">
+            <!-- 过滤出可见的子路由 -->
+            <template v-if="menuRoute.children.some(child => !child.meta?.hidden)">
+              <!-- 有可见子路由，使用 el-sub-menu -->
               <el-sub-menu 
-                v-else 
-                :key="`${childRoute.path}-submenu`"
-                :index="`/${menuRoute.path}/${childRoute.path}`"
+                :key="`${menuRoute.path}-submenu`"
+                :index="`/${menuRoute.path}`"
               >
                 <template #title>
-                  <el-icon v-if="childRoute.meta.icon">
-                    <component :is="childRoute.meta.icon" />
+                  <el-icon v-if="menuRoute.meta.icon">
+                    <component :is="menuRoute.meta.icon" />
                   </el-icon>
-                  {{ childRoute.meta.title }}
+                  {{ menuRoute.meta.title }}
                 </template>
-                <!-- 递归渲染更深层级的子菜单 -->
-                <el-menu-item
-                  v-for="grandChildRoute in childRoute.children"
-                  :key="grandChildRoute.path"
-                  :index="`/${menuRoute.path}/${childRoute.path}/${grandChildRoute.path}`"
-                >
-                  <el-icon v-if="grandChildRoute.meta.icon">
-                    <component :is="grandChildRoute.meta.icon" />
-                  </el-icon>
-                  <template #title>
-                    {{ grandChildRoute.meta.title }}
+                <!-- 递归渲染子菜单 -->
+                <template v-for="childRoute in menuRoute.children">
+                  <!-- 只渲染可见的子路由 -->
+                  <template v-if="!childRoute.meta?.hidden">
+                    <el-menu-item 
+                      v-if="!childRoute.children || childRoute.children.length === 0" 
+                      :key="`${childRoute.path}-item`"
+                      :index="`/${menuRoute.path}/${childRoute.path}`"
+                    >
+                      <el-icon v-if="childRoute.meta.icon">
+                        <component :is="childRoute.meta.icon" />
+                      </el-icon>
+                      <template #title>
+                        {{ childRoute.meta.title }}
+                      </template>
+                    </el-menu-item>
+                    <!-- 支持多级嵌套 -->
+                    <el-sub-menu 
+                      v-else 
+                      :key="`${childRoute.path}-submenu`"
+                      :index="`/${menuRoute.path}/${childRoute.path}`"
+                    >
+                      <template #title>
+                        <el-icon v-if="childRoute.meta.icon">
+                          <component :is="childRoute.meta.icon" />
+                        </el-icon>
+                        {{ childRoute.meta.title }}
+                      </template>
+                      <!-- 递归渲染更深层级的子菜单 -->
+                      <el-menu-item
+                        v-for="grandChildRoute in childRoute.children"
+                        :key="grandChildRoute.path"
+                        :index="`/${menuRoute.path}/${childRoute.path}/${grandChildRoute.path}`"
+                      >
+                        <el-icon v-if="grandChildRoute.meta.icon">
+                          <component :is="grandChildRoute.meta.icon" />
+                        </el-icon>
+                        <template #title>
+                          {{ grandChildRoute.meta.title }}
+                        </template>
+                      </el-menu-item>
+                    </el-sub-menu>
                   </template>
-                </el-menu-item>
+                </template>
               </el-sub-menu>
             </template>
-          </el-sub-menu>
+            <template v-else>
+              <!-- 没有可见子路由，直接使用 el-menu-item -->
+              <el-menu-item 
+                :key="`${menuRoute.path}-item`"
+                :index="`/${menuRoute.path}`"
+              >
+                <el-icon v-if="menuRoute.meta.icon">
+                  <component :is="menuRoute.meta.icon" />
+                </el-icon>
+                <template #title>
+                  {{ menuRoute.meta.title }}
+                </template>
+              </el-menu-item>
+            </template>
+          </template>
           <!-- 没有子路由，直接使用 el-menu-item -->
           <el-menu-item 
             v-else 

@@ -61,6 +61,128 @@
       </el-card>
     </div>
 
+    <!-- 编辑项目对话框 -->
+    <el-dialog
+      v-model="dialogVisible"
+      title="编辑项目"
+      width="600px"
+      @close="resetForm"
+    >
+      <el-form
+        ref="projectFormRef"
+        :model="projectForm"
+        :rules="projectRules"
+        label-width="100px"
+      >
+        <el-form-item
+          label="项目名称"
+          prop="project_name"
+        >
+          <el-input
+            v-model="projectForm.project_name"
+            placeholder="请输入项目名称"
+          />
+        </el-form-item>
+        <el-form-item
+          label="项目描述"
+          prop="description"
+        >
+          <el-input
+            v-model="projectForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入项目描述"
+          />
+        </el-form-item>
+        <el-form-item
+          label="状态"
+          prop="status"
+        >
+          <el-select
+            v-model="projectForm.status"
+            placeholder="请选择项目状态"
+          >
+            <el-option
+              label="未开始"
+              value="not_started"
+            />
+            <el-option
+              label="进行中"
+              value="in_progress"
+            />
+            <el-option
+              label="已暂停"
+              value="paused"
+            />
+            <el-option
+              label="已完成"
+              value="completed"
+            />
+            <el-option
+              label="已关闭"
+              value="closed"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item
+          label="优先级"
+          prop="priority"
+        >
+          <el-select
+            v-model="projectForm.priority"
+            placeholder="请选择项目优先级"
+          >
+            <el-option
+              label="高"
+              value="high"
+            />
+            <el-option
+              label="中"
+              value="medium"
+            />
+            <el-option
+              label="低"
+              value="low"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item
+          label="开始日期"
+          prop="start_date"
+        >
+          <el-date-picker
+            v-model="projectForm.start_date"
+            type="datetime"
+            placeholder="请选择开始日期"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item
+          label="结束日期"
+          prop="end_date"
+        >
+          <el-date-picker
+            v-model="projectForm.end_date"
+            type="datetime"
+            placeholder="请选择结束日期"
+            style="width: 100%"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="dialogLoading"
+          @click="handleSaveProject"
+        >
+          保存
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- 项目描述和链接 -->
     <el-row
       :gutter="20"
@@ -234,7 +356,7 @@ import { ref, reactive, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Edit, ArrowLeft } from '@element-plus/icons-vue'
-import { getProject } from '@/api/project'
+import { getProject, updateProject } from '@/api/project'
 import dayjs from 'dayjs'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -250,6 +372,35 @@ const loading = ref(false)
 const projectDetail = ref({})
 const route = useRoute()
 const router = useRouter()
+
+// 编辑对话框相关数据
+const dialogVisible = ref(false)
+const dialogLoading = ref(false)
+const projectFormRef = ref(null)
+
+// 表单数据
+const projectForm = reactive({
+  project_name: '',
+  description: '',
+  status: 'not_started',
+  priority: 'medium',
+  start_date: '',
+  end_date: ''
+})
+
+// 表单验证规则
+const projectRules = {
+  project_name: [
+    { required: true, message: '请输入项目名称', trigger: 'blur' },
+    { min: 1, max: 100, message: '项目名称长度在 1 到 100 个字符', trigger: 'blur' }
+  ],
+  status: [
+    { required: true, message: '请选择项目状态', trigger: 'change' }
+  ],
+  priority: [
+    { required: true, message: '请选择项目优先级', trigger: 'change' }
+  ]
+}
 
 // 图表配置选项
 const bugCategoryChartOption = ref({
@@ -516,28 +667,30 @@ const formatDateTime = (dateTime) => {
 
 // 更新图表数据
 const updateCharts = () => {
-  // 更新缺陷分类饼图
+  // 利用ECharts默认行为：值为0的数据项不会显示在饼图上，但会保留在图例中
+  
+  // 更新缺陷分类饼图 - 高优先级红色、中优先级黄色、低优先级绿色
   const bugStats = projectDetail.value.bug_stats || {}
   bugCategoryChartOption.value.series[0].data = [
-    { value: bugStats.high || 0, name: '高优先级' },
-    { value: bugStats.medium || 0, name: '中优先级' },
-    { value: bugStats.low || 0, name: '低优先级' }
+    { value: bugStats.high || 0, name: '高优先级', itemStyle: { color: '#ff6e6e' } },
+    { value: bugStats.medium || 0, name: '中优先级', itemStyle: { color: '#ffc107' } },
+    { value: bugStats.low || 0, name: '低优先级', itemStyle: { color: '#5cb85c' } }
   ]
   
-  // 更新用例执行情况饼图
+  // 更新用例执行情况饼图 - 通过绿色、失败红色、阻塞黄色、不适用紫色、未执行灰色
   const caseStats = projectDetail.value.case_stats || {}
   caseExecutionChartOption.value.series[0].data = [
-    { value: caseStats.passed || 0, name: '通过' },
-    { value: caseStats.failed || 0, name: '失败' },
-    { value: caseStats.blocked || 0, name: '阻塞' },
-    { value: caseStats.not_applicable || 0, name: '不适用' },
-    { value: caseStats.not_run || 0, name: '未执行' }
+    { value: caseStats.passed || 0, name: '通过', itemStyle: { color: '#5cb85c' } },
+    { value: caseStats.failed || 0, name: '失败', itemStyle: { color: '#ff6e6e' } },
+    { value: caseStats.blocked || 0, name: '阻塞', itemStyle: { color: '#ffc107' } },
+    { value: caseStats.not_applicable || 0, name: '不适用', itemStyle: { color: '#8e44ad' } },
+    { value: caseStats.not_run || 0, name: '未执行', itemStyle: { color: '#a6a6a6' } }
   ]
   
-  // 更新迭代统计饼图
+  // 更新迭代统计饼图 - 与实际迭代表状态属性值对应
   const iterationStats = projectDetail.value.iteration_stats || {}
   
-  // 状态映射，将英文状态转换为中文显示
+  // 状态映射，将英文状态转换为中文显示，保持与后端一致
   const statusMap = {
     'planning': '规划中',
     'active': '进行中',
@@ -545,27 +698,21 @@ const updateCharts = () => {
     'cancelled': '已取消'
   }
   
-  // 直接使用后端返回的统计数据
-  const iterationData = [
-    { name: statusMap['planning'], value: iterationStats.planning || 0 },
-    { name: statusMap['active'], value: iterationStats.active || 0 },
-    { name: statusMap['completed'], value: iterationStats.completed || 0 },
-    { name: statusMap['cancelled'], value: iterationStats.cancelled || 0 }
+  // 直接使用后端返回的统计数据，添加对应颜色
+  iterationChartOption.value.series[0].data = [
+    { name: statusMap['planning'], value: iterationStats.planning || 0, itemStyle: { color: '#428bca' } },
+    { name: statusMap['active'], value: iterationStats.active || 0, itemStyle: { color: '#5cb85c' } },
+    { name: statusMap['completed'], value: iterationStats.completed || 0, itemStyle: { color: '#ffc107' } },
+    { name: statusMap['cancelled'], value: iterationStats.cancelled || 0, itemStyle: { color: '#ff6e6e' } }
   ]
   
-  // 过滤掉值为0的数据
-  const filteredData = iterationData.filter(item => item.value > 0)
-  
-  // 如果没有数据，显示默认值
-  iterationChartOption.value.series[0].data = filteredData.length > 0 ? filteredData : [{ name: '暂无数据', value: 1 }]
-  
-  // 更新版本需求状态分布饼图
+  // 更新需求状态分布饼图 - 新建灰色、进行中黄色、已完成绿色、已取消红色
   const requirementStats = projectDetail.value.requirement_stats || {}
   requirementChartOption.value.series[0].data = [
-    { value: requirementStats.new || 0, name: '新建' },
-    { value: requirementStats.in_progress || 0, name: '进行中' },
-    { value: requirementStats.completed || 0, name: '已完成' },
-    { value: requirementStats.cancelled || 0, name: '已取消' }
+    { value: requirementStats.new || 0, name: '新建', itemStyle: { color: '#a6a6a6' } },
+    { value: requirementStats.in_progress || 0, name: '进行中', itemStyle: { color: '#ffc107' } },
+    { value: requirementStats.completed || 0, name: '已完成', itemStyle: { color: '#5cb85c' } },
+    { value: requirementStats.cancelled || 0, name: '已取消', itemStyle: { color: '#ff6e6e' } }
   ]
 
 }
@@ -599,9 +746,56 @@ const handleBack = () => {
   router.push('/projects')
 }
 
-// 编辑项目
+// 重置表单
+const resetForm = () => {
+  if (projectFormRef.value) {
+    projectFormRef.value.resetFields()
+  }
+  Object.assign(projectForm, {
+    project_name: '',
+    description: '',
+    status: 'not_started',
+    priority: 'medium',
+    start_date: '',
+    end_date: ''
+  })
+}
+
+// 打开编辑项目对话框
 const handleEdit = () => {
-  ElMessage.info('编辑功能待实现')
+  Object.assign(projectForm, {
+    project_name: projectDetail.value.project_name || '',
+    description: projectDetail.value.description || '',
+    status: projectDetail.value.status || 'not_started',
+    priority: projectDetail.value.priority || 'medium',
+    start_date: projectDetail.value.start_date || '',
+    end_date: projectDetail.value.end_date || ''
+  })
+  dialogVisible.value = true
+}
+
+// 保存项目
+const handleSaveProject = async () => {
+  if (!projectFormRef.value) return
+  
+  await projectFormRef.value.validate()
+  
+  dialogLoading.value = true
+  try {
+    const projectId = projectDetail.value.id
+    const response = await updateProject(projectId, projectForm)
+    
+    // 更新本地项目详情数据
+    Object.assign(projectDetail.value, response.data.project || {})
+    
+    ElMessage.success('项目更新成功')
+    dialogVisible.value = false
+  } catch (error) {
+    console.error('更新项目失败:', error)
+    ElMessage.error('项目更新失败')
+  } finally {
+    dialogLoading.value = false
+  }
 }
 
 // 生命周期钩子 - 组件挂载时获取项目详情

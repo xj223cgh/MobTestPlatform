@@ -41,7 +41,6 @@ def insert_test_data():
             # 先删除依赖关系表，按照外键依赖顺序删除
             cursor.execute("DELETE FROM version_requirements")  # 依赖projects和iterations
             cursor.execute("DELETE FROM test_cases")  # 可能依赖version_requirements
-            cursor.execute("DELETE FROM test_plans")  # 依赖projects和iterations
             cursor.execute("DELETE FROM test_tasks")  # 依赖projects和iterations
             cursor.execute("DELETE FROM iterations")  # 依赖projects
             cursor.execute("DELETE FROM project_members")  # 依赖projects和users

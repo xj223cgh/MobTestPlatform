@@ -21,8 +21,10 @@ PROJECT_ROLE = ('owner', 'manager', 'tester', 'viewer')
 PROJECT_ENVIRONMENT = ('test', 'staging', 'production')
 PROJECT_PRIORITY = ('high', 'medium', 'low')
 ITERATION_STATUS = ('planning', 'active', 'completed', 'cancelled')
-TEST_PLAN_STATUS = ('draft', 'active', 'completed', 'cancelled')
+
 VERSION_REQUIREMENT_STATUS = ('new', 'in_progress', 'completed', 'cancelled')
+REVIEW_TASK_STATUS = ('pending', 'in_review', 'completed')  # 评审任务状态：待处理、评审中、已完成
+CASE_REVIEW_STATUS = ('pending', 'approved', 'rejected')  # 用例评审状态：待审核、已通过、已拒绝
 
 
 class User(UserMixin, db.Model):
@@ -99,7 +101,6 @@ class Project(db.Model):
     creator = db.relationship('User', backref='created_projects', foreign_keys=[creator_id])
     project_members = db.relationship('ProjectMember', backref='project', cascade='all, delete-orphan')
     iterations = db.relationship('Iteration', backref='project', cascade='all, delete-orphan')
-    test_plans = db.relationship('TestPlan', backref='project', cascade='all, delete-orphan')
     test_suites = db.relationship('TestSuite', backref='project', cascade='all, delete-orphan')
     test_cases = db.relationship('TestCase', backref='project', cascade='all, delete-orphan')
     bugs = db.relationship('Bug', backref='project', cascade='all, delete-orphan')
@@ -185,7 +186,6 @@ class Project(db.Model):
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'member_count': len(self.project_members),
             'iteration_count': len(self.iterations),
-            'test_plan_count': len(self.test_plans),
             'requirement_count': total_requirements,
             'bug_stats': bug_stats,
             'case_stats': case_stats,
@@ -304,7 +304,7 @@ class Iteration(db.Model):
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
     # 关系
-    test_plans = db.relationship('TestPlan', backref='iteration', cascade='all, delete-orphan')
+
     test_tasks = db.relationship('TestTask', backref='iteration', cascade='all, delete-orphan')
     version_requirements = db.relationship('VersionRequirement', back_populates='iteration', cascade='all, delete-orphan')
     case_executions = db.relationship('TestCaseExecution', back_populates='iteration', cascade='all, delete-orphan')
@@ -364,7 +364,6 @@ class Iteration(db.Model):
             'updated_by_name': self.updater.real_name if self.updater else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'test_plan_count': len(self.test_plans),
             'test_task_count': len(self.test_tasks),
             'requirement_count': len(self.version_requirements),
             'bug_count': len(self.bugs),
@@ -378,61 +377,7 @@ class Iteration(db.Model):
         }
 
 
-class TestPlan(db.Model):
-    """测试计划模型"""
-    __tablename__ = 'test_plans'
-    
-    id = db.Column(db.Integer, primary_key=True, comment='测试计划编号')
-    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
-    iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
-    plan_name = db.Column(db.String(200), nullable=False, comment='测试计划名称')
-    description = db.Column(db.Text, comment='测试计划描述')
-    status = db.Column(db.Enum(*TEST_PLAN_STATUS), default='draft', comment='测试计划状态')
-    scope = db.Column(db.Text, comment='测试范围')
-    test_environment = db.Column(db.Text, comment='测试环境')
-    risk = db.Column(db.Text, comment='风险评估')
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建者ID')
-    start_date = db.Column(db.DateTime, comment='开始日期')
-    end_date = db.Column(db.DateTime, comment='结束日期')
-    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
-    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
-    
-    # 关系
-    created_by_user = db.relationship('User', backref='created_test_plans')
-    test_tasks = db.relationship('TestTask', backref='test_plan', cascade='all, delete-orphan')
-    # 与测试用例的多对多关系
-    test_cases = db.relationship('TestCase', secondary='plan_case_relation', backref='test_plans')
-    
-    def to_dict(self):
-        """转换为字典"""
-        return {
-            'id': self.id,
-            'project_id': self.project_id,
-            'project_name': self.project.project_name if self.project else None,
-            'iteration_id': self.iteration_id,
-            'iteration_name': self.iteration.iteration_name if self.iteration else None,
-            'plan_name': self.plan_name,
-            'description': self.description,
-            'status': self.status,
-            'scope': self.scope,
-            'test_environment': self.test_environment,
-            'risk': self.risk,
-            'created_by': self.created_by,
-            'created_by_name': self.created_by_user.real_name if self.created_by_user else None,
-            'start_date': self.start_date.isoformat() if self.start_date else None,
-            'end_date': self.end_date.isoformat() if self.end_date else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'task_count': len(self.test_tasks),
-            'case_count': len(self.test_cases)
-        }
 
-
-# 测试计划和测试用例的关联表
-plan_case_relation = db.Table('plan_case_relation',
-    db.Column('plan_id', db.Integer, db.ForeignKey('test_plans.id'), primary_key=True),
-    db.Column('case_id', db.Integer, db.ForeignKey('test_cases.id'), primary_key=True)
-)
 
 
 class Device(db.Model):
@@ -482,8 +427,6 @@ class TestSuite(db.Model):
     status = db.Column(db.Enum(*TEST_SUITE_STATUS), default='active', comment='状态')
     type = db.Column(db.Enum(*TEST_SUITE_TYPE), default='folder', comment='类型：folder-用例文件夹, suite-用例集')
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建者ID')
-    reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='评审人ID，用于用例集评审')
-    review_status = db.Column(db.Enum(*TEST_SUITE_REVIEW_STATUS), default='not_submitted', comment='评审状态：not_submitted-未提交, pending-待审核, approved-已通过, rejected-已拒绝')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
     version_requirement_id = db.Column(db.Integer, db.ForeignKey('version_requirements.id'), nullable=True, comment='关联的版本需求ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
@@ -498,12 +441,10 @@ class TestSuite(db.Model):
     test_cases = db.relationship('TestCase', backref='suite', lazy='dynamic')
     # 与用户的多对一关系
     creator = db.relationship('User', backref='created_suites', foreign_keys=[creator_id])
-    reviewer = db.relationship('User', backref='reviewed_suites', foreign_keys=[reviewer_id])
     # 与版本需求的多对一关系
     version_requirement = db.relationship('VersionRequirement', backref='test_suites')
     # 与迭代的多对一关系
     iteration = db.relationship('Iteration', backref='test_suites')
-    # 移除重复的关系定义，因为Project模型中已经定义了完整的关系
     
     def to_dict(self):
         """转换为字典"""
@@ -516,9 +457,6 @@ class TestSuite(db.Model):
             'type': self.type,
             'creator_id': self.creator_id,
             'creator_name': self.creator.real_name if self.creator else None,
-            'reviewer_id': self.reviewer_id,
-            'reviewer_name': self.reviewer.real_name if self.reviewer else None,
-            'review_status': self.review_status,
             'project_id': self.project_id,
             'project_name': self.project.project_name if self.project else None,
             'version_requirement_id': self.version_requirement_id,
@@ -531,6 +469,80 @@ class TestSuite(db.Model):
             'sort_order': self.sort_order,
             'children_count': len(self.children),
             'cases_count': self.test_cases.count()
+        }
+
+
+class TestSuiteReviewTask(db.Model):
+    """用例集评审任务模型"""
+    __tablename__ = 'test_suite_review_tasks'
+    
+    id = db.Column(db.Integer, primary_key=True, comment='评审任务ID')
+    suite_id = db.Column(db.Integer, db.ForeignKey('test_suites.id', ondelete='CASCADE'), nullable=False, comment='关联用例集ID')
+    initiator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='发起人ID')
+    reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='评审人ID')
+    status = db.Column(db.Enum(*REVIEW_TASK_STATUS), default='pending', comment='评审任务状态：pending-待处理, in_review-评审中, completed-已完成')
+    start_time = db.Column(db.DateTime(timezone=True), nullable=True, comment='评审开始时间')
+    end_time = db.Column(db.DateTime(timezone=True), nullable=True, comment='评审结束时间')
+    overall_comments = db.Column(db.Text, comment='整体评审意见')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
+    
+    # 关系
+    suite = db.relationship('TestSuite', backref='review_tasks')
+    initiator = db.relationship('User', backref='initiated_review_tasks', foreign_keys=[initiator_id])
+    reviewer = db.relationship('User', backref='assigned_review_tasks', foreign_keys=[reviewer_id])
+    case_reviews = db.relationship('TestCaseReviewDetail', backref='review_task', cascade='all, delete-orphan')
+    
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            'id': self.id,
+            'suite_id': self.suite_id,
+            'initiator_id': self.initiator_id,
+            'initiator_name': self.initiator.real_name if self.initiator else None,
+            'reviewer_id': self.reviewer_id,
+            'reviewer_name': self.reviewer.real_name if self.reviewer else None,
+            'status': self.status,
+            'start_time': self.start_time.strftime('%Y-%m-%d %H:%M:%S') if self.start_time else None,
+            'end_time': self.end_time.strftime('%Y-%m-%d %H:%M:%S') if self.end_time else None,
+            'overall_comments': self.overall_comments,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
+            'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None
+        }
+
+
+class TestCaseReviewDetail(db.Model):
+    """用例评审详情模型"""
+    __tablename__ = 'test_case_review_details'
+    
+    id = db.Column(db.Integer, primary_key=True, comment='评审详情ID')
+    review_task_id = db.Column(db.Integer, db.ForeignKey('test_suite_review_tasks.id', ondelete='CASCADE'), nullable=False, comment='关联评审任务ID')
+    case_id = db.Column(db.Integer, db.ForeignKey('test_cases.id', ondelete='CASCADE'), nullable=False, comment='关联测试用例ID')
+    reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='评审人ID')
+    review_status = db.Column(db.Enum(*CASE_REVIEW_STATUS), default='pending', comment='单条用例评审状态：pending-待审核, approved-已通过, rejected-已拒绝')
+    comments = db.Column(db.Text, comment='用例评审意见')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
+    
+    # 关系
+    reviewer = db.relationship('User', backref='case_reviews', foreign_keys=[reviewer_id])
+    test_case = db.relationship('TestCase', backref='review_details')
+    
+    # 唯一约束，确保每条用例在一个评审任务中只有一条记录
+    __table_args__ = (db.UniqueConstraint('review_task_id', 'case_id', name='_review_task_case_uc'),)
+    
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            'id': self.id,
+            'review_task_id': self.review_task_id,
+            'case_id': self.case_id,
+            'reviewer_id': self.reviewer_id,
+            'reviewer_name': self.reviewer.real_name if self.reviewer else None,
+            'review_status': self.review_status,
+            'comments': self.comments,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
 
 
@@ -549,7 +561,6 @@ class TestCase(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
     version_requirement_id = db.Column(db.Integer, db.ForeignKey('version_requirements.id'), nullable=True, comment='关联的版本需求ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
-    test_plan_id = db.Column(db.Integer, db.ForeignKey('test_plans.id'), nullable=True, comment='所属测试计划ID')
     assignee_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='负责人ID')
     reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='审核人ID')
     
@@ -564,6 +575,7 @@ class TestCase(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     executed_at = db.Column(db.DateTime(timezone=True), nullable=True, comment='最后执行时间')
+    last_reviewed_at = db.Column(db.DateTime(timezone=True), nullable=True, comment='最后评审时间')
     
     # 审核信息
     review_comments = db.Column(db.Text, comment='审核意见')
@@ -597,7 +609,6 @@ class TestCase(db.Model):
             'version_requirement_module': self.suite.version_requirement.module if self.suite and self.suite.version_requirement else None,
             'iteration_id': self.suite.iteration_id if self.suite else self.iteration_id,
             'iteration_name': self.suite.iteration.iteration_name if self.suite and self.suite.iteration else None,
-            'test_plan_id': self.test_plan_id,
             'assignee_id': self.assignee_id,
             'assignee_name': self.assignee.real_name if hasattr(self, 'assignee') and self.assignee else None,
             'reviewer_id': self.reviewer_id,
@@ -677,10 +688,9 @@ class TestTask(db.Model):
     task_name = db.Column(db.String(200), nullable=False, comment='任务名称')
     task_description = db.Column(db.Text, comment='任务描述')
     device_id = db.Column(db.Integer, db.ForeignKey('devices.id'), nullable=False, comment='测试设备ID')
-    # 添加项目、迭代和测试计划关联
+    # 添加项目和迭代关联
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=True, comment='所属项目ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
-    test_plan_id = db.Column(db.Integer, db.ForeignKey('test_plans.id'), nullable=True, comment='所属测试计划ID')
     status = db.Column(db.Enum(*TEST_TASK_STATUS), default='pending', comment='任务状态')
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建者ID')
     executor_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='执行者ID')
@@ -727,8 +737,6 @@ class TestTask(db.Model):
             'project_name': self.project.project_name if self.project else None,
             'iteration_id': self.iteration_id,
             'iteration_name': self.iteration.iteration_name if self.iteration else None,
-            'test_plan_id': self.test_plan_id,
-            'test_plan_name': self.test_plan.plan_name if self.test_plan else None,
             'status': self.status,
             'creator_id': self.creator_id,
             'creator_name': self.creator.real_name if self.creator else None,

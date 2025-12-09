@@ -52,7 +52,7 @@ def get_suite_cases(suite_id):
             'total_pages': pagination.pages
         })
     except Exception as e:
-        return error_response(str(e), 500)
+        return error_response(500, str(e))
 
 
 @bp.route('/<int:suite_id>/add-cases', methods=['POST'])
@@ -71,7 +71,7 @@ def add_cases_to_suite(suite_id):
         case_ids = data.get('case_ids', [])
         
         if not case_ids:
-            return error_response('请提供要添加的测试用例ID列表', 400)
+            return error_response(400, '请提供要添加的测试用例ID列表')
         
         # 检查用例是否存在且属于同一项目
         cases = TestCase.query.filter(
@@ -83,7 +83,7 @@ def add_cases_to_suite(suite_id):
         missing_ids = set(case_ids) - set(existing_case_ids)
         
         if missing_ids:
-            return error_response(f'测试用例不存在或不属于同一项目: {list(missing_ids)}', 400)
+            return error_response(400, f'测试用例不存在或不属于同一项目: {list(missing_ids)}')
         
         # 更新用例的套件ID
         for case in cases:
@@ -97,7 +97,7 @@ def add_cases_to_suite(suite_id):
         })
     except Exception as e:
         db.session.rollback()
-        return error_response(str(e), 500)
+        return error_response(500, str(e))
 
 
 @bp.route('/<int:suite_id>/remove-cases', methods=['POST'])
@@ -116,7 +116,7 @@ def remove_cases_from_suite(suite_id):
         case_ids = data.get('case_ids', [])
         
         if not case_ids:
-            return error_response('请提供要移除的测试用例ID列表', 400)
+            return error_response(400, '请提供要移除的测试用例ID列表')
         
         # 查询属于该套件的用例
         cases = TestCase.query.filter(
@@ -136,7 +136,7 @@ def remove_cases_from_suite(suite_id):
         })
     except Exception as e:
         db.session.rollback()
-        return error_response(str(e), 500)
+        return error_response(500, str(e))
 
 
 @bp.route('/<int:suite_id>/available-cases', methods=['GET'])
@@ -186,7 +186,7 @@ def get_available_cases(suite_id):
             'total_pages': pagination.pages
         })
     except Exception as e:
-        return error_response(str(e), 500)
+        return error_response(500, str(e))
 
 
 @bp.route('/<int:suite_id>/move-cases', methods=['POST'])
@@ -206,10 +206,10 @@ def move_cases_between_suites(suite_id):
         target_suite_id = data.get('target_suite_id')
         
         if not case_ids:
-            return error_response('请提供要移动的测试用例ID列表', 400)
+            return error_response(400, '请提供要移动的测试用例ID列表')
         
         if not target_suite_id:
-            return error_response('请提供目标测试套件ID', 400)
+            return error_response(400, '请提供目标测试套件ID')
         
         # 检查目标套件是否存在且属于同一项目
         target_suite = TestSuite.query.filter_by(
@@ -237,7 +237,7 @@ def move_cases_between_suites(suite_id):
         })
     except Exception as e:
         db.session.rollback()
-        return error_response(str(e), 500)
+        return error_response(500, str(e))
 
 
 # 模块相关功能已移除，模块信息通过套件关联获取

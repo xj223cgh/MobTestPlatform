@@ -25,7 +25,7 @@ def unauthorized_handler():
     # 检查是否是API请求
     if request.path.startswith('/api/'):
         # API请求直接返回401
-        return error_response("Unauthorized", 401)
+        return error_response(401, "Unauthorized")
     # 非API请求返回重定向
     return login_manager.unauthorized()
 
@@ -100,7 +100,7 @@ def setup_logging(app):
 
 def register_blueprints(app):
     """注册蓝图"""
-    from app.routes import auth, users, devices, test_cases, test_tasks, bugs, tools, home, projects, iterations, test_plans, suite_case_relations, test_suites
+    from app.routes import auth, users, devices, test_cases, test_tasks, bugs, tools, home, projects, iterations, suite_case_relations, test_suites, review_tasks
     
     app.register_blueprint(auth.bp, url_prefix='/api/auth')
     app.register_blueprint(users.bp, url_prefix='/api/users')
@@ -112,9 +112,9 @@ def register_blueprints(app):
     app.register_blueprint(home.bp, url_prefix='/api/home')
     app.register_blueprint(projects.bp, url_prefix='/api/projects')
     app.register_blueprint(iterations.bp, url_prefix='/api/iterations')
-    app.register_blueprint(test_plans.bp, url_prefix='/api/test-plans')
     app.register_blueprint(suite_case_relations.bp, url_prefix='/api/suite-case-relations')
     app.register_blueprint(test_suites.bp)
+    app.register_blueprint(review_tasks.bp)
 
 
 def register_error_handlers(app):
@@ -123,31 +123,31 @@ def register_error_handlers(app):
     @app.errorhandler(400)
     def bad_request(error):
         from app.utils.helpers import error_response
-        return error_response("Bad Request", 400)
+        return error_response(400, "Bad Request")
     
     @app.errorhandler(401)
     def unauthorized(error):
         from app.utils.helpers import error_response
-        return error_response("Unauthorized", 401)
+        return error_response(401, "Unauthorized")
     
     @app.errorhandler(403)
     def forbidden(error):
         from app.utils.helpers import error_response
-        return error_response("Forbidden", 403)
+        return error_response(403, "Forbidden")
     
     @app.errorhandler(404)
     def not_found(error):
         from app.utils.helpers import error_response
-        return error_response("Not Found", 404)
+        return error_response(404, "Not Found")
     
     @app.errorhandler(500)
     def internal_error(error):
         from app.utils.helpers import error_response
         app.logger.error(f'Server Error: {error}')
-        return error_response("Internal Server Error", 500)
+        return error_response(500, "Internal Server Error")
     
     @app.errorhandler(Exception)
     def handle_exception(error):
         from app.utils.helpers import error_response
         app.logger.error(f'Unhandled Exception: {error}', exc_info=True)
-        return error_response("Internal Server Error", 500)
+        return error_response(500, "Internal Server Error")

@@ -44,6 +44,15 @@
         >
           {{ viewMode === 'list' ? '脑图视图' : '列表视图' }}
         </el-button>
+        <!-- 发起评审按钮 -->
+        <el-button
+          v-if="selectedSuite && selectedSuite.type === 'suite'"
+          type="warning"
+          icon="Message"
+          @click="showInitiateReviewDialog"
+        >
+          发起评审
+        </el-button>
         <!-- 导入/导出用例按钮 -->
         <el-button
           type="primary"
@@ -57,7 +66,10 @@
 
     <div class="main-content">
       <!-- 左侧树形组件 -->
-      <div class="left-panel" :class="{ collapsed: isLeftPanelCollapsed }">
+      <div
+        class="left-panel"
+        :class="{ collapsed: isLeftPanelCollapsed }"
+      >
         <div class="panel-header">
           <el-input
             v-model="searchText"
@@ -204,7 +216,10 @@
           </div>
           
           <!-- 用例进度条 -->
-          <div class="case-progress-container" v-if="selectedSuite && selectedSuite.type === 'suite'">
+          <div
+            v-if="selectedSuite && selectedSuite.type === 'suite'"
+            class="case-progress-container"
+          >
             <div class="progress-wrapper">
               <!-- 进度条上方显示执行情况 -->
               <div class="progress-execution-info">
@@ -218,8 +233,7 @@
                   :class="`status-${item.status}`"
                   :style="{ width: `${item.percentage}%` }"
                   :title="`${item.label}: ${item.count}条 (${item.percentage}%)`"
-                >
-                </div>
+                />
               </div>
               <!-- 进度数据显示在右侧末尾 -->
               <div class="progress-data-right">
@@ -356,7 +370,7 @@
                   </el-tag>
                 </template>
               </el-table-column>
-                            <el-table-column
+              <el-table-column
                 prop="test_data"
                 label="测试数据"
                 min-width="90"
@@ -378,8 +392,8 @@
                   </template>
                   <div
                     v-else
-                    @dblclick="startCaseEdit(row, 'test_data')"
                     style="text-align: left"
+                    @dblclick="startCaseEdit(row, 'test_data')"
                   >
                     {{ row.test_data || '-' }}
                   </div>
@@ -407,8 +421,8 @@
                   </template>
                   <div
                     v-else
-                    @dblclick="startCaseEdit(row, 'preconditions')"
                     style="text-align: left"
+                    @dblclick="startCaseEdit(row, 'preconditions')"
                   >
                     {{ row.preconditions || '-' }}
                   </div>
@@ -436,8 +450,8 @@
                   </template>
                   <div
                     v-else
-                    @dblclick="startCaseEdit(row, 'steps')"
                     style="text-align: left"
+                    @dblclick="startCaseEdit(row, 'steps')"
                   >
                     {{ row.steps || '-' }}
                   </div>
@@ -465,8 +479,8 @@
                   </template>
                   <div
                     v-else
-                    @dblclick="startCaseEdit(row, 'expected_result')"
                     style="text-align: left"
+                    @dblclick="startCaseEdit(row, 'expected_result')"
                   >
                     {{ row.expected_result || '-' }}
                   </div>
@@ -494,8 +508,8 @@
                   </template>
                   <div
                     v-else
-                    @dblclick="startCaseEdit(row, 'actual_result')"
                     style="text-align: left"
+                    @dblclick="startCaseEdit(row, 'actual_result')"
                   >
                     {{ row.actual_result || '-' }}
                   </div>
@@ -514,8 +528,8 @@
                       size="small" 
                       style="width: 90%"
                       :popper-class="'status-select-popper'"
-                      @change="handleStatusChange(row)"
                       placeholder="未执行"
+                      @change="handleStatusChange(row)"
                     >
                       <template #prefix>
                         <span
@@ -637,8 +651,8 @@
                     size="small"
                     style="height: 32px; margin-left: -2px;"
                     icon="Refresh"
-                    @click.stop="clearParentSuiteSelection"
                     title="重置选择"
+                    @click.stop="clearParentSuiteSelection"
                   >
                     重置
                   </el-button>
@@ -663,7 +677,10 @@
                       class="tree-node-content"
                       :class="{'current-node': node.key === suiteForm.parent_id}"
                     >
-                      <el-icon class="node-icon" @click.stop="handleParentSuiteSelect(data)">
+                      <el-icon
+                        class="node-icon"
+                        @click.stop="handleParentSuiteSelect(data)"
+                      >
                         <Folder />
                       </el-icon>
                       <span @click.stop="handleParentSuiteSelect(data)">{{ node.label }}</span>
@@ -687,7 +704,13 @@
             <template #empty>
               <div v-if="projects.length === 0">
                 <span>暂无项目数据</span>
-                <el-button type="text" size="small" @click="loadProjects">重新加载</el-button>
+                <el-button
+                  type="text"
+                  size="small"
+                  @click="loadProjects"
+                >
+                  重新加载
+                </el-button>
               </div>
               <div v-else>
                 未找到匹配的项目
@@ -718,7 +741,13 @@
               </div>
               <div v-else-if="iterations.length === 0">
                 <span>暂无迭代数据</span>
-                <el-button type="text" size="small" @click="loadIterations(suiteForm.project_id)">重新加载</el-button>
+                <el-button
+                  type="text"
+                  size="small"
+                  @click="loadIterations(suiteForm.project_id)"
+                >
+                  重新加载
+                </el-button>
               </div>
               <div v-else>
                 未找到匹配的迭代
@@ -749,7 +778,13 @@
               </div>
               <div v-else-if="requirements.length === 0">
                 <span>暂无需求数据</span>
-                <el-button type="text" size="small" @click="loadRequirements(suiteForm.project_id, suiteForm.iteration_id)">重新加载</el-button>
+                <el-button
+                  type="text"
+                  size="small"
+                  @click="loadRequirements(suiteForm.project_id, suiteForm.iteration_id)"
+                >
+                  重新加载
+                </el-button>
               </div>
               <div v-else>
                 未找到匹配的需求
@@ -791,10 +826,20 @@
       @close="caseSuitePopoverVisible = false"
     >
       <!-- 新增：创建方式选择 -->
-      <div v-if="!isEditCase" class="create-type-selector">
-        <el-radio-group v-model="createCaseType" style="margin-bottom: 20px; display: flex; justify-content: center; gap: 20px;">
-          <el-radio label="manual">手动创建</el-radio>
-          <el-radio label="auto">自动生成</el-radio>
+      <div
+        v-if="!isEditCase"
+        class="create-type-selector"
+      >
+        <el-radio-group
+          v-model="createCaseType"
+          style="margin-bottom: 20px; display: flex; justify-content: center; gap: 20px;"
+        >
+          <el-radio label="manual">
+            手动创建
+          </el-radio>
+          <el-radio label="auto">
+            自动生成
+          </el-radio>
         </el-radio-group>
       </div>
       
@@ -896,7 +941,10 @@
                       class="tree-node-content"
                       :class="{'current-node': node.key === caseForm.suite_id}"
                     >
-                      <el-icon class="node-icon" @click.stop="handleCaseSuiteSelect(data)">
+                      <el-icon
+                        class="node-icon"
+                        @click.stop="handleCaseSuiteSelect(data)"
+                      >
                         <Document v-if="data.type === 'suite'" />
                         <Folder v-else />
                       </el-icon>
@@ -1009,7 +1057,6 @@
             placeholder="请输入实际结果"
           />
         </el-form-item>
-        
       </el-form>
       
       <!-- 自动生成表单 -->
@@ -1074,7 +1121,10 @@
                       class="tree-node-content"
                       :class="{'current-node': node.key === autoCaseForm.suite_id}"
                     >
-                      <el-icon class="node-icon" @click.stop="handleAutoCaseSuiteSelect(data)">
+                      <el-icon
+                        class="node-icon"
+                        @click.stop="handleAutoCaseSuiteSelect(data)"
+                      >
                         <Document v-if="data.type === 'suite'" />
                         <Folder v-else />
                       </el-icon>
@@ -1117,7 +1167,9 @@
             :limit="1"
             :on-exceed="handleRequirementFileExceed"
           >
-            <el-button type="primary">选择文件</el-button>
+            <el-button type="primary">
+              选择文件
+            </el-button>
             <template #tip>
               <div class="el-upload__tip">
                 支持上传.docx、.pdf和.txt格式的文件，大小不超过10MB
@@ -1125,7 +1177,6 @@
             </template>
           </el-upload>
         </el-form-item>
-        
       </el-form>
       
       <template #footer>
@@ -1159,8 +1210,12 @@
         <!-- 类型选择 -->
         <el-form-item label="操作类型">
           <el-radio-group v-model="importExportForm.type">
-            <el-radio label="import">导入</el-radio>
-            <el-radio label="export">导出</el-radio>
+            <el-radio label="import">
+              导入
+            </el-radio>
+            <el-radio label="export">
+              导出
+            </el-radio>
           </el-radio-group>
         </el-form-item>
         
@@ -1180,7 +1235,9 @@
               :on-exceed="handleFileExceed"
               class="upload-with-clear"
             >
-              <el-button type="primary">选择文件</el-button>
+              <el-button type="primary">
+                选择文件
+              </el-button>
               <template #tip>
                 <div class="el-upload__tip">
                   支持上传.xlsx和.xls格式的文件，大小不超过10MB
@@ -1217,8 +1274,8 @@
                       size="small"
                       style="height: 32px; margin-left: -2px;"
                       icon="Refresh"
-                      @click.stop="clearImportParentSuiteSelection"
                       title="重置选择"
+                      @click.stop="clearImportParentSuiteSelection"
                     >
                       重置
                     </el-button>
@@ -1313,9 +1370,9 @@
           <el-button @click="importExportVisible = false">取消</el-button>
           <el-button
             type="primary"
-            @click="handleImportExportAction"
             :loading="isImporting"
             :disabled="isImporting"
+            @click="handleImportExportAction"
           >
             {{ importExportForm.type === 'import' ? '导入' : '导出' }}
           </el-button>
@@ -1323,6 +1380,109 @@
       </template>
     </el-dialog>
     
+    <!-- 发起评审对话框 -->
+    <el-dialog
+      v-model="initiateReviewVisible"
+      title="发起用例集评审"
+      width="650px"
+    >
+      <el-form
+        ref="reviewFormRef"
+        :model="reviewForm"
+        :rules="reviewFormRules"
+        label-width="100px"
+      >
+        <el-form-item
+          label="所属用例集"
+          prop="suite_id"
+        >
+          <div class="case-suite-selector">
+            <!-- 显示当前选中的用例集路径 -->
+            <el-popover
+              :visible="reviewSuitePopoverVisible"
+              placement="bottom-start"
+              trigger="manual"
+              width="auto"
+              teleport="body"
+              @clickoutside="reviewSuitePopoverVisible = false"
+            >
+              <template #reference>
+                <el-input
+                  v-model="reviewSuitePath"
+                  placeholder="点击选择所属用例集"
+                  readonly
+                  style="width: 518px;"
+                  @click="reviewSuitePopoverVisible = !reviewSuitePopoverVisible"
+                />
+              </template>
+              <!-- 弹出的套件树 -->
+              <div
+                class="suite-tree-popover"
+                style="width: 100%; min-width: 490px;"
+              >
+                <el-tree
+                  :current-node-key="reviewForm.suite_id"
+                  :data="getSuiteTreeData()"
+                  :props="defaultProps"
+                  node-key="id"
+                  style="max-height: 300px; overflow-y: auto; width: 100%; padding-right: 10px;"
+                  expand-on-click-node="false"
+                  @node-click="handleReviewSuiteSelect"
+                >
+                  <template #default="{ node, data }">
+                    <span
+                      class="tree-node-content"
+                      :class="{'current-node': node.key === reviewForm.suite_id}"
+                    >
+                      <el-icon
+                        class="node-icon"
+                        @click.stop="handleReviewSuiteSelect(data)"
+                      >
+                        <Document v-if="data.type === 'suite'" />
+                        <Folder v-else />
+                      </el-icon>
+                      <span @click.stop="handleReviewSuiteSelect(data)">{{ node.label }}</span>
+                      <span
+                        v-if="data.type === 'suite' && data.cases_count > 0"
+                        class="case-count"
+                      >({{ data.cases_count }})</span>
+                    </span>
+                  </template>
+                </el-tree>
+              </div>
+            </el-popover>
+          </div>
+        </el-form-item>
+
+        <el-form-item
+          label="评审人"
+          prop="reviewer_id"
+        >
+          <el-select
+            v-model="reviewForm.reviewer_id"
+            placeholder="请选择评审人"
+            filterable
+          >
+            <el-option
+              v-for="user in reviewerOptions"
+              :key="user.id"
+              :label="user.real_name"
+              :value="user.id"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="initiateReviewVisible = false">取消</el-button>
+          <el-button
+            type="primary"
+            @click="handleInitiateReview"
+          >发起评审</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
     <!-- 隐藏的文件上传组件 -->
     <el-upload
       ref="uploadRef"
@@ -1430,13 +1590,18 @@
       }"
       style="display: none"
     >
-      <el-button type="primary" ref="uploadBtnRef">上传</el-button>
+      <el-button
+        ref="uploadBtnRef"
+        type="primary"
+      >
+        上传
+      </el-button>
     </el-upload>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox, ElUpload, ElButton, ElLoading } from 'element-plus'
 import { Folder, Document, ArrowDown, ArrowUp, Download, Upload, DocumentCopy } from '@element-plus/icons-vue'
 import { getTestSuiteTree, getSuiteCases, createTestSuite, updateTestSuite, deleteTestSuite } from '@/api/testSuite'
@@ -1448,6 +1613,8 @@ import { useUserStore } from '@/stores/user'
 import { updateTestCase, createTestCase, deleteTestCase, batchDeleteTestCases } from '@/api/testCase'
 import { getTestSuiteDetail } from '@/api/testSuite'
 import { getProjects, getProjectIterations, getProjectVersionRequirements } from '@/api/project'
+import { initiateReview } from '@/api/reviewTask'
+import { getUserList } from '@/api/user'
 
 // 树形组件相关
 const treeRef = ref(null)
@@ -1739,6 +1906,112 @@ const caseTableRef = ref(null)
 // 使用Set存储选中的用例ID，实现跨分页选择
 const selectedCaseIds = ref(new Set())
 
+// 发起评审相关
+const initiateReviewVisible = ref(false)
+const reviewFormRef = ref(null)
+const reviewSuitePopoverVisible = ref(false)
+const reviewSuitePath = ref('')
+const reviewForm = reactive({
+  suite_id: null,
+  suite_name: '',
+  reviewer_id: null
+})
+const reviewFormRules = reactive({
+  suite_id: [
+    { required: true, message: '请选择所属用例集', trigger: 'change' }
+  ],
+  reviewer_id: [
+    { required: true, message: '请选择评审人', trigger: 'change' }
+  ]
+})
+// 评审人选项，从API获取
+const reviewerOptions = ref([])
+
+// 获取评审人列表
+const loadReviewers = async () => {
+  try {
+    const response = await getUserList()
+    reviewerOptions.value = response.data.users || []
+  } catch (error) {
+    console.error('获取评审人列表失败:', error)
+    ElMessage.error('获取评审人列表失败，请稍后重试')
+  }
+}
+
+// 获取用例集路径
+const getSuitePath = (suiteId, separator = ' / ') => {
+  let path = ''
+  let currentId = suiteId
+  const findPath = (node, id) => {
+    if (node.id === id) {
+      path = node.suite_name + (path ? separator + path : '')
+      return true
+    }
+    if (node.children && node.children.length > 0) {
+      for (const child of node.children) {
+        if (findPath(child, id)) {
+          path = node.suite_name + separator + path
+          return true
+        }
+      }
+    }
+    return false
+  }
+  
+  // 遍历所有根节点
+  for (const root of treeData.value) {
+    if (findPath(root, currentId)) {
+      break
+    }
+  }
+  
+  return path
+}
+
+// 处理评审用例集选择
+const handleReviewSuiteSelect = (data) => {
+  if (data.type === 'suite') {
+    reviewForm.suite_id = data.id
+    reviewForm.suite_name = data.suite_name
+    reviewSuitePath.value = getSuitePath(data.id)
+    reviewSuitePopoverVisible.value = false
+  }
+}
+
+// 显示发起评审对话框
+const showInitiateReviewDialog = () => {
+  if (selectedSuite.value && selectedSuite.value.type === 'suite') {
+    reviewForm.suite_id = selectedSuite.value.id
+    reviewForm.suite_name = selectedSuite.value.suite_name
+    reviewSuitePath.value = getSuitePath(selectedSuite.value.id)
+    reviewForm.reviewer_id = null
+    initiateReviewVisible.value = true
+  }
+}
+
+// 处理发起评审
+const handleInitiateReview = async () => {
+  if (!reviewFormRef.value) return
+  
+  await reviewFormRef.value.validate()
+  
+  try {
+    // 调用发起评审API（不需要description参数）
+    await initiateReview(reviewForm.suite_id, {
+      reviewer_id: reviewForm.reviewer_id
+    })
+    
+    ElMessage.success('发起评审成功')
+    initiateReviewVisible.value = false
+    
+    // 刷新用例集信息，可能需要更新评审状态
+    loadTreeData()
+  } catch (error) {
+    console.error('发起评审失败:', error)
+    ElMessage.error('发起评审失败，请稍后重试')
+  }
+}
+
 // 过滤节点方法
 const filterNode = (value, data) => {
   if (!value) return true
@@ -1928,6 +2201,8 @@ onMounted(() => {
     }
   })
   loadTreeData()
+  // 加载评审人列表
+  loadReviewers()
 })
 
 // 组件销毁时移除事件监听器
