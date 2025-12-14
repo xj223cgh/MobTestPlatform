@@ -86,6 +86,7 @@
         <el-form-item
           label="项目描述"
           prop="description"
+          required
         >
           <el-input
             v-model="projectForm.description"
@@ -147,8 +148,51 @@
           </el-select>
         </el-form-item>
         <el-form-item
+          label="项目负责人"
+          prop="owner_id"
+          required
+        >
+          <el-select
+            v-model="projectForm.owner_id"
+            placeholder="请选择项目负责人"
+            style="width: 100%;"
+            @change="handleOwnerChange"
+          >
+            <el-option
+              v-for="user in allUsers"
+              :key="user.id"
+              :label="user.real_name || user.username"
+              :value="user.id"
+            />
+          </el-select>
+        </el-form-item>
+        
+        <!-- 项目成员 -->
+        <el-form-item label="项目成员">
+          <el-select
+            v-model="projectForm.selectedUsers"
+            multiple
+            placeholder="请选择项目成员"
+            style="width: 100%;"
+            collapse-tags
+            :collapse-tags-tooltip="true"
+            @change="handleMembersChange"
+          >
+            <el-option
+              v-for="user in getSortedUsers()"
+              :key="user.id"
+              :label="user.real_name || user.username"
+              :value="user.id"
+            />
+          </el-select>
+          <div style="margin-top: 5px; font-size: 12px; color: #909399;">
+            <span>注意：当前项目负责人无法从成员列表中删除</span>
+          </div>
+        </el-form-item>
+        <el-form-item
           label="开始日期"
           prop="start_date"
+          required
         >
           <el-date-picker
             v-model="projectForm.start_date"
@@ -160,12 +204,31 @@
         <el-form-item
           label="结束日期"
           prop="end_date"
+          required
         >
           <el-date-picker
             v-model="projectForm.end_date"
             type="datetime"
             placeholder="请选择结束日期"
             style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item
+          label="项目文档链接"
+          prop="doc_url"
+        >
+          <el-input
+            v-model="projectForm.doc_url"
+            placeholder="请输入项目文档链接"
+          />
+        </el-form-item>
+        <el-form-item
+          label="流水线链接"
+          prop="pipeline_url"
+        >
+          <el-input
+            v-model="projectForm.pipeline_url"
+            placeholder="请输入流水线链接"
           />
         </el-form-item>
       </el-form>
@@ -357,6 +420,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Edit, ArrowLeft } from '@element-plus/icons-vue'
 import { getProject, updateProject } from '@/api/project'
+import { getUserList } from '@/api/user'
+import { useUserStore } from '@/stores/user'
 import dayjs from 'dayjs'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -375,8 +440,13 @@ const router = useRouter()
 
 // 编辑对话框相关数据
 const dialogVisible = ref(false)
+const dialogTitle = ref('')
 const dialogLoading = ref(false)
 const projectFormRef = ref(null)
+const editingProjectId = ref(null)
+
+// 所有用户列表，用于选择项目成员
+const allUsers = ref([])
 
 // 表单数据
 const projectForm = reactive({
@@ -384,9 +454,73 @@ const projectForm = reactive({
   description: '',
   status: 'not_started',
   priority: 'medium',
+  owner_id: '',
   start_date: '',
-  end_date: ''
+  end_date: '',
+  doc_url: '',
+  pipeline_url: '',
+  selectedUsers: []
 })
+
+// 获取所有用户列表
+const getAllUsers = async () => {
+  try {
+    const response = await getUserList()
+    allUsers.value = response.data?.users || []
+  } catch (error) {
+    console.error('获取用户列表失败:', error)
+    ElMessage.error('获取用户列表失败')
+  }
+}
+
+// 监听项目负责人变化
+watch(() => projectForm.owner_id, (newOwnerId, oldOwnerId) => {
+  if (!newOwnerId) return
+  
+  // 先过滤掉旧的负责人ID（如果存在），然后添加新的负责人ID
+  const updatedUsers = projectForm.selectedUsers.filter(id => id !== oldOwnerId)
+  
+  // 确保新的负责人ID被添加到列表中
+  if (!updatedUsers.includes(newOwnerId)) {
+    updatedUsers.push(newOwnerId)
+  }
+  
+  // 更新项目成员列表
+  projectForm.selectedUsers = updatedUsers
+})
+
+// 处理项目负责人变化，确保项目成员列表正确
+const handleOwnerChange = () => {
+  // 这个函数会被watch函数自动处理，这里保留为空函数以保持与项目列表页面的一致性
+}
+
+// 处理项目成员变化，确保当前负责人无法被删除
+const handleMembersChange = () => {
+  if (!projectForm.owner_id) return
+  
+  // 检查当前负责人是否在项目成员列表中
+  if (!projectForm.selectedUsers.includes(projectForm.owner_id)) {
+    // 如果不在，自动添加回列表
+    projectForm.selectedUsers.push(projectForm.owner_id)
+    // 显示提示信息
+    ElMessage.warning('当前项目负责人无法从成员列表中删除')
+  }
+}
+
+// 用于项目成员下拉列表的排序，将负责人排在顶部
+const getSortedUsers = () => {
+  if (!projectForm.owner_id) return allUsers.value
+  
+  // 创建用户列表的副本，避免修改原始数据
+  const sortedUsers = [...allUsers.value]
+  
+  // 排序：将项目负责人排在最前面
+  return sortedUsers.sort((a, b) => {
+    if (a.id == projectForm.owner_id) return -1
+    if (b.id == projectForm.owner_id) return 1
+    return 0
+  })
+}
 
 // 表单验证规则
 const projectRules = {
@@ -394,11 +528,23 @@ const projectRules = {
     { required: true, message: '请输入项目名称', trigger: 'blur' },
     { min: 1, max: 100, message: '项目名称长度在 1 到 100 个字符', trigger: 'blur' }
   ],
+  description: [
+    { required: true, message: '请输入项目描述', trigger: 'blur' }
+  ],
   status: [
     { required: true, message: '请选择项目状态', trigger: 'change' }
   ],
   priority: [
     { required: true, message: '请选择项目优先级', trigger: 'change' }
+  ],
+  owner_id: [
+    { required: true, message: '请选择项目负责人', trigger: 'change' }
+  ],
+  start_date: [
+    { required: true, message: '请选择开始日期', trigger: 'change' }
+  ],
+  end_date: [
+    { required: true, message: '请选择结束日期', trigger: 'change' }
   ]
 }
 
@@ -751,26 +897,44 @@ const resetForm = () => {
   if (projectFormRef.value) {
     projectFormRef.value.resetFields()
   }
+  editingProjectId.value = null
   Object.assign(projectForm, {
     project_name: '',
     description: '',
     status: 'not_started',
     priority: 'medium',
+    owner_id: '',
     start_date: '',
-    end_date: ''
+    end_date: '',
+    doc_url: '',
+    pipeline_url: '',
+    selectedUsers: []
   })
 }
 
 // 打开编辑项目对话框
 const handleEdit = () => {
+  dialogTitle.value = '编辑项目'
+  editingProjectId.value = projectDetail.value.id
+  
+  // 转换项目成员数据为多选格式
+  const members = projectDetail.value.members || []
+  const selectedUsers = members.map(member => member.user_id)
+  
+  // 设置表单数据
   Object.assign(projectForm, {
     project_name: projectDetail.value.project_name || '',
     description: projectDetail.value.description || '',
     status: projectDetail.value.status || 'not_started',
     priority: projectDetail.value.priority || 'medium',
+    owner_id: projectDetail.value.owner_id || '',
     start_date: projectDetail.value.start_date || '',
-    end_date: projectDetail.value.end_date || ''
+    end_date: projectDetail.value.end_date || '',
+    doc_url: projectDetail.value.doc_url || '',
+    pipeline_url: projectDetail.value.pipeline_url || '',
+    selectedUsers: selectedUsers
   })
+  getAllUsers()
   dialogVisible.value = true
 }
 
@@ -780,10 +944,32 @@ const handleSaveProject = async () => {
   
   await projectFormRef.value.validate()
   
+  // 引入useUserStore获取当前登录用户信息
+  const userStore = useUserStore()
+  const currentUserId = userStore.userInfo.id
+  
+  // 构建保存数据，将selectedUsers转换为members数组格式
+  const saveData = { ...projectForm }
+  
+  // 只有创建项目时才设置creator_id，编辑时不修改创建者
+  if (!editingProjectId.value) {
+    // 添加创建者ID为当前登录用户ID
+    saveData.creator_id = currentUserId
+  }
+  
+  // 转换多选用户为members数组格式，固定使用tester角色
+  saveData.members = saveData.selectedUsers.map(userId => ({
+    user_id: userId,
+    role: 'tester' // 固定默认角色为tester
+  }))
+  
+  // 删除不需要发送给后端的字段
+  delete saveData.selectedUsers
+  
   dialogLoading.value = true
   try {
     const projectId = projectDetail.value.id
-    const response = await updateProject(projectId, projectForm)
+    const response = await updateProject(projectId, saveData)
     
     // 更新本地项目详情数据
     Object.assign(projectDetail.value, response.data.project || {})

@@ -23,7 +23,7 @@ PROJECT_PRIORITY = ('high', 'medium', 'low')
 ITERATION_STATUS = ('planning', 'active', 'completed', 'cancelled')
 
 VERSION_REQUIREMENT_STATUS = ('new', 'in_progress', 'completed', 'cancelled')
-REVIEW_TASK_STATUS = ('pending', 'in_review', 'completed')  # 评审任务状态：待处理、评审中、已完成
+REVIEW_TASK_STATUS = ('pending', 'in_review', 'completed', 'rejected')  # 评审任务状态：待处理、评审中、已完成、已拒绝
 CASE_REVIEW_STATUS = ('pending', 'approved', 'rejected')  # 用例评审状态：待审核、已通过、已拒绝
 
 
@@ -203,7 +203,6 @@ class VersionRequirement(db.Model):
     id = db.Column(db.Integer, primary_key=True, comment='需求编号')
     requirement_name = db.Column(db.String(200), nullable=False, comment='需求名称')
     requirement_description = db.Column(db.Text, comment='需求描述')
-    module = db.Column(db.String(100), nullable=True, comment='所属模块')
     status = db.Column(db.Enum(*VERSION_REQUIREMENT_STATUS), default='new', comment='需求状态')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
@@ -461,7 +460,6 @@ class TestSuite(db.Model):
             'project_name': self.project.project_name if self.project else None,
             'version_requirement_id': self.version_requirement_id,
             'version_requirement_name': self.version_requirement.requirement_name if self.version_requirement else None,
-            'version_requirement_module': self.version_requirement.module if self.version_requirement else None,
             'iteration_id': self.iteration_id,
             'iteration_name': self.iteration.iteration_name if self.iteration else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
@@ -546,6 +544,112 @@ class TestCaseReviewDetail(db.Model):
         }
 
 
+# 评审历史记录相关模型
+# 评审历史记录类型枚举
+REVIEW_HISTORY_TYPE = ('complete', 'reject')  # 评审历史记录类型：complete-完成评审, reject-打回评审
+
+
+class TestSuiteReviewHistory(db.Model):
+    """评审历史记录模型"""
+    __tablename__ = 'test_suite_review_history'
+    
+    id = db.Column(db.Integer, primary_key=True, comment='评审历史ID')
+    review_task_id = db.Column(db.Integer, db.ForeignKey('test_suite_review_tasks.id', ondelete='SET NULL'), nullable=True, comment='关联评审任务ID')
+    suite_id = db.Column(db.Integer, db.ForeignKey('test_suites.id', ondelete='SET NULL'), nullable=True, comment='关联用例集ID')
+    initiator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='发起人ID')
+    reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='评审人ID')
+    status = db.Column(db.Enum(*REVIEW_TASK_STATUS), comment='评审任务状态')
+    start_time = db.Column(db.DateTime(timezone=True), nullable=True, comment='评审开始时间')
+    end_time = db.Column(db.DateTime(timezone=True), nullable=True, comment='评审结束时间')
+    overall_comments = db.Column(db.Text, comment='整体评审意见')
+    history_type = db.Column(db.Enum(*REVIEW_HISTORY_TYPE), comment='历史记录类型：complete-完成评审, reject-打回评审')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建人ID')
+    version = db.Column(db.Integer, default=1, comment='评审版本号')
+    
+    # 关系
+    review_task = db.relationship('TestSuiteReviewTask', backref='review_history')
+    suite = db.relationship('TestSuite', backref='review_history')
+    initiator = db.relationship('User', backref='initiated_review_history', foreign_keys=[initiator_id])
+    reviewer = db.relationship('User', backref='assigned_review_history', foreign_keys=[reviewer_id])
+    created_user = db.relationship('User', foreign_keys=[created_by])
+    case_review_history = db.relationship('TestCaseReviewHistory', backref='review_history', cascade='all, delete-orphan')
+    
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            'id': self.id,
+            'review_task_id': self.review_task_id,
+            'suite_id': self.suite_id,
+            'initiator_id': self.initiator_id,
+            'initiator_name': self.initiator.real_name if self.initiator else None,
+            'reviewer_id': self.reviewer_id,
+            'reviewer_name': self.reviewer.real_name if self.reviewer else None,
+            'status': self.status,
+            'start_time': self.start_time.strftime('%Y-%m-%d %H:%M:%S') if self.start_time else None,
+            'end_time': self.end_time.strftime('%Y-%m-%d %H:%M:%S') if self.end_time else None,
+            'overall_comments': self.overall_comments,
+            'history_type': self.history_type,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
+            'created_by': self.created_by,
+            'created_by_name': self.created_user.real_name if self.created_user else None,
+            'version': self.version
+        }
+
+
+class TestCaseReviewHistory(db.Model):
+    """用例评审历史记录模型"""
+    __tablename__ = 'test_case_review_history'
+    
+    id = db.Column(db.Integer, primary_key=True, comment='用例评审历史ID')
+    review_history_id = db.Column(db.Integer, db.ForeignKey('test_suite_review_history.id', ondelete='CASCADE'), nullable=False, comment='关联评审历史ID')
+    review_task_id = db.Column(db.Integer, nullable=True, comment='关联评审任务ID')
+    case_id = db.Column(db.Integer, db.ForeignKey('test_cases.id', ondelete='SET NULL'), nullable=True, comment='关联测试用例ID')
+    reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='评审人ID')
+    review_status = db.Column(db.Enum(*CASE_REVIEW_STATUS), default='pending', comment='单条用例评审状态')
+    comments = db.Column(db.Text, comment='用例评审意见')
+    # 用例属性快照
+    case_number = db.Column(db.String(50), nullable=True, comment='用例编号')
+    case_name = db.Column(db.String(200), nullable=True, comment='用例名称')
+    priority = db.Column(db.Enum(*TEST_CASE_PRIORITY), default='P1', comment='优先级')
+    test_data = db.Column(db.Text, nullable=True, comment='测试数据')
+    preconditions = db.Column(db.Text, comment='前置条件')
+    steps = db.Column(db.Text, comment='测试步骤')
+    expected_result = db.Column(db.Text, comment='预期结果')
+    actual_result = db.Column(db.Text, comment='实际结果')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建人ID')
+    
+    # 关系
+    reviewer = db.relationship('User', foreign_keys=[reviewer_id])
+    test_case = db.relationship('TestCase', backref='review_history')
+    created_user = db.relationship('User', foreign_keys=[created_by])
+    
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            'id': self.id,
+            'review_history_id': self.review_history_id,
+            'review_task_id': self.review_task_id,
+            'case_id': self.case_id,
+            'reviewer_id': self.reviewer_id,
+            'reviewer_name': self.reviewer.real_name if self.reviewer else None,
+            'review_status': self.review_status,
+            'comments': self.comments,
+            'case_number': self.case_number,
+            'case_name': self.case_name,
+            'priority': self.priority,
+            'test_data': self.test_data,
+            'preconditions': self.preconditions,
+            'steps': self.steps,
+            'expected_result': self.expected_result,
+            'actual_result': self.actual_result,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
+            'created_by': self.created_by,
+            'created_by_name': self.created_user.real_name if self.created_user else None
+        }
+
+
 class TestCase(db.Model):
     """测试用例模型"""
     __tablename__ = 'test_cases'
@@ -606,7 +710,6 @@ class TestCase(db.Model):
             'project_name': self.suite.project.project_name if self.suite and self.suite.project else None,
             'version_requirement_id': self.suite.version_requirement_id if self.suite else self.version_requirement_id,
             'version_requirement_name': self.suite.version_requirement.requirement_name if self.suite and self.suite.version_requirement else None,
-            'version_requirement_module': self.suite.version_requirement.module if self.suite and self.suite.version_requirement else None,
             'iteration_id': self.suite.iteration_id if self.suite else self.iteration_id,
             'iteration_name': self.suite.iteration.iteration_name if self.suite and self.suite.iteration else None,
             'assignee_id': self.assignee_id,
@@ -871,34 +974,3 @@ class ExecutionBugRelation(db.Model):
         }
 
 
-class TestExecution(db.Model):
-    """测试执行模型"""
-    __tablename__ = 'test_executions'
-    
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True, comment='执行编号')
-    task_id = db.Column(db.Integer, db.ForeignKey('test_tasks.id'), nullable=False, comment='测试任务ID')
-    environment_id = db.Column(db.Integer, nullable=True, comment='环境ID')
-    device_id = db.Column(db.Integer, db.ForeignKey('devices.id'), nullable=False, comment='设备ID')
-    execution_status = db.Column(db.String(20), nullable=False, comment='执行状态')
-    start_time = db.Column(db.DateTime(timezone=True), nullable=True, comment='开始时间')
-    end_time = db.Column(db.DateTime(timezone=True), nullable=True, comment='结束时间')
-    executor_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='执行人ID')
-    
-    # 关系
-    task = db.relationship('TestTask', backref='executions')
-    device = db.relationship('Device', backref='test_executions')
-    executor = db.relationship('User', backref='executed_tests')
-    
-    def to_dict(self):
-        """转换为字典"""
-        return {
-            'id': self.id,
-            'task_id': self.task_id,
-            'environment_id': self.environment_id,
-            'device_id': self.device_id,
-            'execution_status': self.execution_status,
-            'start_time': self.start_time.isoformat() if self.start_time else None,
-            'end_time': self.end_time.isoformat() if self.end_time else None,
-            'executor_id': self.executor_id,
-            'executor_name': self.executor.real_name if self.executor else None
-        }

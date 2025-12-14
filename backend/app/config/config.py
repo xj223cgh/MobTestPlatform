@@ -22,6 +22,9 @@ class Config:
     SESSION_PERMANENT = False
     SESSION_USE_SIGNER = True
     SESSION_KEY_PREFIX = 'MobTestPlatform:'
+    SESSION_FILE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../flask_session')
+    SESSION_FILE_THRESHOLD = 50  # 降低阈值，增加清理频率
+    SESSION_FILE_MODE = 0o600  # 设置文件权限
     PERMANENT_SESSION_LIFETIME = timedelta(hours=24)
     
     # CORS配置

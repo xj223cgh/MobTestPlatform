@@ -25,36 +25,17 @@
       </div>
     </div>
 
-    <!-- 视图切换 -->
-    <div class="view-tabs">
-      <el-tabs
-        v-model="activeTab"
-        @tab-change="handleTabChange"
-      >
-        <el-tab-pane
-          label="甘特图"
-          name="gantt"
-        />
-        <el-tab-pane
-          label="列表视图"
-          name="list"
-        />
-      </el-tabs>
-    </div>
-
     <!-- 甘特图视图 -->
     <el-card
-      v-if="activeTab === 'gantt'"
       class="list-card"
     >
-      <div class="gantt-container">
-        <v-chart :option="ganttChartOption" />
+      <div class="gantt-container" style="height: 500px;">
+        <v-chart :option="ganttChartOption" autoresize />
       </div>
     </el-card>
 
-    <!-- 测试经理视图 -->
+    <!-- 列表视图 -->
     <el-card
-      v-if="activeTab === 'list'"
       class="list-card"
     >
       <!-- 搜索和筛选 -->
@@ -919,8 +900,7 @@ export default {
       projects: [],
       selectedProjectId: null,
       
-      // 视图切换
-      activeTab: 'gantt',
+
       
       // 迭代列表数据
       iterations: [],
@@ -943,10 +923,10 @@ export default {
       activeIterations: [],
       completedIterations: [],
       
-      // 甘特图配置
+      // 日历图表配置
       ganttChartOption: {
         title: {
-          text: '迭代甘特图',
+          text: '迭代生命周期变化',
           left: 'center',
           textStyle: {
             fontSize: 16,
@@ -954,103 +934,144 @@ export default {
           }
         },
         tooltip: {
-          trigger: 'axis',
-          axisPointer: {
-            type: 'cross'
-          },
+          trigger: 'item',
           formatter: function(params) {
-            let result = `<strong>${params[0].name}</strong><br/>`;
-            params.forEach(param => {
-              const start = dayjs(param.data[0]).format('YYYY-MM-DD');
-              const end = dayjs(param.data[1]).format('YYYY-MM-DD');
-              const status = param.data[2] || '';
-              const progress = param.data[3] || 0;
-              result += `${param.marker} <strong>${param.seriesName}</strong>: ${start} - ${end}<br/>`;
-              if (status) {
-                result += `状态: ${status}<br/>`;
-              }
-              if (progress > 0) {
-                result += `进度: ${progress}%<br/>`;
-              }
-            });
-            return result;
+            return `<strong>${params.data[0]}</strong><br/>` +
+                   `计划中: ${params.data[1].planning || 0}<br/>` +
+                   `进行中: ${params.data[1].active || 0}<br/>` +
+                   `已完成: ${params.data[1].completed || 0}<br/>` +
+                   `已取消: ${params.data[1].cancelled || 0}<br/>` +
+                   `<br/><strong>总计: ${params.data[1].total || 0}</strong>`;
           }
         },
         legend: {
-          data: ['迭代', '需求'],
-          top: 10,
+          show: true,
+          data: ['计划中', '进行中', '已完成', '已取消'],
+          top: 40,
+          left: 'center',
           textStyle: {
-            fontSize: 12
-          }
+            fontSize: 12,
+            color: '#333'
+          },
+          backgroundColor: '#fff',
+          borderWidth: 1,
+          borderColor: '#ddd'
         },
         grid: {
-          left: '15%',
+          left: '10%',
           right: '10%',
           bottom: '15%',
           top: '20%',
           containLabel: true
         },
-        xAxis: {
-          type: 'time',
-          axisLabel: {
-            formatter: '{yyyy}-{MM}-{dd}',
-            fontSize: 11
+        calendar: {
+          top: 120,
+          left: 30,
+          right: 30,
+          range: [dayjs().subtract(6, 'month').format('YYYY-MM'), dayjs().format('YYYY-MM')],
+          cellSize: ['auto', 20],
+          itemStyle: {
+            borderWidth: 0.5
           },
-          splitLine: {
-            show: true,
-            lineStyle: {
-              type: 'dashed'
-            }
-          }
-        },
-        yAxis: {
-          type: 'category',
-          data: [],
-          axisLabel: {
-            fontSize: 12,
-            interval: 0
+          dayLabel: {
+            firstDay: 1,
+            nameMap: ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
           },
-          axisTick: {
-            alignWithLabel: true
+          monthLabel: {
+            nameMap: 'cn'
           }
         },
         series: [
           {
-            name: '迭代',
-            type: 'bar',
-            stack: 'total',
-            itemStyle: {
-              color: '#5470c6',
-              borderRadius: [4, 4, 0, 0]
-            },
+            name: '计划中',
+            type: 'heatmap',
+            coordinateSystem: 'calendar',
             data: [],
-            barWidth: 25,
-            emphasis: {
-              focus: 'series'
-            },
             label: {
               show: true,
-              position: 'insideTop',
-              formatter: '{b}',
-              fontSize: 10,
-              color: '#fff'
+              formatter: function(params) {
+                return params.value[1].planning || 0;
+              },
+              fontSize: 10
+            },
+            emphasis: {
+              itemStyle: {
+                shadowBlur: 10,
+                shadowColor: 'rgba(0, 0, 0, 0.5)'
+              }
+            },
+            itemStyle: {
+              color: '#5470c6',
+              borderWidth: 2
             }
           },
           {
-            name: '需求',
-            type: 'bar',
-            stack: 'total',
+            name: '进行中',
+            type: 'heatmap',
+            coordinateSystem: 'calendar',
+            data: [],
+            label: {
+              show: true,
+              formatter: function(params) {
+                return params.value[1].active || 0;
+              },
+              fontSize: 10
+            },
+            emphasis: {
+              itemStyle: {
+                shadowBlur: 10,
+                shadowColor: 'rgba(0, 0, 0, 0.5)'
+              }
+            },
             itemStyle: {
               color: '#91cc75',
-              borderRadius: [2, 2, 0, 0]
-            },
+              borderWidth: 2
+            }
+          },
+          {
+            name: '已完成',
+            type: 'heatmap',
+            coordinateSystem: 'calendar',
             data: [],
-            barWidth: 15,
-            emphasis: {
-              focus: 'series'
-            },
             label: {
-              show: false
+              show: true,
+              formatter: function(params) {
+                return params.value[1].completed || 0;
+              },
+              fontSize: 10
+            },
+            emphasis: {
+              itemStyle: {
+                shadowBlur: 10,
+                shadowColor: 'rgba(0, 0, 0, 0.5)'
+              }
+            },
+            itemStyle: {
+              color: '#fac858',
+              borderWidth: 2
+            }
+          },
+          {
+            name: '已取消',
+            type: 'heatmap',
+            coordinateSystem: 'calendar',
+            data: [],
+            label: {
+              show: true,
+              formatter: function(params) {
+                return params.value[1].cancelled || 0;
+              },
+              fontSize: 10
+            },
+            emphasis: {
+              itemStyle: {
+                shadowBlur: 10,
+                shadowColor: 'rgba(0, 0, 0, 0.5)'
+              }
+            },
+            itemStyle: {
+              color: '#ee6666',
+              borderWidth: 2
             }
           }
         ],
@@ -1059,35 +1080,11 @@ export default {
             saveAsImage: {
               pixelRatio: 2
             },
-            dataZoom: {
-              yAxisIndex: 'none'
-            },
             restore: {}
           },
           top: 10,
           right: 10
-        },
-        dataZoom: [
-          {
-            type: 'inside',
-            xAxisIndex: 0,
-            start: 0,
-            end: 100
-          },
-          {
-            start: 0,
-            end: 100,
-            handleIcon: 'path://M10.7,11.9v-1.3H9.3v1.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z',
-            handleSize: '80%',
-            handleStyle: {
-              color: '#fff',
-              shadowBlur: 3,
-              shadowColor: 'rgba(0, 0, 0, 0.6)',
-              shadowOffsetX: 2,
-              shadowOffsetY: 2
-            }
-          }
-        ]
+        }
       },
     
       // 迭代进度概览图表配置
@@ -1486,12 +1483,14 @@ export default {
           this.total = response.data?.total || 0
           this.filterIterations()
           this.updateCharts()
+          this.updateGanttChart()
         } else {
           console.error('Invalid API response format:', response)
           this.iterations = []
           this.total = 0
           this.filterIterations()
           this.updateCharts()
+          this.updateGanttChart()
         }
       } catch (error) {
         console.error('Error in getProjectIterations:', error)
@@ -1500,6 +1499,7 @@ export default {
         this.total = 0
         this.filterIterations()
         this.updateCharts()
+        this.updateGanttChart()
       } finally {
         loadingInstance.close()
       }
@@ -1520,81 +1520,57 @@ export default {
       }
     },
     
-    // 更新甘特图数据
+    // 更新日历图表数据
     updateGanttChart() {
-      // 只有在甘特图视图时才更新数据
-      if (this.activeTab !== 'gantt') {
-        return
+      // 确保iterations是数组
+      const iterations = Array.isArray(this.iterations) ? this.iterations : []
+      
+      // 统计每天各状态的迭代数量
+      const dailyStats = {}
+      
+      // 统计每个迭代在其时间范围内的状态
+      iterations.forEach(iteration => {
+        if (!iteration || !iteration.start_date || !iteration.end_date) return
+        
+        const startDate = dayjs(iteration.start_date)
+        const endDate = dayjs(iteration.end_date)
+        let currentDate = startDate
+        
+        while (currentDate.isBefore(endDate) || currentDate.isSame(endDate)) {
+          const dateStr = currentDate.format('YYYY-MM-DD')
+          
+          // 初始化当天统计数据
+          if (!dailyStats[dateStr]) {
+            dailyStats[dateStr] = {
+              planning: 0,
+              active: 0,
+              completed: 0,
+              cancelled: 0,
+              total: 0
+            }
+          }
+          
+          // 更新对应状态的计数
+          dailyStats[dateStr][iteration.status]++
+          dailyStats[dateStr].total++
+          
+          currentDate = currentDate.add(1, 'day')
+        }
+      })
+      
+      // 转换为日历图表所需的数据格式
+      const calendarData = []
+      for (const [date, stats] of Object.entries(dailyStats)) {
+        calendarData.push([date, stats])
       }
       
-      // 确保iterations和versionRequirements是数组
-      const iterations = Array.isArray(this.iterations) ? this.iterations : []
-      const versionRequirements = Array.isArray(this.versionRequirements) ? this.versionRequirements : []
+      // 按日期排序
+      calendarData.sort((a, b) => new Date(a[0]) - new Date(b[0]))
       
-      // 准备甘特图数据
-      const iterationData = []
-      const requirementData = []
-      const yAxisData = []
-      
-      // 处理迭代数据
-      iterations.forEach(iteration => {
-        if (iteration && typeof iteration === 'object') {
-          yAxisData.push(iteration.iteration_name)
-          
-          // 计算迭代进度
-          const iterationProgress = this.calculateRequirementProgress(iteration.requirement_stats)
-          
-          iterationData.push({
-            name: iteration.iteration_name,
-            value: [
-              iteration.start_date,
-              iteration.end_date,
-              this.getStatusText(iteration.status),
-              iterationProgress
-            ]
-          })
-        }
+      // 更新图表数据，为每个状态系列设置相同的日期数据
+      this.ganttChartOption.series.forEach(series => {
+        series.data = calendarData
       })
-      
-      // 处理需求数据，按所属迭代分组
-      const requirementsByIteration = {}
-      versionRequirements.forEach(requirement => {
-        if (requirement && typeof requirement === 'object') {
-          const iterationName = requirement.iteration_name || '未分配'
-          if (!requirementsByIteration[iterationName]) {
-            requirementsByIteration[iterationName] = []
-          }
-          requirementsByIteration[iterationName].push(requirement)
-        }
-      })
-      
-      // 将需求添加到对应迭代下
-      iterations.forEach(iteration => {
-        if (iteration && typeof iteration === 'object') {
-          const iterationRequirements = requirementsByIteration[iteration.iteration_name] || []
-          iterationRequirements.forEach(requirement => {
-            if (requirement && typeof requirement === 'object') {
-              // 需求状态转换
-              const requirementStatus = this.getRequirementStatusText(requirement.status)
-              
-              requirementData.push({
-                name: iteration.iteration_name,
-                value: [
-                  requirement.start_date || iteration.start_date,
-                  requirement.end_date || iteration.end_date,
-                  requirementStatus,
-                  0 // 需求进度暂不计算
-                ]
-              })
-            }
-          })
-        }
-      })
-      
-      // 更新甘特图配置
-      this.ganttChartOption.yAxis.data = yAxisData
-      this.ganttChartOption.series[0].data = iterationData
-      this.ganttChartOption.series[1].data = requirementData
     },
     
     // 计算概览数据
@@ -1692,21 +1668,6 @@ export default {
       this.bugStatsOption.series[1].data = highBugs
       this.bugStatsOption.series[2].data = mediumBugs
       this.bugStatsOption.series[3].data = lowBugs
-    },
-    
-    // 处理标签切换
-    handleTabChange(activeName) {
-      // 直接使用activeName更新当前激活标签，避免v-model绑定延迟
-      this.activeTab = activeName
-      
-      // 确保数据已加载，但使用setTimeout避免阻塞标签切换
-      setTimeout(() => {
-        // 无论当前迭代列表是否为空，都重新加载数据，确保列表视图有数据
-        this.loadIterations()
-        if (this.versionRequirements.length === 0) {
-          this.loadVersionRequirements()
-        }
-      }, 0)
     },
     
     // 筛选迭代

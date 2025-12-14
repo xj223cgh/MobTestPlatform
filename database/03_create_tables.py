@@ -296,24 +296,6 @@ def create_tables():
                 INDEX idx_iteration_id (iteration_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='测试用例执行记录表'""")
             
-            # 创建test_executions表
-            cursor.execute("""CREATE TABLE IF NOT EXISTS test_executions (
-                id INT AUTO_INCREMENT PRIMARY KEY COMMENT '执行ID',
-                task_id INT NOT NULL COMMENT '任务ID',
-                device_id INT NOT NULL COMMENT '设备ID',
-                environment_id INT NULL COMMENT '环境ID',
-                execution_status VARCHAR(20) DEFAULT 'pending' COMMENT '执行状态',
-                start_time DATETIME NULL COMMENT '开始时间',
-                end_time DATETIME NULL COMMENT '结束时间',
-                executor_id INT NOT NULL COMMENT '执行人ID',
-                FOREIGN KEY (task_id) REFERENCES test_tasks(id) ON DELETE CASCADE,
-                FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE,
-                FOREIGN KEY (executor_id) REFERENCES users(id) ON DELETE CASCADE,
-                INDEX idx_task_id (task_id),
-                INDEX idx_device_id (device_id),
-                INDEX idx_executor_id (executor_id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='测试执行表'""")
-            
             # 创建bugs表
             cursor.execute("""CREATE TABLE IF NOT EXISTS bugs (
                 id INT AUTO_INCREMENT PRIMARY KEY COMMENT '缺陷编号',

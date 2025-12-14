@@ -44,14 +44,14 @@
         >
           {{ viewMode === 'list' ? '脑图视图' : '列表视图' }}
         </el-button>
-        <!-- 发起评审按钮 -->
+        <!-- 评审按钮 -->
         <el-button
           v-if="selectedSuite && selectedSuite.type === 'suite'"
           type="warning"
           icon="Message"
-          @click="showInitiateReviewDialog"
+          @click="handleReviewButtonClick"
         >
-          发起评审
+          {{ reviewButtonText }}
         </el-button>
         <!-- 导入/导出用例按钮 -->
         <el-button
@@ -63,6 +63,8 @@
         </el-button>
       </div>
     </div>
+
+
 
     <div class="main-content">
       <!-- 左侧树形组件 -->
@@ -1483,6 +1485,220 @@
       </template>
     </el-dialog>
 
+    <!-- 评审详情/提示对话框 -->
+    <el-dialog
+      v-model="reviewDialogVisible"
+      :title="reviewDialogTitle"
+      width="90%"
+      :fullscreen="false"
+    >
+      <!-- 提示消息类型 -->
+      <div
+        v-if="reviewDialogType === 'message'"
+        class="review-message-content"
+      >
+        <el-icon
+          size="48"
+          class="message-icon"
+        >
+          <InfoFilled />
+        </el-icon>
+        <p class="message-text">
+          {{ reviewDialogContent }}
+        </p>
+      </div>
+      <!-- 详情页面类型 -->
+      <div
+        v-else-if="currentReviewTask"
+        class="review-detail-content"
+      >
+        <!-- 评审任务基本信息 -->
+        <div class="dialog-section">
+          <h4>评审任务信息</h4>
+          <el-descriptions
+            :column="2"
+            border
+          >
+            <el-descriptions-item label="用例集名称">
+              {{ currentReviewTask?.suite?.suite_name || currentReviewTask?.suite_name || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="发起人">
+              {{ currentReviewTask?.initiator_name || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="评审人">
+              {{ currentReviewTask?.reviewer_name || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="创建时间">
+              {{ formatDate(currentReviewTask?.created_at) || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="开始时间">
+              {{ formatDate(currentReviewTask?.start_time) || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="结束时间">
+              {{ formatDate(currentReviewTask?.end_time) || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item
+              label="评审状态"
+              :span="2"
+            >
+              <el-tag :type="getStatusTagType(currentReviewTask?.status)">
+                {{ getStatusText(currentReviewTask?.status) }}
+              </el-tag>
+            </el-descriptions-item>
+          </el-descriptions>
+        </div>
+        
+        <!-- 用例评审列表 -->
+        <div class="dialog-section">
+          <h4>用例评审列表</h4>
+          <el-table 
+            v-if="currentReviewTask.case_reviews && currentReviewTask.case_reviews.length > 0"
+            :data="currentReviewTask.case_reviews"
+            style="width: 100%"
+            row-key="id"
+            max-height="400"
+            :row-style="{ height: 'auto' }"
+            :cell-style="{ 'white-space': 'pre-wrap', 'word-break': 'break-word', 'line-height': '1.5' }"
+          >
+            <el-table-column
+              label="用例编号"
+              min-width="130"
+            >
+              <template #default="scope">
+                {{ scope.row.case_number || scope.row.test_case?.case_number || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column
+              label="用例名称"
+              min-width="140"
+            >
+              <template #default="scope">
+                {{ scope.row.case_name || scope.row.test_case?.case_name || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column
+              label="优先级"
+              width="90"
+            >
+              <template #default="scope">
+                <el-tag 
+                  :type="getPriorityTagType(scope.row.priority || scope.row.test_case?.priority || 'P3')"
+                  size="small"
+                >
+                  {{ scope.row.priority || scope.row.test_case?.priority || '-' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column
+              label="评审状态"
+              width="100"
+            >
+              <template #default="scope">
+                <el-tag 
+                  :type="getCaseReviewStatusTagType(scope.row.review_status)"
+                >
+                  {{ getCaseReviewStatusText(scope.row.review_status) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column
+              label="测试数据"
+              min-width="150"
+            >
+              <template #default="scope">
+                <div class="read-only-comments">
+                  {{ scope.row.test_case?.test_data || '-' }}
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              label="前置条件"
+              min-width="150"
+            >
+              <template #default="scope">
+                <div class="read-only-comments">
+                  {{ scope.row.test_case?.preconditions || '-' }}
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              label="测试步骤"
+              min-width="200"
+            >
+              <template #default="scope">
+                <div class="read-only-comments">
+                  {{ scope.row.test_case?.steps || '-' }}
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              label="预期结果"
+              min-width="150"
+            >
+              <template #default="scope">
+                <div class="read-only-comments">
+                  {{ scope.row.test_case?.expected_result || '-' }}
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              label="实际结果"
+              min-width="150"
+            >
+              <template #default="scope">
+                <div class="read-only-comments">
+                  {{ scope.row.test_case?.actual_result || '-' }}
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              label="评审意见"
+              min-width="200"
+            >
+              <template #default="scope">
+                <div class="read-only-comments">
+                  {{ scope.row.comments || '-' }}
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              label="评审时间"
+              width="150"
+            >
+              <template #default="scope">
+                {{ formatDate(scope.row.updated_at) || '-' }}
+              </template>
+            </el-table-column>
+          </el-table>
+          <div
+            v-else
+            class="no-data"
+          >
+            <p>暂无评审数据</p>
+          </div>
+        </div>
+        
+        <!-- 整体评审意见 -->
+        <div class="dialog-section">
+          <h4>整体评审意见</h4>
+          <div class="read-only-comments">
+            {{ currentReviewTask.overall_comments || '暂无整体评审意见' }}
+          </div>
+        </div>
+      </div>
+      <div
+        v-else
+        class="review-detail-content"
+      >
+        <p>正在加载评审详情...</p>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="reviewDialogVisible = false">关闭</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
     <!-- 隐藏的文件上传组件 -->
     <el-upload
       ref="uploadRef"
@@ -1600,8 +1816,11 @@
   </div>
 </template>
 
+
+
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, ElUpload, ElButton, ElLoading } from 'element-plus'
 import { Folder, Document, ArrowDown, ArrowUp, Download, Upload, DocumentCopy } from '@element-plus/icons-vue'
 import { getTestSuiteTree, getSuiteCases, createTestSuite, updateTestSuite, deleteTestSuite } from '@/api/testSuite'
@@ -1613,7 +1832,7 @@ import { useUserStore } from '@/stores/user'
 import { updateTestCase, createTestCase, deleteTestCase, batchDeleteTestCases } from '@/api/testCase'
 import { getTestSuiteDetail } from '@/api/testSuite'
 import { getProjects, getProjectIterations, getProjectVersionRequirements } from '@/api/project'
-import { initiateReview } from '@/api/reviewTask'
+import { initiateReview, getSuiteReviewStatus, getReviewTask, getCaseReviews } from '@/api/reviewTask'
 import { getUserList } from '@/api/user'
 
 // 树形组件相关
@@ -1820,7 +2039,15 @@ const updateCaseNumber = () => {
   // 确保数字部分是3位格式
   const formattedNumber = numberPart.toString().padStart(3, '0')
   
-  caseForm.case_number = `${caseNumberParts.part1}-${caseNumberParts.part2}-${caseNumberParts.part3}${formattedNumber}`
+  // 生成用例编号，确保格式正确
+  // 如果三个前缀都为空，使用默认格式
+  if (!caseNumberParts.part1 && !caseNumberParts.part2 && !caseNumberParts.part3) {
+    // 默认格式：CASE-001-001
+    caseForm.case_number = `CASE-001-${formattedNumber}`
+  } else {
+    // 正常格式：xxx-xxx-xxx001
+    caseForm.case_number = `${caseNumberParts.part1}-${caseNumberParts.part2}-${caseNumberParts.part3}${formattedNumber}`
+  }
 }
 
 // 处理数字输入框输入
@@ -1926,6 +2153,18 @@ const reviewFormRules = reactive({
 })
 // 评审人选项，从API获取
 const reviewerOptions = ref([])
+
+// 评审状态相关
+const userStore = useUserStore()
+const router = useRouter()
+const suiteReviewStatus = ref(null)
+const isLoadingReviewStatus = ref(false)
+const reviewButtonText = ref('发起评审')
+const reviewDialogVisible = ref(false)
+const reviewDialogTitle = ref('')
+const reviewDialogContent = ref('')
+const reviewDialogType = ref('detail') // detail: 详情页面, message: 提示消息
+const currentReviewTask = ref(null)
 
 // 获取评审人列表
 const loadReviewers = async () => {
@@ -2058,16 +2297,260 @@ const handleNodeCollapse = (data) => {
   }
 }
 
+// 获取用例集评审状态
+const getSuiteReviewStatusData = async (suiteId) => {
+  isLoadingReviewStatus.value = true
+  try {
+    const response = await getSuiteReviewStatus(suiteId)
+    suiteReviewStatus.value = response.data
+    updateReviewButtonText()
+  } catch (error) {
+    console.error('获取用例集评审状态失败:', error)
+    suiteReviewStatus.value = null
+    updateReviewButtonText()
+  } finally {
+    isLoadingReviewStatus.value = false
+  }
+}
+
+// 更新评审按钮文本
+const updateReviewButtonText = () => {
+  if (!selectedSuite.value || selectedSuite.value.type !== 'suite') {
+    reviewButtonText.value = '发起评审'
+    return
+  }
+  
+  // 获取评审状态和相关信息
+  const status = suiteReviewStatus.value?.current_status || 'not_submitted'
+  const reviewerId = suiteReviewStatus.value?.current_reviewer_id
+  const isCreator = userStore.userInfo && userStore.userInfo.id === selectedSuite.value.creator_id
+  const isReviewer = userStore.userInfo && userStore.userInfo.id === reviewerId
+  
+  // 根据用户角色和评审状态更新按钮文本
+  if (isCreator) {
+    // 作为评审发起人
+    if (status === 'not_submitted') {
+      reviewButtonText.value = '发起评审'
+    } else if (status === 'pending') {
+      reviewButtonText.value = '评审待处理'
+    } else if (status === 'in_review') {
+      reviewButtonText.value = '等待评审中'
+    } else if (status === 'approved' || status === 'completed') {
+      reviewButtonText.value = '查看评审'
+    } else if (status === 'rejected') {
+      reviewButtonText.value = '重新发起评审'
+    }
+  } else if (isReviewer) {
+    // 作为评审人
+    if (status === 'not_submitted') {
+      reviewButtonText.value = '暂未发起评审'
+    } else if (status === 'pending') {
+      reviewButtonText.value = '开始评审'
+    } else if (status === 'in_review') {
+      reviewButtonText.value = '继续评审'
+    } else if (status === 'approved' || status === 'completed' || status === 'rejected') {
+      reviewButtonText.value = '查看评审'
+    }
+  } else {
+    // 作为其他用户
+    if (status === 'not_submitted') {
+      reviewButtonText.value = '暂未发起评审'
+    } else if (status === 'pending') {
+      reviewButtonText.value = '评审待处理'
+    } else if (status === 'in_review') {
+      reviewButtonText.value = '等待评审中'
+    } else {
+      reviewButtonText.value = '查看评审'
+    }
+  }
+}
+
+// 获取评审详情数据
+// 辅助方法：格式化日期
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
+}
+
+// 辅助方法：获取评审任务状态标签类型
+const getStatusTagType = (status) => {
+  const typeMap = {
+    pending: 'warning',
+    in_review: 'primary',
+    completed: 'success',
+    rejected: 'danger',
+    not_submitted: 'info'
+  }
+  return typeMap[status] || 'info'
+}
+
+// 辅助方法：获取评审任务状态文本
+const getStatusText = (status) => {
+  const textMap = {
+    pending: '待评审',
+    in_review: '评审中',
+    completed: '已完成',
+    rejected: '已拒绝',
+    not_submitted: '未提交'
+  }
+  return textMap[status] || '未知状态'
+}
+
+// 辅助方法：获取优先级标签类型
+const getPriorityTagType = (priority) => {
+  const typeMap = {
+    P0: 'danger',
+    P1: 'danger',
+    P2: 'warning',
+    P3: 'info',
+    P4: 'success'
+  }
+  return typeMap[priority] || 'info'
+}
+
+// 辅助方法：获取用例评审状态标签类型
+const getCaseReviewStatusTagType = (status) => {
+  const typeMap = {
+    passed: 'success',
+    failed: 'danger',
+    pending: 'warning',
+    in_review: 'primary',
+    approved: 'success',
+    rejected: 'danger'
+  }
+  return typeMap[status] || 'info'
+}
+
+// 辅助方法：获取用例评审状态文本
+const getCaseReviewStatusText = (status) => {
+  const textMap = {
+    passed: '通过',
+    failed: '拒绝',
+    pending: '待评审',
+    in_review: '评审中',
+    approved: '通过',
+    rejected: '拒绝'
+  }
+  return textMap[status] || '未知状态'
+}
+
+const fetchReviewDetail = async (taskId) => {
+  try {
+    // 获取评审任务详情
+    const taskResponse = await getReviewTask(taskId)
+    currentReviewTask.value = taskResponse.data
+    
+    // 获取用例评审详情
+    const casesResponse = await getCaseReviews(taskId)
+    currentReviewTask.value.case_reviews = casesResponse.data.case_reviews || []
+  } catch (error) {
+    console.error('获取评审详情失败:', error)
+    ElMessage.error('获取评审详情失败')
+  }
+}
+
+// 处理评审按钮点击
+const handleReviewButtonClick = async () => {
+  if (!selectedSuite.value || selectedSuite.value.type !== 'suite') {
+    return
+  }
+  
+  // 获取评审状态和相关信息
+  const status = suiteReviewStatus.value?.current_status || 'not_submitted'
+  const reviewerId = suiteReviewStatus.value?.current_reviewer_id
+  const isCreator = userStore.userInfo && userStore.userInfo.id === selectedSuite.value.creator_id
+  const isReviewer = userStore.userInfo && userStore.userInfo.id === reviewerId
+  
+  if (isCreator) {
+    // 作为评审发起人
+    if (status === 'not_submitted') {
+      // 发起评审
+      showInitiateReviewDialog()
+    } else if (status === 'pending') {
+      // 显示悬浮提示信息
+      ElMessage.info('等待评审人处理...')
+    } else if (status === 'in_review') {
+      // 显示悬浮提示信息
+      ElMessage.info('等待评审人完成评审...')
+    } else if (status === 'approved' || status === 'completed' || status === 'rejected') {
+      // 跳转到我发起的评审标签页
+      router.push({ path: '/case-reviews', query: { activeTab: 'my-initiated' } })
+    }
+  } else if (isReviewer) {
+    // 作为评审人
+    if (status === 'not_submitted') {
+      // 显示悬浮提示信息
+      ElMessage.info('该用例集创建者暂未发起评审...')
+    } else if (status === 'pending') {
+      // 跳转到待我评审标签页
+      router.push({ path: '/case-reviews', query: { activeTab: 'my-tasks' } })
+    } else if (status === 'in_review') {
+      // 跳转到待我评审标签页
+      router.push({ path: '/case-reviews', query: { activeTab: 'my-tasks' } })
+    } else if (status === 'approved' || status === 'completed' || status === 'rejected') {
+      // 跳转到待我评审标签页
+      router.push({ path: '/case-reviews', query: { activeTab: 'my-tasks' } })
+    }
+  } else {
+    // 作为其他用户
+    if (status === 'not_submitted') {
+      // 显示悬浮提示信息
+      ElMessage.info('该用例集创建者暂未发起评审...')
+    } else if (status === 'pending') {
+      // 显示悬浮提示信息
+      ElMessage.info('等待评审人处理...')
+    } else if (status === 'in_review') {
+      // 显示悬浮提示信息
+      ElMessage.info('等待评审人完成评审...')
+    } else {
+      // 先获取最新的评审任务ID
+      const reviewStatusResponse = await getSuiteReviewStatus(selectedSuite.value.id)
+      
+      // 获取最新的评审任务
+      let latestTaskId = null
+      if (reviewStatusResponse.data.review_history && reviewStatusResponse.data.review_history.length > 0) {
+        // 从评审历史中获取最新的评审任务ID
+        latestTaskId = reviewStatusResponse.data.review_history[0].task_id
+      }
+      
+      if (latestTaskId) {
+        // 获取评审详情
+        await fetchReviewDetail(latestTaskId)
+        
+        // 显示评审详情页面
+        reviewDialogType.value = 'detail'
+        reviewDialogTitle.value = '评审详情'
+        reviewDialogVisible.value = true
+      } else {
+        // 如果没有找到评审任务，显示提示
+        ElMessage.error('未找到评审任务详情')
+      }
+    }
+  }
+}
+
 // 节点点击事件
 const handleNodeClick = (data) => {
   selectedSuite.value = data
   if (data.type === 'suite') {
     // 只有用例集才能加载测试用例
     loadTestCases(data.id)
+    // 获取用例集评审状态
+    getSuiteReviewStatusData(data.id)
   } else {
     // 文件夹清空测试用例列表
     testCases.value = []
     totalCases.value = 0
+    suiteReviewStatus.value = null
+    reviewButtonText.value = '发起评审'
   }
 }
 
@@ -2534,18 +3017,31 @@ const handleEditSuite = () => {
 // 删除套件
 const handleDeleteSuite = async () => {
   if (!selectedNode.value) return
-  ElMessageBox.confirm('确定要删除该测试套件吗？删除将包括所有子套件（文件夹和用例集）以及关联的所有用例数据，删除后将无法恢复。', '警告', {
+  
+  // 根据套件类型生成带套件名称的确认提示
+  let confirmMessage = ''
+  if (selectedNode.value.type === 'folder') {
+    // 文件夹删除提示，带套件名称
+    confirmMessage = `确定删除文件夹"${selectedNode.value.suite_name}"及其文件夹下所有内容吗？`
+  } else {
+    // 用例集删除提示，带套件名称
+    confirmMessage = `确定删除用例集"${selectedNode.value.suite_name}"吗？`
+  }
+  
+  ElMessageBox.confirm(confirmMessage, '警告', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
   }).then(async () => {
     try {
       await deleteTestSuite(selectedNode.value.id)
-      ElMessage.success('测试套件及其子套件和用例数据已删除')
+      ElMessage.success(selectedNode.value.type === 'folder' ? `文件夹"${selectedNode.value.suite_name}"及其文件夹下所有内容已成功删除` : `用例集"${selectedNode.value.suite_name}"已成功删除`)
       loadTreeData()
     } catch (error) {
       console.error('删除测试套件失败:', error)
-      ElMessage.error('删除测试套件失败')
+      // 根据后端返回的错误信息给出友好提示
+      const errorMsg = error.response?.data?.message || '删除测试套件失败'
+      ElMessage.error(errorMsg)
     } finally {
       closeContextMenu()
     }
@@ -2553,12 +3049,6 @@ const handleDeleteSuite = async () => {
     // 取消删除
     closeContextMenu()
   })
-}
-
-// 移动套件
-const handleMoveSuite = () => {
-  ElMessage.info('移动套件功能开发中')
-  closeContextMenu()
 }
 
 // 取消套件操作
@@ -2926,10 +3416,10 @@ const generateNextCaseNumber = async (suiteId) => {
     
     const cases = response.data.items
     if (cases.length === 0) {
-      // 没有用例，设置默认值
-      caseNumberParts.part1 = ''
-      caseNumberParts.part2 = ''
-      caseNumberParts.part3 = ''
+      // 没有用例，设置默认值，直接从001开始
+      caseNumberParts.part1 = 'Proj'
+      caseNumberParts.part2 = 'Iter'
+      caseNumberParts.part3 = 'Req'
       caseNumberParts.part4 = '001'
       updateCaseNumber()
       return

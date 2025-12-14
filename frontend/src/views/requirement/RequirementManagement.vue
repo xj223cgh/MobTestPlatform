@@ -7,16 +7,6 @@
           管理所属项目迭代的版本需求信息
         </p>
       </div>
-      <div class="header-actions">
-        <el-button
-          type="primary"
-          :loading="loading"
-          @click="handleCreateRequirement"
-        >
-          <el-icon><Plus /></el-icon>
-          创建需求
-        </el-button>
-      </div>
     </div>
 
     <!-- 搜索和筛选 -->
@@ -122,6 +112,16 @@
             重置
           </el-button>
         </el-form-item>
+        <el-form-item>
+          <el-button
+            type="primary"
+            :loading="loading"
+            @click="handleCreateRequirement"
+          >
+            <el-icon><Plus /></el-icon>
+            创建需求
+          </el-button>
+        </el-form-item>
       </el-form>
     </div>
 
@@ -205,13 +205,13 @@
           </template>
         </el-table-column>
         <el-table-column
-          prop="created_by_name"
-          label="创建者"
+          prop="assigned_to_name"
+          label="负责人"
           min-width="110"
           align="center"
         >
           <template #default="scope">
-            {{ scope.row.created_by_name || '未知用户' }}
+            {{ scope.row.assigned_to_name || scope.row.assigned_to || '-' }}
           </template>
         </el-table-column>
         <el-table-column
@@ -225,55 +225,13 @@
           </template>
         </el-table-column>
         <el-table-column
-          prop="start_date"
-          label="开始时间"
-          min-width="120"
-          align="center"
-        >
-          <template #default="scope">
-            {{ formatDateTime(scope.row.start_date) || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          prop="end_date"
-          label="结束时间"
-          min-width="120"
-          align="center"
-        >
-          <template #default="scope">
-            {{ formatDateTime(scope.row.end_date) || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column
           prop="estimated_hours"
           label="预估工时"
           min-width="90"
           align="center"
         >
           <template #default="scope">
-            {{ scope.row.estimated_hours || '-' }}h
-          </template>
-        </el-table-column>
-        <el-table-column
-          prop="actual_hours"
-          label="实际工时"
-          min-width="90"
-          align="center"
-        >
-          <template #default="scope">
-            {{ scope.row.actual_hours || '-' }}h
-          </template>
-        </el-table-column>
-        <el-table-column
-          prop="requirement_description"
-          label="需求描述"
-          min-width="200"
-          align="center"
-        >
-          <template #default="scope">
-            <div class="wrap-text">
-              {{ scope.row.requirement_description || '-' }}
-            </div>
+            {{ scope.row.estimated_hours ? `${scope.row.estimated_hours}h` : '-' }}
           </template>
         </el-table-column>
         <el-table-column
@@ -284,6 +242,13 @@
         >
           <template #default="scope">
             <div class="operation-buttons">
+              <el-button
+                type="primary"
+                size="small"
+                @click="handleViewRequirement(scope.row)"
+              >
+                查看
+              </el-button>
               <el-button
                 type="success"
                 size="small"
@@ -316,15 +281,313 @@
         @current-change="handleCurrentChange"
       />
     </div>
+
+    <!-- 创建/编辑需求对话框 -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="dialogTitle"
+      width="600px"
+      @close="resetForm"
+    >
+      <el-form
+        ref="requirementFormRef"
+        :model="requirementForm"
+        :rules="requirementRules"
+        label-width="100px"
+      >
+        <el-form-item
+          label="需求名称"
+          prop="requirement_name"
+          required
+        >
+          <el-input
+            v-model="requirementForm.requirement_name"
+            placeholder="请输入需求名称"
+          />
+        </el-form-item>
+        <el-form-item
+          label="需求描述"
+          prop="description"
+          required
+        >
+          <el-input
+            v-model="requirementForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入需求描述"
+          />
+        </el-form-item>
+        <el-form-item
+          label="所属项目"
+          prop="project_id"
+          required
+        >
+          <el-select
+            v-model="requirementForm.project_id"
+            placeholder="请选择所属项目"
+            style="width: 100%;"
+            clearable
+            @change="handleProjectChange"
+          >
+            <el-option
+              v-for="project in projectOptions"
+              :key="project.id"
+              :label="project.project_name"
+              :value="project.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item
+          label="所属迭代"
+          prop="iteration_id"
+        >
+          <el-select
+            v-model="requirementForm.iteration_id"
+            placeholder="请选择所属迭代"
+            style="width: 100%;"
+            clearable
+            :disabled="!requirementForm.project_id"
+          >
+            <el-option
+              v-for="iteration in filteredIterationOptions"
+              :key="iteration.id"
+              :label="iteration.iteration_name"
+              :value="iteration.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item
+          label="状态"
+          prop="status"
+          required
+        >
+          <el-select
+            v-model="requirementForm.status"
+            placeholder="请选择需求状态"
+          >
+            <el-option
+              label="新建"
+              value="new"
+            />
+            <el-option
+              label="进行中"
+              value="in_progress"
+            />
+            <el-option
+              label="已完成"
+              value="completed"
+            />
+            <el-option
+              label="已取消"
+              value="cancelled"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item
+          label="优先级"
+          prop="priority"
+          required
+        >
+          <el-select
+            v-model="requirementForm.priority"
+            placeholder="请选择优先级"
+          >
+            <el-option
+              label="P0"
+              value="P0"
+            />
+            <el-option
+              label="P1"
+              value="P1"
+            />
+            <el-option
+              label="P2"
+              value="P2"
+            />
+            <el-option
+              label="P3"
+              value="P3"
+            />
+            <el-option
+              label="P4"
+              value="P4"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item
+          label="环境"
+          prop="environment"
+          required
+        >
+          <el-select
+            v-model="requirementForm.environment"
+            placeholder="请选择环境"
+          >
+            <el-option
+              label="测试环境"
+              value="test"
+            />
+            <el-option
+              label="预发环境"
+              value="staging"
+            />
+            <el-option
+              label="正式环境"
+              value="production"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item
+          label="预估工时"
+          prop="estimated_hours"
+        >
+          <el-input-number
+            v-model="requirementForm.estimated_hours"
+            :min="0"
+            :step="0.5"
+            placeholder="请输入预估工时"
+            style="width: 200px;"
+          />
+        </el-form-item>
+        <el-form-item
+          label="分配给"
+          prop="assigned_to"
+          required
+        >
+          <el-select
+            v-model="requirementForm.assigned_to"
+            placeholder="请选择负责人"
+            style="width: 100%;"
+          >
+            <el-option
+              v-for="user in assigneeOptions"
+              :key="user.id"
+              :label="user.real_name || user.username"
+              :value="user.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item
+          label="开始时间"
+          prop="start_date"
+          required
+        >
+          <el-date-picker
+            v-model="requirementForm.start_date"
+            type="datetime"
+            placeholder="请选择开始时间"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item
+          label="结束时间"
+          prop="end_date"
+          required
+        >
+          <el-date-picker
+            v-model="requirementForm.end_date"
+            type="datetime"
+            placeholder="请选择结束时间"
+            style="width: 100%"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="dialogLoading"
+          @click="handleSaveRequirement"
+        >
+          保存
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 查看需求详情对话框 -->
+    <el-dialog
+      v-model="viewDialogVisible"
+      title="需求详情"
+      width="800px"
+    >
+      <div class="requirement-detail-view">
+        <el-descriptions
+          :column="2"
+          border
+          label-width="120px"
+        >
+          <el-descriptions-item label="需求名称">
+            {{ viewRequirement.requirement_name || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="状态">
+            <el-tag :type="getStatusType(viewRequirement.status)">
+              {{ getStatusText(viewRequirement.status) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="优先级">
+            <el-tag :type="getPriorityType(viewRequirement.priority)">
+              {{ getPriorityText(viewRequirement.priority) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="环境">
+            <el-tag :type="getEnvironmentType(viewRequirement.environment)">
+              {{ getEnvironmentText(viewRequirement.environment) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="所属项目">
+            {{ viewRequirement.project_name || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="所属迭代">
+            {{ viewRequirement.iteration_name || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="负责人">
+            {{ viewRequirement.assigned_to_name || viewRequirement.assigned_to || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="创建者">
+            {{ viewRequirement.created_by_name || viewRequirement.created_by || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="预估工时">
+            {{ viewRequirement.estimated_hours ? `${viewRequirement.estimated_hours}h` : '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="实际工时">
+            {{ viewRequirement.actual_hours ? `${viewRequirement.actual_hours}h` : '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="开始时间">
+            {{ formatDateTime(viewRequirement.start_date) || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="结束时间">
+            {{ formatDateTime(viewRequirement.end_date) || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="更新时间">
+            {{ formatDateTime(viewRequirement.updated_at) || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="创建时间">
+            {{ formatDateTime(viewRequirement.created_at) || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="需求描述" :span="2">
+            <div class="description-content">
+              {{ viewRequirement.requirement_description || '-' }}
+            </div>
+          </el-descriptions-item>
+        </el-descriptions>
+      </div>
+      <template #footer>
+        <el-button @click="viewDialogVisible = false">
+          关闭
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { formatDateTime } from '@/utils/helpers'
 import { Plus, Search, Refresh, Edit, Delete } from '@element-plus/icons-vue'
-import { getAllVersionRequirements, getProjects, getProjectIterations } from '@/api/project'
+import { getAllVersionRequirements, getProjects, getProjectIterations, createVersionRequirement, updateVersionRequirement, deleteVersionRequirement } from '@/api/project'
 import { getUserList } from '@/api/user'
 import dayjs from 'dayjs'
 
@@ -362,6 +625,77 @@ const pagination = reactive({
   pageSize: 10,
   total: 0
 })
+
+// 创建/编辑需求对话框
+const dialogVisible = ref(false)
+const dialogTitle = ref('')
+const dialogLoading = ref(false)
+const editingRequirementId = ref(null)
+
+// 查看需求详情对话框
+const viewDialogVisible = ref(false)
+const viewRequirement = ref({})
+
+// 表单引用
+const requirementFormRef = ref(null)
+
+// 表单数据
+const requirementForm = reactive({
+  requirement_name: '',
+  description: '',
+  status: 'new',
+  project_id: '',
+  iteration_id: '',
+  priority: 'P1',
+  environment: 'test',
+  estimated_hours: null,
+  actual_hours: null,
+  assigned_to: '',
+  start_date: '',
+  end_date: ''
+})
+
+// 筛选后的迭代选项
+const filteredIterationOptions = computed(() => {
+  if (!requirementForm.project_id) {
+    return []
+  }
+  return iterationOptions.value.filter(iteration => {
+    return iteration.project_id === requirementForm.project_id
+  })
+})
+
+// 表单验证规则
+const requirementRules = {
+  requirement_name: [
+    { required: true, message: '请输入需求名称', trigger: 'blur' },
+    { min: 1, max: 200, message: '需求名称长度在 1 到 200 个字符', trigger: 'blur' }
+  ],
+  description: [
+    { required: true, message: '请输入需求描述', trigger: 'blur' }
+  ],
+  project_id: [
+    { required: true, message: '请选择所属项目', trigger: 'change' }
+  ],
+  status: [
+    { required: true, message: '请选择需求状态', trigger: 'change' }
+  ],
+  priority: [
+    { required: true, message: '请选择优先级', trigger: 'change' }
+  ],
+  environment: [
+    { required: true, message: '请选择环境', trigger: 'change' }
+  ],
+  assigned_to: [
+    { required: true, message: '请选择负责人', trigger: 'change' }
+  ],
+  start_date: [
+    { required: true, message: '请选择开始时间', trigger: 'change' }
+  ],
+  end_date: [
+    { required: true, message: '请选择结束时间', trigger: 'change' }
+  ]
+}
 
 // 获取需求列表
 const getRequirementList = async () => {
@@ -936,16 +1270,115 @@ const handleCurrentChange = (current) => {
   getRequirementList()
 }
 
+// 重置表单
+const resetForm = () => {
+  if (requirementFormRef.value) {
+    requirementFormRef.value.resetFields()
+  }
+  editingRequirementId.value = null
+  Object.assign(requirementForm, {
+    requirement_name: '',
+    description: '',
+    status: 'new',
+    project_id: '',
+    iteration_id: '',
+    priority: 'P1',
+    environment: 'test',
+    estimated_hours: null,
+    actual_hours: null,
+    assigned_to: '',
+    start_date: '',
+    end_date: ''
+  })
+}
+
+// 项目选择变化处理函数
+const handleProjectChange = () => {
+  // 清空迭代选择
+  requirementForm.iteration_id = ''
+}
+
 // 创建需求
 const handleCreateRequirement = () => {
-  // 跳转到创建需求页面
-  ElMessage.info('创建需求功能待实现')
+  dialogTitle.value = '创建需求'
+  resetForm()
+  dialogVisible.value = true
 }
 
 // 编辑需求
 const handleEditRequirement = (row) => {
-  // 跳转到编辑需求页面
-  ElMessage.info(`编辑需求: ${row.requirement_name}`)
+  dialogTitle.value = '编辑需求'
+  editingRequirementId.value = row.id
+  
+  // 设置表单数据
+  Object.assign(requirementForm, {
+    requirement_name: row.requirement_name || '',
+    description: row.requirement_description || '',
+    status: row.status || 'new',
+    project_id: row.project_id || '',
+    iteration_id: row.iteration_id || '',
+    priority: row.priority || 'P1',
+    environment: row.environment || 'test',
+    estimated_hours: row.estimated_hours || null,
+    actual_hours: row.actual_hours || null,
+    assigned_to: row.assigned_to || '',
+    start_date: row.start_date || '',
+    end_date: row.end_date || ''
+  })
+  dialogVisible.value = true
+}
+
+// 查看需求详情
+const handleViewRequirement = (row) => {
+  // 设置查看需求数据
+  viewRequirement.value = { ...row }
+  // 显示查看对话框
+  viewDialogVisible.value = true
+}
+
+// 保存需求
+const handleSaveRequirement = async () => {
+  if (!requirementFormRef.value) return
+  
+  await requirementFormRef.value.validate()
+  
+  // 构建保存数据
+  const saveData = {
+    requirement_name: requirementForm.requirement_name,
+    description: requirementForm.description,
+    status: requirementForm.status,
+    project_id: requirementForm.project_id,
+    iteration_id: requirementForm.iteration_id || null,
+    priority: requirementForm.priority,
+    environment: requirementForm.environment,
+    estimated_hours: requirementForm.estimated_hours,
+    actual_hours: requirementForm.actual_hours,
+    assigned_to: requirementForm.assigned_to || null,
+    start_date: requirementForm.start_date,
+    end_date: requirementForm.end_date
+  }
+  
+  dialogLoading.value = true
+  try {
+    let response
+    if (editingRequirementId.value) {
+      // 编辑需求
+      response = await updateVersionRequirement(requirementForm.project_id, editingRequirementId.value, saveData)
+      ElMessage.success('需求更新成功')
+    } else {
+      // 创建需求
+      response = await createVersionRequirement(requirementForm.project_id, saveData)
+      ElMessage.success('需求创建成功')
+    }
+    
+    dialogVisible.value = false
+    getRequirementList() // 重新获取需求列表
+  } catch (error) {
+    console.error('保存需求失败:', error)
+    ElMessage.error(editingRequirementId.value ? '需求更新失败' : '需求创建失败')
+  } finally {
+    dialogLoading.value = false
+  }
 }
 
 // 删除需求
@@ -957,6 +1390,7 @@ const handleDeleteRequirement = (row) => {
   }).then(async () => {
     try {
       // 调用删除需求API
+      await deleteVersionRequirement(row.project_id, row.id)
       ElMessage.success('需求删除成功')
       getRequirementList()
     } catch (error) {
@@ -1019,6 +1453,29 @@ onMounted(async () => {
   border-radius: 8px;
   margin-bottom: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.search-section :deep(.el-form) {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.search-section :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+.search-section :deep(.el-form-item:last-child) {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.search-section :deep(.el-form-item) {
+  margin-right: 10px;
+}
+
+.search-section :deep(.el-form-item:last-child) {
+  margin-right: 20px;
 }
 
 .table-section {
@@ -1105,5 +1562,34 @@ onMounted(async () => {
 
 :deep(.el-select-dropdown__wrap::-webkit-scrollbar-thumb:hover) {
   background-color: rgba(0, 0, 0, 0.2);
+}
+
+/* 查看需求详情样式 */
+.requirement-detail-view {
+  padding: 20px 0;
+}
+
+.description-content {
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.6;
+  padding: 10px;
+  min-height: 100px;
+}
+
+/* 描述项样式优化 */
+:deep(.el-descriptions__cell) {
+  vertical-align: top;
+}
+
+:deep(.el-descriptions__label) {
+  font-weight: 500;
+  background-color: #f5f7fa;
+  text-align: center;
+}
+
+/* 标签样式优化 */
+:deep(.el-descriptions .el-tag) {
+  margin-right: 0;
 }
 </style>

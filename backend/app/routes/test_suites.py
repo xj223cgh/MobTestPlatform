@@ -322,22 +322,46 @@ def sync_reviewer_to_cases(suite_id):
 @bp.route('/<int:suite_id>', methods=['DELETE'])
 @login_required
 def delete_test_suite(suite_id):
-    """删除测试套件"""
+    """删除测试套件，包括所有子套件和关联数据"""
     try:
+        from app.models.models import TestSuiteReviewHistory, TestCaseReviewHistory
+        
+        # 递归删除函数
+        def recursive_delete(suite_obj):
+            # 1. 删除子套件（递归）
+            for child in suite_obj.children:
+                recursive_delete(child)
+            
+            # 2. 删除关联的评审任务及其详情（先删除，避免测试用例删除后外键问题）
+            if hasattr(suite_obj, 'review_tasks'):
+                for review_task in suite_obj.review_tasks:
+                    # 删除评审任务详情
+                    for case_review in review_task.case_reviews:
+                        db.session.delete(case_review)
+                    # 删除评审任务
+                    db.session.delete(review_task)
+            
+            # 3. 删除关联的测试用例
+            for test_case in suite_obj.test_cases:
+                db.session.delete(test_case)
+            
+            # 4. 更新关联的评审历史记录（设置suite_id为NULL）
+            review_histories = TestSuiteReviewHistory.query.filter_by(suite_id=suite_obj.id).all()
+            for history in review_histories:
+                history.suite_id = None
+            
+            # 5. 删除套件本身
+            db.session.delete(suite_obj)
+        
+        # 获取要删除的套件
         suite = TestSuite.query.get_or_404(suite_id)
         
-        # 检查是否有子套件
-        if suite.children.count() > 0:
-            return error_response(400, '该套件包含子套件，无法删除')
+        # 执行递归删除
+        recursive_delete(suite)
         
-        # 检查是否有测试用例
-        if suite.test_cases.count() > 0:
-            return error_response(400, '该套件包含测试用例，无法删除')
-        
-        db.session.delete(suite)
         db.session.commit()
         
-        return success_response({'message': '测试套件已成功删除'})
+        return success_response({'message': '测试套件及其关联数据已成功删除'})
     except Exception as e:
         db.session.rollback()
         return error_response(500, f'删除测试套件失败: {str(e)}')

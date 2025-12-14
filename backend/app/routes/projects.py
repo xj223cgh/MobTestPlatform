@@ -18,25 +18,31 @@ def create_project():
         data = request.get_json()
         
         # 验证必要字段
-        required_fields = ['project_name', 'description', 'start_date', 'end_date']
+        required_fields = ['project_name', 'description', 'start_date', 'end_date', 'owner_id']
         for field in required_fields:
             if field not in data:
-                return jsonify({'error': f'缺少必要字段: {field}'}), 400
+                return jsonify({'code': 400, 'message': f'缺少必要字段: {field}'}), 400
+        
+        # 验证项目负责人是否存在
+        owner = User.query.get(data['owner_id'])
+        if not owner:
+            return jsonify({'code': 400, 'message': '项目负责人不存在'}), 400
         
         # 验证项目描述字数限制
         if len(data['description']) > 100:
-            return jsonify({'error': '项目描述不能超过100个字符'}), 400
+            return jsonify({'code': 400, 'message': '项目描述不能超过100个字符'}), 400
         
         # 验证日期格式
         try:
-            start_date = datetime.strptime(data['start_date'], '%Y-%m-%d')
-            end_date = datetime.strptime(data['end_date'], '%Y-%m-%d')
+            # 支持多种日期格式，包括YYYY-MM-DD和YYYY-MM-DD HH:MM:SS
+            start_date = datetime.fromisoformat(data['start_date'].replace('Z', '+00:00'))
+            end_date = datetime.fromisoformat(data['end_date'].replace('Z', '+00:00'))
         except ValueError:
-            return jsonify({'error': '日期格式错误，请使用YYYY-MM-DD格式'}), 400
+            return jsonify({'code': 400, 'message': '日期格式错误，请使用有效的日期格式'}), 400
         
         # 验证日期逻辑
         if start_date > end_date:
-            return jsonify({'error': '开始日期不能晚于结束日期'}), 400
+            return jsonify({'code': 400, 'message': '开始日期不能晚于结束日期'}), 400
         
         # 处理标签字段
         import json
@@ -53,8 +59,8 @@ def create_project():
             priority=data.get('priority', 'medium'),
             doc_url=data.get('doc_url'),
             pipeline_url=data.get('pipeline_url'),
-            owner_id=current_user.id,
-            creator_id=current_user.id
+            owner_id=data['owner_id'],  # 使用前端传递的项目负责人ID
+            creator_id=current_user.id  # 始终使用当前登录用户作为创建人
         )
         db.session.add(new_project)
         db.session.flush()  # 获取项目ID
@@ -88,10 +94,10 @@ def create_project():
                             db.session.add(project_member)
         
         db.session.commit()
-        return jsonify({'message': '项目创建成功', 'project': new_project.to_dict()}), 201
+        return jsonify({'code': 200, 'message': '项目创建成功', 'data': new_project.to_dict()}), 201
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': f'创建项目失败: {str(e)}'}), 500
+        return jsonify({'code': 500, 'message': f'创建项目失败: {str(e)}'}), 500
 
 @bp.route('/', methods=['GET'])
 @login_required
@@ -166,19 +172,13 @@ def get_project(project_id):
 def update_project(project_id):
     """更新项目信息"""
     try:
-        # 检查用户是否有权限更新该项目
-        project_member = ProjectMember.query.filter_by(
-            project_id=project_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not project_member or project_member.role not in ['owner', 'manager']:
-            return jsonify({'error': '无权更新该项目'}), 403
+        # 移除权限限制，允许所有登录用户更新项目
+        # 注意：这是根据用户要求移除权限限制，实际生产环境应该保留权限检查
         
         # 获取项目
         project = Project.query.get(project_id)
         if not project:
-            return jsonify({'error': '项目不存在'}), 404
+            return jsonify({'code': 404, 'message': '项目不存在'}), 404
         
         # 更新项目信息
         data = request.get_json()
@@ -187,25 +187,34 @@ def update_project(project_id):
         if 'description' in data:
             # 验证项目描述字数限制
             if len(data['description']) > 100:
-                return jsonify({'error': '项目描述不能超过100个字符'}), 400
+                return jsonify({'code': 400, 'message': '项目描述不能超过100个字符'}), 400
             project.description = data['description']
         if 'status' in data:
             project.status = data['status']
         if 'start_date' in data:
             try:
-                project.start_date = datetime.strptime(data['start_date'], '%Y-%m-%d')
+                # 支持多种日期格式，包括ISO格式
+                project.start_date = datetime.fromisoformat(data['start_date'].replace('Z', '+00:00'))
             except ValueError:
-                return jsonify({'error': '开始日期格式错误，请使用YYYY-MM-DD格式'}), 400
+                return jsonify({'code': 400, 'message': '开始日期格式错误，请使用有效的日期格式'}), 400
         if 'end_date' in data:
             try:
-                project.end_date = datetime.strptime(data['end_date'], '%Y-%m-%d')
+                # 支持多种日期格式，包括ISO格式
+                project.end_date = datetime.fromisoformat(data['end_date'].replace('Z', '+00:00'))
             except ValueError:
-                return jsonify({'error': '结束日期格式错误，请使用YYYY-MM-DD格式'}), 400
+                return jsonify({'code': 400, 'message': '结束日期格式错误，请使用有效的日期格式'}), 400
         if 'tags' in data:
             import json
             project.tags = json.dumps(data['tags']) if data['tags'] else None
         if 'priority' in data:
             project.priority = data['priority']
+        if 'owner_id' in data:
+            # 验证项目负责人是否存在
+            owner = User.query.get(data['owner_id'])
+            if owner:
+                project.owner_id = data['owner_id']
+            else:
+                return jsonify({'error': '项目负责人不存在'}), 400
         if 'doc_url' in data:
             project.doc_url = data['doc_url']
         if 'pipeline_url' in data:
@@ -219,13 +228,51 @@ def update_project(project_id):
             if new_creator:
                 project.creator_id = data['creator_id']
             else:
-                return jsonify({'error': '新创建者必须是项目成员'}), 400
+                return jsonify({'code': 400, 'message': '新创建者必须是项目成员'}), 400
+        
+        # 更新项目成员
+        if 'members' in data:
+            # 获取当前项目负责人ID，确保不能被删除
+            current_owner_id = project.owner_id
+            
+            # 先获取当前所有项目成员
+            current_members = ProjectMember.query.filter_by(project_id=project_id).all()
+            current_member_ids = {member.user_id: member for member in current_members}
+            
+            # 处理新的成员列表
+            for member in data['members']:
+                user_id = member.get('user_id')
+                role = member.get('role')
+                
+                if user_id and role:
+                    # 检查用户是否存在
+                    user = User.query.get(user_id)
+                    if user:
+                        # 如果用户已经是项目成员，更新角色
+                        if user_id in current_member_ids:
+                            current_member = current_member_ids[user_id]
+                            current_member.role = role
+                            del current_member_ids[user_id]  # 标记为已处理
+                        else:
+                            # 添加新成员
+                            project_member = ProjectMember(
+                                project_id=project_id,
+                                user_id=user_id,
+                                role=role
+                            )
+                            db.session.add(project_member)
+            
+            # 删除不再存在的成员，但保留项目负责人
+            for member in current_member_ids.values():
+                # 不能删除项目负责人（无论角色是什么）
+                if member.user_id != current_owner_id:
+                    db.session.delete(member)
         
         db.session.commit()
-        return jsonify({'message': '项目更新成功', 'project': project.to_dict()}), 200
+        return jsonify({'code': 200, 'message': '项目更新成功', 'data': project.to_dict()}), 200
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': f'更新项目失败: {str(e)}'}), 500
+        return jsonify({'code': 500, 'message': f'更新项目失败: {str(e)}'}), 500
 
 @bp.route('/<int:project_id>/members', methods=['GET'])
 @login_required
@@ -317,14 +364,8 @@ def add_project_member(project_id):
 def remove_project_member(project_id, member_id):
     """移除项目成员"""
     try:
-        # 检查用户是否有权限移除成员
-        project_member = ProjectMember.query.filter_by(
-            project_id=project_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not project_member or project_member.role not in ['owner', 'manager']:
-            return jsonify({'error': '无权移除项目成员'}), 403
+        # 移除权限限制，允许所有登录用户移除成员
+        # 注意：这是根据用户要求移除权限限制，实际生产环境应该保留权限检查
         
         # 获取要移除的成员
         member_to_remove = ProjectMember.query.filter_by(
@@ -333,20 +374,25 @@ def remove_project_member(project_id, member_id):
         ).first()
         
         if not member_to_remove:
-            return jsonify({'error': '成员不存在或不属于该项目'}), 404
+            return jsonify({'code': 404, 'message': '成员不存在或不属于该项目'}), 404
         
-        # 不能移除项目所有者
-        if member_to_remove.role == 'owner':
-            return jsonify({'error': '不能移除项目所有者'}), 403
+        # 获取项目信息，检查成员是否是项目负责人
+        project = Project.query.get(project_id)
+        if not project:
+            return jsonify({'code': 404, 'message': '项目不存在'}), 404
+        
+        # 不能移除项目负责人
+        if member_to_remove.user_id == project.owner_id:
+            return jsonify({'code': 403, 'message': '不能移除项目负责人'}), 403
         
         # 移除成员
         db.session.delete(member_to_remove)
         db.session.commit()
         
-        return jsonify({'message': '成员移除成功'}), 200
+        return jsonify({'code': 200, 'message': '成员移除成功'}), 200
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': f'移除项目成员失败: {str(e)}'}), 500
+        return jsonify({'code': 500, 'message': f'移除项目成员失败: {str(e)}'}), 500
 
 # 版本需求相关路由
 
@@ -408,7 +454,7 @@ def create_project_version_requirement(project_id):
         ).first()
         
         if not project_member or project_member.role not in ['owner', 'manager']:
-            return jsonify({'error': '无权创建版本需求'}), 403
+            return jsonify({'code': 403, 'message': '无权创建版本需求'}), 403
         
         # 获取请求数据
         data = request.get_json()
@@ -417,7 +463,7 @@ def create_project_version_requirement(project_id):
         required_fields = ['requirement_name', 'description']
         for field in required_fields:
             if field not in data:
-                return jsonify({'error': f'缺少必要字段: {field}'}), 400
+                return jsonify({'code': 400, 'message': f'缺少必要字段: {field}'}), 400
         
         # 创建版本需求
         new_requirement = VersionRequirement(
@@ -426,20 +472,33 @@ def create_project_version_requirement(project_id):
             status=data.get('status', 'new'),
             project_id=project_id,
             iteration_id=data.get('iteration_id'),
-            priority=data.get('priority', 'medium'),
+            priority=data.get('priority', 'P1'),
             environment=data.get('environment', 'test'),
             estimated_hours=data.get('estimated_hours'),
             actual_hours=data.get('actual_hours'),
             created_by=current_user.id,
             assigned_to=data.get('assigned_to')
         )
+        
+        # 处理开始时间和结束时间
+        if 'start_date' in data and data['start_date']:
+            try:
+                new_requirement.start_date = datetime.fromisoformat(data['start_date'].replace('Z', '+00:00'))
+            except ValueError:
+                return jsonify({'code': 400, 'message': '开始日期格式错误，请使用有效的日期格式'}), 400
+        
+        if 'end_date' in data and data['end_date']:
+            try:
+                new_requirement.end_date = datetime.fromisoformat(data['end_date'].replace('Z', '+00:00'))
+            except ValueError:
+                return jsonify({'code': 400, 'message': '结束日期格式错误，请使用有效的日期格式'}), 400
         db.session.add(new_requirement)
         db.session.commit()
         
-        return jsonify({'message': '版本需求创建成功', 'requirement': new_requirement.to_dict()}), 201
+        return jsonify({'code': 200, 'message': '版本需求创建成功', 'data': new_requirement.to_dict()}), 201
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': f'创建版本需求失败: {str(e)}'}), 500
+        return jsonify({'code': 500, 'message': f'创建版本需求失败: {str(e)}'}), 500
 
 @bp.route('/<int:project_id>/version-requirements/<int:requirement_id>', methods=['PUT'])
 @login_required
@@ -453,7 +512,7 @@ def update_project_version_requirement(project_id, requirement_id):
         ).first()
         
         if not project_member or project_member.role not in ['owner', 'manager']:
-            return jsonify({'error': '无权更新版本需求'}), 403
+            return jsonify({'code': 403, 'message': '无权更新版本需求'}), 403
         
         # 获取需求
         requirement = VersionRequirement.query.filter_by(
@@ -462,15 +521,15 @@ def update_project_version_requirement(project_id, requirement_id):
         ).first()
         
         if not requirement:
-            return jsonify({'error': '版本需求不存在或不属于该项目'}), 404
+            return jsonify({'code': 404, 'message': '版本需求不存在或不属于该项目'}), 404
         
         # 更新需求信息
         data = request.get_json()
         
         if 'requirement_name' in data:
             requirement.requirement_name = data['requirement_name']
-        if 'requirement_description' in data:
-            requirement.requirement_description = data['requirement_description']
+        if 'description' in data:
+            requirement.requirement_description = data['description']
         if 'status' in data:
             requirement.status = data['status']
         if 'iteration_id' in data:
@@ -485,15 +544,28 @@ def update_project_version_requirement(project_id, requirement_id):
             requirement.actual_hours = data['actual_hours']
         if 'assigned_to' in data:
             requirement.assigned_to = data['assigned_to']
+        if 'start_date' in data:
+            try:
+                requirement.start_date = datetime.fromisoformat(data['start_date'].replace('Z', '+00:00'))
+            except ValueError:
+                return jsonify({'code': 400, 'message': '开始日期格式错误，请使用有效的日期格式'}), 400
+        if 'end_date' in data:
+            try:
+                requirement.end_date = datetime.fromisoformat(data['end_date'].replace('Z', '+00:00'))
+            except ValueError:
+                return jsonify({'code': 400, 'message': '结束日期格式错误，请使用有效的日期格式'}), 400
         if 'completed_at' in data and data['completed_at']:
-            requirement.completed_at = datetime.strptime(data['completed_at'], '%Y-%m-%d %H:%M:%S')
+            try:
+                requirement.completed_at = datetime.fromisoformat(data['completed_at'].replace('Z', '+00:00'))
+            except ValueError:
+                return jsonify({'code': 400, 'message': '完成日期格式错误，请使用有效的日期格式'}), 400
         
         db.session.commit()
         
-        return jsonify({'message': '版本需求更新成功', 'requirement': requirement.to_dict()}), 200
+        return jsonify({'code': 200, 'message': '版本需求更新成功', 'data': requirement.to_dict()}), 200
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': f'更新版本需求失败: {str(e)}'}), 500
+        return jsonify({'code': 500, 'message': f'更新版本需求失败: {str(e)}'}), 500
 
 @bp.route('/<int:project_id>/version-requirements/<int:requirement_id>', methods=['DELETE'])
 @login_required
@@ -507,7 +579,7 @@ def delete_project_version_requirement(project_id, requirement_id):
         ).first()
         
         if not project_member or project_member.role not in ['owner', 'manager']:
-            return jsonify({'error': '无权删除版本需求'}), 403
+            return jsonify({'code': 403, 'message': '无权删除版本需求'}), 403
         
         # 获取要删除的需求
         requirement_to_delete = VersionRequirement.query.filter_by(
@@ -516,16 +588,16 @@ def delete_project_version_requirement(project_id, requirement_id):
         ).first()
         
         if not requirement_to_delete:
-            return jsonify({'error': '版本需求不存在或不属于该项目'}), 404
+            return jsonify({'code': 404, 'message': '版本需求不存在或不属于该项目'}), 404
         
         # 删除需求
         db.session.delete(requirement_to_delete)
         db.session.commit()
         
-        return jsonify({'message': '版本需求删除成功'}), 200
+        return jsonify({'code': 200, 'message': '版本需求删除成功'}), 200
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': f'删除版本需求失败: {str(e)}'}), 500
+        return jsonify({'code': 500, 'message': f'删除版本需求失败: {str(e)}'}), 500
 
 @bp.route('/<int:project_id>/iterations', methods=['GET'])
 @login_required

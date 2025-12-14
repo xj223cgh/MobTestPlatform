@@ -80,3 +80,36 @@ export const reinitiateReview = (taskId) => {
     method: 'post'
   })
 }
+
+// 打回评审
+export const rejectReview = (taskId, data) => {
+  return request({
+    url: `/review-tasks/${taskId}/reject-review`,
+    method: 'post',
+    data
+  })
+}
+
+// 重新评审
+export const restartReview = (taskId) => {
+  return request({
+    url: `/review-tasks/${taskId}/restart-review`,
+    method: 'post'
+  })
+}
+
+// 获取评审历史记录列表
+export const getReviewHistoryList = (taskId) => {
+  return request({
+    url: `/review-tasks/${taskId}/review-history`,
+    method: 'get'
+  })
+}
+
+// 获取评审历史详情
+export const getReviewHistoryDetail = (historyId) => {
+  return request({
+    url: `/review-tasks/review-history/${historyId}`,
+    method: 'get'
+  })
+}

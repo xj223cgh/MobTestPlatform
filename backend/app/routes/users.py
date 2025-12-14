@@ -209,7 +209,7 @@ def delete_user(user_id):
         from app.models.models import (
             Project, ProjectMember, VersionRequirement, Iteration,
             TestSuite, TestCase, TestTask, Bug, Tool, TestCaseExecution,
-            TestExecution, Device
+            Device
         )
         
         # 1. 将与该用户相关的所有项目成员记录的user_id设置为NULL
@@ -252,8 +252,7 @@ def delete_user(user_id):
         # 测试用例执行表
         TestCaseExecution.query.filter_by(executor_id=user_id).update({'executor_id': None}, synchronize_session=False)
         
-        # 测试执行表
-        TestExecution.query.filter_by(executor_id=user_id).update({'executor_id': None}, synchronize_session=False)
+        # 测试执行表已删除，无需处理
         
         # 设备表
         Device.query.filter_by(owner_id=user_id).update({'owner_id': None}, synchronize_session=False)
