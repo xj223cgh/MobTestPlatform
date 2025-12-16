@@ -63,6 +63,12 @@ const routes = [
           meta: { title: '迭代管理', icon: 'Calendar' }
         },
         {
+          path: 'iterations/:id',
+          name: 'IterationDetail',
+          component: () => import('@/views/project/IterationDetail.vue'),
+          meta: { title: '迭代详情', icon: 'Calendar', hidden: true }
+        },
+        {
           path: 'requirements',
           name: 'Requirements',
           component: () => import('@/views/requirement/RequirementManagement.vue'),

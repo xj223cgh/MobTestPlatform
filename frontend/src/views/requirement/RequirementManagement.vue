@@ -566,7 +566,10 @@
           <el-descriptions-item label="创建时间">
             {{ formatDateTime(viewRequirement.created_at) || '-' }}
           </el-descriptions-item>
-          <el-descriptions-item label="需求描述" :span="2">
+          <el-descriptions-item
+            label="需求描述"
+            :span="2"
+          >
             <div class="description-content">
               {{ viewRequirement.requirement_description || '-' }}
             </div>

@@ -3,13 +3,10 @@
     <div class="page-header">
       <div class="header-content">
         <h1>测试用例管理</h1>
-        <p class="description">
-          管理和执行测试用例
-        </p>
       </div>
       <div class="header-actions">
         <el-button
-          v-if="!showSelection"
+          v-if="!showSelection && viewMode === 'list'"
           type="danger"
           icon="Delete"
           @click="toggleSelectionMode"
@@ -17,7 +14,7 @@
           选中删除
         </el-button>
         <el-button
-          v-else
+          v-else-if="viewMode === 'list'"
           type="danger"
           icon="Delete"
           @click="handleDeleteSelection"
@@ -25,11 +22,23 @@
           点击删除
         </el-button>
         <el-button
-          v-if="showSelection"
+          v-if="showSelection && viewMode === 'list'"
           @click="cancelSelectionMode"
         >
           取消
         </el-button>
+        
+        <!-- 脑图视图切换按钮 -->
+        <el-button
+          type="success"
+          icon="View"
+          style="margin-right: 10px;"
+          @click="toggleViewMode"
+        >
+          {{ viewMode === 'list' ? '脑图视图' : '列表视图' }}
+        </el-button>
+        
+        <!-- 新增用例按钮 -->
         <el-button
           type="primary"
           icon="Plus"
@@ -37,13 +46,7 @@
         >
           新增用例
         </el-button>
-        <el-button
-          type="success"
-          icon="View"
-          @click="toggleViewMode"
-        >
-          {{ viewMode === 'list' ? '脑图视图' : '列表视图' }}
-        </el-button>
+        
         <!-- 评审按钮 -->
         <el-button
           v-if="selectedSuite && selectedSuite.type === 'suite'"
@@ -53,6 +56,7 @@
         >
           {{ reviewButtonText }}
         </el-button>
+        
         <!-- 导入/导出用例按钮 -->
         <el-button
           type="primary"
@@ -561,13 +565,21 @@
           </div>
         </div>
 
-        <!-- 脑图视图（暂不实现） -->
+        <!-- 脑图视图（缺省页面） -->
         <div
           v-else
           class="mindmap-view"
         >
-          <el-empty description="脑图视图功能暂未实现" />
+          <div class="mindmap-default-page">
+            <el-empty
+              description="脑图功能正在开发中，敬请期待"
+              :image-size="200"
+            >
+              <el-button type="primary" @click="toggleViewMode">返回列表视图</el-button>
+            </el-empty>
+          </div>
         </div>
+
       </div>
     </div>
 
@@ -4857,12 +4869,12 @@ const handleCurrentChange = (page) => {
   
   .header-content {
     h1 {
-      margin: 0 0 8px 0;
+      margin: 0 0 2px 0;
       font-size: 24px;
       font-weight: 600;
       color: #303133;
     }
-    
+    // 描述删掉了
     .description {
       margin: 0;
       color: #909399;
@@ -5126,14 +5138,6 @@ const handleCurrentChange = (page) => {
     .table-wrapper :deep(.el-table__body-wrapper) {
       overflow: auto;
     }
-    
-    .mindmap-view {
-      flex: 1;
-      padding: 40px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
   }
 }
 
@@ -5282,5 +5286,24 @@ const handleCurrentChange = (page) => {
   font-size: 12px;
   color: #909399;
   line-height: 1.5;
+}
+
+/* 脑图缺省页面样式 */
+.mindmap-view {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #f5f7fa;
+}
+
+.mindmap-default-page {
+  width: 100%;
+  max-width: 600px;
+  text-align: center;
+  padding: 40px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 </style>

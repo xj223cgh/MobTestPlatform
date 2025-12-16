@@ -6,7 +6,7 @@ import json
 
 bp = Blueprint('iterations', __name__)
 
-@bp.route('/api/projects/<int:project_id>/iterations', methods=['POST'])
+@bp.route('/projects/<int:project_id>/iterations', methods=['POST'])
 @login_required
 def create_iteration(project_id):
     """创建迭代"""
@@ -72,7 +72,7 @@ def create_iteration(project_id):
         db.session.rollback()
         return jsonify({'error': f'创建迭代失败: {str(e)}'}), 500
 
-@bp.route('/api/projects/<int:project_id>/iterations', methods=['GET'])
+@bp.route('/projects/<int:project_id>/iterations', methods=['GET'])
 @login_required
 def get_iterations(project_id):
     """获取项目的迭代列表"""
@@ -103,7 +103,7 @@ def get_iterations(project_id):
     except Exception as e:
         return jsonify({'error': f'获取迭代列表失败: {str(e)}'}), 500
 
-@bp.route('/api/iterations/<int:iteration_id>', methods=['GET'])
+@bp.route('/<int:iteration_id>', methods=['GET'])
 @login_required
 def get_iteration(iteration_id):
     """获取迭代详情"""
@@ -130,7 +130,7 @@ def get_iteration(iteration_id):
     except Exception as e:
         return jsonify({'error': f'获取迭代详情失败: {str(e)}'}), 500
 
-@bp.route('/api/iterations/<int:iteration_id>', methods=['PUT'])
+@bp.route('/<int:iteration_id>', methods=['PUT'])
 @login_required
 def update_iteration(iteration_id):
     """更新迭代信息"""
@@ -182,7 +182,7 @@ def update_iteration(iteration_id):
         db.session.rollback()
         return jsonify({'error': f'更新迭代失败: {str(e)}'}), 500
 
-@bp.route('/api/iterations/<int:iteration_id>', methods=['DELETE'])
+@bp.route('/<int:iteration_id>', methods=['DELETE'])
 @login_required
 def delete_iteration(iteration_id):
     """删除迭代"""
@@ -217,7 +217,7 @@ def delete_iteration(iteration_id):
         db.session.rollback()
         return jsonify({'error': f'删除迭代失败: {str(e)}'}), 500
 
-@bp.route('/api/iterations/<int:iteration_id>/copy', methods=['POST'])
+@bp.route('/<int:iteration_id>/copy', methods=['POST'])
 @login_required
 def copy_iteration(iteration_id):
     """复制迭代"""
@@ -291,7 +291,7 @@ def copy_iteration(iteration_id):
         db.session.rollback()
         return jsonify({'error': f'复制迭代失败: {str(e)}'}), 500
 
-@bp.route('/api/iterations/<int:iteration_id>/stats', methods=['GET'])
+@bp.route('/<int:iteration_id>/stats', methods=['GET'])
 @login_required
 def get_iteration_stats(iteration_id):
     """获取迭代统计信息"""
