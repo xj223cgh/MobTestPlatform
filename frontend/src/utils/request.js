@@ -79,9 +79,11 @@ request.interceptors.response.use(
           
         case 422:
           // 表单验证错误
-          const errors = data?.errors || {}
-          const errorMessages = Object.values(errors).flat()
-          ElMessage.error(errorMessages.join(', ') || '请求参数错误')
+          {
+            const errors = data?.errors || {}
+            const errorMessages = Object.values(errors).flat()
+            ElMessage.error(errorMessages.join(', ') || '请求参数错误')
+          }
           break
           
         case 429:

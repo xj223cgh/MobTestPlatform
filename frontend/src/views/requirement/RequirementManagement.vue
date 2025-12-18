@@ -1,13 +1,6 @@
 <template>
   <div class="requirement-management">
-    <div class="page-header">
-      <div class="header-content">
-        <h1>需求管理</h1>
-        <p class="description">
-          管理所属项目迭代的版本需求信息
-        </p>
-      </div>
-    </div>
+
 
     <!-- 搜索和筛选 -->
     <div class="search-section">
@@ -1419,31 +1412,7 @@ onMounted(async () => {
   background-color: #f5f7fa;
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  
-  .header-content {
-    h1 {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 500;
-      color: #303133;
-    }
-    
-    .description {
-      margin: 8px 0 0;
-      color: #606266;
-      font-size: 14px;
-    }
-  }
-}
+
 
 .header-actions {
   display: flex;

@@ -232,27 +232,13 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessageBox } from 'element-plus'
 import {
-  Document,
-  Setting,
-  QuestionFilled,
   Expand,
   Fold,
   FullScreen,
   ArrowDown,
   User,
   SwitchButton,
-  Odometer,
-  Monitor,
-  Menu,
-  UserFilled,
-  Warning,
-  Tools,
-  HomeFilled,
-  Briefcase,
-  ChatRound,
-  Tickets,
-  Close,
-  Calendar
+  Close
 } from '@element-plus/icons-vue'
 
 const route = useRoute()

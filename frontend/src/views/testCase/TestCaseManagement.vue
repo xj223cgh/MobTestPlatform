@@ -575,11 +575,15 @@
               description="脑图功能正在开发中，敬请期待"
               :image-size="200"
             >
-              <el-button type="primary" @click="toggleViewMode">返回列表视图</el-button>
+              <el-button
+                type="primary"
+                @click="toggleViewMode"
+              >
+                返回列表视图
+              </el-button>
             </el-empty>
           </div>
         </div>
-
       </div>
     </div>
 

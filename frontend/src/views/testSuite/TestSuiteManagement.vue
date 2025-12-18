@@ -82,14 +82,6 @@
           <div class="suite-header">
             <h2>{{ selectedNode.name }}</h2>
             <div class="suite-actions">
-              <el-button @click="importXmind">
-                <el-icon><Upload /></el-icon>
-                导入Xmind
-              </el-button>
-              <el-button @click="exportXmind">
-                <el-icon><Download /></el-icon>
-                导出Xmind
-              </el-button>
               <el-button
                 type="primary"
                 @click="createTestCase"
@@ -377,15 +369,9 @@
       >
         删除测试套件
       </el-dropdown-item>
-      <el-dropdown-item @click="importXmind">
-        导入Xmind
-      </el-dropdown-item>
-      <el-dropdown-item @click="exportXmind">
-        导出Xmind
-      </el-dropdown-item>
     </el-dropdown-menu>
 
-    <!-- Xmind导入对话框 -->
+
     <el-dialog
       v-model="importDialogVisible"
       title="导入Xmind"
@@ -577,7 +563,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
 import { 
-  Plus, Refresh, Edit, Delete, Folder, Upload, Download 
+  Plus, Refresh, Edit, Delete, Folder 
 } from '@element-plus/icons-vue'
 import { testSuiteApi } from '@/api/testSuite'
 import { getTestCasesBySuite } from '@/api/testCase'
@@ -589,9 +575,7 @@ export default {
     Refresh,
     Edit,
     Delete,
-    Folder,
-    Upload,
-    Download
+    Folder
   },
   setup() {
     // 状态管理
@@ -619,7 +603,6 @@ export default {
     // 对话框状态
     const createDialogVisible = ref(false)
     const editDialogVisible = ref(false)
-    const importDialogVisible = ref(false)
     const contextMenuVisible = ref(false)
     
     // 表单数据
@@ -659,8 +642,6 @@ export default {
     const createFormRef = ref(null)
     const editFormRef = ref(null)
     const contextMenuRef = ref(null)
-    const uploadRef = ref(null)
-    const xmindFile = ref(null)
     
     // 树结构配置
     const defaultProps = {
@@ -851,19 +832,6 @@ export default {
         ElMessage.error('删除失败')
       }
     }
-    
-    // XMind相关功能已移除，暂时不再支持脑图实现
-    const importXmind = () => {
-      ElMessage.warning('XMind导入功能已暂时移除')
-    }
-    
-    const exportXmind = () => {
-      ElMessage.warning('XMind导出功能已暂时移除')
-    }
-    
-    // 保留这些空函数以避免模板错误
-    const handleXmindFileChange = () => {}
-    const handleImportXmind = () => {}
     
     const createTestCase = () => {
       // 此处跳转到测试用例创建页面，并传入当前套件ID
@@ -1105,7 +1073,6 @@ export default {
       suiteOptions,
       createDialogVisible,
       editDialogVisible,
-      importDialogVisible,
       contextMenuVisible,
       createForm,
       editForm,
@@ -1130,7 +1097,6 @@ export default {
       createFormRef,
       editFormRef,
       contextMenuRef,
-      uploadRef,
       // 配置
       defaultProps,
       filteredTreeData,
@@ -1142,10 +1108,7 @@ export default {
       showEditSuiteDialog,
       handleEditSuite,
       deleteSuite,
-      handleXmindFileChange,
-      importXmind,
-      handleImportXmind,
-      exportXmind,
+      
       createTestCase,
       editTestCase,
       deleteTestCase,

@@ -18,6 +18,7 @@ module.exports = {
   plugins: [
     'vue'
   ],
+  ignorePatterns: ['*.d.ts'],
   rules: {
     'vue/no-v-model-argument': 'off'
   }
