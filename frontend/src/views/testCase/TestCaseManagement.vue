@@ -28,9 +28,20 @@
           取消
         </el-button>
         
+        <!-- 刷新脑图按钮（只在脑图视图下显示） -->
+        <el-button
+          v-if="viewMode === 'mindmap'"
+          type="success"
+          icon="RefreshRight"
+          style="margin-right: 10px;"
+          @click="refreshMindMap"
+        >
+          刷新脑图
+        </el-button>
+        
         <!-- 脑图视图切换按钮 -->
         <el-button
-          type="success"
+          type="primary"
           icon="View"
           style="margin-right: 10px;"
           @click="toggleViewMode"
@@ -40,7 +51,7 @@
         
         <!-- 新增用例按钮 -->
         <el-button
-          type="primary"
+          type="success"
           icon="Plus"
           @click="handleAddCase"
         >
@@ -565,30 +576,23 @@
           </div>
         </div>
 
-        <!-- 脑图视图（缺省页面） -->
+        <!-- 脑图视图 -->
         <div
-          v-else
+          v-if="viewMode === 'mindmap'"
           class="mindmap-view"
         >
-          <div class="mindmap-default-page">
-            <el-empty
-              description="脑图功能正在开发中，敬请期待"
-              :image-size="200"
-            >
-              <el-button
-                type="primary"
-                @click="toggleViewMode"
-              >
-                返回列表视图
-              </el-button>
-            </el-empty>
-          </div>
+          <MindMap 
+            :data="mindMapData" 
+            :visible="true"
+            @node-select="handleMindMapNodeSelect"
+            @content-change="handleMindMapContentChange"
+          />
         </div>
       </div>
     </div>
 
-    <!-- 分页 -->
-    <div class="pagination-container">
+    <!-- 分页（只在列表视图下显示） -->
+    <div v-if="viewMode === 'list'" class="pagination-container">
       <el-pagination
         :current-page="currentPage"
         :page-size="pageSize"
@@ -1850,6 +1854,9 @@ import { getTestSuiteDetail } from '@/api/testSuite'
 import { getProjects, getProjectIterations, getProjectVersionRequirements } from '@/api/project'
 import { initiateReview, getSuiteReviewStatus, getReviewTask, getCaseReviews } from '@/api/reviewTask'
 import { getUserList } from '@/api/user'
+
+// 脑图组件导入
+import MindMap from '@/components/MindMap.vue'
 
 // 树形组件相关
 const treeRef = ref(null)
@@ -3617,6 +3624,146 @@ const resetCaseForm = () => {
 // 切换视图模式
 const toggleViewMode = () => {
   viewMode.value = viewMode.value === 'list' ? 'mindmap' : 'list'
+  // 切换到脑图视图时，生成脑图数据
+  if (viewMode.value === 'mindmap') {
+    generateMindMapData()
+  }
+}
+
+// 脑图相关数据和方法
+const mindMapData = ref({})
+
+// 生成脑图数据
+const generateMindMapData = () => {
+  // 检查是否有当前选中的用例集
+  if (!selectedSuite.value || selectedSuite.value.type !== 'suite') {
+    mindMapData.value = {
+      root: {
+        data: {
+          text: '请先选择一个用例集'
+        },
+        children: []
+      }
+    }
+    return
+  }
+  
+  // 使用当前选中的用例集作为根节点
+  const currentSuite = selectedSuite.value
+  
+  // 构建脑图数据
+  const mindMapRoot = {
+    root: {
+      data: {
+        text: currentSuite.suite_name, // 当前用例集名称为根节点
+        type: 'suite'
+      },
+      children: []
+    }
+  }
+  
+  // 如果当前用例集没有用例，显示提示
+  if (!testCases.value || testCases.value.length === 0) {
+    mindMapRoot.root.children.push({
+      id: 'no-cases',
+      data: {
+        text: '当前用例集下暂无测试用例'
+      }
+    })
+    mindMapData.value = mindMapRoot
+    return
+  }
+  
+  // 遍历当前用例集中的所有用例
+  testCases.value.forEach(testCase => {
+    // 优先级和状态图标映射
+    const priorityIconMap = {
+      P0: '🔴P0',
+      P1: '🔴P1',
+      P2: '🟡P2',
+      P3: '🔵P3',
+      P4: '🟢P4'
+    }
+    
+    const statusIconMap = {
+      '': '⏳ 未执行',
+      'pass': '✅通过',
+      'fail': '❌失败',
+      'blocked': '🚫阻塞',
+      'not_applicable': '⚠️不适用'
+    }
+    
+    // 获取当前用例的优先级和状态
+    const priority = testCase.priority || 'P3'
+    const status = testCase.status || ''
+    
+    // 获取优先级图标和状态图标
+    const priorityIcon = priorityIconMap[priority] || `🔵 ${priority.replace('P', '')}`
+    const statusIcon = statusIconMap[status] || statusIconMap['']
+    
+    // 用例名称作为同级子节点，添加优先级图标、优先级数字和用例状态图标、用例状态中文
+    const caseNameNode = {
+      id: `case-name-${testCase.id}`,
+      data: {
+        text: `${priorityIcon} ${testCase.case_name} ${statusIcon}`,
+        type: 'case-name'
+      },
+      children: []
+    }
+    
+    // 用例ID为用例名称的子节点
+    const caseIdNode = {
+      id: `case-id-${testCase.id}`,
+      data: {
+        text: `用例ID: ${testCase.id}`,
+        type: 'case-id'
+      },
+      children: []
+    }
+    
+    // 用例属性作为用例ID的子节点（顺序固定：测试数据、前置条件、测试步骤、预期结果、实际结果）
+    const caseProperties = [
+      { key: 'test_data', label: '测试数据', value: testCase.test_data || '-' },
+      { key: 'preconditions', label: '前置条件', value: testCase.preconditions || '-' },
+      { key: 'steps', label: '测试步骤', value: testCase.steps || '-' },
+      { key: 'expected_result', label: '预期结果', value: testCase.expected_result || '-' },
+      { key: 'actual_result', label: '实际结果', value: testCase.actual_result || '-' }
+    ]
+    
+    // 添加用例属性节点
+    caseProperties.forEach(prop => {
+      caseIdNode.children.push({
+        id: `case-prop-${testCase.id}-${prop.key}`,
+        data: {
+          text: `${prop.label}: ${prop.value}`,
+          type: 'case-prop'
+        }
+      })
+    })
+    
+    // 构建层级关系：根节点 -> 用例名称 -> 用例ID -> 用例属性
+    caseNameNode.children.push(caseIdNode)
+    mindMapRoot.root.children.push(caseNameNode)
+  })
+  
+  mindMapData.value = mindMapRoot
+}
+
+// 刷新脑图
+const refreshMindMap = () => {
+  generateMindMapData()
+}
+
+// 脑图节点选择事件处理
+const handleMindMapNodeSelect = (node) => {
+  console.log('脑图节点被选中:', node)
+  // 可以在这里实现点击脑图节点跳转到用例详情等功能
+}
+
+// 脑图内容变化事件处理
+const handleMindMapContentChange = (data) => {
+  console.log('脑图内容发生变化:', data)
+  // 可以在这里实现自动保存脑图数据到后端
 }
 
 // 左侧面板收起/展开状态

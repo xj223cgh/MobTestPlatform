@@ -51,6 +51,7 @@ declare module 'vue' {
     ElTree: typeof import('element-plus/es')['ElTree']
     ElUpload: typeof import('element-plus/es')['ElUpload']
     Layout: typeof import('./src/components/layout/Layout.vue')['default']
+    MindMap: typeof import('./src/components/MindMap.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }

@@ -1,7 +1,5 @@
 <template>
   <div class="requirement-management">
-
-
     <!-- 搜索和筛选 -->
     <div class="search-section">
       <el-form

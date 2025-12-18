@@ -9,8 +9,7 @@
       <el-empty
         description="报告管理功能正在开发中，敬请期待"
         :image-size="200"
-      >
-      </el-empty>
+      />
     </div>
   </div>
 </template>
