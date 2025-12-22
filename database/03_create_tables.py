@@ -194,6 +194,7 @@ def create_tables():
             # 创建test_cases表
             cursor.execute("""CREATE TABLE IF NOT EXISTS test_cases (
                 id INT AUTO_INCREMENT PRIMARY KEY COMMENT '用例编号',
+                case_number VARCHAR(50) NULL COMMENT '测试用例编号',
                 case_name VARCHAR(200) NOT NULL COMMENT '用例名称',
                 case_description TEXT COMMENT '用例描述',
                 priority ENUM('P0', 'P1', 'P2', 'P3', 'P4') DEFAULT 'P1' COMMENT '优先级',
@@ -210,7 +211,7 @@ def create_tables():
                 expected_result TEXT COMMENT '预期结果',
                 actual_result TEXT COMMENT '实际结果',
                 test_data TEXT COMMENT '测试数据',
-                executed_at TIMESTAMP NULL COMMENT '最后执行时间',
+                executed_at DATETIME NULL COMMENT '最后执行时间',
                 assignee_id INT COMMENT '负责人ID',
                 reviewer_id INT COMMENT '审核人ID',
                 review_comments TEXT COMMENT '审核意见',
@@ -420,6 +421,53 @@ def create_tables():
                 INDEX idx_reviewer_id (reviewer_id),
                 INDEX idx_review_status (review_status)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用例评审详情表'""")
+            
+            # 创建test_suite_review_history表
+            cursor.execute("""CREATE TABLE IF NOT EXISTS test_suite_review_history (
+                id INT AUTO_INCREMENT PRIMARY KEY COMMENT '评审历史ID',
+                review_task_id INT COMMENT '关联评审任务ID',
+                suite_id INT COMMENT '关联用例集ID',
+                initiator_id INT COMMENT '发起人ID',
+                reviewer_id INT COMMENT '评审人ID',
+                status ENUM('pending', 'in_review', 'completed', 'rejected') COMMENT '评审任务状态',
+                start_time TIMESTAMP NULL COMMENT '评审开始时间',
+                end_time TIMESTAMP NULL COMMENT '评审结束时间',
+                overall_comments TEXT COMMENT '整体评审意见',
+                history_type ENUM('complete', 'reject') COMMENT '历史记录类型：complete-完成评审, reject-打回评审',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                created_by INT COMMENT '创建人ID',
+                version INT DEFAULT 1 COMMENT '评审版本号',
+                FOREIGN KEY (review_task_id) REFERENCES test_suite_review_tasks(id) ON DELETE SET NULL,
+                FOREIGN KEY (suite_id) REFERENCES test_suites(id) ON DELETE SET NULL,
+                FOREIGN KEY (initiator_id) REFERENCES users(id) ON DELETE SET NULL,
+                FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL,
+                FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评审历史记录模型'""")
+            
+            # 创建test_case_review_history表
+            cursor.execute("""CREATE TABLE IF NOT EXISTS test_case_review_history (
+                id INT AUTO_INCREMENT PRIMARY KEY COMMENT '用例评审历史ID',
+                review_history_id INT NOT NULL COMMENT '关联评审历史ID',
+                review_task_id INT COMMENT '关联评审任务ID',
+                case_id INT COMMENT '关联测试用例ID',
+                reviewer_id INT COMMENT '评审人ID',
+                review_status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending' COMMENT '单条用例评审状态',
+                comments TEXT COMMENT '用例评审意见',
+                case_number VARCHAR(50) NULL COMMENT '用例编号',
+                case_name VARCHAR(200) NULL COMMENT '用例名称',
+                priority ENUM('P0', 'P1', 'P2', 'P3', 'P4') DEFAULT 'P1' COMMENT '优先级',
+                test_data TEXT NULL COMMENT '测试数据',
+                preconditions TEXT COMMENT '前置条件',
+                steps TEXT COMMENT '测试步骤',
+                expected_result TEXT COMMENT '预期结果',
+                actual_result TEXT COMMENT '实际结果',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                created_by INT COMMENT '创建人ID',
+                FOREIGN KEY (review_history_id) REFERENCES test_suite_review_history(id) ON DELETE CASCADE,
+                FOREIGN KEY (case_id) REFERENCES test_cases(id) ON DELETE SET NULL,
+                FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL,
+                FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用例评审历史记录模型'""")
             
             connection.commit()
             print("所有数据表创建成功！")

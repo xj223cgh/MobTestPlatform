@@ -64,7 +64,7 @@
               我已阅读并同意
               <el-link
                 type="primary"
-                style="vertical-align: baseline;"
+                style="vertical-align: baseline"
                 @click="showAgreement"
               >
                 《用户协议》
@@ -72,7 +72,7 @@
               和
               <el-link
                 type="primary"
-                style="vertical-align: baseline;"
+                style="vertical-align: baseline"
                 @click="showPrivacy"
               >
                 《隐私政策》
@@ -112,114 +112,125 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
-import { register } from '@/api/auth'
-import { ElMessage } from 'element-plus'
+import { ref, reactive } from "vue";
+import { useRouter } from "vue-router";
+import { register } from "@/api/auth";
+import { ElMessage } from "element-plus";
 
-const router = useRouter()
+const router = useRouter();
 
 // 表单引用
-const registerFormRef = ref(null)
+const registerFormRef = ref(null);
 
 // 加载状态
-const loading = ref(false)
+const loading = ref(false);
 
 // 注册表单
 const registerForm = reactive({
-  username: '',
-  phone: '',
-  realName: '',
-  password: '',
-  agreement: false
-})
+  username: "",
+  phone: "",
+  realName: "",
+  password: "",
+  agreement: false,
+});
 
 // 密码验证器
 const validatePassword = (rule, value, callback) => {
-  if (value === '') {
-    callback(new Error('请输入密码'))
+  if (value === "") {
+    callback(new Error("请输入密码"));
   } else if (value.length < 6) {
-    callback(new Error('密码长度不能少于 6 个字符'))
+    callback(new Error("密码长度不能少于 6 个字符"));
   } else {
-    callback()
+    callback();
   }
-}
+};
 
 // 表单验证规则
 const registerRules = {
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度在 3 到 20 个字符', trigger: 'blur' },
-    { pattern: /^[a-zA-Z0-9_]+$/, message: '用户名只能包含字母、数字和下划线', trigger: 'blur' }
+    { required: true, message: "请输入用户名", trigger: "blur" },
+    {
+      min: 3,
+      max: 20,
+      message: "用户名长度在 3 到 20 个字符",
+      trigger: "blur",
+    },
+    {
+      pattern: /^[a-zA-Z0-9_]+$/,
+      message: "用户名只能包含字母、数字和下划线",
+      trigger: "blur",
+    },
   ],
   phone: [
-    { required: true, message: '请输入手机号', trigger: 'blur' },
-    { pattern: /^1[3-9]\d{9}$/, message: '请输入有效的手机号', trigger: 'blur' }
+    { required: true, message: "请输入手机号", trigger: "blur" },
+    {
+      pattern: /^1[3-9]\d{9}$/,
+      message: "请输入有效的手机号",
+      trigger: "blur",
+    },
   ],
   realName: [
-    { required: true, message: '请输入真实姓名', trigger: 'blur' },
-    { min: 2, max: 20, message: '姓名长度在 2 到 20 个字符', trigger: 'blur' }
+    { required: true, message: "请输入真实姓名", trigger: "blur" },
+    { min: 2, max: 20, message: "姓名长度在 2 到 20 个字符", trigger: "blur" },
   ],
-  password: [
-    { validator: validatePassword, trigger: 'blur' }
-  ],
+  password: [{ validator: validatePassword, trigger: "blur" }],
   agreement: [
-    { required: true, message: '请同意用户协议和隐私政策', trigger: 'change' }
-  ]
-}
+    { required: true, message: "请同意用户协议和隐私政策", trigger: "change" },
+  ],
+};
 
 // 处理注册
 const handleRegister = async () => {
-  if (!registerFormRef.value) return
+  if (!registerFormRef.value) return;
 
   // 显式检查隐私协议是否勾选
   if (!registerForm.agreement) {
-    ElMessage.warning('请阅读并同意用户协议和隐私政策')
-    return
+    ElMessage.warning("请阅读并同意用户协议和隐私政策");
+    return;
   }
 
   try {
-    await registerFormRef.value.validate()
-    loading.value = true
+    await registerFormRef.value.validate();
+    loading.value = true;
 
     const response = await register({
       username: registerForm.username,
       phone: registerForm.phone,
       real_name: registerForm.realName,
-      password: registerForm.password
-    })
+      password: registerForm.password,
+    });
 
     if (response.code === 200) {
-      ElMessage.success('注册成功，请登录')
-      router.push('/login')
+      ElMessage.success("注册成功，请登录");
+      router.push("/login");
     } else {
-      ElMessage.error(response.message || '注册失败')
+      ElMessage.error(response.message || "注册失败");
     }
   } catch (error) {
-    console.error('注册失败:', error)
+    console.error("注册失败:", error);
     // 如果是验证错误，不显示额外错误信息，避免重复提示
-    if (error.name !== 'Error') {
-      ElMessage.error(error.response?.data?.message || '注册失败，请稍后重试')
+    if (error.name !== "Error") {
+      ElMessage.error(error.response?.data?.message || "注册失败，请稍后重试");
     }
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 // 跳转到登录页面
 const goToLogin = () => {
-  router.push('/login')
-}
+  router.push("/login");
+};
 
 // 显示用户协议
 const showAgreement = () => {
-  ElMessage.info('用户协议页面待完善')
-}
+  ElMessage.info("用户协议页面待完善");
+};
 
 // 显示隐私政策
 const showPrivacy = () => {
-  ElMessage.info('隐私政策页面待完善')
-}
+  ElMessage.info("隐私政策页面待完善");
+};
 </script>
 
 <style lang="scss" scoped>
@@ -266,16 +277,16 @@ const showPrivacy = () => {
   min-height: 380px; // 由于注册页面字段更多，适当增加高度到380px
   display: flex;
   flex-direction: column;
-  
+
   .el-form {
     flex: 1;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    
+
     .el-form-item {
       margin-bottom: 18px; // 从24px减少到18px，减少整体高度
-      
+
       &:last-child {
         margin-bottom: 0;
       }
@@ -301,14 +312,14 @@ const showPrivacy = () => {
       color: #606266; // 与登录页面保持一致的文本颜色
       font-size: 14px;
       line-height: 1.5;
-      
+
       // 确保复选框文本颜色不受勾选状态影响
       .el-link {
         font-size: inherit;
         line-height: inherit;
       }
     }
-    
+
     // 确保复选框文本颜色不受勾选状态影响
     :deep(.el-checkbox__input.is-checked + .el-checkbox__label) {
       color: #606266;
@@ -344,13 +355,13 @@ const showPrivacy = () => {
       font-size: 24px;
     }
   }
-  
+
   // 确保注册页面在小屏幕下也有相同的响应式处理
   .register-form {
     .agreement-options {
       padding: 2px 0; // 在小屏幕下减少垂直内边距
     }
-    
+
     .el-form-item {
       margin-bottom: 16px; // 在小屏幕下进一步减少间距
     }

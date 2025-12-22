@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import request from "@/utils/request";
 
 /**
  * 获取项目列表
@@ -7,10 +7,10 @@ import request from '@/utils/request'
  */
 export function getProjects(params) {
   return request({
-    url: '/projects',
-    method: 'get',
-    params
-  })
+    url: "/projects",
+    method: "get",
+    params,
+  });
 }
 
 /**
@@ -21,8 +21,8 @@ export function getProjects(params) {
 export function getProject(projectId) {
   return request({
     url: `/projects/${projectId}`,
-    method: 'get'
-  })
+    method: "get",
+  });
 }
 
 /**
@@ -32,10 +32,10 @@ export function getProject(projectId) {
  */
 export function createProject(data) {
   return request({
-    url: '/projects',
-    method: 'post',
-    data
-  })
+    url: "/projects",
+    method: "post",
+    data,
+  });
 }
 
 /**
@@ -47,9 +47,9 @@ export function createProject(data) {
 export function updateProject(projectId, data) {
   return request({
     url: `/projects/${projectId}`,
-    method: 'put',
-    data
-  })
+    method: "put",
+    data,
+  });
 }
 
 /**
@@ -60,8 +60,8 @@ export function updateProject(projectId, data) {
 export function deleteProject(projectId) {
   return request({
     url: `/projects/${projectId}`,
-    method: 'delete'
-  })
+    method: "delete",
+  });
 }
 
 /**
@@ -72,8 +72,8 @@ export function deleteProject(projectId) {
 export function getProjectMembers(projectId) {
   return request({
     url: `/projects/${projectId}/members`,
-    method: 'get'
-  })
+    method: "get",
+  });
 }
 
 /**
@@ -85,9 +85,9 @@ export function getProjectMembers(projectId) {
 export function addProjectMember(projectId, data) {
   return request({
     url: `/projects/${projectId}/members`,
-    method: 'post',
-    data
-  })
+    method: "post",
+    data,
+  });
 }
 
 /**
@@ -100,9 +100,9 @@ export function addProjectMember(projectId, data) {
 export function updateProjectMemberRole(projectId, userId, data) {
   return request({
     url: `/projects/${projectId}/members/${userId}`,
-    method: 'put',
-    data
-  })
+    method: "put",
+    data,
+  });
 }
 
 /**
@@ -114,8 +114,8 @@ export function updateProjectMemberRole(projectId, userId, data) {
 export function removeProjectMember(projectId, userId) {
   return request({
     url: `/projects/${projectId}/members/${userId}`,
-    method: 'delete'
-  })
+    method: "delete",
+  });
 }
 
 /**
@@ -124,9 +124,9 @@ export function removeProjectMember(projectId, userId) {
  */
 export function getUserProjects() {
   return request({
-    url: '/projects/my',
-    method: 'get'
-  })
+    url: "/projects/my",
+    method: "get",
+  });
 }
 
 /**
@@ -137,8 +137,8 @@ export function getUserProjects() {
 export function getProjectVersionRequirements(projectId) {
   return request({
     url: `/projects/${projectId}/version-requirements`,
-    method: 'get'
-  })
+    method: "get",
+  });
 }
 
 /**
@@ -148,8 +148,8 @@ export function getProjectVersionRequirements(projectId) {
 export function getAllVersionRequirements() {
   return request({
     url: `/projects/version-requirements`,
-    method: 'get'
-  })
+    method: "get",
+  });
 }
 
 /**
@@ -161,9 +161,9 @@ export function getAllVersionRequirements() {
 export function createVersionRequirement(projectId, data) {
   return request({
     url: `/projects/${projectId}/version-requirements`,
-    method: 'post',
-    data
-  })
+    method: "post",
+    data,
+  });
 }
 
 /**
@@ -176,9 +176,9 @@ export function createVersionRequirement(projectId, data) {
 export function updateVersionRequirement(projectId, requirementId, data) {
   return request({
     url: `/projects/${projectId}/version-requirements/${requirementId}`,
-    method: 'put',
-    data
-  })
+    method: "put",
+    data,
+  });
 }
 
 /**
@@ -190,8 +190,8 @@ export function updateVersionRequirement(projectId, requirementId, data) {
 export function deleteVersionRequirement(projectId, requirementId) {
   return request({
     url: `/projects/${projectId}/version-requirements/${requirementId}`,
-    method: 'delete'
-  })
+    method: "delete",
+  });
 }
 
 /**
@@ -202,8 +202,8 @@ export function deleteVersionRequirement(projectId, requirementId) {
 export function getProjectIterations(projectId) {
   return request({
     url: `/projects/${projectId}/iterations`,
-    method: 'get'
-  })
+    method: "get",
+  });
 }
 
 // 默认导出所有方法
@@ -223,5 +223,5 @@ export default {
   createVersionRequirement,
   updateVersionRequirement,
   deleteVersionRequirement,
-  getProjectIterations
-}
+  getProjectIterations,
+};

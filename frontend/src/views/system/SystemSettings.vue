@@ -156,7 +156,7 @@
                   :max="365"
                   placeholder="天数"
                 />
-                <span style="margin-left: 10px;">天后过期（0表示永不过期）</span>
+                <span style="margin-left: 10px">天后过期（0表示永不过期）</span>
               </el-form-item>
               <el-form-item label="登录失败锁定">
                 <el-input-number
@@ -165,7 +165,7 @@
                   :max="10"
                   placeholder="次数"
                 />
-                <span style="margin-left: 10px;">次后锁定账户（0表示不锁定）</span>
+                <span style="margin-left: 10px">次后锁定账户（0表示不锁定）</span>
               </el-form-item>
               <el-form-item label="会话超时">
                 <el-input-number
@@ -174,7 +174,7 @@
                   :max="1440"
                   placeholder="分钟"
                 />
-                <span style="margin-left: 10px;">分钟后自动登出</span>
+                <span style="margin-left: 10px">分钟后自动登出</span>
               </el-form-item>
               <el-form-item label="双因素认证">
                 <el-switch
@@ -317,7 +317,7 @@
                   </el-radio>
                 </el-radio-group>
               </el-form-item>
-              
+
               <!-- 本地存储设置 -->
               <template v-if="storageSettings.type === 'local'">
                 <el-form-item label="存储路径">
@@ -332,7 +332,7 @@
                     :min="1"
                     :max="1024"
                   />
-                  <span style="margin-left: 10px;">MB</span>
+                  <span style="margin-left: 10px">MB</span>
                 </el-form-item>
               </template>
 
@@ -470,7 +470,7 @@
                   :min="1"
                   :max="365"
                 />
-                <span style="margin-left: 10px;">天</span>
+                <span style="margin-left: 10px">天</span>
               </el-form-item>
               <el-form-item label="备份位置">
                 <el-input
@@ -639,7 +639,7 @@
                   :min="1"
                   :max="365"
                 />
-                <span style="margin-left: 10px;">天</span>
+                <span style="margin-left: 10px">天</span>
               </el-form-item>
               <el-form-item label="文件大小限制">
                 <el-input-number
@@ -647,7 +647,7 @@
                   :min="1"
                   :max="1024"
                 />
-                <span style="margin-left: 10px;">MB</span>
+                <span style="margin-left: 10px">MB</span>
               </el-form-item>
               <el-form-item label="日志轮转">
                 <el-switch
@@ -768,82 +768,82 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
-import { systemApi } from '@/api/system'
+import { ref, reactive, onMounted } from "vue";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { Plus } from "@element-plus/icons-vue";
+import { systemApi } from "@/api/system";
 
 // 响应式数据
-const activeTab = ref('basic')
-const uploadUrl = ref('/api/upload/logo')
-const backupHistory = ref([])
+const activeTab = ref("basic");
+const uploadUrl = ref("/api/upload/logo");
+const backupHistory = ref([]);
 
 // 基础设置
 const basicSettings = reactive({
-  systemName: '移动测试平台',
-  systemDescription: '专业的移动应用自动化测试平台',
-  systemVersion: '1.0.0',
-  systemLogo: '',
-  timezone: 'Asia/Shanghai',
-  language: 'zh-CN',
-  theme: 'light'
-})
+  systemName: "移动测试平台",
+  systemDescription: "专业的移动应用自动化测试平台",
+  systemVersion: "1.0.0",
+  systemLogo: "",
+  timezone: "Asia/Shanghai",
+  language: "zh-CN",
+  theme: "light",
+});
 
 // 安全设置
 const securitySettings = reactive({
-  passwordPolicy: ['minLength', 'numbers'],
+  passwordPolicy: ["minLength", "numbers"],
   passwordExpiry: 90,
   loginFailureLock: 5,
   sessionTimeout: 120,
   twoFactorAuth: false,
-  ipWhitelist: ''
-})
+  ipWhitelist: "",
+});
 
 // 邮件设置
 const emailSettings = reactive({
-  smtpHost: '',
+  smtpHost: "",
   smtpPort: 587,
-  encryption: 'tls',
-  fromEmail: '',
-  fromName: '',
-  username: '',
-  password: ''
-})
+  encryption: "tls",
+  fromEmail: "",
+  fromName: "",
+  username: "",
+  password: "",
+});
 
 // 存储设置
 const storageSettings = reactive({
-  type: 'local',
-  localPath: '/data/uploads',
+  type: "local",
+  localPath: "/data/uploads",
   maxFileSize: 100,
-  ossAccessKeyId: '',
-  ossAccessKeySecret: '',
-  ossEndpoint: '',
-  ossBucket: '',
-  s3AccessKeyId: '',
-  s3SecretAccessKey: '',
-  s3Region: '',
-  s3Bucket: ''
-})
+  ossAccessKeyId: "",
+  ossAccessKeySecret: "",
+  ossEndpoint: "",
+  ossBucket: "",
+  s3AccessKeyId: "",
+  s3SecretAccessKey: "",
+  s3Region: "",
+  s3Bucket: "",
+});
 
 // 备份设置
 const backupSettings = reactive({
   autoBackup: true,
-  frequency: 'daily',
-  backupTime: '02:00',
+  frequency: "daily",
+  backupTime: "02:00",
   retentionDays: 30,
-  backupPath: '/data/backups',
-  backupContent: ['database', 'files']
-})
+  backupPath: "/data/backups",
+  backupContent: ["database", "files"],
+});
 
 // 日志设置
 const logSettings = reactive({
-  level: 'info',
-  format: 'json',
+  level: "info",
+  format: "json",
   retentionDays: 30,
   maxFileSize: 100,
   rotation: true,
-  compression: true
-})
+  compression: true,
+});
 
 // 通知设置
 const notificationSettings = reactive({
@@ -851,274 +851,274 @@ const notificationSettings = reactive({
   sms: false,
   wechat: false,
   dingtalk: false,
-  events: ['task_complete', 'task_fail', 'system_error']
-})
+  events: ["task_complete", "task_fail", "system_error"],
+});
 
 // 时区选项
 const timezones = [
-  { label: '北京时间 (GMT+8)', value: 'Asia/Shanghai' },
-  { label: '东京时间 (GMT+9)', value: 'Asia/Tokyo' },
-  { label: '纽约时间 (GMT-5)', value: 'America/New_York' },
-  { label: '伦敦时间 (GMT+0)', value: 'Europe/London' },
-  { label: '巴黎时间 (GMT+1)', value: 'Europe/Paris' }
-]
+  { label: "北京时间 (GMT+8)", value: "Asia/Shanghai" },
+  { label: "东京时间 (GMT+9)", value: "Asia/Tokyo" },
+  { label: "纽约时间 (GMT-5)", value: "America/New_York" },
+  { label: "伦敦时间 (GMT+0)", value: "Europe/London" },
+  { label: "巴黎时间 (GMT+1)", value: "Europe/Paris" },
+];
 
 // 方法
 const getBackupStatusTag = (status) => {
   const statusMap = {
-    completed: 'success',
-    running: 'warning',
-    failed: 'danger',
-    pending: 'info'
-  }
-  return statusMap[status] || ''
-}
+    completed: "success",
+    running: "warning",
+    failed: "danger",
+    pending: "info",
+  };
+  return statusMap[status] || "";
+};
 
 const getBackupStatusText = (status) => {
   const statusMap = {
-    completed: '完成',
-    running: '进行中',
-    failed: '失败',
-    pending: '等待中'
-  }
-  return statusMap[status] || status
-}
+    completed: "完成",
+    running: "进行中",
+    failed: "失败",
+    pending: "等待中",
+  };
+  return statusMap[status] || status;
+};
 
 const saveBasicSettings = async () => {
   try {
-    await systemApi.updateBasicSettings(basicSettings)
-    ElMessage.success('基础设置保存成功')
+    await systemApi.updateBasicSettings(basicSettings);
+    ElMessage.success("基础设置保存成功");
   } catch (error) {
-    ElMessage.error('保存失败')
+    ElMessage.error("保存失败");
   }
-}
+};
 
 const resetBasicSettings = () => {
   Object.assign(basicSettings, {
-    systemName: '移动测试平台',
-    systemDescription: '专业的移动应用自动化测试平台',
-    systemVersion: '1.0.0',
-    systemLogo: '',
-    timezone: 'Asia/Shanghai',
-    language: 'zh-CN',
-    theme: 'light'
-  })
-}
+    systemName: "移动测试平台",
+    systemDescription: "专业的移动应用自动化测试平台",
+    systemVersion: "1.0.0",
+    systemLogo: "",
+    timezone: "Asia/Shanghai",
+    language: "zh-CN",
+    theme: "light",
+  });
+};
 
 const saveSecuritySettings = async () => {
   try {
-    await systemApi.updateSecuritySettings(securitySettings)
-    ElMessage.success('安全设置保存成功')
+    await systemApi.updateSecuritySettings(securitySettings);
+    ElMessage.success("安全设置保存成功");
   } catch (error) {
-    ElMessage.error('保存失败')
+    ElMessage.error("保存失败");
   }
-}
+};
 
 const resetSecuritySettings = () => {
   Object.assign(securitySettings, {
-    passwordPolicy: ['minLength', 'numbers'],
+    passwordPolicy: ["minLength", "numbers"],
     passwordExpiry: 90,
     loginFailureLock: 5,
     sessionTimeout: 120,
     twoFactorAuth: false,
-    ipWhitelist: ''
-  })
-}
+    ipWhitelist: "",
+  });
+};
 
 const saveEmailSettings = async () => {
   try {
-    await systemApi.updateEmailSettings(emailSettings)
-    ElMessage.success('邮件设置保存成功')
+    await systemApi.updateEmailSettings(emailSettings);
+    ElMessage.success("邮件设置保存成功");
   } catch (error) {
-    ElMessage.error('保存失败')
+    ElMessage.error("保存失败");
   }
-}
+};
 
 const testEmailSettings = async () => {
   try {
-    await systemApi.testEmailSettings()
-    ElMessage.success('邮件测试成功')
+    await systemApi.testEmailSettings();
+    ElMessage.success("邮件测试成功");
   } catch (error) {
-    ElMessage.error('邮件测试失败')
+    ElMessage.error("邮件测试失败");
   }
-}
+};
 
 const resetEmailSettings = () => {
   Object.assign(emailSettings, {
-    smtpHost: '',
+    smtpHost: "",
     smtpPort: 587,
-    encryption: 'tls',
-    fromEmail: '',
-    fromName: '',
-    username: '',
-    password: ''
-  })
-}
+    encryption: "tls",
+    fromEmail: "",
+    fromName: "",
+    username: "",
+    password: "",
+  });
+};
 
 const saveStorageSettings = async () => {
   try {
-    await systemApi.updateStorageSettings(storageSettings)
-    ElMessage.success('存储设置保存成功')
+    await systemApi.updateStorageSettings(storageSettings);
+    ElMessage.success("存储设置保存成功");
   } catch (error) {
-    ElMessage.error('保存失败')
+    ElMessage.error("保存失败");
   }
-}
+};
 
 const testStorageSettings = async () => {
   try {
-    await systemApi.testStorageSettings(storageSettings)
-    ElMessage.success('存储连接测试成功')
+    await systemApi.testStorageSettings(storageSettings);
+    ElMessage.success("存储连接测试成功");
   } catch (error) {
-    ElMessage.error('存储连接测试失败')
+    ElMessage.error("存储连接测试失败");
   }
-}
+};
 
 const resetStorageSettings = () => {
   Object.assign(storageSettings, {
-    type: 'local',
-    localPath: '/data/uploads',
+    type: "local",
+    localPath: "/data/uploads",
     maxFileSize: 100,
-    ossAccessKeyId: '',
-    ossAccessKeySecret: '',
-    ossEndpoint: '',
-    ossBucket: '',
-    s3AccessKeyId: '',
-    s3SecretAccessKey: '',
-    s3Region: '',
-    s3Bucket: ''
-  })
-}
+    ossAccessKeyId: "",
+    ossAccessKeySecret: "",
+    ossEndpoint: "",
+    ossBucket: "",
+    s3AccessKeyId: "",
+    s3SecretAccessKey: "",
+    s3Region: "",
+    s3Bucket: "",
+  });
+};
 
 const saveBackupSettings = async () => {
   try {
-    await systemApi.updateBackupSettings(backupSettings)
-    ElMessage.success('备份设置保存成功')
+    await systemApi.updateBackupSettings(backupSettings);
+    ElMessage.success("备份设置保存成功");
   } catch (error) {
-    ElMessage.error('保存失败')
+    ElMessage.error("保存失败");
   }
-}
+};
 
 const createBackup = async () => {
   try {
-    await systemApi.createBackup()
-    ElMessage.success('备份任务已创建')
-    getBackupHistory()
+    await systemApi.createBackup();
+    ElMessage.success("备份任务已创建");
+    getBackupHistory();
   } catch (error) {
-    ElMessage.error('创建备份失败')
+    ElMessage.error("创建备份失败");
   }
-}
+};
 
 const resetBackupSettings = () => {
   Object.assign(backupSettings, {
     autoBackup: true,
-    frequency: 'daily',
-    backupTime: '02:00',
+    frequency: "daily",
+    backupTime: "02:00",
     retentionDays: 30,
-    backupPath: '/data/backups',
-    backupContent: ['database', 'files']
-  })
-}
+    backupPath: "/data/backups",
+    backupContent: ["database", "files"],
+  });
+};
 
 const getBackupHistory = async () => {
   try {
-    const response = await systemApi.getBackupHistory()
-    backupHistory.value = response.data
+    const response = await systemApi.getBackupHistory();
+    backupHistory.value = response.data;
   } catch (error) {
-    console.error('获取备份历史失败:', error)
+    console.error("获取备份历史失败:", error);
   }
-}
+};
 
 const downloadBackup = async (backup) => {
   try {
-    const response = await systemApi.downloadBackup(backup.id)
-    const blob = new Blob([response.data])
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = backup.filename
-    link.click()
-    window.URL.revokeObjectURL(url)
+    const response = await systemApi.downloadBackup(backup.id);
+    const blob = new Blob([response.data]);
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = backup.filename;
+    link.click();
+    window.URL.revokeObjectURL(url);
   } catch (error) {
-    ElMessage.error('下载失败')
+    ElMessage.error("下载失败");
   }
-}
+};
 
 const deleteBackup = async (backup) => {
   try {
-    await ElMessageBox.confirm('确定要删除这个备份吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    
-    await systemApi.deleteBackup(backup.id)
-    ElMessage.success('删除成功')
-    getBackupHistory()
+    await ElMessageBox.confirm("确定要删除这个备份吗？", "提示", {
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      type: "warning",
+    });
+
+    await systemApi.deleteBackup(backup.id);
+    ElMessage.success("删除成功");
+    getBackupHistory();
   } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('删除失败')
+    if (error !== "cancel") {
+      ElMessage.error("删除失败");
     }
   }
-}
+};
 
 const saveLogSettings = async () => {
   try {
-    await systemApi.updateLogSettings(logSettings)
-    ElMessage.success('日志设置保存成功')
+    await systemApi.updateLogSettings(logSettings);
+    ElMessage.success("日志设置保存成功");
   } catch (error) {
-    ElMessage.error('保存失败')
+    ElMessage.error("保存失败");
   }
-}
+};
 
 const viewLogs = () => {
-  ElMessage.info('日志查看功能开发中...')
-}
+  ElMessage.info("日志查看功能开发中...");
+};
 
 const clearLogs = async () => {
   try {
-    await ElMessageBox.confirm('确定要清理历史日志吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    
-    await systemApi.clearLogs()
-    ElMessage.success('日志清理成功')
+    await ElMessageBox.confirm("确定要清理历史日志吗？", "提示", {
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      type: "warning",
+    });
+
+    await systemApi.clearLogs();
+    ElMessage.success("日志清理成功");
   } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('清理失败')
+    if (error !== "cancel") {
+      ElMessage.error("清理失败");
     }
   }
-}
+};
 
 const resetLogSettings = () => {
   Object.assign(logSettings, {
-    level: 'info',
-    format: 'json',
+    level: "info",
+    format: "json",
     retentionDays: 30,
     maxFileSize: 100,
     rotation: true,
-    compression: true
-  })
-}
+    compression: true,
+  });
+};
 
 const saveNotificationSettings = async () => {
   try {
-    await systemApi.updateNotificationSettings(notificationSettings)
-    ElMessage.success('通知设置保存成功')
+    await systemApi.updateNotificationSettings(notificationSettings);
+    ElMessage.success("通知设置保存成功");
   } catch (error) {
-    ElMessage.error('保存失败')
+    ElMessage.error("保存失败");
   }
-}
+};
 
 const testNotification = async () => {
   try {
-    await systemApi.testNotification()
-    ElMessage.success('通知测试成功')
+    await systemApi.testNotification();
+    ElMessage.success("通知测试成功");
   } catch (error) {
-    ElMessage.error('通知测试失败')
+    ElMessage.error("通知测试失败");
   }
-}
+};
 
 const resetNotificationSettings = () => {
   Object.assign(notificationSettings, {
@@ -1126,67 +1126,60 @@ const resetNotificationSettings = () => {
     sms: false,
     wechat: false,
     dingtalk: false,
-    events: ['task_complete', 'task_fail', 'system_error']
-  })
-}
+    events: ["task_complete", "task_fail", "system_error"],
+  });
+};
 
 const handleLogoSuccess = (response) => {
-  basicSettings.systemLogo = response.data.url
-  ElMessage.success('Logo上传成功')
-}
+  basicSettings.systemLogo = response.data.url;
+  ElMessage.success("Logo上传成功");
+};
 
 const beforeLogoUpload = (file) => {
-  const isJPG = file.type === 'image/jpeg' || file.type === 'image/png'
-  const isLt2M = file.size / 1024 / 1024 < 2
+  const isJPG = file.type === "image/jpeg" || file.type === "image/png";
+  const isLt2M = file.size / 1024 / 1024 < 2;
 
   if (!isJPG) {
-    ElMessage.error('Logo只能是 JPG/PNG 格式!')
-    return false
+    ElMessage.error("Logo只能是 JPG/PNG 格式!");
+    return false;
   }
   if (!isLt2M) {
-    ElMessage.error('Logo大小不能超过 2MB!')
-    return false
+    ElMessage.error("Logo大小不能超过 2MB!");
+    return false;
   }
-  return true
-}
+  return true;
+};
 
 const loadSettings = async () => {
   try {
-    const [
-      basic,
-      security,
-      email,
-      storage,
-      backup,
-      log,
-      notification
-    ] = await Promise.all([
-      systemApi.getBasicSettings(),
-      systemApi.getSecuritySettings(),
-      systemApi.getEmailSettings(),
-      systemApi.getStorageSettings(),
-      systemApi.getBackupSettings(),
-      systemApi.getLogSettings(),
-      systemApi.getNotificationSettings()
-    ])
+    const [basic, security, email, storage, backup, log, notification] =
+      await Promise.all([
+        systemApi.getBasicSettings(),
+        systemApi.getSecuritySettings(),
+        systemApi.getEmailSettings(),
+        systemApi.getStorageSettings(),
+        systemApi.getBackupSettings(),
+        systemApi.getLogSettings(),
+        systemApi.getNotificationSettings(),
+      ]);
 
-    Object.assign(basicSettings, basic.data)
-    Object.assign(securitySettings, security.data)
-    Object.assign(emailSettings, email.data)
-    Object.assign(storageSettings, storage.data)
-    Object.assign(backupSettings, backup.data)
-    Object.assign(logSettings, log.data)
-    Object.assign(notificationSettings, notification.data)
+    Object.assign(basicSettings, basic.data);
+    Object.assign(securitySettings, security.data);
+    Object.assign(emailSettings, email.data);
+    Object.assign(storageSettings, storage.data);
+    Object.assign(backupSettings, backup.data);
+    Object.assign(logSettings, log.data);
+    Object.assign(notificationSettings, notification.data);
   } catch (error) {
-    console.error('加载设置失败:', error)
+    console.error("加载设置失败:", error);
   }
-}
+};
 
 // 生命周期
 onMounted(() => {
-  loadSettings()
-  getBackupHistory()
-})
+  loadSettings();
+  getBackupHistory();
+});
 </script>
 
 <style scoped>
@@ -1210,7 +1203,7 @@ onMounted(() => {
 .settings-content h3 {
   margin-bottom: 20px;
   color: #303133;
-  border-bottom: 2px solid #409EFF;
+  border-bottom: 2px solid #409eff;
   padding-bottom: 10px;
 }
 
@@ -1241,7 +1234,7 @@ onMounted(() => {
 }
 
 .logo-uploader :deep(.el-upload:hover) {
-  border-color: #409EFF;
+  border-color: #409eff;
 }
 
 .logo-uploader-icon {

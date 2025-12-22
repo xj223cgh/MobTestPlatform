@@ -91,7 +91,7 @@
               </el-button>
             </div>
           </div>
-          
+
           <!-- 测试用例表格 -->
           <div class="test-cases-section">
             <h3>测试用例列表</h3>
@@ -371,7 +371,6 @@
       </el-dropdown-item>
     </el-dropdown-menu>
 
-
     <el-dialog
       v-model="importDialogVisible"
       title="导入Xmind"
@@ -455,7 +454,7 @@
             />
           </el-select>
         </div>
-        
+
         <!-- 可选测试用例列表 -->
         <div class="available-cases-section">
           <h4>可选测试用例 (点击添加)</h4>
@@ -494,7 +493,7 @@
             </el-table-column>
           </el-table>
         </div>
-        
+
         <!-- 分页 -->
         <div class="pagination-section">
           <el-pagination
@@ -542,7 +541,9 @@
         </el-form-item>
         <el-form-item>
           <div class="move-case-info">
-            <p>将移动 <strong>{{ selectedCaseIds.length }}</strong> 个测试用例</p>
+            <p>
+              将移动 <strong>{{ selectedCaseIds.length }}</strong> 个测试用例
+            </p>
           </div>
         </el-form-item>
       </el-form>
@@ -560,205 +561,208 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted, computed } from 'vue'
-import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
-import { 
-  Plus, Refresh, Edit, Delete, Folder 
-} from '@element-plus/icons-vue'
-import { testSuiteApi } from '@/api/testSuite'
-import { getTestCasesBySuite } from '@/api/testCase'
+import { ref, reactive, onMounted, computed } from "vue";
+import { ElMessage, ElMessageBox, ElLoading } from "element-plus";
+import { Plus, Refresh, Edit, Delete, Folder } from "@element-plus/icons-vue";
+import { testSuiteApi } from "@/api/testSuite";
+import { getTestCasesBySuite } from "@/api/testCase";
 
 export default {
-  name: 'TestSuiteManagement',
+  name: "TestSuiteManagement",
   components: {
     Plus,
     Refresh,
     Edit,
     Delete,
-    Folder
+    Folder,
   },
   setup() {
     // 状态管理
-    const treeData = ref([])
-    const searchKeyword = ref('')
-    const selectedNode = ref(null)
-    const selectedNodeId = ref(null)
-    const testCasesData = ref([])
-    const suiteOptions = ref([])
+    const treeData = ref([]);
+    const searchKeyword = ref("");
+    const selectedNode = ref(null);
+    const selectedNodeId = ref(null);
+    const testCasesData = ref([]);
+    const suiteOptions = ref([]);
     // 测试用例关联相关变量
-    const addCaseDialogVisible = ref(false)
-    const moveCaseDialogVisible = ref(false)
-    const availableCasesSearch = ref('')
-    const availableCasesModule = ref('')
-    const availableCasesPriority = ref('')
-    const availableCasesPage = ref(1)
-    const availableCasesPageSize = ref(10)
-    const availableCasesData = ref([])
-    const availableCasesTotal = ref(0)
-    const selectedCaseIds = ref([])
-    const targetSuiteId = ref('')
-    const projectModules = ref([])
-    const projectSuiteOptions = ref([])
-    
+    const addCaseDialogVisible = ref(false);
+    const moveCaseDialogVisible = ref(false);
+    const availableCasesSearch = ref("");
+    const availableCasesModule = ref("");
+    const availableCasesPriority = ref("");
+    const availableCasesPage = ref(1);
+    const availableCasesPageSize = ref(10);
+    const availableCasesData = ref([]);
+    const availableCasesTotal = ref(0);
+    const selectedCaseIds = ref([]);
+    const targetSuiteId = ref("");
+    const projectModules = ref([]);
+    const projectSuiteOptions = ref([]);
+
     // 对话框状态
-    const createDialogVisible = ref(false)
-    const editDialogVisible = ref(false)
-    const contextMenuVisible = ref(false)
-    
+    const createDialogVisible = ref(false);
+    const editDialogVisible = ref(false);
+    const contextMenuVisible = ref(false);
+
     // 表单数据
     const createForm = reactive({
-      name: '',
+      name: "",
       parent_id: null,
       project_id: null,
       version_requirement_id: null,
       iteration_id: null,
-      description: ''
-    })
-    
+      description: "",
+    });
+
     const editForm = reactive({
-      id: '',
-      name: '',
+      id: "",
+      name: "",
       project_id: null,
       version_requirement_id: null,
       iteration_id: null,
-      description: ''
-    })
-    
+      description: "",
+    });
+
     // 表单规则
     const createRules = {
       name: [
-        { required: true, message: '请输入测试套件名称', trigger: 'blur' }
-      ]
-    }
-    
+        { required: true, message: "请输入测试套件名称", trigger: "blur" },
+      ],
+    };
+
     const editRules = {
       name: [
-        { required: true, message: '请输入测试套件名称', trigger: 'blur' }
-      ]
-    }
-    
+        { required: true, message: "请输入测试套件名称", trigger: "blur" },
+      ],
+    };
+
     // 引用
-    const treeRef = ref(null)
-    const createFormRef = ref(null)
-    const editFormRef = ref(null)
-    const contextMenuRef = ref(null)
-    
+    const treeRef = ref(null);
+    const createFormRef = ref(null);
+    const editFormRef = ref(null);
+    const contextMenuRef = ref(null);
+
     // 树结构配置
     const defaultProps = {
-      children: 'children',
-      label: 'name'
-    }
-    
+      children: "children",
+      label: "name",
+    };
+
     // 计算属性：过滤后的树数据
     const filteredTreeData = computed(() => {
-      if (!searchKeyword.value) return treeData.value
-      
+      if (!searchKeyword.value) return treeData.value;
+
       const filterNode = (nodes) => {
         return nodes
-          .map(node => {
-            const newNode = { ...node }
+          .map((node) => {
+            const newNode = { ...node };
             if (node.children && node.children.length > 0) {
-              newNode.children = filterNode(node.children)
+              newNode.children = filterNode(node.children);
             }
-            return newNode
+            return newNode;
           })
-          .filter(node => {
-            const matchSelf = node.name.toLowerCase().includes(searchKeyword.value.toLowerCase())
-            const matchChildren = node.children && node.children.length > 0
-            return matchSelf || matchChildren
-          })
-      }
-      
-      return filterNode(treeData.value)
-    })
-    
+          .filter((node) => {
+            const matchSelf = node.name
+              .toLowerCase()
+              .includes(searchKeyword.value.toLowerCase());
+            const matchChildren = node.children && node.children.length > 0;
+            return matchSelf || matchChildren;
+          });
+      };
+
+      return filterNode(treeData.value);
+    });
+
     // 计算属性：是否全选
     const isAllSelected = computed(() => {
-      return testCasesData.value.length > 0 && selectedCaseIds.value.length === testCasesData.value.length
-    })
-    
+      return (
+        testCasesData.value.length > 0 &&
+        selectedCaseIds.value.length === testCasesData.value.length
+      );
+    });
+
     // 方法
     const loadTreeData = async () => {
       try {
-        const response = await testSuiteApi.getTestSuiteTree()
-        treeData.value = response.data
+        const response = await testSuiteApi.getTestSuiteTree();
+        treeData.value = response.data;
       } catch (error) {
-        ElMessage.error('加载测试套件树失败')
+        ElMessage.error("加载测试套件树失败");
       }
-    }
-    
+    };
+
     const loadSuiteOptions = async () => {
       try {
-        const response = await testSuiteApi.getTestSuiteOptions()
-        suiteOptions.value = response.data.options
+        const response = await testSuiteApi.getTestSuiteOptions();
+        suiteOptions.value = response.data.options;
       } catch (error) {
-        ElMessage.error('加载测试套件选项失败')
+        ElMessage.error("加载测试套件选项失败");
       }
-    }
-    
+    };
+
     const loadTestCases = async (suiteId) => {
       try {
-        const response = await getTestCasesBySuite(suiteId)
-        testCasesData.value = response.data
+        const response = await getTestCasesBySuite(suiteId);
+        testCasesData.value = response.data;
       } catch (error) {
-        ElMessage.error('加载测试用例失败')
+        ElMessage.error("加载测试用例失败");
       }
-    }
-    
+    };
+
     const handleNodeClick = (data) => {
-      selectedNode.value = data
-      selectedNodeId.value = data.id
-      loadTestCases(data.id)
-    }
-    
+      selectedNode.value = data;
+      selectedNodeId.value = data.id;
+      loadTestCases(data.id);
+    };
+
     const handleContextMenu = (event, data) => {
-      event.preventDefault()
-      selectedNode.value = data
-      selectedNodeId.value = data.id
-      contextMenuVisible.value = true
-      
+      event.preventDefault();
+      selectedNode.value = data;
+      selectedNodeId.value = data.id;
+      contextMenuVisible.value = true;
+
       // 计算右键菜单位置
-      const menu = contextMenuRef.value.$el
-      menu.style.left = `${event.pageX}px`
-      menu.style.top = `${event.pageY}px`
-    }
-    
+      const menu = contextMenuRef.value.$el;
+      menu.style.left = `${event.pageX}px`;
+      menu.style.top = `${event.pageY}px`;
+    };
+
     const showCreateSuiteDialog = () => {
       // 完全重置表单所有属性
       Object.assign(createForm, {
-        name: '',
+        name: "",
         parent_id: selectedNode.value?.id || null,
         project_id: null,
         version_requirement_id: null,
         iteration_id: null,
-        description: ''
-      })
+        description: "",
+      });
       // 不调用resetFields()，避免将字段重置为可能被污染的初始值
-      createDialogVisible.value = true
-    }
-    
+      createDialogVisible.value = true;
+    };
+
     const handleCreateSuite = async () => {
       try {
-        await createFormRef.value.validate()
-        const loading = ElLoading.service({ text: '创建中...' })
+        await createFormRef.value.validate();
+        const loading = ElLoading.service({ text: "创建中..." });
         await testSuiteApi.createTestSuite({
           name: createForm.name,
           parent_id: createForm.parent_id,
           project_id: createForm.project_id,
           version_requirement_id: createForm.version_requirement_id,
           iteration_id: createForm.iteration_id,
-          description: createForm.description
-        })
-        loading.close()
-        ElMessage.success('创建成功')
-        createDialogVisible.value = false
-        loadTreeData()
+          description: createForm.description,
+        });
+        loading.close();
+        ElMessage.success("创建成功");
+        createDialogVisible.value = false;
+        loadTreeData();
       } catch (error) {
-        if (error.name !== 'Error') return
-        ElMessage.error('创建失败')
+        if (error.name !== "Error") return;
+        ElMessage.error("创建失败");
       }
-    }
-    
+    };
+
     const showEditSuiteDialog = (data) => {
       // 为编辑表单赋值，确保不会影响新增表单
       Object.assign(editForm, {
@@ -767,302 +771,302 @@ export default {
         project_id: data.project_id || null,
         version_requirement_id: data.version_requirement_id || null,
         iteration_id: data.iteration_id || null,
-        description: data.description || ''
-      })
+        description: data.description || "",
+      });
       // 移除resetFields()调用，避免将字段重置为初始值
-      editDialogVisible.value = true
-    }
-    
+      editDialogVisible.value = true;
+    };
+
     const handleEditSuite = async () => {
       try {
-        await editFormRef.value.validate()
-        const loading = ElLoading.service({ text: '更新中...' })
+        await editFormRef.value.validate();
+        const loading = ElLoading.service({ text: "更新中..." });
         await testSuiteApi.updateTestSuite(editForm.id, {
           name: editForm.name,
           project_id: editForm.project_id,
           version_requirement_id: editForm.version_requirement_id,
           iteration_id: editForm.iteration_id,
-          description: editForm.description
-        })
-        loading.close()
-        ElMessage.success('更新成功')
-        editDialogVisible.value = false
-        loadTreeData()
-        
+          description: editForm.description,
+        });
+        loading.close();
+        ElMessage.success("更新成功");
+        editDialogVisible.value = false;
+        loadTreeData();
+
         // 如果编辑的是当前选中的节点，更新选中节点数据
         if (selectedNode.value && selectedNode.value.id === editForm.id) {
-          selectedNode.value.name = editForm.name
-          selectedNode.value.project_id = editForm.project_id
-          selectedNode.value.version_requirement_id = editForm.version_requirement_id
-          selectedNode.value.iteration_id = editForm.iteration_id
-          selectedNode.value.description = editForm.description
+          selectedNode.value.name = editForm.name;
+          selectedNode.value.project_id = editForm.project_id;
+          selectedNode.value.version_requirement_id =
+            editForm.version_requirement_id;
+          selectedNode.value.iteration_id = editForm.iteration_id;
+          selectedNode.value.description = editForm.description;
         }
       } catch (error) {
-        if (error.name !== 'Error') return
-        ElMessage.error('更新失败')
+        if (error.name !== "Error") return;
+        ElMessage.error("更新失败");
       }
-    }
-    
+    };
+
     const deleteSuite = async (id) => {
       try {
         await ElMessageBox.confirm(
-          '确定要删除此测试套件吗？这将同时删除所有子套件和相关测试用例。',
-          '确认删除',
+          "确定要删除此测试套件吗？这将同时删除所有子套件和相关测试用例。",
+          "确认删除",
           {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning'
-          }
-        )
-        
-        const loading = ElLoading.service({ text: '删除中...' })
-        await testSuiteApi.deleteTestSuite(id)
-        loading.close()
-        ElMessage.success('删除成功')
-        loadTreeData()
-        
+            confirmButtonText: "确定",
+            cancelButtonText: "取消",
+            type: "warning",
+          },
+        );
+
+        const loading = ElLoading.service({ text: "删除中..." });
+        await testSuiteApi.deleteTestSuite(id);
+        loading.close();
+        ElMessage.success("删除成功");
+        loadTreeData();
+
         // 如果删除的是当前选中的节点，清空选中状态
         if (selectedNode.value && selectedNode.value.id === id) {
-          selectedNode.value = null
-          selectedNodeId.value = null
-          testCasesData.value = []
+          selectedNode.value = null;
+          selectedNodeId.value = null;
+          testCasesData.value = [];
         }
       } catch (error) {
-        if (error.name !== 'Error') return
-        ElMessage.error('删除失败')
+        if (error.name !== "Error") return;
+        ElMessage.error("删除失败");
       }
-    }
-    
+    };
+
     const createTestCase = () => {
       // 此处跳转到测试用例创建页面，并传入当前套件ID
       // 这里简单实现，实际应该使用路由跳转
-      ElMessage.info(`跳转到测试用例创建页面，套件ID: ${selectedNode.value.id}`)
-    }
-    
+      ElMessage.info(
+        `跳转到测试用例创建页面，套件ID: ${selectedNode.value.id}`,
+      );
+    };
+
     const editTestCase = (testCase) => {
       // 此处跳转到测试用例编辑页面
-      ElMessage.info(`跳转到测试用例编辑页面，ID: ${testCase.id}`)
-    }
-    
+      ElMessage.info(`跳转到测试用例编辑页面，ID: ${testCase.id}`);
+    };
+
     const deleteTestCase = async (id) => {
       try {
-        await ElMessageBox.confirm(
-          '确定要删除此测试用例吗？',
-          '确认删除',
-          {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning'
-          }
-        )
-        
+        await ElMessageBox.confirm("确定要删除此测试用例吗？", "确认删除", {
+          confirmButtonText: "确定",
+          cancelButtonText: "取消",
+          type: "warning",
+        });
+
         // 调用删除API
         // 这里简化处理，实际应该调用对应的API
-        ElMessage.success('删除成功')
-        loadTestCases(selectedNode.value.id)
+        ElMessage.success("删除成功");
+        loadTestCases(selectedNode.value.id);
       } catch (error) {
-        if (error.name !== 'Error') return
-        ElMessage.error('删除失败')
+        if (error.name !== "Error") return;
+        ElMessage.error("删除失败");
       }
-    }
-    
+    };
+
     const refreshTree = () => {
-      loadTreeData()
-    }
-    
+      loadTreeData();
+    };
+
     const getPriorityType = (priority) => {
       const typeMap = {
-        high: 'danger',
-        medium: 'warning',
-        low: 'success'
-      }
-      return typeMap[priority] || 'info'
-    }
-    
+        high: "danger",
+        medium: "warning",
+        low: "success",
+      };
+      return typeMap[priority] || "info";
+    };
+
     const getStatusType = (status) => {
       const typeMap = {
-        active: 'success',
-        inactive: 'info',
-        deprecated: 'danger'
-      }
-      return typeMap[status] || 'info'
-    }
-    
+        active: "success",
+        inactive: "info",
+        deprecated: "danger",
+      };
+      return typeMap[status] || "info";
+    };
+
     // 打开添加测试用例对话框
     const openAddCaseDialog = () => {
       if (!selectedNode.value) {
-        ElMessage.warning('请先选择一个测试套件')
-        return
+        ElMessage.warning("请先选择一个测试套件");
+        return;
       }
-      addCaseDialogVisible.value = true
-      selectedCaseIds.value = []
-      availableCasesPage.value = 1
-      getAvailableCases()
-      getProjectModules()
-    }
-    
+      addCaseDialogVisible.value = true;
+      selectedCaseIds.value = [];
+      availableCasesPage.value = 1;
+      getAvailableCases();
+      getProjectModules();
+    };
+
     // 获取可用的测试用例
     const getAvailableCases = async () => {
       try {
         // 实际应用中需要从API获取数据
         // 这里模拟数据
-        availableCasesData.value = []
-        availableCasesTotal.value = 0
+        availableCasesData.value = [];
+        availableCasesTotal.value = 0;
       } catch (error) {
-        ElMessage.error('获取可用测试用例失败')
-        console.error('获取可用测试用例失败:', error)
+        ElMessage.error("获取可用测试用例失败");
+        console.error("获取可用测试用例失败:", error);
       }
-    }
-    
+    };
+
     // 获取项目模块列表
     const getProjectModules = async () => {
       try {
         // 实际应用中需要从API获取数据
         // 这里模拟数据
-        projectModules.value = []
+        projectModules.value = [];
       } catch (error) {
-        console.error('获取项目模块失败:', error)
+        console.error("获取项目模块失败:", error);
       }
-    }
-    
+    };
+
     // 处理可用测试用例搜索
     const handleAvailableCasesSearch = () => {
-      availableCasesPage.value = 1
-      getAvailableCases()
-    }
-    
+      availableCasesPage.value = 1;
+      getAvailableCases();
+    };
+
     // 处理分页变化
     const handleAvailableCasesPageChange = () => {
-      getAvailableCases()
-    }
-    
+      getAvailableCases();
+    };
+
     // 选择可用的测试用例
     const selectAvailableCase = (row) => {
-      const index = selectedCaseIds.value.indexOf(row.id)
+      const index = selectedCaseIds.value.indexOf(row.id);
       if (index > -1) {
-        selectedCaseIds.value.splice(index, 1)
+        selectedCaseIds.value.splice(index, 1);
       } else {
-        selectedCaseIds.value.push(row.id)
+        selectedCaseIds.value.push(row.id);
       }
-    }
-    
+    };
+
     // 行样式处理
     const rowClassName = ({ row }) => {
-      return selectedCaseIds.value.includes(row.id) ? 'selected-row' : ''
-    }
-    
+      return selectedCaseIds.value.includes(row.id) ? "selected-row" : "";
+    };
+
     // 取消添加测试用例
     const cancelAddCases = () => {
-      addCaseDialogVisible.value = false
-      selectedCaseIds.value = []
-    }
-    
+      addCaseDialogVisible.value = false;
+      selectedCaseIds.value = [];
+    };
+
     // 确认添加测试用例
     const confirmAddCases = async () => {
       if (selectedCaseIds.value.length === 0) {
-        ElMessage.warning('请至少选择一个测试用例')
-        return
+        ElMessage.warning("请至少选择一个测试用例");
+        return;
       }
-      
+
       try {
         // 实际应用中需要调用API
-        ElMessage.success('添加测试用例成功')
-        addCaseDialogVisible.value = false
-        loadTestCases(selectedNode.value.id) // 重新加载套件用例
-        selectedCaseIds.value = []
+        ElMessage.success("添加测试用例成功");
+        addCaseDialogVisible.value = false;
+        loadTestCases(selectedNode.value.id); // 重新加载套件用例
+        selectedCaseIds.value = [];
       } catch (error) {
-        ElMessage.error('添加测试用例失败')
-        console.error('添加测试用例失败:', error)
+        ElMessage.error("添加测试用例失败");
+        console.error("添加测试用例失败:", error);
       }
-    }
-    
+    };
+
     // 打开移动测试用例对话框
     const openMoveCaseDialog = async () => {
       if (testCasesData.value.length === 0) {
-        ElMessage.warning('请先选择要移动的测试用例')
-        return
+        ElMessage.warning("请先选择要移动的测试用例");
+        return;
       }
-      
+
       try {
         // 实际应用中需要从API获取数据
         // 这里模拟数据
-        projectSuiteOptions.value = []
-        
-        moveCaseDialogVisible.value = true
-        targetSuiteId.value = ''
+        projectSuiteOptions.value = [];
+
+        moveCaseDialogVisible.value = true;
+        targetSuiteId.value = "";
       } catch (error) {
-        ElMessage.error('获取测试套件选项失败')
-        console.error('获取测试套件选项失败:', error)
+        ElMessage.error("获取测试套件选项失败");
+        console.error("获取测试套件选项失败:", error);
       }
-    }
-    
+    };
+
     // 确认移动测试用例
     const confirmMoveCases = async () => {
       if (!targetSuiteId.value) {
-        ElMessage.warning('请选择目标测试套件')
-        return
+        ElMessage.warning("请选择目标测试套件");
+        return;
       }
-      
+
       try {
         // 实际应用中需要调用API
-        ElMessage.success('移动测试用例成功')
-        moveCaseDialogVisible.value = false
-        loadTestCases(selectedNode.value.id) // 重新加载套件用例
-        selectedCaseIds.value = []
+        ElMessage.success("移动测试用例成功");
+        moveCaseDialogVisible.value = false;
+        loadTestCases(selectedNode.value.id); // 重新加载套件用例
+        selectedCaseIds.value = [];
       } catch (error) {
-        ElMessage.error('移动测试用例失败')
-        console.error('移动测试用例失败:', error)
+        ElMessage.error("移动测试用例失败");
+        console.error("移动测试用例失败:", error);
       }
-    }
-    
+    };
+
     // 拖拽相关方法
     const allowDrag = (draggingNode) => {
       // 允许所有节点拖拽
-      return true
-    }
-    
+      return true;
+    };
+
     const allowDrop = (draggingNode, dropNode, type) => {
       // 允许拖拽到任意节点的下方或内部
       // 这里可以根据业务需求添加限制
-      return ['before', 'after', 'inner'].includes(type)
-    }
-    
+      return ["before", "after", "inner"].includes(type);
+    };
+
     const handleNodeDrop = async (draggingNode, dropNode, dropType, ev) => {
       try {
-        const loading = ElLoading.service({ text: '保存排序中...' })
-        
+        const loading = ElLoading.service({ text: "保存排序中..." });
+
         // 准备更新数据
         const updateData = {
           id: draggingNode.data.id,
-          parent_id: dropType === 'inner' ? dropNode.data.id : dropNode.data.parent_id,
-          sort_order: 0 // 后端会根据新的位置重新计算sort_order
-        }
-        
+          parent_id:
+            dropType === "inner" ? dropNode.data.id : dropNode.data.parent_id,
+          sort_order: 0, // 后端会根据新的位置重新计算sort_order
+        };
+
         // 调用后端API更新测试套件的位置
-        await testSuiteApi.updateTestSuite(updateData.id, updateData)
-        
+        await testSuiteApi.updateTestSuite(updateData.id, updateData);
+
         // 重新加载树数据
-        await loadTreeData()
-        
-        loading.close()
-        ElMessage.success('排序更新成功')
+        await loadTreeData();
+
+        loading.close();
+        ElMessage.success("排序更新成功");
       } catch (error) {
-        ElMessage.error('排序更新失败')
-        console.error('排序更新失败:', error)
+        ElMessage.error("排序更新失败");
+        console.error("排序更新失败:", error);
       }
-    }
-    
+    };
+
     // 初始化
     onMounted(() => {
-      loadTreeData()
-      loadSuiteOptions()
-      
+      loadTreeData();
+      loadSuiteOptions();
+
       // 点击其他地方关闭右键菜单
-      document.addEventListener('click', () => {
-        contextMenuVisible.value = false
-      })
-    })
-    
+      document.addEventListener("click", () => {
+        contextMenuVisible.value = false;
+      });
+    });
+
     return {
       // 状态
       treeData,
@@ -1108,7 +1112,7 @@ export default {
       showEditSuiteDialog,
       handleEditSuite,
       deleteSuite,
-      
+
       createTestCase,
       editTestCase,
       deleteTestCase,
@@ -1130,10 +1134,10 @@ export default {
       cancelAddCases,
       confirmAddCases,
       openMoveCaseDialog,
-      confirmMoveCases
-    }
-  }
-}
+      confirmMoveCases,
+    };
+  },
+};
 </script>
 
 <style scoped>

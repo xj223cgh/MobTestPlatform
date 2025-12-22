@@ -2,8 +2,8 @@
   <div class="test-task-management">
     <div class="default-page-container">
       <div class="default-page">
-        <el-empty 
-          description="测试任务功能正在开发中" 
+        <el-empty
+          description="测试任务功能正在开发中"
           :image-size="200"
         >
           <!-- 可以在这里添加一些操作按钮，如果需要的话 -->

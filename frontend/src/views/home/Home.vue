@@ -161,20 +161,25 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
-import { use } from 'echarts/core'
-import { CanvasRenderer } from 'echarts/renderers'
-import { LineChart, PieChart } from 'echarts/charts'
+import { ref, reactive, onMounted, computed } from "vue";
+import { use } from "echarts/core";
+import { CanvasRenderer } from "echarts/renderers";
+import { LineChart, PieChart } from "echarts/charts";
 import {
   TitleComponent,
   TooltipComponent,
   LegendComponent,
-  GridComponent
-} from 'echarts/components'
-import VChart from 'vue-echarts'
-import { ElMessage } from 'element-plus'
-import dayjs from 'dayjs'
-import { getHomeStats, getRecentActivities, getTaskTrendData, getDeviceStatusData } from '@/api/home'
+  GridComponent,
+} from "echarts/components";
+import VChart from "vue-echarts";
+import { ElMessage } from "element-plus";
+import dayjs from "dayjs";
+import {
+  getHomeStats,
+  getRecentActivities,
+  getTaskTrendData,
+  getDeviceStatusData,
+} from "@/api/home";
 
 // 注册 ECharts 组件
 use([
@@ -184,262 +189,259 @@ use([
   TitleComponent,
   TooltipComponent,
   LegendComponent,
-  GridComponent
-])
+  GridComponent,
+]);
 
 // 加载状态
-const loading = ref(false)
+const loading = ref(false);
 
 // 统计数据
 const stats = reactive({
   users: 0,
   devices: 0,
-  testTasks: 0
-})
+  testTasks: 0,
+});
 
 // 任务趋势周期
-const taskTrendPeriod = ref('7d')
+const taskTrendPeriod = ref("7d");
 
 // 最近活动
-const recentActivities = ref([])
+const recentActivities = ref([]);
 
 // 测试任务趋势图配置
 const taskTrendOption = computed(() => ({
   title: {
-    show: false
+    show: false,
   },
   tooltip: {
-    trigger: 'axis'
+    trigger: "axis",
   },
   legend: {
-    data: ['完成任务', '失败任务', '进行中任务']
+    data: ["完成任务", "失败任务", "进行中任务"],
   },
   grid: {
-    left: '3%',
-    right: '4%',
-    bottom: '3%',
-    containLabel: true
+    left: "3%",
+    right: "4%",
+    bottom: "3%",
+    containLabel: true,
   },
   xAxis: {
-    type: 'category',
+    type: "category",
     boundaryGap: false,
-    data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    data: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
   },
   yAxis: {
-    type: 'value'
+    type: "value",
   },
   series: [
     {
-      name: '完成任务',
-      type: 'line',
+      name: "完成任务",
+      type: "line",
       smooth: true,
       data: [12, 13, 10, 13, 9, 23, 21],
       itemStyle: {
-        color: '#67C23A'
-      }
+        color: "#67C23A",
+      },
     },
     {
-      name: '失败任务',
-      type: 'line',
+      name: "失败任务",
+      type: "line",
       smooth: true,
       data: [5, 3, 7, 2, 4, 6, 3],
       itemStyle: {
-        color: '#F56C6C'
-      }
+        color: "#F56C6C",
+      },
     },
     {
-      name: '进行中任务',
-      type: 'line',
+      name: "进行中任务",
+      type: "line",
       smooth: true,
       data: [8, 12, 15, 10, 13, 11, 14],
       itemStyle: {
-        color: '#E6A23C'
-      }
-    }
-  ]
-}))
+        color: "#E6A23C",
+      },
+    },
+  ],
+}));
 
 // 设备状态分布图配置
 const deviceStatusOption = computed(() => ({
   title: {
-    show: false
+    show: false,
   },
   tooltip: {
-    trigger: 'item',
-    formatter: '{a} <br/>{b}: {c} ({d}%)'
+    trigger: "item",
+    formatter: "{a} <br/>{b}: {c} ({d}%)",
   },
   legend: {
-    orient: 'vertical',
-    left: 'left'
+    orient: "vertical",
+    left: "left",
   },
   series: [
     {
-      name: '设备状态',
-      type: 'pie',
-      radius: ['40%', '70%'],
+      name: "设备状态",
+      type: "pie",
+      radius: ["40%", "70%"],
       avoidLabelOverlap: false,
       label: {
         show: false,
-        position: 'center'
+        position: "center",
       },
       emphasis: {
         label: {
           show: true,
-          fontSize: '18',
-          fontWeight: 'bold'
-        }
+          fontSize: "18",
+          fontWeight: "bold",
+        },
       },
       labelLine: {
-        show: false
+        show: false,
       },
       data: [
-        { value: 335, name: '在线', itemStyle: { color: '#67C23A' } },
-        { value: 310, name: '离线', itemStyle: { color: '#909399' } },
-        { value: 234, name: '忙碌', itemStyle: { color: '#E6A23C' } },
-        { value: 135, name: '维护', itemStyle: { color: '#F56C6C' } }
-      ]
-    }
-  ]
-}))
+        { value: 335, name: "在线", itemStyle: { color: "#67C23A" } },
+        { value: 310, name: "离线", itemStyle: { color: "#909399" } },
+        { value: 234, name: "忙碌", itemStyle: { color: "#E6A23C" } },
+        { value: 135, name: "维护", itemStyle: { color: "#F56C6C" } },
+      ],
+    },
+  ],
+}));
 
 // 获取活动图标
 const getActivityIcon = (type) => {
   const iconMap = {
-    task: 'List',
-    device: 'Monitor',
-    user: 'User',
-    bug: 'Warning'
-  }
-  return iconMap[type] || 'Document'
-}
+    task: "List",
+    device: "Monitor",
+    user: "User",
+    bug: "Warning",
+  };
+  return iconMap[type] || "Document";
+};
 
 // 格式化时间
 const formatTime = (time) => {
-  return dayjs(time).format('YYYY-MM-DD HH:mm:ss')
-}
+  return dayjs(time).format("YYYY-MM-DD HH:mm:ss");
+};
 
 // 获取统计数据
 const fetchStats = async () => {
   try {
-    const response = await getHomeStats()
+    const response = await getHomeStats();
     if (response.code === 200) {
-      Object.assign(stats, response.data)
+      Object.assign(stats, response.data);
     } else {
       // 如果API调用失败，使用默认数据
-      stats.users = 156
-      stats.devices = 42
-      stats.testTasks = 324
+      stats.users = 156;
+      stats.devices = 42;
+      stats.testTasks = 324;
     }
   } catch (error) {
-    console.error('获取统计数据失败:', error)
+    console.error("获取统计数据失败:", error);
     // 使用默认数据
-    stats.users = 156
-    stats.devices = 42
-    stats.testTasks = 324
+    stats.users = 156;
+    stats.devices = 42;
+    stats.testTasks = 324;
   }
-}
+};
 
 // 获取最近活动
 const fetchRecentActivities = async () => {
   try {
-    const response = await getRecentActivities({ limit: 10 })
+    const response = await getRecentActivities({ limit: 10 });
     if (response.code === 200) {
-      recentActivities.value = response.data
+      recentActivities.value = response.data;
     } else {
       // 如果API调用失败，使用默认数据
       recentActivities.value = [
         {
           id: 1,
-          type: 'task',
-          title: '测试任务完成',
-          description: 'Android登录功能测试任务已成功完成',
-          created_at: new Date(Date.now() - 1000 * 60 * 5)
+          type: "task",
+          title: "测试任务完成",
+          description: "Android登录功能测试任务已成功完成",
+          created_at: new Date(Date.now() - 1000 * 60 * 5),
         },
         {
           id: 2,
-          type: 'device',
-          title: '设备上线',
-          description: '设备 iPhone 14 Pro 已连接并上线',
-          created_at: new Date(Date.now() - 1000 * 60 * 15)
+          type: "device",
+          title: "设备上线",
+          description: "设备 iPhone 14 Pro 已连接并上线",
+          created_at: new Date(Date.now() - 1000 * 60 * 15),
         },
         {
           id: 3,
-          type: 'bug',
-          title: '发现新缺陷',
-          description: '在支付模块中发现严重缺陷',
-          created_at: new Date(Date.now() - 1000 * 60 * 30)
+          type: "bug",
+          title: "发现新缺陷",
+          description: "在支付模块中发现严重缺陷",
+          created_at: new Date(Date.now() - 1000 * 60 * 30),
         },
         {
           id: 4,
-          type: 'user',
-          title: '新用户注册',
-          description: '测试工程师 张三 已注册账号',
-          created_at: new Date(Date.now() - 1000 * 60 * 60)
-        }
-      ]
+          type: "user",
+          title: "新用户注册",
+          description: "测试工程师 张三 已注册账号",
+          created_at: new Date(Date.now() - 1000 * 60 * 60),
+        },
+      ];
     }
   } catch (error) {
-    console.error('获取最近活动失败:', error)
+    console.error("获取最近活动失败:", error);
     // 使用默认数据
     recentActivities.value = [
       {
         id: 1,
-        type: 'task',
-        title: '测试任务完成',
-        description: 'Android登录功能测试任务已成功完成',
-        created_at: new Date(Date.now() - 1000 * 60 * 5)
+        type: "task",
+        title: "测试任务完成",
+        description: "Android登录功能测试任务已成功完成",
+        created_at: new Date(Date.now() - 1000 * 60 * 5),
       },
       {
         id: 2,
-        type: 'device',
-        title: '设备上线',
-        description: '设备 iPhone 14 Pro 已连接并上线',
-        created_at: new Date(Date.now() - 1000 * 60 * 15)
+        type: "device",
+        title: "设备上线",
+        description: "设备 iPhone 14 Pro 已连接并上线",
+        created_at: new Date(Date.now() - 1000 * 60 * 15),
       },
       {
         id: 3,
-        type: 'bug',
-        title: '发现新缺陷',
-        description: '在支付模块中发现严重缺陷',
-        created_at: new Date(Date.now() - 1000 * 60 * 30)
+        type: "bug",
+        title: "发现新缺陷",
+        description: "在支付模块中发现严重缺陷",
+        created_at: new Date(Date.now() - 1000 * 60 * 30),
       },
       {
         id: 4,
-        type: 'user',
-        title: '新用户注册',
-        description: '测试工程师 张三 已注册账号',
-        created_at: new Date(Date.now() - 1000 * 60 * 60)
-      }
-    ]
+        type: "user",
+        title: "新用户注册",
+        description: "测试工程师 张三 已注册账号",
+        created_at: new Date(Date.now() - 1000 * 60 * 60),
+      },
+    ];
   }
-}
+};
 
 // 刷新数据
 const refreshData = async () => {
-  loading.value = true
+  loading.value = true;
   try {
-    await Promise.all([
-      fetchStats(),
-      fetchRecentActivities()
-    ])
-    ElMessage.success('数据刷新成功')
+    await Promise.all([fetchStats(), fetchRecentActivities()]);
+    ElMessage.success("数据刷新成功");
   } catch (error) {
-    ElMessage.error('数据刷新失败')
+    ElMessage.error("数据刷新失败");
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 // 查看所有活动
 const viewAllActivities = () => {
   // TODO: 跳转到活动页面
-  ElMessage.info('查看全部活动功能待完善')
-}
+  ElMessage.info("查看全部活动功能待完善");
+};
 
 // 组件挂载时获取数据
 onMounted(() => {
-  refreshData()
-})
+  refreshData();
+});
 </script>
 
 <style lang="scss" scoped>
@@ -479,19 +481,19 @@ onMounted(() => {
       color: #fff;
 
       &.primary {
-        background: linear-gradient(135deg, #409EFF, #66b1ff);
+        background: linear-gradient(135deg, #409eff, #66b1ff);
       }
 
       &.success {
-        background: linear-gradient(135deg, #67C23A, #85ce61);
+        background: linear-gradient(135deg, #67c23a, #85ce61);
       }
 
       &.warning {
-        background: linear-gradient(135deg, #E6A23C, #ebb563);
+        background: linear-gradient(135deg, #e6a23c, #ebb563);
       }
 
       &.danger {
-        background: linear-gradient(135deg, #F56C6C, #f78989);
+        background: linear-gradient(135deg, #f56c6c, #f78989);
       }
     }
 
@@ -593,19 +595,19 @@ onMounted(() => {
           flex-shrink: 0;
 
           &.task {
-            background: linear-gradient(135deg, #409EFF, #66b1ff);
+            background: linear-gradient(135deg, #409eff, #66b1ff);
           }
 
           &.device {
-            background: linear-gradient(135deg, #67C23A, #85ce61);
+            background: linear-gradient(135deg, #67c23a, #85ce61);
           }
 
           &.user {
-            background: linear-gradient(135deg, #E6A23C, #ebb563);
+            background: linear-gradient(135deg, #e6a23c, #ebb563);
           }
 
           &.bug {
-            background: linear-gradient(135deg, #F56C6C, #f78989);
+            background: linear-gradient(135deg, #f56c6c, #f78989);
           }
         }
 

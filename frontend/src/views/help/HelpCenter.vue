@@ -34,7 +34,7 @@
             <ArrowDown />
           </el-icon>
         </div>
-        
+
         <div
           v-show="expandedCategories.includes(category.id)"
           class="category-content"
@@ -65,7 +65,7 @@
           <h3>快速入门</h3>
         </div>
       </template>
-      
+
       <div class="quick-start-content">
         <div
           v-for="(step, index) in quickStartSteps"
@@ -103,7 +103,7 @@
           </el-button>
         </div>
       </template>
-      
+
       <div class="faq-content">
         <el-collapse v-model="activeFAQ">
           <el-collapse-item
@@ -151,7 +151,7 @@
           </el-button>
         </div>
       </template>
-      
+
       <div class="video-grid">
         <div
           v-for="video in videoList"
@@ -188,7 +188,7 @@
           <h3>联系支持</h3>
         </div>
       </template>
-      
+
       <div class="support-options">
         <div
           class="support-option"
@@ -200,7 +200,7 @@
           <h4>提交工单</h4>
           <p>创建技术支持工单，获得专业帮助</p>
         </div>
-        
+
         <div
           class="support-option"
           @click="openChatDialog"
@@ -211,7 +211,7 @@
           <h4>在线客服</h4>
           <p>与客服人员实时交流</p>
         </div>
-        
+
         <div
           class="support-option"
           @click="callSupport"
@@ -222,7 +222,7 @@
           <h4>电话支持</h4>
           <p>工作日 9:00-18:00</p>
         </div>
-        
+
         <div
           class="support-option"
           @click="sendEmail"
@@ -251,12 +251,12 @@
           <span class="help-category">{{ currentHelpItem.category }}</span>
           <span class="help-update-time">更新时间: {{ currentHelpItem.updateTime }}</span>
         </div>
-        
+
         <div
           class="help-detail-body"
           v-html="currentHelpItem.content"
         />
-        
+
         <div class="help-detail-actions">
           <el-button @click="likeHelpItem">
             <el-icon><Star /></el-icon>
@@ -339,7 +339,7 @@
             />
           </el-select>
         </el-form-item>
-        
+
         <el-form-item
           label="问题标题"
           required
@@ -349,7 +349,7 @@
             placeholder="请输入问题标题"
           />
         </el-form-item>
-        
+
         <el-form-item
           label="问题描述"
           required
@@ -361,7 +361,7 @@
             placeholder="请详细描述您遇到的问题"
           />
         </el-form-item>
-        
+
         <el-form-item label="附件">
           <el-upload
             :action="uploadUrl"
@@ -378,7 +378,7 @@
             </template>
           </el-upload>
         </el-form-item>
-        
+
         <el-form-item label="联系方式">
           <el-input
             v-model="ticketForm.contact"
@@ -386,7 +386,7 @@
           />
         </el-form-item>
       </el-form>
-      
+
       <template #footer>
         <el-button @click="ticketDialogVisible = false">
           取消
@@ -403,8 +403,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, reactive, onMounted } from "vue";
+import { ElMessage, ElMessageBox } from "element-plus";
 import {
   Search,
   ArrowDown,
@@ -422,346 +422,349 @@ import {
   Monitor,
   DataAnalysis,
   User,
-  Lock
-} from '@element-plus/icons-vue'
+  Lock,
+} from "@element-plus/icons-vue";
 
 // 响应式数据
-const searchKeyword = ref('')
-const expandedCategories = ref(['getting-started'])
-const activeFAQ = ref([])
-const helpDetailVisible = ref(false)
-const videoDialogVisible = ref(false)
-const ticketDialogVisible = ref(false)
-const currentHelpItem = ref(null)
-const currentVideo = ref(null)
-const uploadUrl = ref('/api/upload/help')
+const searchKeyword = ref("");
+const expandedCategories = ref(["getting-started"]);
+const activeFAQ = ref([]);
+const helpDetailVisible = ref(false);
+const videoDialogVisible = ref(false);
+const ticketDialogVisible = ref(false);
+const currentHelpItem = ref(null);
+const currentVideo = ref(null);
+const uploadUrl = ref("/api/upload/help");
 
 // 帮助分类
 const categories = ref([
   {
-    id: 'getting-started',
-    name: '快速入门',
+    id: "getting-started",
+    name: "快速入门",
     icon: Document,
     items: [
       {
-        id: 'gs-1',
-        title: '平台介绍',
-        description: '了解移动测试平台的基本功能和特点',
-        category: '快速入门',
-        updateTime: '2024-01-15',
-        content: '<h2>平台介绍</h2><p>移动测试平台是一个专业的...</p>'
+        id: "gs-1",
+        title: "平台介绍",
+        description: "了解移动测试平台的基本功能和特点",
+        category: "快速入门",
+        updateTime: "2024-01-15",
+        content: "<h2>平台介绍</h2><p>移动测试平台是一个专业的...</p>",
       },
       {
-        id: 'gs-2',
-        title: '注册登录',
-        description: '如何注册账户和登录系统',
-        category: '快速入门',
-        updateTime: '2024-01-14',
-        content: '<h2>注册登录</h2><p>注册流程如下...</p>'
+        id: "gs-2",
+        title: "注册登录",
+        description: "如何注册账户和登录系统",
+        category: "快速入门",
+        updateTime: "2024-01-14",
+        content: "<h2>注册登录</h2><p>注册流程如下...</p>",
       },
       {
-        id: 'gs-3',
-        title: '界面概览',
-        description: '熟悉平台的主要界面和功能区域',
-        category: '快速入门',
-        updateTime: '2024-01-13',
-        content: '<h2>界面概览</h2><p>平台界面包含...</p>'
-      }
-    ]
+        id: "gs-3",
+        title: "界面概览",
+        description: "熟悉平台的主要界面和功能区域",
+        category: "快速入门",
+        updateTime: "2024-01-13",
+        content: "<h2>界面概览</h2><p>平台界面包含...</p>",
+      },
+    ],
   },
   {
-    id: 'device-management',
-    name: '设备管理',
+    id: "device-management",
+    name: "设备管理",
     icon: Monitor,
     items: [
       {
-        id: 'dm-1',
-        title: '添加设备',
-        description: '如何连接和管理测试设备',
-        category: '设备管理',
-        updateTime: '2024-01-12',
-        content: '<h2>添加设备</h2><p>设备连接方式...</p>'
+        id: "dm-1",
+        title: "添加设备",
+        description: "如何连接和管理测试设备",
+        category: "设备管理",
+        updateTime: "2024-01-12",
+        content: "<h2>添加设备</h2><p>设备连接方式...</p>",
       },
       {
-        id: 'dm-2',
-        title: '设备监控',
-        description: '实时监控设备状态和性能',
-        category: '设备管理',
-        updateTime: '2024-01-11',
-        content: '<h2>设备监控</h2><p>监控指标包括...</p>'
-      }
-    ]
+        id: "dm-2",
+        title: "设备监控",
+        description: "实时监控设备状态和性能",
+        category: "设备管理",
+        updateTime: "2024-01-11",
+        content: "<h2>设备监控</h2><p>监控指标包括...</p>",
+      },
+    ],
   },
   {
-    id: 'test-management',
-    name: '测试管理',
+    id: "test-management",
+    name: "测试管理",
     icon: DataAnalysis,
     items: [
       {
-        id: 'tm-1',
-        title: '创建测试用例',
-        description: '编写和管理自动化测试用例',
-        category: '测试管理',
-        updateTime: '2024-01-10',
-        content: '<h2>创建测试用例</h2><p>测试用例编写规范...</p>'
+        id: "tm-1",
+        title: "创建测试用例",
+        description: "编写和管理自动化测试用例",
+        category: "测试管理",
+        updateTime: "2024-01-10",
+        content: "<h2>创建测试用例</h2><p>测试用例编写规范...</p>",
       },
       {
-        id: 'tm-2',
-        title: '执行测试任务',
-        description: '配置和执行测试任务',
-        category: '测试管理',
-        updateTime: '2024-01-09',
-        content: '<h2>执行测试任务</h2><p>任务执行流程...</p>'
-      }
-    ]
+        id: "tm-2",
+        title: "执行测试任务",
+        description: "配置和执行测试任务",
+        category: "测试管理",
+        updateTime: "2024-01-09",
+        content: "<h2>执行测试任务</h2><p>任务执行流程...</p>",
+      },
+    ],
   },
   {
-    id: 'user-management',
-    name: '用户管理',
+    id: "user-management",
+    name: "用户管理",
     icon: User,
     items: [
       {
-        id: 'um-1',
-        title: '用户权限',
-        description: '管理用户账户和权限设置',
-        category: '用户管理',
-        updateTime: '2024-01-08',
-        content: '<h2>用户权限</h2><p>权限管理说明...</p>'
-      }
-    ]
+        id: "um-1",
+        title: "用户权限",
+        description: "管理用户账户和权限设置",
+        category: "用户管理",
+        updateTime: "2024-01-08",
+        content: "<h2>用户权限</h2><p>权限管理说明...</p>",
+      },
+    ],
   },
   {
-    id: 'system-settings',
-    name: '系统设置',
+    id: "system-settings",
+    name: "系统设置",
     icon: Setting,
     items: [
       {
-        id: 'ss-1',
-        title: '基础配置',
-        description: '系统基础参数配置',
-        category: '系统设置',
-        updateTime: '2024-01-07',
-        content: '<h2>基础配置</h2><p>配置项说明...</p>'
+        id: "ss-1",
+        title: "基础配置",
+        description: "系统基础参数配置",
+        category: "系统设置",
+        updateTime: "2024-01-07",
+        content: "<h2>基础配置</h2><p>配置项说明...</p>",
       },
       {
-        id: 'ss-2',
-        title: '安全设置',
-        description: '系统安全和访问控制配置',
-        category: '系统设置',
-        updateTime: '2024-01-06',
-        content: '<h2>安全设置</h2><p>安全配置项...</p>'
-      }
-    ]
-  }
-])
+        id: "ss-2",
+        title: "安全设置",
+        description: "系统安全和访问控制配置",
+        category: "系统设置",
+        updateTime: "2024-01-06",
+        content: "<h2>安全设置</h2><p>安全配置项...</p>",
+      },
+    ],
+  },
+]);
 
 // 快速入门步骤
 const quickStartSteps = ref([
   {
-    title: '注册账户',
-    description: '创建您的测试平台账户，开始使用各项功能',
-    detail: '注册流程...'
+    title: "注册账户",
+    description: "创建您的测试平台账户，开始使用各项功能",
+    detail: "注册流程...",
   },
   {
-    title: '连接设备',
-    description: '将您的移动设备连接到平台进行测试',
-    detail: '设备连接指南...'
+    title: "连接设备",
+    description: "将您的移动设备连接到平台进行测试",
+    detail: "设备连接指南...",
   },
   {
-    title: '创建项目',
-    description: '创建测试项目，组织您的测试工作',
-    detail: '项目管理说明...'
+    title: "创建项目",
+    description: "创建测试项目，组织您的测试工作",
+    detail: "项目管理说明...",
   },
   {
-    title: '编写用例',
-    description: '编写自动化测试用例，定义测试逻辑',
-    detail: '用例编写教程...'
+    title: "编写用例",
+    description: "编写自动化测试用例，定义测试逻辑",
+    detail: "用例编写教程...",
   },
   {
-    title: '执行测试',
-    description: '运行测试任务，获取测试结果',
-    detail: '测试执行指南...'
-  }
-])
+    title: "执行测试",
+    description: "运行测试任务，获取测试结果",
+    detail: "测试执行指南...",
+  },
+]);
 
 // 常见问题
 const faqList = ref([
   {
-    id: 'faq-1',
-    question: '如何连接Android设备？',
-    answer: '连接Android设备的步骤如下：<br>1. 确保设备已开启USB调试模式<br>2. 使用USB线连接设备和电脑<br>3. 在设备管理中添加设备...',
-    helpfulCount: 156
+    id: "faq-1",
+    question: "如何连接Android设备？",
+    answer:
+      "连接Android设备的步骤如下：<br>1. 确保设备已开启USB调试模式<br>2. 使用USB线连接设备和电脑<br>3. 在设备管理中添加设备...",
+    helpfulCount: 156,
   },
   {
-    id: 'faq-2',
-    question: '测试用例支持哪些编程语言？',
-    answer: '平台支持多种编程语言编写测试用例：<br>• Python<br>• JavaScript<br>• Java<br>• Kotlin...',
-    helpfulCount: 89
+    id: "faq-2",
+    question: "测试用例支持哪些编程语言？",
+    answer:
+      "平台支持多种编程语言编写测试用例：<br>• Python<br>• JavaScript<br>• Java<br>• Kotlin...",
+    helpfulCount: 89,
   },
   {
-    id: 'faq-3',
-    question: '如何批量导入测试用例？',
-    answer: '批量导入测试用例的方法：<br>1. 准备符合模板格式的Excel文件<br>2. 在测试用例管理页面点击导入按钮<br>3. 选择文件并确认导入...',
-    helpfulCount: 67
-  }
-])
+    id: "faq-3",
+    question: "如何批量导入测试用例？",
+    answer:
+      "批量导入测试用例的方法：<br>1. 准备符合模板格式的Excel文件<br>2. 在测试用例管理页面点击导入按钮<br>3. 选择文件并确认导入...",
+    helpfulCount: 67,
+  },
+]);
 
 // 视频教程
 const videoList = ref([
   {
-    id: 'video-1',
-    title: '平台快速入门教程',
-    description: '10分钟快速了解平台基本操作',
-    thumbnail: '/images/video-thumb-1.jpg',
-    url: '/videos/quick-start.mp4',
-    duration: '10:23',
+    id: "video-1",
+    title: "平台快速入门教程",
+    description: "10分钟快速了解平台基本操作",
+    thumbnail: "/images/video-thumb-1.jpg",
+    url: "/videos/quick-start.mp4",
+    duration: "10:23",
     views: 1250,
-    uploadTime: '2024-01-15'
+    uploadTime: "2024-01-15",
   },
   {
-    id: 'video-2',
-    title: '设备连接详解',
-    description: '详细介绍各种设备的连接方法',
-    thumbnail: '/images/video-thumb-2.jpg',
-    url: '/videos/device-connection.mp4',
-    duration: '15:45',
+    id: "video-2",
+    title: "设备连接详解",
+    description: "详细介绍各种设备的连接方法",
+    thumbnail: "/images/video-thumb-2.jpg",
+    url: "/videos/device-connection.mp4",
+    duration: "15:45",
     views: 890,
-    uploadTime: '2024-01-14'
+    uploadTime: "2024-01-14",
   },
   {
-    id: 'video-3',
-    title: '测试用例编写实战',
-    description: '从零开始编写第一个测试用例',
-    thumbnail: '/images/video-thumb-3.jpg',
-    url: '/videos/test-case-writing.mp4',
-    duration: '25:18',
+    id: "video-3",
+    title: "测试用例编写实战",
+    description: "从零开始编写第一个测试用例",
+    thumbnail: "/images/video-thumb-3.jpg",
+    url: "/videos/test-case-writing.mp4",
+    duration: "25:18",
     views: 756,
-    uploadTime: '2024-01-13'
-  }
-])
+    uploadTime: "2024-01-13",
+  },
+]);
 
 // 工单表单
 const ticketForm = reactive({
-  type: '',
-  title: '',
-  description: '',
+  type: "",
+  title: "",
+  description: "",
   attachments: [],
-  contact: ''
-})
+  contact: "",
+});
 
 // 方法
 const handleSearch = () => {
   // 实现搜索逻辑
-  console.log('搜索:', searchKeyword.value)
-}
+  console.log("搜索:", searchKeyword.value);
+};
 
 const toggleCategory = (categoryId) => {
-  const index = expandedCategories.value.indexOf(categoryId)
+  const index = expandedCategories.value.indexOf(categoryId);
   if (index > -1) {
-    expandedCategories.value.splice(index, 1)
+    expandedCategories.value.splice(index, 1);
   } else {
-    expandedCategories.value.push(categoryId)
+    expandedCategories.value.push(categoryId);
   }
-}
+};
 
 const viewHelpItem = (item) => {
-  currentHelpItem.value = item
-  helpDetailVisible.value = true
-}
+  currentHelpItem.value = item;
+  helpDetailVisible.value = true;
+};
 
 const viewStepDetail = (step) => {
-  ElMessage.info(step.detail)
-}
+  ElMessage.info(step.detail);
+};
 
 const refreshFAQ = () => {
-  ElMessage.success('FAQ已刷新')
-}
+  ElMessage.success("FAQ已刷新");
+};
 
 const markHelpful = (faq) => {
-  faq.helpfulCount++
-  ElMessage.success('感谢您的反馈！')
-}
+  faq.helpfulCount++;
+  ElMessage.success("感谢您的反馈！");
+};
 
 const markNotHelpful = (faq) => {
-  ElMessage.info('我们会继续改进，感谢您的反馈！')
-}
+  ElMessage.info("我们会继续改进，感谢您的反馈！");
+};
 
 const playVideo = (video) => {
-  currentVideo.value = video
-  videoDialogVisible.value = true
-}
+  currentVideo.value = video;
+  videoDialogVisible.value = true;
+};
 
 const viewAllVideos = () => {
-  ElMessage.info('跳转到视频教程页面')
-}
+  ElMessage.info("跳转到视频教程页面");
+};
 
 const openTicketDialog = () => {
-  ticketDialogVisible.value = true
-}
+  ticketDialogVisible.value = true;
+};
 
 const openChatDialog = () => {
-  ElMessage.info('正在连接在线客服...')
-}
+  ElMessage.info("正在连接在线客服...");
+};
 
 const callSupport = () => {
-  ElMessage.info('客服电话: 400-123-4567')
-}
+  ElMessage.info("客服电话: 400-123-4567");
+};
 
 const sendEmail = () => {
-  ElMessage.info('邮件地址: support@example.com')
-}
+  ElMessage.info("邮件地址: support@example.com");
+};
 
 const likeHelpItem = () => {
-  ElMessage.success('感谢您的反馈！')
-}
+  ElMessage.success("感谢您的反馈！");
+};
 
 const dislikeHelpItem = () => {
-  ElMessage.info('我们会继续改进，感谢您的反馈！')
-}
+  ElMessage.info("我们会继续改进，感谢您的反馈！");
+};
 
 const shareHelpItem = () => {
-  ElMessage.success('分享链接已复制到剪贴板')
-}
+  ElMessage.success("分享链接已复制到剪贴板");
+};
 
 const printHelpItem = () => {
-  window.print()
-}
+  window.print();
+};
 
 const handleUploadSuccess = (response, file) => {
   ticketForm.attachments.push({
     name: file.name,
-    url: response.data.url
-  })
-}
+    url: response.data.url,
+  });
+};
 
 const handleUploadRemove = (file, fileList) => {
-  ticketForm.attachments = fileList
-}
+  ticketForm.attachments = fileList;
+};
 
 const submitTicket = () => {
   if (!ticketForm.type || !ticketForm.title || !ticketForm.description) {
-    ElMessage.warning('请填写必填项')
-    return
+    ElMessage.warning("请填写必填项");
+    return;
   }
-  
+
   // 提交工单逻辑
-  ElMessage.success('工单提交成功，我们会尽快处理')
-  ticketDialogVisible.value = false
-  
+  ElMessage.success("工单提交成功，我们会尽快处理");
+  ticketDialogVisible.value = false;
+
   // 重置表单
   Object.assign(ticketForm, {
-    type: '',
-    title: '',
-    description: '',
+    type: "",
+    title: "",
+    description: "",
     attachments: [],
-    contact: ''
-  })
-}
+    contact: "",
+  });
+};
 
 // 生命周期
 onMounted(() => {
   // 初始化数据
-})
+});
 </script>
 
 <style scoped>
@@ -809,7 +812,7 @@ onMounted(() => {
 
 .category-icon {
   font-size: 24px;
-  color: #409EFF;
+  color: #409eff;
   margin-right: 10px;
 }
 
@@ -840,15 +843,15 @@ onMounted(() => {
 
 .help-item {
   padding: 15px;
-  border: 1px solid #EBEEF5;
+  border: 1px solid #ebeef5;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .help-item:hover {
-  border-color: #409EFF;
-  background-color: #F5F7FA;
+  border-color: #409eff;
+  background-color: #f5f7fa;
 }
 
 .help-item h4 {
@@ -869,8 +872,8 @@ onMounted(() => {
 }
 
 .category-tag {
-  background-color: #E1F3D8;
-  color: #67C23A;
+  background-color: #e1f3d8;
+  color: #67c23a;
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 12px;
@@ -914,7 +917,7 @@ onMounted(() => {
 .step-number {
   width: 30px;
   height: 30px;
-  background-color: #409EFF;
+  background-color: #409eff;
   color: white;
   border-radius: 50%;
   display: flex;
@@ -1036,20 +1039,20 @@ onMounted(() => {
 .support-option {
   text-align: center;
   padding: 20px;
-  border: 1px solid #EBEEF5;
+  border: 1px solid #ebeef5;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .support-option:hover {
-  border-color: #409EFF;
-  background-color: #F5F7FA;
+  border-color: #409eff;
+  background-color: #f5f7fa;
 }
 
 .support-icon {
   font-size: 32px;
-  color: #409EFF;
+  color: #409eff;
   margin-bottom: 10px;
 }
 
@@ -1070,12 +1073,12 @@ onMounted(() => {
   align-items: center;
   margin-bottom: 20px;
   padding-bottom: 10px;
-  border-bottom: 1px solid #EBEEF5;
+  border-bottom: 1px solid #ebeef5;
 }
 
 .help-category {
-  background-color: #E1F3D8;
-  color: #67C23A;
+  background-color: #e1f3d8;
+  color: #67c23a;
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 12px;
@@ -1095,7 +1098,7 @@ onMounted(() => {
   display: flex;
   gap: 10px;
   padding-top: 20px;
-  border-top: 1px solid #EBEEF5;
+  border-top: 1px solid #ebeef5;
 }
 
 @media (max-width: 768px) {

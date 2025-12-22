@@ -203,6 +203,7 @@ class VersionRequirement(db.Model):
     id = db.Column(db.Integer, primary_key=True, comment='需求编号')
     requirement_name = db.Column(db.String(200), nullable=False, comment='需求名称')
     requirement_description = db.Column(db.Text, comment='需求描述')
+    module = db.Column(db.String(100), nullable=True, comment='所属模块')
     status = db.Column(db.Enum(*VERSION_REQUIREMENT_STATUS), default='new', comment='需求状态')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
@@ -231,6 +232,7 @@ class VersionRequirement(db.Model):
             'id': self.id,
             'requirement_name': self.requirement_name,
             'requirement_description': self.requirement_description,
+            'module': self.module,
             'status': self.status,
             'project_id': self.project_id,
             'project_name': self.project.project_name if self.project else None,
@@ -688,7 +690,7 @@ class TestCase(db.Model):
     test_tasks = db.relationship('TestTask', secondary='task_case_relation', backref='test_cases')
     bugs = db.relationship('Bug', backref='test_case', lazy='dynamic')
     # 移除backref参数，避免与User模型中的created_cases冲突
-    creator = db.relationship('User', foreign_keys=[creator_id])
+    creator = db.relationship('User', foreign_keys=[creator_id], overlaps="created_cases")
     assignee = db.relationship('User', backref='assigned_cases', foreign_keys=[assignee_id])
     reviewer = db.relationship('User', foreign_keys=[reviewer_id])
     
@@ -724,6 +726,7 @@ class TestCase(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'executed_at': self.executed_at.isoformat() if self.executed_at else None,
+            'last_reviewed_at': self.last_reviewed_at.isoformat() if self.last_reviewed_at else None,
             'review_comments': self.review_comments
         }
 

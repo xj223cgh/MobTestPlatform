@@ -72,114 +72,110 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { resetPassword } from '@/api/auth'
-import { ElMessage } from 'element-plus'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ref, reactive, onMounted } from "vue";
+import { useRouter, useRoute } from "vue-router";
+import { resetPassword } from "@/api/auth";
+import { ElMessage } from "element-plus";
+import { ArrowLeft } from "@element-plus/icons-vue";
 
-const router = useRouter()
-const route = useRoute()
+const router = useRouter();
+const route = useRoute();
 
 // 表单引用
-const resetFormRef = ref(null)
+const resetFormRef = ref(null);
 
 // 加载状态
-const loading = ref(false)
+const loading = ref(false);
 
 // 重置密码表单
 const resetForm = reactive({
-  password: '',
-  confirmPassword: ''
-})
+  password: "",
+  confirmPassword: "",
+});
 
 // 邮箱和token
-const email = ref('')
-const token = ref('')
+const email = ref("");
+const token = ref("");
 
 // 密码验证器
 const validatePassword = (rule, value, callback) => {
-  if (value === '') {
-    callback(new Error('请输入新密码'))
+  if (value === "") {
+    callback(new Error("请输入新密码"));
   } else if (value.length < 6) {
-    callback(new Error('密码长度不能少于 6 个字符'))
+    callback(new Error("密码长度不能少于 6 个字符"));
   } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(value)) {
-    callback(new Error('密码必须包含大小写字母和数字'))
+    callback(new Error("密码必须包含大小写字母和数字"));
   } else {
-    if (resetForm.confirmPassword !== '') {
-      resetFormRef.value?.validateField('confirmPassword')
+    if (resetForm.confirmPassword !== "") {
+      resetFormRef.value?.validateField("confirmPassword");
     }
-    callback()
+    callback();
   }
-}
+};
 
 // 确认密码验证器
 const validateConfirmPassword = (rule, value, callback) => {
-  if (value === '') {
-    callback(new Error('请再次输入密码'))
+  if (value === "") {
+    callback(new Error("请再次输入密码"));
   } else if (value !== resetForm.password) {
-    callback(new Error('两次输入密码不一致'))
+    callback(new Error("两次输入密码不一致"));
   } else {
-    callback()
+    callback();
   }
-}
+};
 
 // 表单验证规则
 const resetRules = {
-  password: [
-    { validator: validatePassword, trigger: 'blur' }
-  ],
-  confirmPassword: [
-    { validator: validateConfirmPassword, trigger: 'blur' }
-  ]
-}
+  password: [{ validator: validatePassword, trigger: "blur" }],
+  confirmPassword: [{ validator: validateConfirmPassword, trigger: "blur" }],
+};
 
 // 处理重置密码
 const handleResetPassword = async () => {
-  if (!resetFormRef.value) return
+  if (!resetFormRef.value) return;
 
   try {
-    await resetFormRef.value.validate()
-    loading.value = true
+    await resetFormRef.value.validate();
+    loading.value = true;
 
     const response = await resetPassword({
       email: email.value,
       token: token.value,
-      password: resetForm.password
-    })
+      password: resetForm.password,
+    });
 
     if (response.success) {
-      ElMessage.success('密码重置成功，请登录')
+      ElMessage.success("密码重置成功，请登录");
       setTimeout(() => {
-        router.push('/login')
-      }, 1500)
+        router.push("/login");
+      }, 1500);
     } else {
-      ElMessage.error(response.message || '重置失败')
+      ElMessage.error(response.message || "重置失败");
     }
   } catch (error) {
-    console.error('重置密码失败:', error)
-    ElMessage.error(error.response?.data?.message || '重置失败')
+    console.error("重置密码失败:", error);
+    ElMessage.error(error.response?.data?.message || "重置失败");
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 // 跳转到登录页面
 const goToLogin = () => {
-  router.push('/login')
-}
+  router.push("/login");
+};
 
 // 初始化
 onMounted(() => {
   // 从查询参数获取邮箱和token
-  email.value = route.query.email || ''
-  token.value = route.query.token || ''
+  email.value = route.query.email || "";
+  token.value = route.query.token || "";
 
   if (!email.value || !token.value) {
-    ElMessage.error('重置链接无效，请重新申请')
-    router.push('/forgot-password')
+    ElMessage.error("重置链接无效，请重新申请");
+    router.push("/forgot-password");
   }
-})
+});
 </script>
 
 <style lang="scss" scoped>

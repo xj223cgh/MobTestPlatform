@@ -43,24 +43,24 @@
 </template>
 
 <script setup>
-import { useRouter } from 'vue-router'
-import { ArrowLeft, HomeFilled, Lock } from '@element-plus/icons-vue'
+import { useRouter } from "vue-router";
+import { ArrowLeft, HomeFilled, Lock } from "@element-plus/icons-vue";
 
-const router = useRouter()
+const router = useRouter();
 
 // 返回上一页
 const goBack = () => {
   if (window.history.length > 1) {
-    router.go(-1)
+    router.go(-1);
   } else {
-    router.push('/')
+    router.push("/");
   }
-}
+};
 
 // 返回首页
 const goHome = () => {
-  router.push('/')
-}
+  router.push("/");
+};
 </script>
 
 <style lang="scss" scoped>

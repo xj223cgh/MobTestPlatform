@@ -3,7 +3,7 @@
     <div class="page-header">
       <h1>缺陷管理</h1>
     </div>
-    
+
     <!-- 缺省页面 -->
     <div class="bug-default-page">
       <el-empty
@@ -14,8 +14,7 @@
   </div>
 </template>
 
-<script setup>
-</script>
+<script setup></script>
 
 <style scoped>
 .bug-management {

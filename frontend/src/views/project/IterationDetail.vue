@@ -9,7 +9,9 @@
       >
         <template #header>
           <div class="card-header">
-            <h2>迭代名称: {{ iterationDetail.iteration_name || '未知迭代' }}</h2>
+            <h2>
+              迭代名称: {{ iterationDetail.iteration_name || "未知迭代" }}
+            </h2>
             <div class="header-actions">
               <el-button
                 type="primary"
@@ -32,53 +34,53 @@
           <!-- 左边列 -->
           <el-descriptions-item label="状态">
             <el-tag :type="getStatusType(iterationDetail.status)">
-              {{ getStatusText(iterationDetail.status) || '-' }}
+              {{ getStatusText(iterationDetail.status) || "-" }}
             </el-tag>
           </el-descriptions-item>
 
           <!-- 右边列 -->
           <el-descriptions-item label="所属项目">
-            {{ iterationDetail.project_name || '-' }}
+            {{ iterationDetail.project_name || "-" }}
           </el-descriptions-item>
 
           <!-- 左边列 -->
           <el-descriptions-item label="测试版本">
-            {{ iterationDetail.version || '-' }}
+            {{ iterationDetail.version || "-" }}
           </el-descriptions-item>
 
           <!-- 右边列 -->
           <el-descriptions-item label="开始日期">
-            {{ formatDateTime(iterationDetail.start_date) || '-' }}
+            {{ formatDateTime(iterationDetail.start_date) || "-" }}
           </el-descriptions-item>
 
           <!-- 左边列 -->
           <el-descriptions-item label="创建人">
-            {{ iterationDetail.created_by_name || '-' }}
+            {{ iterationDetail.created_by_name || "-" }}
           </el-descriptions-item>
 
           <!-- 右边列 -->
           <el-descriptions-item label="结束日期">
-            {{ formatDateTime(iterationDetail.end_date) || '-' }}
+            {{ formatDateTime(iterationDetail.end_date) || "-" }}
           </el-descriptions-item>
 
           <!-- 左边列 -->
           <el-descriptions-item label="更新人">
-            {{ iterationDetail.updated_by_name || '-' }}
+            {{ iterationDetail.updated_by_name || "-" }}
           </el-descriptions-item>
 
           <!-- 右边列 -->
           <el-descriptions-item label="创建时间">
-            {{ formatDateTime(iterationDetail.created_at) || '-' }}
+            {{ formatDateTime(iterationDetail.created_at) || "-" }}
           </el-descriptions-item>
 
           <!-- 左边列 -->
           <el-descriptions-item label="迭代描述">
-            {{ iterationDetail.description || '-' }}
+            {{ iterationDetail.description || "-" }}
           </el-descriptions-item>
 
           <!-- 右边列 -->
           <el-descriptions-item label="更新时间">
-            {{ formatDateTime(iterationDetail.updated_at) || '-' }}
+            {{ formatDateTime(iterationDetail.updated_at) || "-" }}
           </el-descriptions-item>
         </el-descriptions>
       </el-card>
@@ -99,28 +101,42 @@
                 <div class="calendar-header">
                   <div class="date-range">
                     <span class="date-label">开始日期：</span>
-                    <span class="date-value">{{ formatDateTime(iterationDetail.start_date) }}</span>
+                    <span class="date-value">{{
+                      formatDateTime(iterationDetail.start_date)
+                    }}</span>
                   </div>
                   <div class="date-range">
                     <span class="date-label">结束日期：</span>
-                    <span class="date-value">{{ formatDateTime(iterationDetail.end_date) }}</span>
+                    <span class="date-value">{{
+                      formatDateTime(iterationDetail.end_date)
+                    }}</span>
                   </div>
                   <div class="date-range">
                     <span class="date-label">持续时间：</span>
-                    <span class="date-value">{{ calculateDuration(iterationDetail.start_date, iterationDetail.end_date) }} 天</span>
+                    <span class="date-value">{{
+                      calculateDuration(
+                        iterationDetail.start_date,
+                        iterationDetail.end_date,
+                      )
+                    }}
+                      天</span>
                   </div>
                 </div>
                 <div class="calendar-progress">
                   <div class="progress-label">
                     <span>需求分布统计：</span>
-                    <span class="progress-percentage">{{ calculateRequirementProgress(iterationDetail.requirement_stats) }}%</span>
+                    <span class="progress-percentage">{{
+                      calculateRequirementProgress(
+                        iterationDetail.requirement_stats,
+                      )
+                    }}%</span>
                   </div>
                   <div class="chart-container">
                     <v-chart
                       v-if="iterationDetail.requirement_stats"
                       :option="barChartOption"
                       autoresize
-                      style="height: 250px;"
+                      style="height: 250px"
                     />
                     <div
                       v-else
@@ -197,7 +213,7 @@
             v-model="iterationForm.start_date"
             type="datetime"
             placeholder="选择开始日期"
-            style="width: 100%;"
+            style="width: 100%"
           />
         </el-form-item>
         <el-form-item
@@ -209,7 +225,7 @@
             v-model="iterationForm.end_date"
             type="datetime"
             placeholder="选择结束日期"
-            style="width: 100%;"
+            style="width: 100%"
           />
         </el-form-item>
         <el-form-item
@@ -269,25 +285,25 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { getIteration, updateIteration } from '@/api/iteration'
-import { ElMessage } from 'element-plus'
-import { Edit, ArrowLeft } from '@element-plus/icons-vue'
-import VChart from 'vue-echarts'
+import { ref, reactive, onMounted, computed } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { getIteration, updateIteration } from "@/api/iteration";
+import { ElMessage } from "element-plus";
+import { Edit, ArrowLeft } from "@element-plus/icons-vue";
+import VChart from "vue-echarts";
 // 导入ECharts核心模块和渲染器
-import * as echarts from 'echarts/core'
-import { CanvasRenderer } from 'echarts/renderers'
+import * as echarts from "echarts/core";
+import { CanvasRenderer } from "echarts/renderers";
 // 导入柱状图组件
-import { BarChart } from 'echarts/charts'
+import { BarChart } from "echarts/charts";
 // 导入必要的组件
 import {
   TitleComponent,
   TooltipComponent,
   GridComponent,
   DatasetComponent,
-  TransformComponent
-} from 'echarts/components'
+  TransformComponent,
+} from "echarts/components";
 
 // 注册必须的组件
 echarts.use([
@@ -297,128 +313,141 @@ echarts.use([
   TooltipComponent,
   GridComponent,
   DatasetComponent,
-  TransformComponent
-])
+  TransformComponent,
+]);
 
 export default {
-  name: 'IterationDetail',
+  name: "IterationDetail",
   components: {
     Edit,
     ArrowLeft,
-    VChart
+    VChart,
   },
   setup() {
-    const route = useRoute()
-    const router = useRouter()
-    const iterationId = computed(() => route.params.id)
+    const route = useRoute();
+    const router = useRouter();
+    const iterationId = computed(() => route.params.id);
 
     // 迭代详情数据
-    const iterationDetail = ref({})
-    const loading = ref(false)
+    const iterationDetail = ref({});
+    const loading = ref(false);
 
     // 编辑对话框
-    const editDialogVisible = ref(false)
+    const editDialogVisible = ref(false);
     const iterationForm = reactive({
       id: null,
-      iteration_name: '',
-      goal: '',
-      version: '',
-      start_date: '',
-      end_date: '',
-      status: 'planning',
-      description: ''
-    })
+      iteration_name: "",
+      goal: "",
+      version: "",
+      start_date: "",
+      end_date: "",
+      status: "planning",
+      description: "",
+    });
 
     const iterationRules = {
       iteration_name: [
-        { required: true, message: '请输入迭代名称', trigger: 'blur' },
-        { min: 2, max: 50, message: '迭代名称长度在 2 到 50 个字符', trigger: 'blur' }
+        { required: true, message: "请输入迭代名称", trigger: "blur" },
+        {
+          min: 2,
+          max: 50,
+          message: "迭代名称长度在 2 到 50 个字符",
+          trigger: "blur",
+        },
       ],
       goal: [
-        { required: true, message: '请输入迭代目标', trigger: 'blur' },
-        { min: 5, max: 200, message: '迭代目标长度在 5 到 200 个字符', trigger: 'blur' }
+        { required: true, message: "请输入迭代目标", trigger: "blur" },
+        {
+          min: 5,
+          max: 200,
+          message: "迭代目标长度在 5 到 200 个字符",
+          trigger: "blur",
+        },
       ],
       version: [
-        { required: true, message: '请输入测试版本', trigger: 'blur' },
-        { min: 1, max: 30, message: '测试版本长度在 1 到 30 个字符', trigger: 'blur' }
+        { required: true, message: "请输入测试版本", trigger: "blur" },
+        {
+          min: 1,
+          max: 30,
+          message: "测试版本长度在 1 到 30 个字符",
+          trigger: "blur",
+        },
       ],
       start_date: [
-        { required: true, message: '请选择开始日期', trigger: 'change' }
+        { required: true, message: "请选择开始日期", trigger: "change" },
       ],
       end_date: [
-        { required: true, message: '请选择结束日期', trigger: 'change' },
+        { required: true, message: "请选择结束日期", trigger: "change" },
         {
           validator: (rule, value, callback) => {
             if (iterationForm.start_date && value < iterationForm.start_date) {
-              callback(new Error('结束日期不能早于开始日期'))
+              callback(new Error("结束日期不能早于开始日期"));
             } else {
-              callback()
+              callback();
             }
           },
-          trigger: 'change'
-        }
+          trigger: "change",
+        },
       ],
-      status: [
-        { required: true, message: '请选择状态', trigger: 'change' }
-      ]
-    }
+      status: [{ required: true, message: "请选择状态", trigger: "change" }],
+    };
 
     // 获取迭代详情
     const fetchIterationDetail = async () => {
-      if (!iterationId.value) return
-      loading.value = true
+      if (!iterationId.value) return;
+      loading.value = true;
       try {
-        const response = await getIteration(iterationId.value)
+        const response = await getIteration(iterationId.value);
         if (response && response.code === 200 && response.data) {
-          iterationDetail.value = response.data
+          iterationDetail.value = response.data;
         }
       } catch (error) {
-        console.error('获取迭代详情失败:', error)
-        ElMessage.error('获取迭代详情失败: ' + (error?.message || '未知错误'))
+        console.error("获取迭代详情失败:", error);
+        ElMessage.error("获取迭代详情失败: " + (error?.message || "未知错误"));
       } finally {
-        loading.value = false
+        loading.value = false;
       }
-    }
+    };
 
     // 返回列表
     const handleBack = () => {
-      router.push('/iterations')
-    }
+      router.push("/iterations");
+    };
 
     // 编辑迭代
     const handleEdit = () => {
-      iterationForm.id = iterationDetail.value.id
-      iterationForm.iteration_name = iterationDetail.value.iteration_name
-      iterationForm.goal = iterationDetail.value.goal
-      iterationForm.version = iterationDetail.value.version
-      iterationForm.start_date = iterationDetail.value.start_date
-      iterationForm.end_date = iterationDetail.value.end_date
-      iterationForm.status = iterationDetail.value.status
-      iterationForm.description = iterationDetail.value.description
-      editDialogVisible.value = true
-    }
+      iterationForm.id = iterationDetail.value.id;
+      iterationForm.iteration_name = iterationDetail.value.iteration_name;
+      iterationForm.goal = iterationDetail.value.goal;
+      iterationForm.version = iterationDetail.value.version;
+      iterationForm.start_date = iterationDetail.value.start_date;
+      iterationForm.end_date = iterationDetail.value.end_date;
+      iterationForm.status = iterationDetail.value.status;
+      iterationForm.description = iterationDetail.value.description;
+      editDialogVisible.value = true;
+    };
 
     // 重置表单
     const resetForm = () => {
-      iterationForm.id = null
-      iterationForm.iteration_name = ''
-      iterationForm.goal = ''
-      iterationForm.version = ''
-      iterationForm.start_date = ''
-      iterationForm.end_date = ''
-      iterationForm.status = 'planning'
-      iterationForm.description = ''
+      iterationForm.id = null;
+      iterationForm.iteration_name = "";
+      iterationForm.goal = "";
+      iterationForm.version = "";
+      iterationForm.start_date = "";
+      iterationForm.end_date = "";
+      iterationForm.status = "planning";
+      iterationForm.description = "";
       if (this.$refs.iterationForm) {
-        this.$refs.iterationForm.resetFields()
+        this.$refs.iterationForm.resetFields();
       }
-    }
+    };
 
     // 提交表单
     const submitForm = async () => {
-      if (!this.$refs.iterationForm) return
+      if (!this.$refs.iterationForm) return;
       try {
-        await this.$refs.iterationForm.validate()
-        
+        await this.$refs.iterationForm.validate();
+
         const iterationData = {
           iteration_name: iterationForm.iteration_name,
           goal: iterationForm.goal,
@@ -426,151 +455,151 @@ export default {
           start_date: iterationForm.start_date,
           end_date: iterationForm.end_date,
           status: iterationForm.status,
-          description: iterationForm.description
-        }
-        
-        const response = await updateIteration(iterationForm.id, iterationData)
+          description: iterationForm.description,
+        };
+
+        const response = await updateIteration(iterationForm.id, iterationData);
         if (response && response.code === 200) {
-          ElMessage.success('迭代更新成功')
-          editDialogVisible.value = false
-          fetchIterationDetail()
+          ElMessage.success("迭代更新成功");
+          editDialogVisible.value = false;
+          fetchIterationDetail();
         }
       } catch (error) {
-        console.error('更新迭代失败:', error)
-        ElMessage.error('更新迭代失败: ' + (error?.message || '未知错误'))
+        console.error("更新迭代失败:", error);
+        ElMessage.error("更新迭代失败: " + (error?.message || "未知错误"));
       }
-    }
+    };
 
     // 根据状态获取标签类型
     const getStatusType = (status) => {
       const statusMap = {
-        planning: 'info',
-        active: 'primary',
-        completed: 'success',
-        cancelled: 'danger'
-      }
-      return statusMap[status] || 'info'
-    }
+        planning: "info",
+        active: "primary",
+        completed: "success",
+        cancelled: "danger",
+      };
+      return statusMap[status] || "info";
+    };
 
     // 根据状态获取文本
     const getStatusText = (status) => {
       const statusMap = {
-        planning: '计划中',
-        active: '进行中',
-        completed: '已完成',
-        cancelled: '已取消'
-      }
-      return statusMap[status] || status
-    }
+        planning: "计划中",
+        active: "进行中",
+        completed: "已完成",
+        cancelled: "已取消",
+      };
+      return statusMap[status] || status;
+    };
 
     // 格式化时间
     const formatDateTime = (dateTime) => {
-      if (!dateTime) return '-'
-      return dateTime.replace('T', ' ')
-    }
+      if (!dateTime) return "-";
+      return dateTime.replace("T", " ");
+    };
 
     // 计算需求进度百分比
     const calculateRequirementProgress = (requirementStats) => {
-      if (!requirementStats || !requirementStats.total) return 0
-      
-      const total = requirementStats.total
-      const completed = requirementStats.completed || 0
-      const progress = Math.round((completed / total) * 100)
-      
-      return Math.min(progress, 100)
-    }
-    
+      if (!requirementStats || !requirementStats.total) return 0;
+
+      const total = requirementStats.total;
+      const completed = requirementStats.completed || 0;
+      const progress = Math.round((completed / total) * 100);
+
+      return Math.min(progress, 100);
+    };
+
     // 计算迭代持续时间（天数）
     const calculateDuration = (startDate, endDate) => {
-      if (!startDate || !endDate) return 0
-      
-      const start = new Date(startDate)
-      const end = new Date(endDate)
-      const diffTime = Math.abs(end - start)
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1 // 包含开始和结束日期
-      
-      return diffDays
-    }
+      if (!startDate || !endDate) return 0;
+
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffTime = Math.abs(end - start);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // 包含开始和结束日期
+
+      return diffDays;
+    };
 
     // 柱状图配置项
     const barChartOption = computed(() => {
-      const requirementStats = iterationDetail.value.requirement_stats || {}
-      
+      const requirementStats = iterationDetail.value.requirement_stats || {};
+
       // 准备数据
-      const categories = ['未开始', '进行中', '已完成', '已取消']
+      const categories = ["未开始", "进行中", "已完成", "已取消"];
       const data = [
         requirementStats.new || 0,
         requirementStats.in_progress || 0,
         requirementStats.completed || 0,
-        requirementStats.cancelled || 0
-      ]
-      
+        requirementStats.cancelled || 0,
+      ];
+
       // 颜色配置
-      const colors = ['#909399', '#409eff', '#67c23a', '#f56c6c']
-      
+      const colors = ["#909399", "#409eff", "#67c23a", "#f56c6c"];
+
       return {
         title: {
-          text: '需求状态分布',
-          left: 'center',
+          text: "需求状态分布",
+          left: "center",
           textStyle: {
             fontSize: 16,
-            fontWeight: 'normal'
-          }
+            fontWeight: "normal",
+          },
         },
         tooltip: {
-          trigger: 'axis',
+          trigger: "axis",
           axisPointer: {
-            type: 'shadow'
+            type: "shadow",
           },
-          formatter: '{b}: {c} ({d}%)'
+          formatter: "{b}: {c} ({d}%)",
         },
         grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '3%',
-          containLabel: true
+          left: "3%",
+          right: "4%",
+          bottom: "3%",
+          containLabel: true,
         },
         xAxis: {
-          type: 'category',
+          type: "category",
           data: categories,
           axisLabel: {
-            interval: 0
-          }
+            interval: 0,
+          },
         },
         yAxis: {
-          type: 'value',
-          name: '需求数量'
+          type: "value",
+          name: "需求数量",
         },
         series: [
           {
-            name: '需求状态',
-            type: 'bar',
+            name: "需求状态",
+            type: "bar",
             data: data,
             itemStyle: {
-              color: (params) => colors[params.dataIndex]
+              color: (params) => colors[params.dataIndex],
             },
             label: {
               show: true,
-              position: 'top',
-              formatter: '{c}'
+              position: "top",
+              formatter: "{c}",
             },
             emphasis: {
               itemStyle: {
                 shadowBlur: 10,
                 shadowOffsetX: 0,
-                shadowColor: 'rgba(0, 0, 0, 0.5)'
-              }
+                shadowColor: "rgba(0, 0, 0, 0.5)",
+              },
             },
-            barWidth: '60%'
-          }
-        ]
-      }
-    })
+            barWidth: "60%",
+          },
+        ],
+      };
+    });
 
     // 组件挂载时获取数据
     onMounted(() => {
-      fetchIterationDetail()
-    })
+      fetchIterationDetail();
+    });
 
     return {
       iterationDetail,
@@ -588,10 +617,10 @@ export default {
       formatDateTime,
       calculateRequirementProgress,
       calculateDuration,
-      barChartOption
-    }
-  }
-}
+      barChartOption,
+    };
+  },
+};
 </script>
 
 <style scoped>
@@ -752,21 +781,21 @@ export default {
     align-items: flex-start;
     gap: 12px;
   }
-  
+
   .chart-section .el-col {
     margin-bottom: 20px;
   }
-  
+
   .el-descriptions :deep(.el-descriptions__item-label) {
     background-color: #fafafa;
   }
-  
+
   .calendar-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
   }
-  
+
   .progress-label {
     flex-direction: column;
     align-items: flex-start;

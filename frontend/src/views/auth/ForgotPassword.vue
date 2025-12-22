@@ -57,65 +57,65 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
-import { forgotPassword } from '@/api/auth'
-import { ElMessage } from 'element-plus'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ref, reactive } from "vue";
+import { useRouter } from "vue-router";
+import { forgotPassword } from "@/api/auth";
+import { ElMessage } from "element-plus";
+import { ArrowLeft } from "@element-plus/icons-vue";
 
-const router = useRouter()
+const router = useRouter();
 
 // 表单引用
-const forgotFormRef = ref(null)
+const forgotFormRef = ref(null);
 
 // 加载状态
-const loading = ref(false)
+const loading = ref(false);
 
 // 忘记密码表单
 const forgotForm = reactive({
-  email: ''
-})
+  email: "",
+});
 
 // 表单验证规则
 const forgotRules = {
   email: [
-    { required: true, message: '请输入邮箱地址', trigger: 'blur' },
-    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' }
-  ]
-}
+    { required: true, message: "请输入邮箱地址", trigger: "blur" },
+    { type: "email", message: "请输入有效的邮箱地址", trigger: "blur" },
+  ],
+};
 
 // 处理忘记密码
 const handleForgotPassword = async () => {
-  if (!forgotFormRef.value) return
+  if (!forgotFormRef.value) return;
 
   try {
-    await forgotFormRef.value.validate()
-    loading.value = true
+    await forgotFormRef.value.validate();
+    loading.value = true;
 
     const response = await forgotPassword({
-      email: forgotForm.email
-    })
+      email: forgotForm.email,
+    });
 
     if (response.success) {
-      ElMessage.success('重置密码链接已发送到您的邮箱，请查收')
+      ElMessage.success("重置密码链接已发送到您的邮箱，请查收");
       setTimeout(() => {
-        router.push('/login')
-      }, 2000)
+        router.push("/login");
+      }, 2000);
     } else {
-      ElMessage.error(response.message || '发送失败')
+      ElMessage.error(response.message || "发送失败");
     }
   } catch (error) {
-    console.error('发送重置链接失败:', error)
-    ElMessage.error(error.response?.data?.message || '发送失败')
+    console.error("发送重置链接失败:", error);
+    ElMessage.error(error.response?.data?.message || "发送失败");
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 // 跳转到登录页面
 const goToLogin = () => {
-  router.push('/login')
-}
+  router.push("/login");
+};
 </script>
 
 <style lang="scss" scoped>

@@ -5,7 +5,7 @@
         <h1>设备管理</h1>
       </div>
     </div>
-    
+
     <!-- 缺省页面 -->
     <div class="device-default-page">
       <el-empty
@@ -16,8 +16,7 @@
   </div>
 </template>
 
-<script setup>
-</script>
+<script setup></script>
 
 <style lang="scss" scoped>
 .device-management {
@@ -28,7 +27,7 @@
   margin-bottom: 20px;
   padding-bottom: 20px;
   border-bottom: 1px solid #e4e7ed;
-  
+
   .header-content {
     h1 {
       margin: 0;

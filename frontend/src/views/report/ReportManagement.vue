@@ -3,7 +3,7 @@
     <div class="page-header">
       <h2>报告管理</h2>
     </div>
-    
+
     <!-- 缺省页面 -->
     <div class="report-default-page">
       <el-empty
@@ -14,8 +14,7 @@
   </div>
 </template>
 
-<script setup>
-</script>
+<script setup></script>
 
 <style scoped>
 .report-management {

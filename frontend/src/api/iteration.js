@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import request from "@/utils/request";
 
 /**
  * 获取迭代列表
@@ -7,10 +7,10 @@ import request from '@/utils/request'
  */
 export function getIterations(params) {
   return request({
-    url: '/iterations',
-    method: 'get',
-    params
-  })
+    url: "/iterations",
+    method: "get",
+    params,
+  });
 }
 
 /**
@@ -22,9 +22,9 @@ export function getIterations(params) {
 export function getProjectIterations(projectId, params) {
   return request({
     url: `/projects/${projectId}/iterations`,
-    method: 'get',
-    params
-  })
+    method: "get",
+    params,
+  });
 }
 
 /**
@@ -35,8 +35,8 @@ export function getProjectIterations(projectId, params) {
 export function getIteration(iterationId) {
   return request({
     url: `/iterations/${iterationId}`,
-    method: 'get'
-  })
+    method: "get",
+  });
 }
 
 /**
@@ -46,10 +46,10 @@ export function getIteration(iterationId) {
  */
 export function createIteration(data) {
   return request({
-    url: '/iterations',
-    method: 'post',
-    data
-  })
+    url: "/iterations",
+    method: "post",
+    data,
+  });
 }
 
 /**
@@ -61,9 +61,9 @@ export function createIteration(data) {
 export function updateIteration(iterationId, data) {
   return request({
     url: `/iterations/${iterationId}`,
-    method: 'put',
-    data
-  })
+    method: "put",
+    data,
+  });
 }
 
 /**
@@ -74,8 +74,8 @@ export function updateIteration(iterationId, data) {
 export function deleteIteration(iterationId) {
   return request({
     url: `/iterations/${iterationId}`,
-    method: 'delete'
-  })
+    method: "delete",
+  });
 }
 
 /**
@@ -87,9 +87,9 @@ export function deleteIteration(iterationId) {
 export function copyIteration(iterationId, data) {
   return request({
     url: `/iterations/${iterationId}/copy`,
-    method: 'post',
-    data
-  })
+    method: "post",
+    data,
+  });
 }
 
 /**
@@ -100,8 +100,8 @@ export function copyIteration(iterationId, data) {
 export function getIterationStats(iterationId) {
   return request({
     url: `/iterations/${iterationId}/stats`,
-    method: 'get'
-  })
+    method: "get",
+  });
 }
 
 // 默认导出所有方法
@@ -113,5 +113,5 @@ export default {
   updateIteration,
   deleteIteration,
   copyIteration,
-  getIterationStats
-}
+  getIterationStats,
+};

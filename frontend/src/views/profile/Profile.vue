@@ -11,12 +11,12 @@
         <el-avatar
           :size="80"
           :src="userInfo.avatar"
-          :class="avatar-gradient"
+          :class="avatar - gradient"
         >
-          {{ (userInfo.username || '?').charAt(0).toUpperCase() }}
+          {{ (userInfo.username || "?").charAt(0).toUpperCase() }}
         </el-avatar>
         <div class="avatar-text">
-          <h2>{{ userInfo.username || '未知人员' }}</h2>
+          <h2>{{ userInfo.username || "未知人员" }}</h2>
           <p class="role-text">
             {{ getRoleText(userInfo.role) }}
           </p>
@@ -70,7 +70,7 @@
                   </el-form-item>
                 </el-col>
               </el-row>
-              
+
               <el-row :gutter="20">
                 <el-col :span="12">
                   <el-form-item
@@ -102,7 +102,7 @@
                   </el-form-item>
                 </el-col>
               </el-row>
-              
+
               <el-row>
                 <el-col :span="24">
                   <el-form-item
@@ -116,7 +116,7 @@
                   </el-form-item>
                 </el-col>
               </el-row>
-              
+
               <el-row :gutter="20">
                 <el-col :span="12">
                   <el-form-item label="角色">
@@ -135,7 +135,7 @@
                   </el-form-item>
                 </el-col>
               </el-row>
-              
+
               <el-form-item>
                 <div class="form-actions">
                   <el-button
@@ -190,7 +190,7 @@
                   </el-form-item>
                 </el-col>
               </el-row>
-              
+
               <el-row>
                 <el-col :span="24">
                   <el-form-item
@@ -206,7 +206,7 @@
                   </el-form-item>
                 </el-col>
               </el-row>
-              
+
               <el-row>
                 <el-col :span="24">
                   <el-form-item
@@ -223,7 +223,7 @@
                   </el-form-item>
                 </el-col>
               </el-row>
-              
+
               <el-form-item>
                 <div class="form-actions">
                   <el-button
@@ -251,226 +251,228 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user'
-import { getUserInfo, changePassword as changePasswordApi } from '@/api/auth'
-import { updateUser } from '@/api/user'
+import { ref, reactive, onMounted } from "vue";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { useRouter } from "vue-router";
+import { useUserStore } from "@/stores/user";
+import { getUserInfo, changePassword as changePasswordApi } from "@/api/auth";
+import { updateUser } from "@/api/user";
 
-const router = useRouter()
+const router = useRouter();
 
-const userStore = useUserStore()
+const userStore = useUserStore();
 
 // 当前激活的标签页
-const activeTab = ref('info')
+const activeTab = ref("info");
 
 // 用户信息
-const userInfo = ref({})
+const userInfo = ref({});
 
 // 个人信息表单
-const infoFormRef = ref()
+const infoFormRef = ref();
 const infoForm = reactive({
-  username: '',
-  real_name: '',
-  gender: 'other',
-  phone: '',
-  department: ''
-})
+  username: "",
+  real_name: "",
+  gender: "other",
+  phone: "",
+  department: "",
+});
 
 const infoRules = {
-  real_name: [
-    { required: true, message: '请输入真实姓名', trigger: 'blur' }
-  ],
+  real_name: [{ required: true, message: "请输入真实姓名", trigger: "blur" }],
   phone: [
-    { required: true, message: '请输入手机号', trigger: 'blur' },
-    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号格式', trigger: 'blur' }
-  ]
-}
+    { required: true, message: "请输入手机号", trigger: "blur" },
+    {
+      pattern: /^1[3-9]\d{9}$/,
+      message: "请输入正确的手机号格式",
+      trigger: "blur",
+    },
+  ],
+};
 
 // 密码表单
-const passwordFormRef = ref()
+const passwordFormRef = ref();
 const passwordForm = reactive({
-  old_password: '',
-  new_password: '',
-  confirm_password: ''
-})
+  old_password: "",
+  new_password: "",
+  confirm_password: "",
+});
 
 const passwordRules = {
-  old_password: [
-    { required: true, message: '请输入原密码', trigger: 'blur' }
-  ],
+  old_password: [{ required: true, message: "请输入原密码", trigger: "blur" }],
   new_password: [
-    { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+    { required: true, message: "请输入新密码", trigger: "blur" },
+    { min: 6, message: "密码长度不能少于6位", trigger: "blur" },
   ],
   confirm_password: [
-    { required: true, message: '请确认新密码', trigger: 'blur' },
+    { required: true, message: "请确认新密码", trigger: "blur" },
     {
       validator: (rule, value, callback) => {
         if (value !== passwordForm.new_password) {
-          callback(new Error('两次输入的密码不一致'))
+          callback(new Error("两次输入的密码不一致"));
         } else {
-          callback()
+          callback();
         }
       },
-      trigger: 'blur'
-    }
-  ]
-}
+      trigger: "blur",
+    },
+  ],
+};
 
 // 加载状态
-const infoLoading = ref(false)
-const passwordLoading = ref(false)
+const infoLoading = ref(false);
+const passwordLoading = ref(false);
 
 // 获取角色文本
 const getRoleText = (role) => {
   const roleMap = {
-    'super': '超级管理员',
-    'manager': '管理员',
-    'tester': '测试员',
-    'admin': '实习生'
-  }
-  return roleMap[role] || role
-}
+    super: "超级管理员",
+    manager: "管理员",
+    tester: "测试员",
+    admin: "实习生",
+  };
+  return roleMap[role] || role;
+};
 
 // 格式化日期
 const formatDate = (dateString) => {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  return date.toLocaleString('zh-CN')
-}
+  if (!dateString) return "-";
+  const date = new Date(dateString);
+  return date.toLocaleString("zh-CN");
+};
 
 // 加载用户信息
 const loadUserInfo = async () => {
   try {
-    const response = await getUserInfo()
+    const response = await getUserInfo();
     if (response.code === 200) {
-      userInfo.value = response.data.user
-      
+      userInfo.value = response.data.user;
+
       // 填充表单
-      infoForm.username = userInfo.value.username
-      infoForm.real_name = userInfo.value.real_name || ''
-      infoForm.gender = userInfo.value.gender || 'other'
-      infoForm.phone = userInfo.value.phone || ''
-      infoForm.department = userInfo.value.department || ''
+      infoForm.username = userInfo.value.username;
+      infoForm.real_name = userInfo.value.real_name || "";
+      infoForm.gender = userInfo.value.gender || "other";
+      infoForm.phone = userInfo.value.phone || "";
+      infoForm.department = userInfo.value.department || "";
     }
   } catch (error) {
-    console.error('获取用户信息失败:', error)
-    ElMessage.error('获取用户信息失败')
+    console.error("获取用户信息失败:", error);
+    ElMessage.error("获取用户信息失败");
   }
-}
+};
 
 // 更新个人信息
 const updateInfo = async () => {
-  if (!infoFormRef.value) return
-  
+  if (!infoFormRef.value) return;
+
   try {
-    await infoFormRef.value.validate()
-    infoLoading.value = true
-    
+    await infoFormRef.value.validate();
+    infoLoading.value = true;
+
     const response = await updateUser(userInfo.value.id, {
       real_name: infoForm.real_name,
       gender: infoForm.gender,
       phone: infoForm.phone,
-      department: infoForm.department
-    })
-    
+      department: infoForm.department,
+    });
+
     if (response.code === 200) {
       // 更新store中的用户信息
       userStore.updateUserInfo({
         real_name: infoForm.real_name,
         gender: infoForm.gender,
         phone: infoForm.phone,
-        department: infoForm.department
-      })
-      
-      ElMessage.success('个人信息更新成功')
-      await loadUserInfo() // 重新加载用户信息
+        department: infoForm.department,
+      });
+
+      ElMessage.success("个人信息更新成功");
+      await loadUserInfo(); // 重新加载用户信息
     } else {
-      ElMessage.error(response.message || '更新失败')
+      ElMessage.error(response.message || "更新失败");
     }
   } catch (error) {
-    console.error('更新个人信息失败:', error)
-    ElMessage.error('更新失败，请稍后重试')
+    console.error("更新个人信息失败:", error);
+    ElMessage.error("更新失败，请稍后重试");
   } finally {
-    infoLoading.value = false
+    infoLoading.value = false;
   }
-}
+};
 
 // 重置个人信息表单
 const resetInfo = () => {
-  infoForm.real_name = userInfo.value.real_name || ''
-  infoForm.gender = userInfo.value.gender || 'other'
-  infoForm.phone = userInfo.value.phone || ''
-  infoForm.department = userInfo.value.department || ''
-}
+  infoForm.real_name = userInfo.value.real_name || "";
+  infoForm.gender = userInfo.value.gender || "other";
+  infoForm.phone = userInfo.value.phone || "";
+  infoForm.department = userInfo.value.department || "";
+};
 
 // 修改密码
 const changePassword = async () => {
-  if (!passwordFormRef.value) return
-  
+  if (!passwordFormRef.value) return;
+
   try {
-    await passwordFormRef.value.validate()
-    passwordLoading.value = true
-    
+    await passwordFormRef.value.validate();
+    passwordLoading.value = true;
+
     const response = await changePasswordApi({
       old_password: passwordForm.old_password,
-      new_password: passwordForm.new_password
-    })
-    
+      new_password: passwordForm.new_password,
+    });
+
     if (response.code === 200) {
-      resetPassword()
-      
+      resetPassword();
+
       // 显示弹窗提示用户需要重新登录
       try {
         await ElMessageBox.confirm(
-          '密码修改成功，为了安全起见，请重新登录',
-          '重新登录',
+          "密码修改成功，为了安全起见，请重新登录",
+          "重新登录",
           {
-            confirmButtonText: '去登录',
-            cancelButtonText: '取消',
-            type: 'info',
+            confirmButtonText: "去登录",
+            cancelButtonText: "取消",
+            type: "info",
             showCancelButton: false, // 强制用户重新登录
             closeOnClickModal: false,
-            closeOnPressEscape: false
-          }
-        )
+            closeOnPressEscape: false,
+          },
+        );
       } catch (e) {
         // 即使弹窗被异常关闭，也强制执行登出和跳转
-        console.log('弹窗被关闭，但仍需登出')
+        console.log("弹窗被关闭，但仍需登出");
       }
-      
+
       // 清除用户会话信息
-      await userStore.logout()
-      
+      await userStore.logout();
+
       // 强制跳转到登录页面，使用 replace 模式避免用户可以返回到修改密码页面
-      router.replace('/login')
+      router.replace("/login");
     } else {
-      ElMessage.error(response.message || '密码修改失败')
+      ElMessage.error(response.message || "密码修改失败");
     }
   } catch (error) {
     // 如果用户点击了取消按钮，不做处理
-    if (error.name !== 'MessageBoxCloseError') {
-      console.error('修改密码失败:', error)
-      ElMessage.error(error.response?.data?.message || '密码修改失败，请稍后重试')
+    if (error.name !== "MessageBoxCloseError") {
+      console.error("修改密码失败:", error);
+      ElMessage.error(
+        error.response?.data?.message || "密码修改失败，请稍后重试",
+      );
     }
   } finally {
-    passwordLoading.value = false
+    passwordLoading.value = false;
   }
-}
+};
 
 // 重置密码表单
 const resetPassword = () => {
-  passwordForm.old_password = ''
-  passwordForm.new_password = ''
-  passwordForm.confirm_password = ''
-  passwordFormRef.value?.clearValidate()
-}
+  passwordForm.old_password = "";
+  passwordForm.new_password = "";
+  passwordForm.confirm_password = "";
+  passwordFormRef.value?.clearValidate();
+};
 
 onMounted(() => {
-  loadUserInfo()
-})
+  loadUserInfo();
+});
 </script>
 
 <style lang="scss" scoped>
@@ -484,7 +486,7 @@ onMounted(() => {
 
 .page-header {
   margin-bottom: 24px;
-  
+
   .title {
     font-size: 24px;
     font-weight: 600;
@@ -502,29 +504,29 @@ onMounted(() => {
   color: #303133;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   transition: all 0.3s ease;
-  
+
   &:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
-  
+
   .profile-avatar {
     display: flex;
     align-items: center;
     gap: 20px;
-    
+
     .avatar-gradient {
       background: #f0f2f5;
       color: #606266;
       font-weight: 500;
     }
-    
+
     .avatar-text {
       h2 {
         margin: 0 0 6px 0;
         font-size: 20px;
         font-weight: 600;
       }
-      
+
       .role-text {
         margin: 0;
         color: #606266;
@@ -541,7 +543,7 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   overflow: hidden;
   transition: all 0.3s ease;
-  
+
   &:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
@@ -549,22 +551,22 @@ onMounted(() => {
 
 .profile-content {
   margin-bottom: 30px;
-  
+
   .profile-tabs {
     :deep(.el-tabs__header) {
       margin: 0;
       background: #fafafa;
       padding: 0 20px;
       border-bottom: 1px solid #ebeef5;
-      
+
       .el-tabs__nav-wrap {
         padding: 0;
       }
-      
+
       .el-tabs__nav {
         height: 56px;
       }
-      
+
       .el-tabs__item {
         height: 56px;
         line-height: 56px;
@@ -572,7 +574,7 @@ onMounted(() => {
         color: #606266;
         padding: 0 16px;
         transition: all 0.3s ease;
-        
+
         &.is-active {
           color: #1890ff;
           font-weight: 500;
@@ -581,13 +583,13 @@ onMounted(() => {
           color: #1890ff;
         }
       }
-      
+
       .el-tabs__active-bar {
         height: 2px;
         background: #1890ff;
       }
     }
-    
+
     :deep(.el-tabs__content) {
       padding: 24px;
     }
@@ -603,41 +605,42 @@ onMounted(() => {
   border-bottom: 1px solid #ebeef5;
 }
 
-.info-form, .password-form {
+.info-form,
+.password-form {
   :deep(.el-form-item) {
     margin-bottom: 20px;
   }
-  
+
   :deep(.el-form-item__label) {
     font-size: 14px;
     font-weight: 500;
     color: #606266;
   }
-  
+
   :deep(.el-input__wrapper) {
     border-radius: 6px;
     transition: all 0.3s ease;
   }
-  
+
   :deep(.el-input__inner) {
     height: 40px;
     font-size: 14px;
     border-radius: 6px;
     transition: all 0.3s ease;
   }
-  
+
   :deep(.el-radio__label) {
     font-size: 14px;
     color: #606266;
   }
-  
+
   .form-actions {
     margin-top: 24px;
     display: flex;
     gap: 12px;
     justify-content: flex-start;
   }
-  
+
   .el-button {
     padding: 10px 20px;
     border-radius: 6px;
@@ -645,13 +648,13 @@ onMounted(() => {
     font-weight: 500;
     transition: all 0.3s ease;
   }
-  
+
   .el-button--primary {
     background: #1890ff;
     border: 1px solid #1890ff;
     color: white;
   }
-  
+
   .el-button--default {
     background: white;
     border: 1px solid #dcdfe6;
@@ -683,20 +686,20 @@ onMounted(() => {
     background-color: #fff;
     min-height: calc(100vh - 56px); // 调整为移动端导航栏高度
   }
-  
+
   .page-header .title {
     font-size: 18px;
     text-align: center;
   }
-  
+
   .profile-header {
     padding: 20px;
-    
+
     .profile-avatar {
       flex-direction: column;
       text-align: center;
       gap: 16px;
-      
+
       .avatar-text {
         h2 {
           font-size: 18px;
@@ -704,16 +707,16 @@ onMounted(() => {
       }
     }
   }
-  
+
   .profile-content {
     .profile-tabs {
       :deep(.el-tabs__header) {
         padding: 0 16px;
-        
+
         .el-tabs__nav {
           height: 48px;
         }
-        
+
         .el-tabs__item {
           height: 48px;
           line-height: 48px;
@@ -721,33 +724,34 @@ onMounted(() => {
           padding: 0 12px;
         }
       }
-      
+
       :deep(.el-tabs__content) {
         padding: 16px;
       }
     }
   }
-  
+
   .section-title {
     font-size: 15px;
     padding-bottom: 8px;
   }
-  
-  .info-form, .password-form {
+
+  .info-form,
+  .password-form {
     :deep(.el-form-item__label) {
       font-size: 13px;
     }
-    
+
     :deep(.el-input__inner) {
       height: 38px;
       font-size: 13px;
     }
-    
+
     .form-actions {
       flex-direction: column;
       gap: 10px;
     }
-    
+
     .el-button {
       width: 100%;
       padding: 8px 16px;
@@ -759,11 +763,11 @@ onMounted(() => {
   .profile-container {
     padding: 12px;
   }
-  
+
   .profile-header {
     padding: 16px;
   }
-  
+
   .profile-content {
     .profile-tabs {
       :deep(.el-tabs__content) {
@@ -771,12 +775,13 @@ onMounted(() => {
       }
     }
   }
-  
-  .info-form, .password-form {
+
+  .info-form,
+  .password-form {
     :deep(.el-form) {
       label-width: 90px;
     }
-    
+
     :deep(.el-form-item__label) {
       font-size: 12px;
     }

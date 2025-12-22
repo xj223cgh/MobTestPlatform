@@ -121,7 +121,7 @@
           align="center"
         >
           <template #default="{ row }">
-            {{ row.id || '-' }}
+            {{ row.id || "-" }}
           </template>
         </el-table-column>
         <el-table-column
@@ -131,7 +131,7 @@
           align="center"
         >
           <template #default="{ row }">
-            {{ row.username || '-' }}
+            {{ row.username || "-" }}
           </template>
         </el-table-column>
         <el-table-column
@@ -141,7 +141,7 @@
           align="center"
         >
           <template #default="{ row }">
-            {{ row.real_name || '-' }}
+            {{ row.real_name || "-" }}
           </template>
         </el-table-column>
         <el-table-column
@@ -151,7 +151,7 @@
           align="center"
         >
           <template #default="{ row }">
-            {{ row.phone || '-' }}
+            {{ row.phone || "-" }}
           </template>
         </el-table-column>
         <el-table-column
@@ -161,7 +161,7 @@
           align="center"
         >
           <template #default="{ row }">
-            {{ row.department || '-' }}
+            {{ row.department || "-" }}
           </template>
         </el-table-column>
         <el-table-column
@@ -188,7 +188,7 @@
           <template #default="{ row }">
             <template v-if="row.is_active !== undefined">
               <el-tag :type="row.is_active ? 'success' : 'danger'">
-                {{ row.is_active ? '启用' : '禁用' }}
+                {{ row.is_active ? "启用" : "禁用" }}
               </el-tag>
             </template>
             <span v-else>-</span>
@@ -224,7 +224,7 @@
                 size="small"
                 @click="handleToggleStatus(row)"
               >
-                {{ row.is_active ? '禁用' : '启用' }}
+                {{ row.is_active ? "禁用" : "启用" }}
               </el-button>
               <el-button
                 type="danger"
@@ -238,7 +238,7 @@
         </el-table-column>
       </el-table>
     </div>
-    
+
     <!-- 分页 - 固定在右侧区域底部 -->
     <div class="fixed-pagination">
       <el-pagination
@@ -379,7 +379,7 @@
           </el-radio-group>
         </el-form-item>
       </el-form>
-      
+
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
@@ -397,223 +397,230 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Refresh } from '@element-plus/icons-vue'
-import { getUserList, createUser, updateUser, deleteUser, toggleUserStatus } from '@/api/user'
-import dayjs from 'dayjs'
+import { ref, reactive, onMounted } from "vue";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { Plus, Search, Refresh } from "@element-plus/icons-vue";
+import {
+  getUserList,
+  createUser,
+  updateUser,
+  deleteUser,
+  toggleUserStatus,
+} from "@/api/user";
+import dayjs from "dayjs";
 
 // 响应式数据
-const loading = ref(false)
-const submitLoading = ref(false)
-const dialogVisible = ref(false)
-const isEdit = ref(false)
-const dialogTitle = ref('')
-const userFormRef = ref()
+const loading = ref(false);
+const submitLoading = ref(false);
+const dialogVisible = ref(false);
+const isEdit = ref(false);
+const dialogTitle = ref("");
+const userFormRef = ref();
 
 // 搜索表单
 const searchForm = reactive({
-  username: '',
-  phone: '',
-  role: '',
-  status: ''
-})
+  username: "",
+  phone: "",
+  role: "",
+  status: "",
+});
 
 // 用户表单
 const userForm = reactive({
   id: null,
-  username: '',
-  real_name: '',
-  phone: '',
-  password: '',
-  role: '',
+  username: "",
+  real_name: "",
+  phone: "",
+  password: "",
+  role: "",
   is_active: true,
-  gender: 'other',
-  department: ''
-})
+  gender: "other",
+  department: "",
+});
 
 // 表单验证规则
 const userRules = {
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度在 3 到 20 个字符', trigger: 'blur' }
+    { required: true, message: "请输入用户名", trigger: "blur" },
+    {
+      min: 3,
+      max: 20,
+      message: "用户名长度在 3 到 20 个字符",
+      trigger: "blur",
+    },
   ],
-  real_name: [
-    { required: true, message: '请输入真实姓名', trigger: 'blur' }
-  ],
+  real_name: [{ required: true, message: "请输入真实姓名", trigger: "blur" }],
   phone: [
-    { required: true, message: '请输入手机号', trigger: 'blur' },
-    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
+    { required: true, message: "请输入手机号", trigger: "blur" },
+    {
+      pattern: /^1[3-9]\d{9}$/,
+      message: "请输入正确的手机号",
+      trigger: "blur",
+    },
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+    { required: true, message: "请输入密码", trigger: "blur" },
+    { min: 6, message: "密码长度不能少于6位", trigger: "blur" },
   ],
-  role: [
-    { required: true, message: '请选择角色', trigger: 'change' }
-  ],
-  is_active: [
-    { required: true, message: '请选择状态', trigger: 'change' }
-  ],
-  gender: [
-    { required: true, message: '请选择性别', trigger: 'change' }
-  ],
+  role: [{ required: true, message: "请选择角色", trigger: "change" }],
+  is_active: [{ required: true, message: "请选择状态", trigger: "change" }],
+  gender: [{ required: true, message: "请选择性别", trigger: "change" }],
   department: [
-    { max: 100, message: '部门名称不能超过100个字符', trigger: 'blur' }
-  ]
-}
+    { max: 100, message: "部门名称不能超过100个字符", trigger: "blur" },
+  ],
+};
 
 // 用户列表
-const userList = ref([])
+const userList = ref([]);
 
 // 分页
 const pagination = reactive({
   page: 1,
   size: 10,
-  total: 0
-})
+  total: 0,
+});
 
 // 获取用户列表
 const fetchUserList = async () => {
   try {
-    loading.value = true
+    loading.value = true;
     // 构建请求参数，处理各筛选条件
     const params = {
       page: pagination.page,
-      size: pagination.size
-    }
-    
+      size: pagination.size,
+    };
+
     // 构建搜索参数 - 后端API使用统一的search参数
     // 只有当username或phone有值时才添加search参数
-    let searchValue = ''
+    let searchValue = "";
     if (searchForm.username) {
-      searchValue = searchForm.username
+      searchValue = searchForm.username;
     } else if (searchForm.phone) {
-      searchValue = searchForm.phone
+      searchValue = searchForm.phone;
     }
-    
+
     // 只有当searchValue有值时才添加到请求参数中
     if (searchValue) {
-      params.search = searchValue
+      params.search = searchValue;
     }
-    
+
     // 只有当role有值时才添加role参数
     if (searchForm.role) {
-      params.role = searchForm.role
+      params.role = searchForm.role;
     }
-    
+
     // 只有当status有明确值（'true'或'false'）时才添加is_active参数
     // 当status被清除（空字符串）时，不添加该参数，实现数据重置
-    if (searchForm.status === 'true' || searchForm.status === 'false') {
-      params.is_active = searchForm.status === 'true'
+    if (searchForm.status === "true" || searchForm.status === "false") {
+      params.is_active = searchForm.status === "true";
     }
-    
-    console.log('API请求参数:', params)
-    const response = await getUserList(params)
+
+    console.log("API请求参数:", params);
+    const response = await getUserList(params);
     // 使用后端实际返回的数据结构
-    userList.value = response.data.users || []
-    pagination.total = response.data.pagination.total || 0
+    userList.value = response.data.users || [];
+    pagination.total = response.data.pagination.total || 0;
   } catch (error) {
-    ElMessage.error('获取用户列表失败')
-    console.error('获取用户列表错误:', error)
+    ElMessage.error("获取用户列表失败");
+    console.error("获取用户列表错误:", error);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 // 搜索 - 点击搜索按钮时才会应用所有筛选条件
 const handleSearch = () => {
   // 重置页码为1，确保从第一页开始显示筛选结果
-  pagination.page = 1
-  
+  pagination.page = 1;
+
   // 调用fetchUserList函数，该函数内部会根据各筛选条件的值来决定是否添加对应的筛选参数
-  fetchUserList()
-}
+  fetchUserList();
+};
 
 // 重置搜索
 const handleReset = () => {
   Object.assign(searchForm, {
-    username: '',
-    phone: '',
-    role: '',
-    status: ''
-  })
-  handleSearch()
-}
+    username: "",
+    phone: "",
+    role: "",
+    status: "",
+  });
+  handleSearch();
+};
 
 // 新增用户
 const handleAdd = () => {
-  isEdit.value = false
-  dialogTitle.value = '新增用户'
-  dialogVisible.value = true
-  resetForm()
-}
+  isEdit.value = false;
+  dialogTitle.value = "新增用户";
+  dialogVisible.value = true;
+  resetForm();
+};
 
 // 编辑用户
 const handleEdit = (row) => {
-  isEdit.value = true
-  dialogTitle.value = '编辑用户'
-  dialogVisible.value = true
+  isEdit.value = true;
+  dialogTitle.value = "编辑用户";
+  dialogVisible.value = true;
   Object.assign(userForm, {
-      id: row.id,
-      username: row.username,
-      real_name: row.real_name,
-      phone: row.phone,
-      password: '',
-      role: row.role,
-      is_active: row.is_active,
-      gender: row.gender || 'other',
-      department: row.department || ''
-    })
-}
+    id: row.id,
+    username: row.username,
+    real_name: row.real_name,
+    phone: row.phone,
+    password: "",
+    role: row.role,
+    is_active: row.is_active,
+    gender: row.gender || "other",
+    department: row.department || "",
+  });
+};
 
 // 删除用户
 const handleDelete = (row) => {
   ElMessageBox.confirm(
     `确定要删除用户 "${row.username}" 吗？此操作不可恢复。`,
-    '确认删除',
+    "确认删除",
     {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      type: "warning",
+    },
   ).then(async () => {
     try {
-      const response = await deleteUser(row.id)
+      const response = await deleteUser(row.id);
       if (response.success) {
-        ElMessage.success('删除成功')
-        fetchUserList()
+        ElMessage.success("删除成功");
+        fetchUserList();
       } else {
-        ElMessage.error(response.message || '删除失败')
+        ElMessage.error(response.message || "删除失败");
       }
     } catch (error) {
-      ElMessage.error('删除失败')
+      ElMessage.error("删除失败");
     }
-  })
-}
+  });
+};
 
 // 切换用户状态
 const handleToggleStatus = (row) => {
-  const action = row.is_active ? '禁用' : '启用'
+  const action = row.is_active ? "禁用" : "启用";
   ElMessageBox.confirm(
     `确定要${action}用户 "${row.username}" 吗？`,
     `确认${action}`,
     {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      type: "warning",
+    },
   ).then(async () => {
     try {
-      const response = await toggleUserStatus(row.id)
+      const response = await toggleUserStatus(row.id);
       // 直接使用响应，不再检查response.success
-      ElMessage.success(`${action}成功`)
-      fetchUserList()
+      ElMessage.success(`${action}成功`);
+      fetchUserList();
     } catch (error) {
-      ElMessage.error(`${action}失败`)
+      ElMessage.error(`${action}失败`);
     }
-  })
-}
+  });
+};
 
 // 提交表单
 const handleSubmit = async () => {
@@ -630,106 +637,108 @@ const handleSubmit = async () => {
       role: userForm.role,
       is_active: userForm.is_active,
       gender: userForm.gender,
-      department: userForm.department
+      department: userForm.department,
     };
-    
+
     // 如果是新增用户且有密码，则添加密码
     if (!isEdit.value && userForm.password) {
       submitData.password = userForm.password;
     }
-    
+
     let response;
     if (isEdit.value) {
       response = await updateUser(userForm.id, submitData);
     } else {
       response = await createUser(submitData);
     }
-    
+
     if (response.success) {
-      ElMessage.success(isEdit.value ? '编辑成功' : '创建成功');
+      ElMessage.success(isEdit.value ? "编辑成功" : "创建成功");
       dialogVisible.value = false;
       fetchUserList();
     } else {
-      ElMessage.error(response.message || (isEdit.value ? '编辑失败' : '创建失败'));
+      ElMessage.error(
+        response.message || (isEdit.value ? "编辑失败" : "创建失败"),
+      );
     }
   } catch (error) {
-    ElMessage.error('操作失败');
+    ElMessage.error("操作失败");
   } finally {
     submitLoading.value = false;
   }
-}
+};
 
 // 重置表单
 const resetForm = () => {
   Object.assign(userForm, {
     id: null,
-    username: '',
-    real_name: '',
-    phone: '',
-    password: '',
-    role: '',
+    username: "",
+    real_name: "",
+    phone: "",
+    password: "",
+    role: "",
     is_active: true,
-    gender: 'other',
-    department: ''
-  })
+    gender: "other",
+    department: "",
+  });
   if (userFormRef.value) {
-    userFormRef.value.resetFields()
+    userFormRef.value.resetFields();
   }
-}
+};
 
 // 分页处理
 const handleSizeChange = (size) => {
-  pagination.size = size
-  pagination.page = 1
-  fetchUserList()
-}
+  pagination.size = size;
+  pagination.page = 1;
+  fetchUserList();
+};
 
 const handleCurrentChange = (page) => {
-  pagination.page = page
-  fetchUserList()
-}
+  pagination.page = page;
+  fetchUserList();
+};
 
 // 工具函数
 // 获取角色标签
 const getRoleLabel = (role) => {
   const roleMap = {
-    'super': '超级管理员',
-    'admin': '实习生', 
-    'manager': '管理员',
-    'tester': '测试人员'
-  }
-  return roleMap[role] || role
-}
+    super: "超级管理员",
+    admin: "实习生",
+    manager: "管理员",
+    tester: "测试人员",
+  };
+  return roleMap[role] || role;
+};
 
 // 获取性别标签
 const getGenderLabel = (gender) => {
   const genderMap = {
-    'male': '男',
-    'female': '女',
-    'other': '其他'
-  }
-  return genderMap[gender] || '其他'
-}
+    male: "男",
+    female: "女",
+    other: "其他",
+  };
+  return genderMap[gender] || "其他";
+};
 
 // 获取角色标签类型
 const getRoleTagType = (role) => {
   const typeMap = {
-    'super': 'danger',
-    'admin': 'info',
-    'manager': 'warning', 
-    'tester': 'success'
-  }
-  return typeMap[role] || 'info'
-}
+    super: "danger",
+    admin: "info",
+    manager: "warning",
+    tester: "success",
+  };
+  return typeMap[role] || "info";
+};
 
 const formatDateTime = (dateTime) => {
-  return dateTime ? dayjs(dateTime).format('YYYY-MM-DD HH:mm:ss') : '-' 
-}
+  return dateTime ? dayjs(dateTime).format("YYYY-MM-DD HH:mm:ss") : "-";
+};
 
 // 页面加载
 onMounted(() => {
-  fetchUserList()
-})
+  fetchUserList();
+});
 </script>
 
 <style lang="scss" scoped>
@@ -748,14 +757,14 @@ onMounted(() => {
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  
+
   .header-content h1 {
     margin: 0;
     font-size: 24px;
     font-weight: 500;
     color: #303133;
   }
-  
+
   .description {
     margin: 8px 0 0;
     color: #606266;
@@ -806,7 +815,7 @@ onMounted(() => {
     left: 0;
     right: 0;
   }
-  
+
   .table-section {
     margin-bottom: 70px;
   }

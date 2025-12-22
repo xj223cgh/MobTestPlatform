@@ -91,94 +91,103 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user'
-import { Monitor } from '@element-plus/icons-vue'
+import { ref, reactive, onMounted } from "vue";
+import { useRouter } from "vue-router";
+import { useUserStore } from "@/stores/user";
+import { Monitor } from "@element-plus/icons-vue";
 
-const router = useRouter()
-const userStore = useUserStore()
+const router = useRouter();
+const userStore = useUserStore();
 
 // 表单引用
-const loginFormRef = ref(null)
+const loginFormRef = ref(null);
 
 // 加载状态
-const loading = ref(false)
+const loading = ref(false);
 
 // 登录表单
 const loginForm = reactive({
-  username: '',
-  password: '',
-  remember: false
-})
+  username: "",
+  password: "",
+  remember: false,
+});
 
 // 监听记住我复选框变化
 const handleRememberChange = () => {
   if (!loginForm.remember) {
     // 如果用户取消勾选记住我，清除已记住的信息
-    userStore.clearRememberedCredentials()
+    userStore.clearRememberedCredentials();
   } else if (loginForm.username && loginForm.password) {
     // 如果用户勾选记住我且有用户名密码，更新记住的信息
-    userStore.updateRememberedCredentials(loginForm.username, loginForm.password, true)
+    userStore.updateRememberedCredentials(
+      loginForm.username,
+      loginForm.password,
+      true,
+    );
   }
-}
+};
 
 // 页面加载时检查记住的登录信息
 onMounted(() => {
-  const rememberedCredentials = userStore.getRememberedCredentials()
+  const rememberedCredentials = userStore.getRememberedCredentials();
   if (rememberedCredentials) {
-    loginForm.username = rememberedCredentials.username
-    loginForm.password = rememberedCredentials.password
-    loginForm.remember = rememberedCredentials.remember
+    loginForm.username = rememberedCredentials.username;
+    loginForm.password = rememberedCredentials.password;
+    loginForm.remember = rememberedCredentials.remember;
   }
-})
+});
 
 // 表单验证规则
 const loginRules = {
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度在 3 到 20 个字符', trigger: 'blur' }
+    { required: true, message: "请输入用户名", trigger: "blur" },
+    {
+      min: 3,
+      max: 20,
+      message: "用户名长度在 3 到 20 个字符",
+      trigger: "blur",
+    },
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于 6 个字符', trigger: 'blur' }
-  ]
-}
+    { required: true, message: "请输入密码", trigger: "blur" },
+    { min: 6, message: "密码长度不能少于 6 个字符", trigger: "blur" },
+  ],
+};
 
 // 处理登录
 const handleLogin = async () => {
-  if (!loginFormRef.value) return
+  if (!loginFormRef.value) return;
 
   try {
-    await loginFormRef.value.validate()
-    loading.value = true
+    await loginFormRef.value.validate();
+    loading.value = true;
 
     const success = await userStore.login({
       username: loginForm.username,
       password: loginForm.password,
-      remember: loginForm.remember
-    })
+      remember: loginForm.remember,
+    });
 
     if (success) {
       // 登录成功，跳转到首页
-      router.push('/home')
+      router.push("/home");
     }
   } catch (error) {
-    console.error('登录失败:', error)
+    console.error("登录失败:", error);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 // 跳转到注册页面
 const goToRegister = () => {
-  router.push('/register')
-}
+  router.push("/register");
+};
 
 // 跳转到忘记密码页面
 const goToForgotPassword = () => {
-  router.push('/forgot-password')
-}
+  router.push("/forgot-password");
+};
 </script>
 
 <style lang="scss" scoped>
@@ -230,16 +239,16 @@ const goToForgotPassword = () => {
   min-height: 286px;
   display: flex;
   flex-direction: column;
-  
+
   .el-form {
     flex: 1;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    
+
     .el-form-item {
       margin-bottom: 18px;
-      
+
       &:last-child {
         margin-bottom: 0;
       }
@@ -269,7 +278,7 @@ const goToForgotPassword = () => {
       font-size: 14px;
       line-height: 1.5;
     }
-    
+
     .el-checkbox__input.is-checked + .el-checkbox__label {
       color: #606266;
     }
