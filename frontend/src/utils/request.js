@@ -13,6 +13,10 @@ const request = axios.create({
   },
 });
 
+// 设备断开连接错误提示的防抖计时器
+let disconnectAlertTimer = null;
+const MIN_ALERT_INTERVAL = 2000; // 最小提示间隔，单位：毫秒
+
 // 请求拦截器
 request.interceptors.request.use(
   (config) => {
@@ -44,8 +48,40 @@ request.interceptors.response.use(
     const { response, config } = error;
     const userStore = useUserStore();
 
+    // 检查是否是设备断开连接导致的错误
+    const isDeviceDisconnected = (response) => {
+      const errorMessage = response?.data?.message || "";
+      const requestUrl = config?.url || "";
+      // 检查错误信息或URL中是否包含设备相关的断开连接关键词
+      return (
+        errorMessage.includes("disconnected") ||
+        errorMessage.includes("not found") ||
+        errorMessage.includes("offline") ||
+        errorMessage.includes("device not found") ||
+        errorMessage.includes("no devices/emulators found") ||
+        requestUrl.includes("/adb/") ||
+        requestUrl.includes("/device/")
+      );
+    };
+
     if (response) {
       const { status, data } = response;
+
+      // 先检查是否是设备断开连接导致的错误
+      if (isDeviceDisconnected(response)) {
+        // 只有在悬浮状态下才显示设备断开连接的错误提示
+        if (config?.isHovering) {
+          // 添加防抖机制，确保短时间内只显示一次错误提示
+          if (!disconnectAlertTimer) {
+            ElMessage.error("设备已断开连接，请检查设备连接状态");
+            // 设置防抖计时器
+            disconnectAlertTimer = setTimeout(() => {
+              disconnectAlertTimer = null;
+            }, MIN_ALERT_INTERVAL);
+          }
+        }
+        return Promise.reject(error);
+      }
 
       switch (status) {
         case 401:
@@ -93,20 +129,32 @@ request.interceptors.response.use(
 
         case 500:
           // 服务器错误
-          ElMessage.error("服务器内部错误，请稍后再试");
+          // 只有在悬浮状态下或非设备相关请求才显示错误提示
+          if (config?.isHovering || !isDeviceDisconnected(response)) {
+            ElMessage.error(data?.message || "服务器内部错误，请稍后再试");
+          }
           break;
 
         default:
           // 其他错误
-          ElMessage.error(data?.message || `请求失败 (${status})`);
-          console.error(`HTTP错误 ${status}:`, error);
+          // 只有在悬浮状态下或非设备相关请求才显示错误提示
+          if (config?.isHovering || !isDeviceDisconnected(response)) {
+            ElMessage.error(data?.message || `请求失败 (${status})`);
+            console.error(`HTTP错误 ${status}:`, error);
+          }
       }
     } else if (error.code === "ECONNABORTED") {
       // 请求超时
-      ElMessage.error("请求超时，请检查网络连接");
+      // 只有在悬浮状态下才显示超时错误提示
+      if (config?.isHovering) {
+        ElMessage.error("请求超时，请检查网络连接");
+      }
     } else {
       // 网络错误
-      ElMessage.error("网络错误，请检查网络连接");
+      // 只有在悬浮状态下才显示网络错误提示
+      if (config?.isHovering) {
+        ElMessage.error("网络错误，请检查网络连接");
+      }
     }
 
     return Promise.reject(error);

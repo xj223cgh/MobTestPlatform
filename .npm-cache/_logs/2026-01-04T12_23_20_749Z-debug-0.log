@@ -1,0 +1,108 @@
+0 verbose cli D:\software\nodejs\node.exe D:\software\nodejs\node_modules\npm\bin\npm-cli.js
+1 info using npm@10.2.3
+2 info using node@v18.19.0
+3 timing npm:load:whichnode Completed in 2ms
+4 timing config:load:defaults Completed in 3ms
+5 timing config:load:file:D:\software\nodejs\node_modules\npm\npmrc Completed in 7ms
+6 timing config:load:builtin Completed in 8ms
+7 timing config:load:cli Completed in 4ms
+8 timing config:load:env Completed in 1ms
+9 timing config:load:file:D:\PycharmProjects\MobTestPlatform\.npmrc Completed in 0ms
+10 timing config:load:project Completed in 5ms
+11 timing config:load:file:C:\Users\Lethe\.npmrc Completed in 2ms
+12 timing config:load:user Completed in 2ms
+13 timing config:load:file:D:\software\nodejs\node_global\etc\npmrc Completed in 1ms
+14 timing config:load:global Completed in 1ms
+15 timing config:load:setEnvs Completed in 3ms
+16 timing config:load Completed in 30ms
+17 timing npm:load:configload Completed in 30ms
+18 timing config:load:flatten Completed in 3ms
+19 timing npm:load:mkdirpcache Completed in 0ms
+20 timing npm:load:mkdirplogs Completed in 0ms
+21 verbose title npm info @web-types/lit
+22 verbose argv "info" "--json" "@web-types/lit"
+23 timing npm:load:setTitle Completed in 2ms
+24 timing npm:load:display Completed in 1ms
+25 verbose logfile logs-max:10 dir:D:\PycharmProjects\MobTestPlatform\.npm-cache\_logs\2026-01-04T12_23_20_749Z-
+26 verbose logfile D:\PycharmProjects\MobTestPlatform\.npm-cache\_logs\2026-01-04T12_23_20_749Z-debug-0.log
+27 timing npm:load:logFile Completed in 10ms
+28 timing npm:load:timers Completed in 0ms
+29 timing npm:load:configScope Completed in 0ms
+30 timing npm:load Completed in 90ms
+31 silly logfile done cleaning log files
+32 http fetch GET 200 https://registry.npmmirror.com/@web-types%2flit 169ms (cache miss)
+33 silly view {
+33 silly view   '2.0.0-3': {
+33 silly view     _attachments: {},
+33 silly view     _id: '@web-types/lit@2.0.0-3',
+33 silly view     _rev: '1973249-6253e5a8f88a54bb4f2a4cfc',
+33 silly view     author: { name: 'JetBrains' },
+33 silly view     description: 'Web-types for lit',
+33 silly view     'dist-tags': { latest: '2.0.0-3' },
+33 silly view     license: 'Apache-2.0',
+33 silly view     maintainers: [ [Object] ],
+33 silly view     name: '@web-types/lit',
+33 silly view     time: {
+33 silly view       created: '2022-04-11T08:24:08.049Z',
+33 silly view       modified: '2022-04-11T13:00:28.655Z',
+33 silly view       '2.0.0-1': '2022-04-11T08:23:25.104Z',
+33 silly view       '2.0.0-2': '2022-04-11T11:15:00.445Z',
+33 silly view       '2.0.0-3': '2022-04-11T11:27:24.319Z'
+33 silly view     },
+33 silly view     versions: [ '2.0.0-1', '2.0.0-2', '2.0.0-3' ],
+33 silly view     _source_registry_name: 'default',
+33 silly view     _contentLength: 3521,
+33 silly view     version: '2.0.0-3',
+33 silly view     keywords: [ 'web-types', 'lit' ],
+33 silly view     repository: {
+33 silly view       type: 'git',
+33 silly view       url: 'git+https://github.com/JetBrains/web-types.git'
+33 silly view     },
+33 silly view     'web-types': 'lit.web-types.json',
+33 silly view     gitHead: '971fc5ec1a0bc511c8cde98b66e13beea3d10cba',
+33 silly view     bugs: { url: 'https://github.com/JetBrains/web-types/issues' },
+33 silly view     homepage: 'https://github.com/JetBrains/web-types#readme',
+33 silly view     _nodeVersion: '16.13.1',
+33 silly view     _npmVersion: '8.1.2',
+33 silly view     dist: {
+33 silly view       integrity: 'sha512-vZG6zfQ8+gM5Qsv0D5k9X8f/cBqk3y8qhgy0y5g+or+hi3PH6UNNMBMd6QRrlBZUoXCXR/cpVvfPTDj9w5FlwQ==',
+33 silly view       shasum: 'dc7c7d6d3500b1dd298d86fc130ba84670e1d609',
+33 silly view       tarball: 'https://registry.npmmirror.com/@web-types/lit/-/lit-2.0.0-3.tgz',
+33 silly view       fileCount: 4,
+33 silly view       unpackedSize: 6695,
+33 silly view       signatures: [Array],
+33 silly view       'npm-signature': '-----BEGIN PGP SIGNATURE-----\r\n' +
+33 silly view         'Version: OpenPGP.js v4.10.10\r\n' +
+33 silly view         'Comment: https://openpgpjs.org\r\n' +
+33 silly view         '\r\n' +
+33 silly view         'wsFzBAEBCAAGBQJiVBCcACEJED1NWxICdlZqFiEECWMYAoorWMhJKdjhPU1b\r\n' +
+33 silly view         'EgJ2VmokjQ//Sd2XSl3AEKVwyKS8s2fQ/Yv72R6bO83RplG2oAK1BIw6hkTZ\r\n' +
+33 silly view         'kOh4OSLMlkbWBfZ1oBIGk5QTd7Y94lwoJUtrm1sCJcg1o6A3Ph5rNysmKG0J\r\n' +
+33 silly view         'USLMHrNNsHNfbJqUuH/zfEWlTE5JFKYCpFbZUj/+td3usQ8JUTSVeL9ssywT\r\n' +
+33 silly view         'iw//qZS4l1vdmCKzcI7FVPL6CUsuXDRqFVlThaNeEW71D8uOrwZt4+hk3lSs\r\n' +
+33 silly view         '1VF5qVDyDnrKJwvzJsQnLx6frB3CFyDrIA9FMpbfKjHc6Zb/smWcEKke5o4i\r\n' +
+33 silly view         'ieErMLcAvuEu6GBnDeWtu6fB9hVbW677pmRfiLBTj2NGRqPxAM9pXVnZto9G\r\n' +
+33 silly view         '+nahrRtOH3sQSKYyYp7li14wNWk5os5xBc7DNF/vhFvE5hQqgWGjYanvvIfg\r\n' +
+33 silly view         's4NZegl5dpgrT4JPoe251wZA93QbtThf1pbRo2SgCfTdZrji+wBd61jf4wOY\r\n' +
+33 silly view         'f/evdhc+qB6ioFJqAZgT2eCwmf2S12/ziFe+BCBaLO4Cm8TE+hG01Ki+SV6p\r\n' +
+33 silly view         'mDNh7tkJbL4DDIU1wZnlximvBFmf+//1NUXw4wryBirT4zm4Xx+1TiKcG12t\r\n' +
+33 silly view         '7wWU4FiXhuW2DgoRaapX5heTWrdAgS1rvfAPiHYlcfuzxu3KXxiiOsx6BPPq\r\n' +
+33 silly view         'RUZODy9XCIaEs2b3Av99ULAvBoxemMmhB4k=\r\n' +
+33 silly view         '=Hvm6\r\n' +
+33 silly view         '-----END PGP SIGNATURE-----\r\n',
+33 silly view       size: 1782
+33 silly view     },
+33 silly view     _npmUser: { name: 'piotr.tomiak', email: 'piotr.tomiak@jetbrains.com' },
+33 silly view     directories: {},
+33 silly view     _npmOperationalInternal: {
+33 silly view       host: 's3://npm-registry-packages',
+33 silly view       tmp: 'tmp/lit_2.0.0-3_1649676444185_0.4454335298323493'
+33 silly view     },
+33 silly view     _hasShrinkwrap: false,
+33 silly view     _cnpmcore_publish_time: '2022-04-11T13:00:25.592Z'
+33 silly view   }
+33 silly view }
+34 timing command:info Completed in 185ms
+35 verbose exit 0
+36 timing npm Completed in 985ms
+37 info ok

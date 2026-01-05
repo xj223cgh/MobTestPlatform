@@ -285,3 +285,59 @@ export function removeDeviceFromGroup(deviceId, groupId) {
     method: "delete",
   });
 }
+
+// 获取当前连接的设备列表（ADB）
+export function getAdbDevices() {
+  return request({
+    url: "/devices/adb/devices",
+    method: "get",
+  });
+}
+
+// 执行ADB命令
+export function executeAdbCommand(command, options = {}) {
+  return request({
+    url: "/devices/adb/command",
+    method: "post",
+    data: { command },
+    isHovering: options.isHovering,
+  });
+}
+
+export default {
+  getDeviceList,
+  getDeviceDetail,
+  createDevice,
+  updateDevice,
+  deleteDevice,
+  getDeviceStats,
+  connectDevice,
+  disconnectDevice,
+  getDeviceStatus,
+  refreshDeviceStatus,
+  batchRefreshDeviceStatus,
+  installAppToDevice,
+  uninstallAppFromDevice,
+  getDeviceApps,
+  getDeviceScreenshot,
+  executeDeviceCommand,
+  getDeviceLogs,
+  clearDeviceLogs,
+  getDevicePerformance,
+  restartDevice,
+  lockDevice,
+  unlockDevice,
+  getDeviceInfo,
+  searchDevices,
+  batchDeleteDevices,
+  exportDevices,
+  importDevices,
+  getDeviceGroups,
+  createDeviceGroup,
+  updateDeviceGroup,
+  deleteDeviceGroup,
+  addDeviceToGroup,
+  removeDeviceFromGroup,
+  getAdbDevices,
+  executeAdbCommand
+};

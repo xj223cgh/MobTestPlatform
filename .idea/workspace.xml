@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="eea278fe-d9e7-46d6-ad95-187ee99234bd" name="更改" comment="">
+      <change beforePath="$PROJECT_DIR$/backend/app/routes/devices.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/routes/devices.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/flask_session/2029240f6d1128be89ddc32729463129" beforeDir="false" afterPath="$PROJECT_DIR$/backend/flask_session/2029240f6d1128be89ddc32729463129" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/docs/en/guide/operation.md" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/docs/en/guide/operation.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/docs/en/guide/preferences.md" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/docs/en/guide/preferences.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/docs/en/guide/started.md" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/docs/en/guide/started.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/docs/en/guide/window-arrangement.md" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/docs/en/guide/window-arrangement.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/docs/en/help/escrcpy.md" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/docs/en/help/escrcpy.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/docs/en/index.md" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/docs/en/index.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/docs/zhHans/guide/operation.md" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/docs/zhHans/guide/operation.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/docs/zhHans/guide/preferences.md" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/docs/zhHans/guide/preferences.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/docs/zhHans/guide/started.md" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/docs/zhHans/guide/started.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/docs/zhHans/guide/window-arrangement.md" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/docs/zhHans/guide/window-arrangement.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/docs/zhHans/help/escrcpy.md" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/docs/zhHans/help/escrcpy.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/docs/zhHans/index.md" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/docs/zhHans/index.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/electron-builder.json" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/electron-builder.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/electron/configs/gnirehtet/index.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/electron/configs/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/electron/configs/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/electron/exposes/gnirehtet/index.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/electron/exposes/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/electron/exposes/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/electron/exposes/scrcpy/helper.js" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/electron/exposes/scrcpy/helper.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/electron/exposes/scrcpy/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/electron/exposes/scrcpy/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/electron/exposes/terminal/index.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/electron/exposes/terminal/platforms/linux.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/electron/exposes/terminal/platforms/macos.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/electron/exposes/terminal/platforms/windows.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/electron/ipc/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/electron/ipc/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/electron/ipc/shortcuts/index.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/electron/ipc/tray/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/electron/ipc/tray/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/electron/main.js" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/electron/main.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/ArrangeDialog/hooks/index.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/ArrangeDialog/hooks/useDeviceManagement.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/ArrangeDialog/hooks/useDialogManagement.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/ArrangeDialog/hooks/useLayoutManagement.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/ArrangeDialog/hooks/useSaveLayout.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/ArrangeDialog/hooks/useWidgetEvents.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/ArrangeDialog/hooks/useWidgetManagement.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/ArrangeDialog/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/ControlBar/ApplicationStart/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/ControlBar/Gnirehtet/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/ControlBar/Terminal/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/ControlBar/index.vue" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/src/components/ControlBar/index.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/PreferenceForm/components/Input/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/PreferenceForm/components/InputNumber/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/PreferenceForm/components/InputPath/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/PreferenceForm/components/Select/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/PreferenceForm/components/SelectAudioCodec/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/PreferenceForm/components/SelectDisplay/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/PreferenceForm/components/SelectKeyboardInject/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/PreferenceForm/components/SelectLanguage/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/PreferenceForm/components/SelectVideoCodec/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/PreferenceForm/components/Switch/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/PreferenceForm/components/helper.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/PreferenceForm/components/index.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/PreferenceForm/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/QuickBar/components/Arrange/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/QuickBar/components/Terminal/components/TerminalDialog/hooks/adb.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/QuickBar/components/Terminal/components/TerminalDialog/hooks/gnirehtet.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/QuickBar/components/Terminal/components/TerminalDialog/hooks/helper.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/QuickBar/components/Terminal/components/TerminalDialog/hooks/scrcpy.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/QuickBar/components/Terminal/components/TerminalDialog/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/QuickBar/components/Terminal/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/QuickBar/index.vue" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/src/components/QuickBar/index.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/components/TaskDialog/index.vue" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/src/components/TaskDialog/index.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/hooks/useMirrorAction/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/src/hooks/useMirrorAction/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/hooks/useScreenshotAction/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/src/hooks/useScreenshotAction/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/hooks/useStartApp/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/src/hooks/useStartApp/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/icons/svg/multi-screen.svg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/layouts/default/index.vue" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/src/layouts/default/index.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/models/preference/audio/index.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/models/preference/camera/index.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/models/preference/common/index.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/models/preference/device/index.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/models/preference/index.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/models/preference/input/index.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/models/preference/record/index.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/models/preference/video/index.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/models/preference/window/index.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/pages/about/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/pages/device/components/MirrorAction/index.vue" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/src/pages/device/components/MirrorAction/index.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/pages/device/components/MoreDropdown/components/Camera/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/pages/device/components/MoreDropdown/components/Custom/components/DeployDialog/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/pages/device/components/MoreDropdown/components/Custom/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/pages/device/components/MoreDropdown/components/Otg/index.vue" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/src/pages/device/components/MoreDropdown/components/Otg/index.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/pages/device/components/MoreDropdown/components/Record/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/pages/device/components/MoreDropdown/index.vue" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/src/pages/device/components/MoreDropdown/index.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/pages/device/components/WirelessGroup/index.vue" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/src/pages/device/components/WirelessGroup/index.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/pages/device/index.vue" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/src/pages/device/index.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/pages/preference/components/ScopeSelect/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/pages/preference/index.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/plugins/vue-swapy/components/SwapyItem/index.vue" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/src/plugins/vue-swapy/components/SwapyItem/index.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/store/preference/helpers/index.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/store/preference/index.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/utils/device/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/escrcpy/src/utils/device/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/utils/storages/cookieStorage.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/escrcpy/src/utils/storages/sessionStorage.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/components.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/components.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/api/device.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/api/device.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/utils/request.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/utils/request.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/views/device/DeviceManagement.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/views/device/DeviceManagement.vue" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "customColor": "",
+  "associatedIndex": 0
+}]]></component>
+  <component name="ProjectId" id="37nCKh4fK231PzAHOmzsxVjDY3Q" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python.start.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "main",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-f27c65a3e318-JavaScript-PY-251.23774.444" />
+        <option value="bundled-python-sdk-890ed5b35930-d9c5bdb153f4-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-251.23774.444" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="默认任务">
+      <changelist id="eea278fe-d9e7-46d6-ad95-187ee99234bd" name="更改" comment="" />
+      <created>1767529389958</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1767529389958</updated>
+      <workItem from="1767529392126" duration="311000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/MobTestPlatform$start.coverage" NAME="start 覆盖结果" MODIFIED="1767529640558" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+  </component>
+</project>
