@@ -1,18 +1,8 @@
 export const deviceStatus = [
   {
-    label: '已连接',
-    value: 'emulator',
+    label: '在线',
+    value: 'online',
     tagType: 'success',
-  },
-  {
-    label: '已连接',
-    value: 'device',
-    tagType: 'success',
-  },
-  {
-    label: '未授权',
-    value: 'unauthorized',
-    tagType: 'danger',
   },
   {
     label: '离线',
@@ -20,9 +10,14 @@ export const deviceStatus = [
     tagType: 'info',
   },
   {
-    label: '授权中',
-    value: 'authorizing',
+    label: '忙碌',
+    value: 'busy',
     tagType: 'warning',
+  },
+  {
+    label: '维护中',
+    value: 'maintenance',
+    tagType: 'danger',
   },
 ]
 

@@ -17,6 +17,7 @@
 import { ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete } from '@element-plus/icons-vue'
+import deviceApi from '@/api/device'
 
 const props = defineProps({
   device: {
@@ -35,7 +36,7 @@ async function handleClick(device = props.device) {
   try {
     // 确认移除
     await ElMessageBox.confirm(
-      `确定要移除设备 ${device.id} 吗？`,
+      `确定要移除设备 ${device.name || device.id} 吗？`,
       '确认移除',
       {
         confirmButtonText: '确定',
@@ -46,8 +47,10 @@ async function handleClick(device = props.device) {
     
     loading.value = true
     
-    // 调用后端API移除设备
-    await new Promise(resolve => setTimeout(resolve, 500)) // 模拟API调用
+    // 如果设备在数据库中存在，则删除数据库记录
+    if (device.db_id) {
+      await deviceApi.deleteDevice(device.db_id)
+    }
     
     // 刷新设备列表
     props.handleRefresh()
@@ -56,7 +59,7 @@ async function handleClick(device = props.device) {
   } catch (error) {
     if (error !== 'cancel') {
       console.warn('移除设备失败:', error)
-      ElMessage.error('移除设备失败')
+      ElMessage.error('移除设备失败：' + (error.response?.data?.message || error.message))
     }
   } finally {
     loading.value = false

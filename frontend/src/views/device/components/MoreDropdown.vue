@@ -9,7 +9,7 @@
       <el-button
         type="primary"
         text
-        :disabled="['unauthorized', 'offline'].includes(row.status)"
+        :disabled="!isOnline"
       >
         <template #icon>
           <el-icon><Operation /></el-icon>
@@ -70,6 +70,10 @@ const props = defineProps({
   row: {
     type: Object,
     default: () => ({}),
+  },
+  isOnline: {
+    type: Boolean,
+    default: false,
   },
 })
 

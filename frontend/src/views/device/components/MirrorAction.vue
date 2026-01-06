@@ -3,7 +3,7 @@
     <el-button
       type="primary"
       text
-      :disabled="['unauthorized', 'offline'].includes(row.status)"
+      :disabled="!isOnline"
       :loading="loading"
       @click="handleClick(row)"
     >
@@ -28,6 +28,10 @@ const props = defineProps({
   toggleRowExpansion: {
     type: Function,
     default: () => () => false,
+  },
+  isOnline: {
+    type: Boolean,
+    default: false,
   },
 })
 

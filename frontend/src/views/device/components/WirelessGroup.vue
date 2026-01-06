@@ -71,6 +71,19 @@ const loading = ref(false)
 const address = ref('')
 const wirelessList = ref([])
 
+// 转换ADB状态到数据库状态
+const convertAdbStatusToDbStatus = (adbStatus) => {
+  const statusMap = {
+    'device': 'online',
+    'unauthorized': 'offline',
+    'offline': 'offline',
+    'online': 'online',
+    'busy': 'busy',
+    'maintenance': 'maintenance'
+  }
+  return statusMap[adbStatus] || 'offline'
+}
+
 async function fetchSuggestions(value, callback) {
   let results = []
   
@@ -122,6 +135,9 @@ async function handleConnect() {
       
       ElMessage.success(`设备 ${deviceAddress} 连接成功`)
       
+      // 保存设备到数据库
+      await saveDeviceToDatabase(deviceAddress)
+      
       // 只有连接成功才刷新设备列表
       props.handleRefresh()
     } else {
@@ -149,6 +165,46 @@ async function handleConnect() {
     ElMessage.error(errorMessage)
   } finally {
     loading.value = false
+  }
+}
+
+// 保存设备到数据库
+async function saveDeviceToDatabase(deviceId) {
+  try {
+    // 检查设备是否已存在
+    const existingDevices = await deviceApi.getDeviceList({ page: 1, size: 1000 })
+    const existingDevice = existingDevices.data.devices.find(d => d.device_id === deviceId)
+    
+    if (!existingDevice) {
+      // 获取设备详细信息
+      const deviceInfoResponse = await deviceApi.executeAdbCommand(`-s ${deviceId} shell getprop ro.product.model`)
+      const deviceModel = deviceInfoResponse.data.stdout.trim() || 'Unknown'
+      
+      // 获取Android版本
+      const versionResponse = await deviceApi.executeAdbCommand(`-s ${deviceId} shell getprop ro.build.version.release`)
+      const osVersion = versionResponse.data.stdout.trim() || 'Unknown'
+      
+      // 获取设备状态
+      const statusResponse = await deviceApi.executeAdbCommand(`-s ${deviceId} get-state`)
+      const adbStatus = statusResponse.data.stdout.trim() || 'offline'
+      
+      // 创建设备记录
+      await deviceApi.createDevice({
+        device_name: deviceModel,
+        device_model: deviceModel,
+        os_type: 'android',
+        os_version: osVersion,
+        device_id: deviceId,
+        status: convertAdbStatusToDbStatus(adbStatus)
+      })
+    } else {
+      // 设备已存在，更新状态为online
+      if (existingDevice.status !== 'online') {
+        await deviceApi.updateDevice(existingDevice.id, { status: 'online' })
+      }
+    }
+  } catch (error) {
+    console.error('保存设备到数据库失败:', error)
   }
 }
 

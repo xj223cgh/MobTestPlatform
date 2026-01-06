@@ -4,7 +4,7 @@
       <el-button
         type="primary"
         text
-        :disabled="['unauthorized', 'offline'].includes(row.status)"
+        :disabled="!isOnline"
         @click="handleWifi(row)"
       >
         <template #icon>
@@ -18,7 +18,7 @@
         type="danger"
         text
         :loading="stopLoading"
-        :disabled="['unauthorized', 'offline'].includes(row.status)"
+        :disabled="!isOnline"
         @click="handleStop(row)"
       >
         <template #icon>
@@ -47,6 +47,10 @@ const props = defineProps({
   handleRefresh: {
     type: Function,
     default: () => () => false,
+  },
+  isOnline: {
+    type: Boolean,
+    default: false,
   },
 })
 
@@ -86,6 +90,11 @@ async function handleStop(row) {
     // 调用后端API断开设备连接
     await deviceApi.executeAdbCommand(`disconnect ${row.id}`)
     await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    // 更新数据库中的设备状态为offline
+    if (row.db_id) {
+      await deviceApi.updateDevice(row.db_id, { status: 'offline' })
+    }
     
     // 刷新设备列表
     props.handleRefresh()

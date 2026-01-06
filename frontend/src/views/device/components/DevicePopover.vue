@@ -10,7 +10,7 @@
     @after-leave="onAfterLeave"
   >
     <template #reference>
-      <el-link type="primary" :underline="false" icon="InfoFilled" :disabled="!connectFlag" class="flex-none"></el-link>
+      <el-link type="primary" :underline="false" icon="InfoFilled" :disabled="!connectFlag"></el-link>
     </template>
 
     <div v-loading="loading" element-loading-text="加载中" class="p-2" :class="{ '!h-auto': !connectFlag }">
@@ -73,7 +73,7 @@ const deviceInfo = ref({
   battery: void 0,
 })
 
-const connectFlag = computed(() => ['device', 'emulator'].includes(props.device.status))
+const connectFlag = computed(() => ['online'].includes(props.device.status))
 
 const screencapTimer = ref()
 
@@ -302,6 +302,17 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
+// 强制el-link样式，确保与其他元素居中对齐
+:deep() .el-link {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
 :deep() .el-descriptions--custom .el-descriptions__label {
   width: auto;
   max-width: 120px;

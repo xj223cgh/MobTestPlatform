@@ -36,24 +36,23 @@
             <el-empty description="暂无设备连接" />
           </template>
 
-          <el-table-column type="selection" :selectable="selectable" align="center"></el-table-column>
+          <el-table-column type="selection" :selectable="selectable" align="center" width="65"></el-table-column>
 
           <el-table-column
             label="设备序列号"
             sortable
             show-overflow-tooltip
             align="center"
-            min-width="200"
+            min-width="160"
+            width="auto"
           >
             <template #default="{ row }">
-              <div class="flex items-center justify-center space-x-2 relative w-full">
-                <DevicePopover :key="row.status" :device="row" class="" />
-
-                <div class="flex-1 text-center truncate">
-                  {{ row.id }}
+              <div class="device-serial-wrapper">
+                <div class="popover-wrapper">
+                  <DevicePopover :key="row.status" :device="row" />
                 </div>
-
-                <el-link type="primary" :underline="false" title="WiFi" class="flex-none">
+                <span class="device-id">{{ row.id }}</span>
+                <el-link type="primary" :underline="false" title="WiFi" class="wifi-link">
                   <el-icon v-if="row.wifi"><Operation /></el-icon>
                 </el-link>
               </div>
@@ -66,9 +65,23 @@
             show-overflow-tooltip
             align="center"
             min-width="180"
+            width="auto"
           >
             <template #default="{ row }">
-              <Remark :device="row" class="" @update:device="updateDevice" />
+              <template v-if="editingDeviceId === row.id">
+                <el-input
+                  v-model="editingDeviceName"
+                  size="small"
+                  autofocus
+                  clearable
+                  @blur="saveDeviceNameEdit(row)"
+                  @keyup.enter="saveDeviceNameEdit(row)"
+                  @keyup.esc="cancelDeviceNameEdit"
+                />
+              </template>
+              <div v-else @dblclick="startDeviceNameEdit(row)" class="cursor-pointer">
+                {{ row.name || '未命名设备' }}
+              </div>
             </template>
           </el-table-column>
 
@@ -79,20 +92,11 @@
             align="center"
             sortable
             show-overflow-tooltip
-            min-width="180"
+            min-width="100"
+            width="auto"
           >
             <el-tag :type="getStatusTagType(row.status)">
-              <div class="flex items-center">
-                <el-tooltip
-                  v-if="['unauthorized'].includes(row.status)"
-                  content="设备未授权"
-                  placement="top"
-                >
-                  <el-link type="danger" :underline="false" icon="WarningFilled" class="mr-1 flex-none"></el-link>
-                </el-tooltip>
-
-                <span class="flex-none">{{ getStatusText(row.status) || '-' }}</span>
-              </div>
+              <span class="flex-none">{{ getStatusText(row.status) || '-' }}</span>
             </el-tag>
           </el-table-column>
 
@@ -103,6 +107,7 @@
             sortable
             show-overflow-tooltip
             min-width="180"
+            width="auto"
           >
             <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; padding: 8px 0;">
               <div v-if="row.battery && row.battery.batteryPercentage !== null" style="width: 100%; text-align: center;">
@@ -126,7 +131,8 @@
             align="center"
             sortable
             show-overflow-tooltip
-            min-width="150"
+            min-width="100"
+            width="auto"
           >
             <el-tag :type="row.battery && row.battery.isCharging ? 'success' : 'info'">
               {{ row.battery && row.battery.isCharging !== null ? (row.battery.isCharging ? '是' : '否') : '-' }}
@@ -135,49 +141,75 @@
 
           <el-table-column
             v-slot="{ row }"
+            label="设备负责人"
+            align="center"
+            sortable
+            show-overflow-tooltip
+            min-width="180"
+            width="auto"
+          >
+            <el-select
+              v-model="row.owner_id"
+              placeholder="请选择负责人"
+              clearable
+              filterable
+              style="width: 160px"
+              @change="handleOwnerChange(row)"
+            >
+              <el-option
+                v-for="user in userList"
+                :key="user.id"
+                :label="user.real_name"
+                :value="user.id"
+              />
+            </el-select>
+          </el-table-column>
+
+          <el-table-column
+            v-slot="{ row }"
             label="设备操作"
             align="center"
-            min-width="200"
+            min-width="220"
+            width="auto"
           >
             <div class="flex items-center justify-between w-full px-2">
               <div class="flex-1 flex justify-center">
                 <ConnectAction
-                  v-if="['offline'].includes(row.status) && row.wifi"
+                  v-if="row.status === 'offline' && row.wifi"
                   v-bind="{
                     device: row,
-                    handleConnect,
+                    handleConnect
                   }"
                 />
               </div>
 
               <div class="flex-1 flex justify-center">
                 <MirrorAction
-                  v-if="['device', 'unauthorized'].includes(row.status)"
                   :ref="getMirrorActionRefs"
-                  v-bind="{ row, toggleRowExpansion }"
+                  v-bind="{ row, toggleRowExpansion, isOnline: row.status === 'online' }"
                 />
               </div>
 
               <div class="flex-1 flex justify-center">
-                <MoreDropdown v-if="['device'].includes(row.status)" v-bind="{ row, toggleRowExpansion }" />
+                <MoreDropdown v-bind="{ row, toggleRowExpansion, isOnline: row.status === 'online' }" />
               </div>
 
               <div class="flex-1 flex justify-center">
-                <WirelessAction v-if="['device', 'unauthorized'].includes(row.status)" v-bind="{ row, handleConnect, handleRefresh: refreshDevices }" />
+                <WirelessAction v-bind="{ row, handleConnect, handleRefresh: refreshDevices, isOnline: row.status === 'online' }" />
               </div>
 
               <div class="flex-1 flex justify-center">
                 <RemoveAction
-                  v-if="['offline'].includes(row.status)"
+                  v-if="row.status === 'offline'"
                   v-bind="{
                     device: row,
-                    handleRefresh: refreshDevices,
+                    handleRefresh: refreshDevices
                   }"
                 />
               </div>
             </div>
           </el-table-column>
-          <el-table-column type="expand">
+          <el-table-column type="expand" width="75">
             <template #header>
               <el-icon class="" title="更多操作">
                 <Operation />
@@ -199,11 +231,11 @@ import { ref, computed, onMounted, getCurrentInstance, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, Monitor, Download, WarningFilled, Operation } from '@element-plus/icons-vue'
 import deviceApi from '@/api/device'
+import userApi from '@/api/user'
 import { deviceStatus, getStatusTagType, getStatusText } from '@/utils/deviceStatus'
 
 // 导入设备相关组件
 import DevicePopover from './components/DevicePopover.vue'
-import Remark from './components/Remark.vue'
 import ConnectAction from './components/ConnectAction.vue'
 import MirrorAction from './components/MirrorAction.vue'
 import MoreDropdown from './components/MoreDropdown.vue'
@@ -218,6 +250,9 @@ const deviceList = ref([])
 const mirrorActionRefs = ref([])
 const selectionRows = ref([])
 const wirelessGroupRef = ref(null)
+const userList = ref([])
+const editingDeviceId = ref(null)
+const editingDeviceName = ref('')
 
 const { proxy } = getCurrentInstance()
 
@@ -232,6 +267,16 @@ const getBatteryColor = (percentage) => {
   } else {
     return '#67c23a'
   }
+}
+
+// 转换ADB状态到数据库状态
+const convertAdbStatusToDbStatus = (adbStatus) => {
+  const statusMap = {
+    'device': 'online',
+    'unauthorized': 'offline',
+    'offline': 'offline'
+  }
+  return statusMap[adbStatus] || 'offline'
 }
 
 // 获取设备电池信息
@@ -282,21 +327,69 @@ const parseBatteryInfo = (output) => {
 const getDevices = async () => {
   loading.value = true
   try {
-    const response = await deviceApi.getAdbDevices()
-    const devices = response.data.devices
+    // 获取ADB设备列表
+    const adbResponse = await deviceApi.getAdbDevices()
+    const adbDevices = adbResponse.data.devices || []
     
-    // 为每个设备获取电池信息
-    const devicesWithBattery = await Promise.all(
-      devices.map(async (device) => {
-        if (device.status === 'device') {
-          const batteryInfo = await getDeviceBatteryInfo(device.id)
-          return { ...device, battery: batteryInfo }
+    // 获取数据库中的设备列表
+    const dbResponse = await deviceApi.getDeviceList({ page: 1, size: 1000 })
+    const dbDevices = dbResponse.data.devices || []
+    
+    // 创建设备ID到ADB设备的映射
+    const adbDeviceMap = new Map()
+    adbDevices.forEach(adbDevice => {
+      adbDeviceMap.set(adbDevice.id, adbDevice)
+    })
+    
+    // 检查哪些设备从ADB中断开了，更新数据库状态
+    for (const dbDevice of dbDevices) {
+      const adbDevice = adbDeviceMap.get(dbDevice.device_id)
+      // 如果设备之前是online状态，但现在ADB中没有，说明断开了
+      if (dbDevice.status === 'online' && !adbDevice) {
+        try {
+          await deviceApi.updateDevice(dbDevice.id, { status: 'offline' })
+        } catch (error) {
+          console.warn(`更新设备 ${dbDevice.device_id} 状态失败:`, error)
         }
-        return { ...device, battery: null }
+      }
+    }
+    
+    // 合并数据库设备和ADB设备信息
+    const mergedDevices = await Promise.all(
+      dbDevices.map(async (dbDevice) => {
+        const adbDevice = adbDeviceMap.get(dbDevice.device_id)
+        
+        // 获取电池信息（只有ADB连接的设备才能获取）
+        let batteryInfo = null
+        if (adbDevice && adbDevice.status === 'device') {
+          batteryInfo = await getDeviceBatteryInfo(dbDevice.device_id)
+        }
+        
+        // 合并设备信息
+        return {
+          // 基础信息优先使用数据库的
+          id: dbDevice.device_id,
+          device_id: dbDevice.device_id,
+          name: dbDevice.device_name || adbDevice?.name || dbDevice.device_id,
+          device_model: dbDevice.device_model,
+          os_type: dbDevice.os_type,
+          os_version: dbDevice.os_version,
+          // 状态：如果ADB有连接则使用online，否则使用数据库状态
+          status: adbDevice ? 'online' : dbDevice.status,
+          // WiFi标识
+          wifi: adbDevice ? adbDevice.wifi : false,
+          // 电池信息
+          battery: batteryInfo,
+          // 负责人信息
+          owner_id: dbDevice.owner_id,
+          owner_name: dbDevice.owner_name,
+          // 保存数据库设备ID,用于更新
+          db_id: dbDevice.id
+        }
       })
     )
     
-    deviceList.value = devicesWithBattery
+    deviceList.value = mergedDevices
   } catch (error) {
     ElMessage.error('获取设备列表失败：' + (error.response?.data?.message || error.message))
     deviceList.value = []
@@ -305,22 +398,112 @@ const getDevices = async () => {
   }
 }
 
+// 获取用户列表
+const getUserList = async () => {
+  try {
+    const response = await userApi.getUserList({ page: 1, size: 1000 })
+    userList.value = response.data.users || []
+  } catch (error) {
+    console.error('获取用户列表失败：', error)
+  }
+}
+
+// 开始编辑设备名称
+const startDeviceNameEdit = (device) => {
+  editingDeviceId.value = device.id
+  editingDeviceName.value = device.name || ''
+}
+
+// 保存设备名称编辑
+const saveDeviceNameEdit = async (device) => {
+  try {
+    if (!editingDeviceName.value.trim()) {
+      ElMessage.warning('设备名称不能为空')
+      editingDeviceName.value = device.name || ''
+      return
+    }
+
+    if (device.db_id) {
+      // 更新数据库中的设备名称
+      await deviceApi.updateDevice(device.db_id, {
+        device_name: editingDeviceName.value
+      })
+      ElMessage.success('设备名称更新成功')
+    } else {
+      // 创建新的设备记录
+      const response = await deviceApi.createDevice({
+        device_name: editingDeviceName.value,
+        device_model: device.name || 'Unknown',
+        os_type: 'android',
+        os_version: 'Unknown',
+        device_id: device.id,
+        status: convertAdbStatusToDbStatus(device.status)
+      })
+      
+      // 更新设备的db_id
+      const index = deviceList.value.findIndex(item => item.id === device.id)
+      if (index !== -1) {
+        deviceList.value[index].db_id = response.data.device.id
+      }
+      
+      ElMessage.success('设备名称保存成功')
+    }
+    
+    // 更新本地设备名称
+    const index = deviceList.value.findIndex(item => item.id === device.id)
+    if (index !== -1) {
+      deviceList.value[index].name = editingDeviceName.value
+    }
+  } catch (error) {
+    ElMessage.error('保存设备名称失败：' + (error.response?.data?.message || error.message))
+  } finally {
+    editingDeviceId.value = null
+    editingDeviceName.value = ''
+  }
+}
+
+// 取消设备名称编辑
+const cancelDeviceNameEdit = () => {
+  editingDeviceId.value = null
+  editingDeviceName.value = ''
+}
+
+// 处理负责人变更
+const handleOwnerChange = async (device) => {
+  try {
+    if (device.db_id) {
+      // 更新现有设备的负责人
+      await deviceApi.updateDevice(device.db_id, { owner_id: device.owner_id })
+      ElMessage.success('设备负责人更新成功')
+    } else {
+      // 创建新设备记录
+      const response = await deviceApi.createDevice({
+        device_name: device.name || device.id,
+        device_model: device.name || 'Unknown',
+        os_type: 'android',
+        os_version: 'Unknown',
+        device_id: device.id,
+        status: convertAdbStatusToDbStatus(device.status),
+        owner_id: device.owner_id
+      })
+      
+      // 更新设备的db_id
+      device.db_id = response.data.device.id
+      ElMessage.success('设备信息保存成功')
+    }
+  } catch (error) {
+    ElMessage.error('保存设备负责人失败：' + (error.response?.data?.message || error.message))
+  }
+}
+
 // 刷新设备列表
 const refreshDevices = () => {
   getDevices()
 }
 
-// 更新设备信息
-const updateDevice = (updatedDevice) => {
-  const index = deviceList.value.findIndex(item => item.id === updatedDevice.id)
-  if (index !== -1) {
-    deviceList.value[index] = updatedDevice
-  }
-}
-
 // 选择设备
 const selectable = (row) => {
-  return ['device', 'emulator'].includes(row.status)
+  return row.status === 'online'
 }
 
 // 选择设备变化
@@ -358,6 +541,7 @@ const onAutoConnected = () => {}
 // 组件挂载时获取设备列表
 onMounted(() => {
   getDevices()
+  getUserList()
 })
 </script>
 
@@ -367,6 +551,44 @@ onMounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: #f5f7fa;
+  }
+}
+
+.device-serial-wrapper {
+  display: inline-block;
+  width: 100%;
+  padding: 0 8px;
+  text-align: center;
+  
+  .popover-wrapper {
+    display: inline-block;
+    vertical-align: middle;
+  }
+  
+  .device-id {
+    display: inline-block;
+    vertical-align: middle;
+    margin: 0 12px;
+    max-width: calc(100% - 80px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .wifi-link {
+    display: inline-block;
+    vertical-align: middle;
+  }
 }
 
 .page-header {
@@ -407,11 +629,23 @@ onMounted(() => {
   }
 }
 
-
-
 :deep() {
+  .el-table {
+    width: 100% !important;
+    
+    .el-table__body-wrapper {
+      overflow-x: auto;
+    }
+    
+    .el-table__row {
+      td {
+        padding: 8px 0;
+      }
+    }
+  }
+  
   .el-table .el-table__row .cell {
-    padding: 12px 0;
+    padding: 8px 0;
   }
 }
 </style>

@@ -8,7 +8,7 @@
     <template #reference>
       <el-tag effect="light" class="cursor-pointer">
         <div class="flex items-center space-x-1">
-          <span>{{ device.remark || device.name || '未命名设备' }}</span>
+          <span>{{ device.name || '未命名设备' }}</span>
           <el-icon><EditPen /></el-icon>
         </div>
       </el-tag>
@@ -18,7 +18,7 @@
       ref="elInput"
       v-model="localRemark"
       class=""
-      placeholder="请输入设备备注"
+      placeholder="请输入设备名称"
       clearable
       @change="onInputChange"
     ></el-input>
@@ -40,10 +40,10 @@ const props = defineProps({
 const emit = defineEmits(['update:device'])
 
 const elInput = ref(null)
-const localRemark = ref(props.device.remark || '')
+const localRemark = ref(props.device.name || '')
 
-// 监听设备remark变化，更新本地值
-watch(() => props.device.remark, (newVal) => {
+// 监听设备name变化，更新本地值
+watch(() => props.device.name, (newVal) => {
   localRemark.value = newVal || ''
 })
 
@@ -56,16 +56,42 @@ async function onShow() {
 
 async function onInputChange() {
   try {
-    // 直接更新本地状态，因为ADB设备列表没有对应的数据库ID
+    // 如果设备有数据库ID，则更新数据库中的设备名称
+    if (props.device.db_id) {
+      await deviceApi.updateDevice(props.device.db_id, {
+        device_name: localRemark.value || props.device.name || '未命名设备'
+      })
+      ElMessage.success('设备名称更新成功')
+    } else {
+      // 如果设备没有数据库ID，则创建新的设备记录
+      const response = await deviceApi.createDevice({
+        device_name: localRemark.value || props.device.name || '未命名设备',
+        device_model: props.device.name || 'Unknown',
+        os_type: 'android',
+        os_version: 'Unknown',
+        device_id: props.device.id,
+        status: props.device.status === 'device' ? 'online' : 'offline'
+      })
+      
+      // 更新设备的db_id
+      emit('update:device', {
+        ...props.device,
+        db_id: response.data.device.id,
+        name: localRemark.value || props.device.name || '未命名设备'
+      })
+      
+      ElMessage.success('设备名称保存成功')
+      return
+    }
+    
+    // 更新本地状态
     emit('update:device', {
       ...props.device,
-      remark: localRemark.value
+      name: localRemark.value || props.device.name || '未命名设备'
     })
-    
-    ElMessage.success('备注更新成功')
   } catch (error) {
-    console.warn('更新备注失败:', error)
-    ElMessage.error('更新备注失败')
+    console.warn('更新设备名称失败:', error)
+    ElMessage.error('更新设备名称失败：' + (error.response?.data?.message || error.message))
   }
 }
 </script>
