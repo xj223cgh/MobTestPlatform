@@ -2,35 +2,21 @@
   <div class="error-container">
     <div class="error-content">
       <div class="error-icon">
-        <el-icon
-          size="120"
-          color="#e6a23c"
-        >
+        <el-icon size="120" color="#e6a23c">
           <WarningFilled />
         </el-icon>
       </div>
-      <h1 class="error-title">
-        404
-      </h1>
-      <h2 class="error-subtitle">
-        页面不存在
-      </h2>
+      <h1 class="error-title">404</h1>
+      <h2 class="error-subtitle">页面不存在</h2>
       <p class="error-description">
         抱歉，您访问的页面不存在或已被移除。请检查URL是否正确。
       </p>
       <div class="error-actions">
-        <el-button
-          type="primary"
-          size="large"
-          @click="goBack"
-        >
+        <el-button type="primary" size="large" @click="goBack">
           <el-icon><ArrowLeft /></el-icon>
           返回上页
         </el-button>
-        <el-button
-          size="large"
-          @click="goHome"
-        >
+        <el-button size="large" @click="goHome">
           <el-icon><HomeFilled /></el-icon>
           返回首页
         </el-button>

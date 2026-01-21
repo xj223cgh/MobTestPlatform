@@ -3,20 +3,14 @@
     <!-- 主体内容 -->
     <div class="main-content">
       <!-- 基本信息卡片 -->
-      <el-card
-        shadow="hover"
-        class="info-card"
-      >
+      <el-card shadow="hover" class="info-card">
         <template #header>
           <div class="card-header">
             <h2>
               迭代名称: {{ iterationDetail.iteration_name || "未知迭代" }}
             </h2>
             <div class="header-actions">
-              <el-button
-                type="primary"
-                @click="handleEdit"
-              >
+              <el-button type="primary" @click="handleEdit">
                 <el-icon><Edit /></el-icon>
                 编辑
               </el-button>
@@ -27,10 +21,7 @@
             </div>
           </div>
         </template>
-        <el-descriptions
-          :column="2"
-          border
-        >
+        <el-descriptions :column="2" border>
           <!-- 左边列 -->
           <el-descriptions-item label="状态">
             <el-tag :type="getStatusType(iterationDetail.status)">
@@ -87,10 +78,7 @@
 
       <!-- 统计图表区域 -->
       <!-- 迭代进度日历 -->
-      <el-row
-        :gutter="20"
-        class="chart-section"
-      >
+      <el-row :gutter="20" class="chart-section">
         <el-col :span="24">
           <el-card shadow="hover">
             <div class="calendar-container">
@@ -113,23 +101,27 @@
                   </div>
                   <div class="date-range">
                     <span class="date-label">持续时间：</span>
-                    <span class="date-value">{{
-                      calculateDuration(
-                        iterationDetail.start_date,
-                        iterationDetail.end_date,
-                      )
-                    }}
-                      天</span>
+                    <span class="date-value"
+                      >{{
+                        calculateDuration(
+                          iterationDetail.start_date,
+                          iterationDetail.end_date,
+                        )
+                      }}
+                      天</span
+                    >
                   </div>
                 </div>
                 <div class="calendar-progress">
                   <div class="progress-label">
                     <span>需求分布统计：</span>
-                    <span class="progress-percentage">{{
-                      calculateRequirementProgress(
-                        iterationDetail.requirement_stats,
-                      )
-                    }}%</span>
+                    <span class="progress-percentage"
+                      >{{
+                        calculateRequirementProgress(
+                          iterationDetail.requirement_stats,
+                        )
+                      }}%</span
+                    >
                   </div>
                   <div class="chart-container">
                     <v-chart
@@ -138,21 +130,11 @@
                       autoresize
                       style="height: 250px"
                     />
-                    <div
-                      v-else
-                      class="empty-chart"
-                    >
-                      暂无进度数据
-                    </div>
+                    <div v-else class="empty-chart">暂无进度数据</div>
                   </div>
                 </div>
               </div>
-              <div
-                v-else
-                class="empty-chart"
-              >
-                暂无进度数据
-              </div>
+              <div v-else class="empty-chart">暂无进度数据</div>
             </div>
           </el-card>
         </el-col>
@@ -172,21 +154,13 @@
         :rules="iterationRules"
         label-width="120px"
       >
-        <el-form-item
-          label="迭代名称"
-          prop="iteration_name"
-          required
-        >
+        <el-form-item label="迭代名称" prop="iteration_name" required>
           <el-input
             v-model="iterationForm.iteration_name"
             placeholder="请输入迭代名称"
           />
         </el-form-item>
-        <el-form-item
-          label="迭代目标"
-          prop="goal"
-          required
-        >
+        <el-form-item label="迭代目标" prop="goal" required>
           <el-input
             v-model="iterationForm.goal"
             type="textarea"
@@ -194,21 +168,13 @@
             :rows="3"
           />
         </el-form-item>
-        <el-form-item
-          label="测试版本"
-          prop="version"
-          required
-        >
+        <el-form-item label="测试版本" prop="version" required>
           <el-input
             v-model="iterationForm.version"
             placeholder="请输入测试版本"
           />
         </el-form-item>
-        <el-form-item
-          label="开始日期"
-          prop="start_date"
-          required
-        >
+        <el-form-item label="开始日期" prop="start_date" required>
           <el-date-picker
             v-model="iterationForm.start_date"
             type="datetime"
@@ -216,11 +182,7 @@
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item
-          label="结束日期"
-          prop="end_date"
-          required
-        >
+        <el-form-item label="结束日期" prop="end_date" required>
           <el-date-picker
             v-model="iterationForm.end_date"
             type="datetime"
@@ -228,37 +190,15 @@
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item
-          label="状态"
-          prop="status"
-          required
-        >
-          <el-select
-            v-model="iterationForm.status"
-            placeholder="选择状态"
-          >
-            <el-option
-              label="计划中"
-              value="planning"
-            />
-            <el-option
-              label="进行中"
-              value="active"
-            />
-            <el-option
-              label="已完成"
-              value="completed"
-            />
-            <el-option
-              label="已取消"
-              value="cancelled"
-            />
+        <el-form-item label="状态" prop="status" required>
+          <el-select v-model="iterationForm.status" placeholder="选择状态">
+            <el-option label="计划中" value="planning" />
+            <el-option label="进行中" value="active" />
+            <el-option label="已完成" value="completed" />
+            <el-option label="已取消" value="cancelled" />
           </el-select>
         </el-form-item>
-        <el-form-item
-          label="备注"
-          prop="description"
-        >
+        <el-form-item label="备注" prop="description">
           <el-input
             v-model="iterationForm.description"
             type="textarea"
@@ -269,15 +209,8 @@
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="editDialogVisible = false">
-            取消
-          </el-button>
-          <el-button
-            type="primary"
-            @click="submitForm"
-          >
-            确定
-          </el-button>
+          <el-button @click="editDialogVisible = false"> 取消 </el-button>
+          <el-button type="primary" @click="submitForm"> 确定 </el-button>
         </div>
       </template>
     </el-dialog>

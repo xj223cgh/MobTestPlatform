@@ -2,18 +2,12 @@
   <div class="project-detail">
     <!-- 项目基本信息 -->
     <div class="info-section">
-      <el-card
-        shadow="hover"
-        class="info-card"
-      >
+      <el-card shadow="hover" class="info-card">
         <template #header>
           <div class="card-header">
             <h2>项目名称: {{ projectDetail.project_name || "未知项目" }}</h2>
             <div class="header-actions">
-              <el-button
-                type="primary"
-                @click="handleEdit"
-              >
+              <el-button type="primary" @click="handleEdit">
                 <el-icon><Edit /></el-icon>
                 编辑
               </el-button>
@@ -24,10 +18,7 @@
             </div>
           </div>
         </template>
-        <el-descriptions
-          :column="2"
-          border
-        >
+        <el-descriptions :column="2" border>
           <el-descriptions-item label="状态">
             <el-tag :type="getStatusType(projectDetail.status)">
               {{ getStatusText(projectDetail.status) }}
@@ -74,20 +65,13 @@
         :rules="projectRules"
         label-width="100px"
       >
-        <el-form-item
-          label="项目名称"
-          prop="project_name"
-        >
+        <el-form-item label="项目名称" prop="project_name">
           <el-input
             v-model="projectForm.project_name"
             placeholder="请输入项目名称"
           />
         </el-form-item>
-        <el-form-item
-          label="项目描述"
-          prop="description"
-          required
-        >
+        <el-form-item label="项目描述" prop="description" required>
           <el-input
             v-model="projectForm.description"
             type="textarea"
@@ -95,63 +79,26 @@
             placeholder="请输入项目描述"
           />
         </el-form-item>
-        <el-form-item
-          label="状态"
-          prop="status"
-        >
-          <el-select
-            v-model="projectForm.status"
-            placeholder="请选择项目状态"
-          >
-            <el-option
-              label="未开始"
-              value="not_started"
-            />
-            <el-option
-              label="进行中"
-              value="in_progress"
-            />
-            <el-option
-              label="已暂停"
-              value="paused"
-            />
-            <el-option
-              label="已完成"
-              value="completed"
-            />
-            <el-option
-              label="已关闭"
-              value="closed"
-            />
+        <el-form-item label="状态" prop="status">
+          <el-select v-model="projectForm.status" placeholder="请选择项目状态">
+            <el-option label="未开始" value="not_started" />
+            <el-option label="进行中" value="in_progress" />
+            <el-option label="已暂停" value="paused" />
+            <el-option label="已完成" value="completed" />
+            <el-option label="已关闭" value="closed" />
           </el-select>
         </el-form-item>
-        <el-form-item
-          label="优先级"
-          prop="priority"
-        >
+        <el-form-item label="优先级" prop="priority">
           <el-select
             v-model="projectForm.priority"
             placeholder="请选择项目优先级"
           >
-            <el-option
-              label="高"
-              value="high"
-            />
-            <el-option
-              label="中"
-              value="medium"
-            />
-            <el-option
-              label="低"
-              value="low"
-            />
+            <el-option label="高" value="high" />
+            <el-option label="中" value="medium" />
+            <el-option label="低" value="low" />
           </el-select>
         </el-form-item>
-        <el-form-item
-          label="项目负责人"
-          prop="owner_id"
-          required
-        >
+        <el-form-item label="项目负责人" prop="owner_id" required>
           <el-select
             v-model="projectForm.owner_id"
             placeholder="请选择项目负责人"
@@ -189,11 +136,7 @@
             <span>注意：当前项目负责人无法从成员列表中删除</span>
           </div>
         </el-form-item>
-        <el-form-item
-          label="开始日期"
-          prop="start_date"
-          required
-        >
+        <el-form-item label="开始日期" prop="start_date" required>
           <el-date-picker
             v-model="projectForm.start_date"
             type="datetime"
@@ -201,11 +144,7 @@
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item
-          label="结束日期"
-          prop="end_date"
-          required
-        >
+        <el-form-item label="结束日期" prop="end_date" required>
           <el-date-picker
             v-model="projectForm.end_date"
             type="datetime"
@@ -213,19 +152,13 @@
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item
-          label="项目文档链接"
-          prop="doc_url"
-        >
+        <el-form-item label="项目文档链接" prop="doc_url">
           <el-input
             v-model="projectForm.doc_url"
             placeholder="请输入项目文档链接"
           />
         </el-form-item>
-        <el-form-item
-          label="流水线链接"
-          prop="pipeline_url"
-        >
+        <el-form-item label="流水线链接" prop="pipeline_url">
           <el-input
             v-model="projectForm.pipeline_url"
             placeholder="请输入流水线链接"
@@ -233,9 +166,7 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">
-          取消
-        </el-button>
+        <el-button @click="dialogVisible = false"> 取消 </el-button>
         <el-button
           type="primary"
           :loading="dialogLoading"
@@ -247,34 +178,25 @@
     </el-dialog>
 
     <!-- 项目描述和链接 -->
-    <el-row
-      :gutter="20"
-      class="info-section-row"
-    >
+    <el-row :gutter="20" class="info-section-row">
       <!-- 项目链接 -->
       <el-col :span="12">
         <div class="info-section">
-          <el-card
-            shadow="hover"
-            class="info-card equal-height-card"
-          >
+          <el-card shadow="hover" class="info-card equal-height-card">
             <template #header>
               <div class="card-header">
                 <span>项目链接</span>
               </div>
             </template>
-            <el-descriptions
-              :column="1"
-              border
-              label-width="120px"
-            >
+            <el-descriptions :column="1" border label-width="120px">
               <el-descriptions-item label="文档链接">
                 <a
                   v-if="projectDetail.doc_url"
                   :href="projectDetail.doc_url"
                   target="_blank"
                   class="project-link"
-                >{{ projectDetail.doc_url }}</a>
+                  >{{ projectDetail.doc_url }}</a
+                >
                 <span v-else>-</span>
               </el-descriptions-item>
               <el-descriptions-item label="流水线链接">
@@ -283,7 +205,8 @@
                   :href="projectDetail.pipeline_url"
                   target="_blank"
                   class="project-link"
-                >{{ projectDetail.pipeline_url }}</a>
+                  >{{ projectDetail.pipeline_url }}</a
+                >
                 <span v-else>-</span>
               </el-descriptions-item>
             </el-descriptions>
@@ -294,16 +217,15 @@
       <!-- 项目描述 -->
       <el-col :span="12">
         <div class="info-section">
-          <el-card
-            shadow="hover"
-            class="info-card equal-height-card"
-          >
+          <el-card shadow="hover" class="info-card equal-height-card">
             <template #header>
               <div class="card-header">
                 <span>项目描述</span>
-                <span class="description-count">{{ (projectDetail.description || "").length }}/{{
-                  100
-                }}</span>
+                <span class="description-count"
+                  >{{ (projectDetail.description || "").length }}/{{
+                    100
+                  }}</span
+                >
               </div>
             </template>
             <div class="description-content">
@@ -316,10 +238,7 @@
 
     <!-- 项目统计 -->
     <div class="info-section">
-      <el-card
-        shadow="hover"
-        class="info-card"
-      >
+      <el-card shadow="hover" class="info-card">
         <template #header>
           <div class="card-header">
             <span>项目统计</span>
@@ -327,86 +246,48 @@
         </template>
 
         <!-- 统计概览 -->
-        <el-row
-          :gutter="20"
-          class="stats-overview"
-        >
-          <!-- 缺陷统计 -->
-          <el-col :span="6">
-            <div class="stat-item-with-chart">
-              <div class="stat-header">
-                <div class="stat-label">
-                  缺陷总数
-                </div>
-                <div class="stat-value">
-                  {{ projectDetail.bug_stats?.total || 0 }}
-                </div>
-              </div>
-              <div class="chart-container-small">
-                <v-chart
-                  :option="bugCategoryChartOption"
-                  autoresize
-                />
-              </div>
-            </div>
-          </el-col>
-
+        <el-row :gutter="20" class="stats-overview">
           <!-- 用例统计 -->
-          <el-col :span="6">
+          <el-col :span="8">
             <div class="stat-item-with-chart">
               <div class="stat-header">
-                <div class="stat-label">
-                  用例总数
-                </div>
+                <div class="stat-label">用例总数</div>
                 <div class="stat-value">
                   {{ projectDetail.case_stats?.total || 0 }}
                 </div>
               </div>
               <div class="chart-container-small">
-                <v-chart
-                  :option="caseExecutionChartOption"
-                  autoresize
-                />
+                <v-chart :option="caseExecutionChartOption" autoresize />
               </div>
             </div>
           </el-col>
 
           <!-- 迭代统计 -->
-          <el-col :span="6">
+          <el-col :span="8">
             <div class="stat-item-with-chart">
               <div class="stat-header">
-                <div class="stat-label">
-                  迭代总数
-                </div>
+                <div class="stat-label">迭代总数</div>
                 <div class="stat-value">
                   {{ projectDetail.iteration_count || 0 }}
                 </div>
               </div>
               <div class="chart-container-small">
-                <v-chart
-                  :option="iterationChartOption"
-                  autoresize
-                />
+                <v-chart :option="iterationChartOption" autoresize />
               </div>
             </div>
           </el-col>
 
           <!-- 版本需求统计 -->
-          <el-col :span="6">
+          <el-col :span="8">
             <div class="stat-item-with-chart">
               <div class="stat-header">
-                <div class="stat-label">
-                  需求总数
-                </div>
+                <div class="stat-label">需求总数</div>
                 <div class="stat-value">
                   {{ projectDetail.requirement_count || 0 }}
                 </div>
               </div>
               <div class="chart-container-small">
-                <v-chart
-                  :option="requirementChartOption"
-                  autoresize
-                />
+                <v-chart :option="requirementChartOption" autoresize />
               </div>
             </div>
           </el-col>
@@ -568,57 +449,6 @@ const projectRules = {
 };
 
 // 图表配置选项
-const bugCategoryChartOption = ref({
-  title: {
-    text: "",
-    left: "center",
-  },
-  tooltip: {
-    trigger: "item",
-    formatter: "{b}: {c} ({d}%)",
-  },
-  legend: {
-    orient: "horizontal",
-    bottom: 0,
-    left: "center",
-    textStyle: {
-      fontSize: 10,
-    },
-    itemGap: 10,
-    padding: [10, 0, 0, 0],
-  },
-  series: [
-    {
-      name: "缺陷分类",
-      type: "pie",
-      radius: "65%",
-      avoidLabelOverlap: false,
-      itemStyle: {
-        borderRadius: 0,
-        borderColor: "#fff",
-        borderWidth: 1,
-      },
-      label: {
-        show: true,
-        position: "outside",
-        formatter: "{b}: {c} ({d}%)",
-        fontSize: 10,
-      },
-      emphasis: {
-        label: {
-          show: true,
-          fontSize: "12",
-          fontWeight: "bold",
-        },
-      },
-      labelLine: {
-        show: true,
-      },
-      data: [],
-    },
-  ],
-});
-
 const caseExecutionChartOption = ref({
   title: {
     text: "",
@@ -825,26 +655,6 @@ const formatDateTime = (dateTime) => {
 // 更新图表数据
 const updateCharts = () => {
   // 利用ECharts默认行为：值为0的数据项不会显示在饼图上，但会保留在图例中
-
-  // 更新缺陷分类饼图 - 高优先级红色、中优先级黄色、低优先级绿色
-  const bugStats = projectDetail.value.bug_stats || {};
-  bugCategoryChartOption.value.series[0].data = [
-    {
-      value: bugStats.high || 0,
-      name: "高优先级",
-      itemStyle: { color: "#ff6e6e" },
-    },
-    {
-      value: bugStats.medium || 0,
-      name: "中优先级",
-      itemStyle: { color: "#ffc107" },
-    },
-    {
-      value: bugStats.low || 0,
-      name: "低优先级",
-      itemStyle: { color: "#5cb85c" },
-    },
-  ];
 
   // 更新用例执行情况饼图 - 通过绿色、失败红色、阻塞黄色、不适用紫色、未执行灰色
   const caseStats = projectDetail.value.case_stats || {};

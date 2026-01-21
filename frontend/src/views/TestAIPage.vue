@@ -3,15 +3,9 @@
     <h1>AI接口测试页面</h1>
     <div class="test-form">
       <h2>测试配置</h2>
-      <el-form
-        :model="testForm"
-        label-width="120px"
-      >
+      <el-form :model="testForm" label-width="120px">
         <el-form-item label="API基础URL">
-          <el-input
-            v-model="testForm.baseUrl"
-            placeholder="请输入API基础URL"
-          />
+          <el-input v-model="testForm.baseUrl" placeholder="请输入API基础URL" />
         </el-form-item>
         <el-form-item label="API密钥">
           <el-input
@@ -21,10 +15,7 @@
           />
         </el-form-item>
         <el-form-item label="模型名称">
-          <el-input
-            v-model="testForm.model"
-            placeholder="请输入模型名称"
-          />
+          <el-input v-model="testForm.model" placeholder="请输入模型名称" />
         </el-form-item>
         <el-form-item label="测试提示词">
           <el-input
@@ -59,27 +50,17 @@
             :disabled="isLoading"
             @click="testAI"
           >
-            {{ isLoading ? '测试中...' : '测试AI接口' }}
+            {{ isLoading ? "测试中..." : "测试AI接口" }}
           </el-button>
-          <el-button
-            type="default"
-            @click="resetForm"
-          >
-            重置
-          </el-button>
+          <el-button type="default" @click="resetForm"> 重置 </el-button>
         </el-form-item>
       </el-form>
     </div>
     <div class="test-result">
       <h2>测试结果</h2>
-      <div
-        v-if="result.success"
-        class="success"
-      >
+      <div v-if="result.success" class="success">
         <div class="result-header">
-          <el-tag type="success">
-            调用成功
-          </el-tag>
+          <el-tag type="success"> 调用成功 </el-tag>
           <span class="time">耗时: {{ result.time }}ms</span>
         </div>
         <div class="result-content">
@@ -87,14 +68,9 @@
           <pre>{{ result.data }}</pre>
         </div>
       </div>
-      <div
-        v-else-if="result.error"
-        class="error"
-      >
+      <div v-else-if="result.error" class="error">
         <div class="result-header">
-          <el-tag type="danger">
-            调用失败
-          </el-tag>
+          <el-tag type="danger"> 调用失败 </el-tag>
           <span class="time">耗时: {{ result.time }}ms</span>
         </div>
         <div class="result-content">
@@ -102,10 +78,7 @@
           <pre>{{ result.error }}</pre>
         </div>
       </div>
-      <div
-        v-else
-        class="empty"
-      >
+      <div v-else class="empty">
         <p>请点击"测试AI接口"按钮开始测试</p>
       </div>
     </div>
@@ -113,15 +86,16 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
-import axios from 'axios';
+import { ref, reactive } from "vue";
+import axios from "axios";
 
 // 测试表单数据
 const testForm = reactive({
-  baseUrl: import.meta.env.VITE_AI_API_BASE_URL || 'https://api.siliconflow.cn/v1',
-  apiKey: import.meta.env.VITE_AI_API_KEY || '',
-  model: 'deepseek-ai/DeepSeek-R1-0528-Qwen3-8B',
-  prompt: '请生成一个某东app的登录/注册功能的测试用例',
+  baseUrl:
+    import.meta.env.VITE_AI_API_BASE_URL || "https://api.siliconflow.cn/v1",
+  apiKey: import.meta.env.VITE_AI_API_KEY || "",
+  model: "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B",
+  prompt: "请生成一个某东app的登录/注册功能的测试用例",
   temperature: 0.3,
   maxTokens: 4096,
 });
@@ -131,7 +105,7 @@ const isLoading = ref(false);
 const result = ref({
   success: false,
   error: null,
-  data: '',
+  data: "",
   time: 0,
 });
 
@@ -142,7 +116,7 @@ const testAI = async () => {
     result.value = {
       success: false,
       error: null,
-      data: '',
+      data: "",
       time: 0,
     };
 
@@ -154,27 +128,28 @@ const testAI = async () => {
       baseURL: testForm.baseUrl,
       timeout: 60000,
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${testForm.apiKey}`,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${testForm.apiKey}`,
       },
     });
 
     // 发送请求
-    const response = await aiRequest.post('/chat/completions', {
+    const response = await aiRequest.post("/chat/completions", {
       model: testForm.model,
       messages: [
         {
-          role: 'system',
-          content: '你是一位专业的测试用例生成专家，请严格按照要求生成测试用例。',
+          role: "system",
+          content:
+            "你是一位专业的测试用例生成专家，请严格按照要求生成测试用例。",
         },
         {
-          role: 'user',
+          role: "user",
           content: testForm.prompt,
         },
       ],
       temperature: testForm.temperature,
       max_tokens: testForm.maxTokens,
-      response_format: { type: 'json_object' },
+      response_format: { type: "json_object" },
     });
 
     // 记录结束时间
@@ -194,13 +169,13 @@ const testAI = async () => {
     const duration = endTime - startTime;
 
     // 处理错误
-    let errorMessage = '未知错误';
+    let errorMessage = "未知错误";
     if (error.response) {
       // 服务器返回错误
       errorMessage = `HTTP ${error.response.status}: ${JSON.stringify(error.response.data, null, 2)}`;
     } else if (error.request) {
       // 请求发出但没有收到响应
-      errorMessage = '没有收到服务器响应，请检查网络连接或API配置';
+      errorMessage = "没有收到服务器响应，请检查网络连接或API配置";
     } else {
       // 请求配置错误
       errorMessage = `请求配置错误: ${error.message}`;
@@ -209,7 +184,7 @@ const testAI = async () => {
     result.value = {
       success: false,
       error: errorMessage,
-      data: '',
+      data: "",
       time: duration,
     };
   } finally {
@@ -220,17 +195,18 @@ const testAI = async () => {
 // 重置表单
 const resetForm = () => {
   Object.assign(testForm, {
-    baseUrl: import.meta.env.VITE_AI_API_BASE_URL || 'https://api.siliconflow.cn/v1',
-    apiKey: import.meta.env.VITE_AI_API_KEY || '',
-    model: 'deepseek-ai/DeepSeek-R1-0528-Qwen3-8B',
-    prompt: '请生成一个某东app的登录/注册功能的测试用例',
+    baseUrl:
+      import.meta.env.VITE_AI_API_BASE_URL || "https://api.siliconflow.cn/v1",
+    apiKey: import.meta.env.VITE_AI_API_KEY || "",
+    model: "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B",
+    prompt: "请生成一个某东app的登录/注册功能的测试用例",
     temperature: 0.3,
     maxTokens: 4096,
   });
   result.value = {
     success: false,
     error: null,
-    data: '',
+    data: "",
     time: 0,
   };
 };
@@ -293,7 +269,7 @@ h2 {
 pre {
   white-space: pre-wrap;
   word-wrap: break-word;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: "Courier New", Courier, monospace;
   font-size: 14px;
   line-height: 1.5;
   color: #333;

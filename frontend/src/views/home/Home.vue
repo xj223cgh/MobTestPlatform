@@ -1,14 +1,9 @@
 <template>
   <div class="home">
     <div class="page-header">
-      <h1 class="title">
-        首页
-      </h1>
+      <h1 class="title">首页</h1>
       <div class="actions">
-        <el-button
-          type="primary"
-          @click="refreshData"
-        >
+        <el-button type="primary" @click="refreshData">
           <el-icon><Refresh /></el-icon>
           刷新数据
         </el-button>
@@ -17,10 +12,7 @@
 
     <!-- 统计卡片 -->
     <div class="stats-grid">
-      <div
-        v-loading="loading"
-        class="stat-card"
-      >
+      <div v-loading="loading" class="stat-card">
         <div class="stat-icon primary">
           <el-icon><User /></el-icon>
         </div>
@@ -28,16 +20,11 @@
           <div class="stat-number">
             {{ stats.users }}
           </div>
-          <div class="stat-label">
-            用户总数
-          </div>
+          <div class="stat-label">用户总数</div>
         </div>
       </div>
 
-      <div
-        v-loading="loading"
-        class="stat-card"
-      >
+      <div v-loading="loading" class="stat-card">
         <div class="stat-icon success">
           <el-icon><Monitor /></el-icon>
         </div>
@@ -45,16 +32,11 @@
           <div class="stat-number">
             {{ stats.devices }}
           </div>
-          <div class="stat-label">
-            设备总数
-          </div>
+          <div class="stat-label">设备总数</div>
         </div>
       </div>
 
-      <div
-        v-loading="loading"
-        class="stat-card"
-      >
+      <div v-loading="loading" class="stat-card">
         <div class="stat-icon danger">
           <el-icon><List /></el-icon>
         </div>
@@ -62,9 +44,7 @@
           <div class="stat-number">
             {{ stats.testTasks }}
           </div>
-          <div class="stat-label">
-            测试任务
-          </div>
+          <div class="stat-label">测试任务</div>
         </div>
       </div>
     </div>
@@ -80,25 +60,13 @@
             size="small"
             style="width: 120px"
           >
-            <el-option
-              label="最近7天"
-              value="7d"
-            />
-            <el-option
-              label="最近30天"
-              value="30d"
-            />
-            <el-option
-              label="最近90天"
-              value="90d"
-            />
+            <el-option label="最近7天" value="7d" />
+            <el-option label="最近30天" value="30d" />
+            <el-option label="最近90天" value="90d" />
           </el-select>
         </div>
         <div class="chart-container">
-          <v-chart
-            class="chart"
-            :option="taskTrendOption"
-          />
+          <v-chart class="chart" :option="taskTrendOption" />
         </div>
       </div>
 
@@ -108,10 +76,7 @@
           <h3>设备状态分布</h3>
         </div>
         <div class="chart-container">
-          <v-chart
-            class="chart"
-            :option="deviceStatusOption"
-          />
+          <v-chart class="chart" :option="deviceStatusOption" />
         </div>
       </div>
     </div>
@@ -121,10 +86,7 @@
       <div class="card">
         <div class="card-header">
           <h3>最近活动</h3>
-          <el-link
-            type="primary"
-            @click="viewAllActivities"
-          >
+          <el-link type="primary" @click="viewAllActivities">
             查看全部
           </el-link>
         </div>
@@ -134,10 +96,7 @@
             :key="activity.id"
             class="activity-item"
           >
-            <div
-              class="activity-icon"
-              :class="activity.type"
-            >
+            <div class="activity-icon" :class="activity.type">
               <el-icon>
                 <component :is="getActivityIcon(activity.type)" />
               </el-icon>
@@ -313,7 +272,6 @@ const getActivityIcon = (type) => {
     task: "List",
     device: "Monitor",
     user: "User",
-    bug: "Warning",
   };
   return iconMap[type] || "Document";
 };
@@ -369,17 +327,10 @@ const fetchRecentActivities = async () => {
         },
         {
           id: 3,
-          type: "bug",
-          title: "发现新缺陷",
-          description: "在支付模块中发现严重缺陷",
-          created_at: new Date(Date.now() - 1000 * 60 * 30),
-        },
-        {
-          id: 4,
           type: "user",
           title: "新用户注册",
           description: "测试工程师 张三 已注册账号",
-          created_at: new Date(Date.now() - 1000 * 60 * 60),
+          created_at: new Date(Date.now() - 1000 * 60 * 30),
         },
       ];
     }
@@ -403,17 +354,10 @@ const fetchRecentActivities = async () => {
       },
       {
         id: 3,
-        type: "bug",
-        title: "发现新缺陷",
-        description: "在支付模块中发现严重缺陷",
-        created_at: new Date(Date.now() - 1000 * 60 * 30),
-      },
-      {
-        id: 4,
         type: "user",
         title: "新用户注册",
         description: "测试工程师 张三 已注册账号",
-        created_at: new Date(Date.now() - 1000 * 60 * 60),
+        created_at: new Date(Date.now() - 1000 * 60 * 30),
       },
     ];
   }
@@ -604,10 +548,6 @@ onMounted(() => {
 
           &.user {
             background: linear-gradient(135deg, #e6a23c, #ebb563);
-          }
-
-          &.bug {
-            background: linear-gradient(135deg, #f56c6c, #f78989);
           }
         }
 

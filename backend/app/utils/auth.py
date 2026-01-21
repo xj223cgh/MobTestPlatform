@@ -30,11 +30,6 @@ class PermissionManager:
         'task:execute': '执行测试任务',
         'task:delete': '删除测试任务',
         
-        # 缺陷管理权限
-        'bug:read': '查看缺陷',
-        'bug:write': '管理缺陷',
-        'bug:delete': '删除缺陷',
-        
         # 工具管理权限
         'tool:read': '查看工具',
         'tool:write': '管理工具',
@@ -58,7 +53,6 @@ class PermissionManager:
             'device:read', 'device:write', 'device:delete',
             'testcase:read', 'testcase:write', 'testcase:delete',
             'task:read', 'task:write', 'task:execute', 'task:delete',
-            'bug:read', 'bug:write', 'bug:delete',
             'tool:read', 'tool:write', 'tool:execute', 'tool:delete',
             'report:read', 'report:write', 'report:delete',
             'system:manage', 'system:log'
@@ -67,7 +61,6 @@ class PermissionManager:
             'device:read',
             'testcase:read', 'testcase:write',
             'task:read', 'task:write', 'task:execute',
-            'bug:read', 'bug:write',
             'tool:read', 'tool:execute',
             'report:read'
         ],
@@ -76,7 +69,6 @@ class PermissionManager:
             'device:read', 'device:write',
             'testcase:read', 'testcase:write',
             'task:read', 'task:write', 'task:execute',
-            'bug:read', 'bug:write',
             'tool:read', 'tool:execute',
             'report:read', 'report:write',
             'system:log'
@@ -86,7 +78,6 @@ class PermissionManager:
             'device:read', 'device:write', 'device:delete',
             'testcase:read', 'testcase:write', 'testcase:delete',
             'task:read', 'task:write', 'task:execute', 'task:delete',
-            'bug:read', 'bug:write', 'bug:delete',
             'tool:read', 'tool:write', 'tool:execute', 'tool:delete',
             'report:read', 'report:write', 'report:delete',
             'system:manage', 'system:log'
@@ -163,8 +154,6 @@ class PermissionManager:
             return '用例管理'
         elif permission.startswith('task:'):
             return '测试任务'
-        elif permission.startswith('bug:'):
-            return '缺陷管理'
         elif permission.startswith('tool:'):
             return '工具管理'
         elif permission.startswith('report:'):

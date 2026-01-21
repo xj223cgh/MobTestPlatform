@@ -37,7 +37,6 @@ def clear_table_data():
             # 按照外键依赖关系倒序清空表数据
             tables = [
                 'tools',
-                'bugs', 
                 'test_tasks',
                 'test_cases',
                 'devices',

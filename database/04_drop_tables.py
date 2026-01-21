@@ -37,7 +37,6 @@ def drop_tables():
             # 按照外键依赖关系倒序删除表
             tables = [
                 'tools',
-                'bugs', 
                 'test_tasks',
                 'test_cases',
                 'devices',

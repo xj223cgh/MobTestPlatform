@@ -1,9 +1,9 @@
 // 文档解析工具
 
 // 静态导入，避免Vite动态导入问题
-import mammoth from 'mammoth';
+import mammoth from "mammoth";
 // pdfjs-dist使用命名导出，不是默认导出
-import * as pdfjsLib from 'pdfjs-dist';
+import * as pdfjsLib from "pdfjs-dist";
 
 /**
  * 解析文本文件内容

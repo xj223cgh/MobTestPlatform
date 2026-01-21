@@ -2,10 +2,7 @@
   <div class="requirement-management">
     <!-- 搜索和筛选 -->
     <div class="search-section">
-      <el-form
-        :model="searchForm"
-        inline
-      >
+      <el-form :model="searchForm" inline>
         <el-form-item label="时间">
           <el-date-picker
             v-model="timeRangeFilter"
@@ -95,10 +92,7 @@
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button
-            :loading="loading"
-            @click="resetFilters"
-          >
+          <el-button :loading="loading" @click="resetFilters">
             <el-icon><Refresh /></el-icon>
             重置
           </el-button>
@@ -126,12 +120,7 @@
         style="width: 100%"
         fit
       >
-        <el-table-column
-          prop="id"
-          label="ID"
-          width="80"
-          align="center"
-        />
+        <el-table-column prop="id" label="ID" width="80" align="center" />
         <el-table-column
           prop="requirement_name"
           label="需求名称"
@@ -288,21 +277,13 @@
         :rules="requirementRules"
         label-width="100px"
       >
-        <el-form-item
-          label="需求名称"
-          prop="requirement_name"
-          required
-        >
+        <el-form-item label="需求名称" prop="requirement_name" required>
           <el-input
             v-model="requirementForm.requirement_name"
             placeholder="请输入需求名称"
           />
         </el-form-item>
-        <el-form-item
-          label="需求描述"
-          prop="description"
-          required
-        >
+        <el-form-item label="需求描述" prop="description" required>
           <el-input
             v-model="requirementForm.description"
             type="textarea"
@@ -310,11 +291,7 @@
             placeholder="请输入需求描述"
           />
         </el-form-item>
-        <el-form-item
-          label="所属项目"
-          prop="project_id"
-          required
-        >
+        <el-form-item label="所属项目" prop="project_id" required>
           <el-select
             v-model="requirementForm.project_id"
             placeholder="请选择所属项目"
@@ -330,10 +307,7 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item
-          label="所属迭代"
-          prop="iteration_id"
-        >
+        <el-form-item label="所属迭代" prop="iteration_id">
           <el-select
             v-model="requirementForm.iteration_id"
             placeholder="请选择所属迭代"
@@ -349,91 +323,40 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item
-          label="状态"
-          prop="status"
-          required
-        >
+        <el-form-item label="状态" prop="status" required>
           <el-select
             v-model="requirementForm.status"
             placeholder="请选择需求状态"
           >
-            <el-option
-              label="新建"
-              value="new"
-            />
-            <el-option
-              label="进行中"
-              value="in_progress"
-            />
-            <el-option
-              label="已完成"
-              value="completed"
-            />
-            <el-option
-              label="已取消"
-              value="cancelled"
-            />
+            <el-option label="新建" value="new" />
+            <el-option label="进行中" value="in_progress" />
+            <el-option label="已完成" value="completed" />
+            <el-option label="已取消" value="cancelled" />
           </el-select>
         </el-form-item>
-        <el-form-item
-          label="优先级"
-          prop="priority"
-          required
-        >
+        <el-form-item label="优先级" prop="priority" required>
           <el-select
             v-model="requirementForm.priority"
             placeholder="请选择优先级"
           >
-            <el-option
-              label="P0"
-              value="P0"
-            />
-            <el-option
-              label="P1"
-              value="P1"
-            />
-            <el-option
-              label="P2"
-              value="P2"
-            />
-            <el-option
-              label="P3"
-              value="P3"
-            />
-            <el-option
-              label="P4"
-              value="P4"
-            />
+            <el-option label="P0" value="P0" />
+            <el-option label="P1" value="P1" />
+            <el-option label="P2" value="P2" />
+            <el-option label="P3" value="P3" />
+            <el-option label="P4" value="P4" />
           </el-select>
         </el-form-item>
-        <el-form-item
-          label="环境"
-          prop="environment"
-          required
-        >
+        <el-form-item label="环境" prop="environment" required>
           <el-select
             v-model="requirementForm.environment"
             placeholder="请选择环境"
           >
-            <el-option
-              label="测试环境"
-              value="test"
-            />
-            <el-option
-              label="预发环境"
-              value="staging"
-            />
-            <el-option
-              label="正式环境"
-              value="production"
-            />
+            <el-option label="测试环境" value="test" />
+            <el-option label="预发环境" value="staging" />
+            <el-option label="正式环境" value="production" />
           </el-select>
         </el-form-item>
-        <el-form-item
-          label="预估工时"
-          prop="estimated_hours"
-        >
+        <el-form-item label="预估工时" prop="estimated_hours">
           <el-input-number
             v-model="requirementForm.estimated_hours"
             :min="0"
@@ -442,11 +365,7 @@
             style="width: 200px"
           />
         </el-form-item>
-        <el-form-item
-          label="分配给"
-          prop="assigned_to"
-          required
-        >
+        <el-form-item label="分配给" prop="assigned_to" required>
           <el-select
             v-model="requirementForm.assigned_to"
             placeholder="请选择负责人"
@@ -460,11 +379,7 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item
-          label="开始时间"
-          prop="start_date"
-          required
-        >
+        <el-form-item label="开始时间" prop="start_date" required>
           <el-date-picker
             v-model="requirementForm.start_date"
             type="datetime"
@@ -472,11 +387,7 @@
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item
-          label="结束时间"
-          prop="end_date"
-          required
-        >
+        <el-form-item label="结束时间" prop="end_date" required>
           <el-date-picker
             v-model="requirementForm.end_date"
             type="datetime"
@@ -486,9 +397,7 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">
-          取消
-        </el-button>
+        <el-button @click="dialogVisible = false"> 取消 </el-button>
         <el-button
           type="primary"
           :loading="dialogLoading"
@@ -500,17 +409,9 @@
     </el-dialog>
 
     <!-- 查看需求详情对话框 -->
-    <el-dialog
-      v-model="viewDialogVisible"
-      title="需求详情"
-      width="800px"
-    >
+    <el-dialog v-model="viewDialogVisible" title="需求详情" width="800px">
       <div class="requirement-detail-view">
-        <el-descriptions
-          :column="2"
-          border
-          label-width="120px"
-        >
+        <el-descriptions :column="2" border label-width="120px">
           <el-descriptions-item label="需求名称">
             {{ viewRequirement.requirement_name || "-" }}
           </el-descriptions-item>
@@ -538,15 +439,15 @@
           <el-descriptions-item label="负责人">
             {{
               viewRequirement.assigned_to_name ||
-                viewRequirement.assigned_to ||
-                "-"
+              viewRequirement.assigned_to ||
+              "-"
             }}
           </el-descriptions-item>
           <el-descriptions-item label="创建者">
             {{
               viewRequirement.created_by_name ||
-                viewRequirement.created_by ||
-                "-"
+              viewRequirement.created_by ||
+              "-"
             }}
           </el-descriptions-item>
           <el-descriptions-item label="预估工时">
@@ -575,10 +476,7 @@
           <el-descriptions-item label="创建时间">
             {{ formatDateTime(viewRequirement.created_at) || "-" }}
           </el-descriptions-item>
-          <el-descriptions-item
-            label="需求描述"
-            :span="2"
-          >
+          <el-descriptions-item label="需求描述" :span="2">
             <div class="description-content">
               {{ viewRequirement.requirement_description || "-" }}
             </div>
@@ -586,9 +484,7 @@
         </el-descriptions>
       </div>
       <template #footer>
-        <el-button @click="viewDialogVisible = false">
-          关闭
-        </el-button>
+        <el-button @click="viewDialogVisible = false"> 关闭 </el-button>
       </template>
     </el-dialog>
   </div>

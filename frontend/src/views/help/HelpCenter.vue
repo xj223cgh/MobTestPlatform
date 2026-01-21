@@ -19,10 +19,7 @@
         :key="category.id"
         class="category-card"
       >
-        <div
-          class="category-header"
-          @click="toggleCategory(category.id)"
-        >
+        <div class="category-header" @click="toggleCategory(category.id)">
           <el-icon class="category-icon">
             <component :is="category.icon" />
           </el-icon>
@@ -95,12 +92,7 @@
       <template #header>
         <div class="card-header">
           <h3>常见问题</h3>
-          <el-button
-            type="text"
-            @click="refreshFAQ"
-          >
-            刷新
-          </el-button>
+          <el-button type="text" @click="refreshFAQ"> 刷新 </el-button>
         </div>
       </template>
 
@@ -112,24 +104,15 @@
             :title="faq.question"
             :name="faq.id"
           >
-            <div
-              class="faq-answer"
-              v-html="faq.answer"
-            />
+            <div class="faq-answer" v-html="faq.answer" />
             <div class="faq-meta">
-              <span class="helpful-count">有帮助 {{ faq.helpfulCount }} 次</span>
-              <el-button
-                type="text"
-                size="small"
-                @click="markHelpful(faq)"
+              <span class="helpful-count"
+                >有帮助 {{ faq.helpfulCount }} 次</span
               >
+              <el-button type="text" size="small" @click="markHelpful(faq)">
                 👍 有帮助
               </el-button>
-              <el-button
-                type="text"
-                size="small"
-                @click="markNotHelpful(faq)"
-              >
+              <el-button type="text" size="small" @click="markNotHelpful(faq)">
                 👎 没帮助
               </el-button>
             </div>
@@ -143,12 +126,7 @@
       <template #header>
         <div class="card-header">
           <h3>视频教程</h3>
-          <el-button
-            type="text"
-            @click="viewAllVideos"
-          >
-            查看全部
-          </el-button>
+          <el-button type="text" @click="viewAllVideos"> 查看全部 </el-button>
         </div>
       </template>
 
@@ -160,10 +138,7 @@
           @click="playVideo(video)"
         >
           <div class="video-thumbnail">
-            <img
-              :src="video.thumbnail"
-              :alt="video.title"
-            >
+            <img :src="video.thumbnail" :alt="video.title" />
             <div class="play-button">
               <el-icon><VideoPlay /></el-icon>
             </div>
@@ -190,10 +165,7 @@
       </template>
 
       <div class="support-options">
-        <div
-          class="support-option"
-          @click="openTicketDialog"
-        >
+        <div class="support-option" @click="openTicketDialog">
           <el-icon class="support-icon">
             <Tickets />
           </el-icon>
@@ -201,10 +173,7 @@
           <p>创建技术支持工单，获得专业帮助</p>
         </div>
 
-        <div
-          class="support-option"
-          @click="openChatDialog"
-        >
+        <div class="support-option" @click="openChatDialog">
           <el-icon class="support-icon">
             <ChatDotRound />
           </el-icon>
@@ -212,10 +181,7 @@
           <p>与客服人员实时交流</p>
         </div>
 
-        <div
-          class="support-option"
-          @click="callSupport"
-        >
+        <div class="support-option" @click="callSupport">
           <el-icon class="support-icon">
             <Phone />
           </el-icon>
@@ -223,10 +189,7 @@
           <p>工作日 9:00-18:00</p>
         </div>
 
-        <div
-          class="support-option"
-          @click="sendEmail"
-        >
+        <div class="support-option" @click="sendEmail">
           <el-icon class="support-icon">
             <Message />
           </el-icon>
@@ -243,19 +206,15 @@
       width="80%"
       class="help-detail-dialog"
     >
-      <div
-        v-if="currentHelpItem"
-        class="help-detail-content"
-      >
+      <div v-if="currentHelpItem" class="help-detail-content">
         <div class="help-detail-header">
           <span class="help-category">{{ currentHelpItem.category }}</span>
-          <span class="help-update-time">更新时间: {{ currentHelpItem.updateTime }}</span>
+          <span class="help-update-time"
+            >更新时间: {{ currentHelpItem.updateTime }}</span
+          >
         </div>
 
-        <div
-          class="help-detail-body"
-          v-html="currentHelpItem.content"
-        />
+        <div class="help-detail-body" v-html="currentHelpItem.content" />
 
         <div class="help-detail-actions">
           <el-button @click="likeHelpItem">
@@ -285,10 +244,7 @@
       width="80%"
       class="video-dialog"
     >
-      <div
-        v-if="currentVideo"
-        class="video-player"
-      >
+      <div v-if="currentVideo" class="video-player">
         <video
           ref="videoPlayer"
           :src="currentVideo.url"
@@ -309,51 +265,21 @@
       width="60%"
       class="ticket-dialog"
     >
-      <el-form
-        :model="ticketForm"
-        label-width="100px"
-      >
-        <el-form-item
-          label="问题类型"
-          required
-        >
-          <el-select
-            v-model="ticketForm.type"
-            placeholder="请选择问题类型"
-          >
-            <el-option
-              label="功能问题"
-              value="feature"
-            />
-            <el-option
-              label="技术问题"
-              value="technical"
-            />
-            <el-option
-              label="账户问题"
-              value="account"
-            />
-            <el-option
-              label="其他问题"
-              value="other"
-            />
+      <el-form :model="ticketForm" label-width="100px">
+        <el-form-item label="问题类型" required>
+          <el-select v-model="ticketForm.type" placeholder="请选择问题类型">
+            <el-option label="功能问题" value="feature" />
+            <el-option label="技术问题" value="technical" />
+            <el-option label="账户问题" value="account" />
+            <el-option label="其他问题" value="other" />
           </el-select>
         </el-form-item>
 
-        <el-form-item
-          label="问题标题"
-          required
-        >
-          <el-input
-            v-model="ticketForm.title"
-            placeholder="请输入问题标题"
-          />
+        <el-form-item label="问题标题" required>
+          <el-input v-model="ticketForm.title" placeholder="请输入问题标题" />
         </el-form-item>
 
-        <el-form-item
-          label="问题描述"
-          required
-        >
+        <el-form-item label="问题描述" required>
           <el-input
             v-model="ticketForm.description"
             type="textarea"
@@ -380,23 +306,13 @@
         </el-form-item>
 
         <el-form-item label="联系方式">
-          <el-input
-            v-model="ticketForm.contact"
-            placeholder="邮箱或电话"
-          />
+          <el-input v-model="ticketForm.contact" placeholder="邮箱或电话" />
         </el-form-item>
       </el-form>
 
       <template #footer>
-        <el-button @click="ticketDialogVisible = false">
-          取消
-        </el-button>
-        <el-button
-          type="primary"
-          @click="submitTicket"
-        >
-          提交
-        </el-button>
+        <el-button @click="ticketDialogVisible = false"> 取消 </el-button>
+        <el-button type="primary" @click="submitTicket"> 提交 </el-button>
       </template>
     </el-dialog>
   </div>

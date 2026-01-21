@@ -62,6 +62,10 @@ def create_app(config_name='default'):
     # 配置日志
     setup_logging(app)
     
+    # 初始化定时任务调度器
+    from app.utils.scheduler import init_scheduler
+    init_scheduler()
+    
     # 注册蓝图
     register_blueprints(app)
     
@@ -100,14 +104,13 @@ def setup_logging(app):
 
 def register_blueprints(app):
     """注册蓝图"""
-    from app.routes import auth, users, devices, test_cases, test_tasks, bugs, tools, home, projects, iterations, suite_case_relations, test_suites, review_tasks
+    from app.routes import auth, users, devices, test_cases, test_tasks, tools, home, projects, iterations, suite_case_relations, test_suites, review_tasks, files
     
     app.register_blueprint(auth.bp, url_prefix='/api/auth')
     app.register_blueprint(users.bp, url_prefix='/api/users')
     app.register_blueprint(devices.bp, url_prefix='/api/devices')
     app.register_blueprint(test_cases.bp, url_prefix='/api/test-cases')
     app.register_blueprint(test_tasks.bp, url_prefix='/api/test-tasks')
-    app.register_blueprint(bugs.bp, url_prefix='/api/bugs')
     app.register_blueprint(tools.bp, url_prefix='/api/tools')
     app.register_blueprint(home.bp, url_prefix='/api/home')
     app.register_blueprint(projects.bp, url_prefix='/api/projects')
@@ -115,6 +118,7 @@ def register_blueprints(app):
     app.register_blueprint(suite_case_relations.bp, url_prefix='/api/suite-case-relations')
     app.register_blueprint(test_suites.bp)
     app.register_blueprint(review_tasks.bp)
+    app.register_blueprint(files.files_bp, url_prefix='/api/files')
 
 
 def register_error_handlers(app):

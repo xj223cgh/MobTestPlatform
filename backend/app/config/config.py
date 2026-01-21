@@ -38,6 +38,12 @@ class Config:
     LOG_LEVEL = 'INFO'
     LOG_FILE = 'logs/app.log'
     
+    # 文件存储配置
+    STORAGE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../storage')
+    SCRIPT_STORAGE_PATH = os.path.join(STORAGE_PATH, 'device_scripts')
+    MAX_SCRIPT_SIZE = 10 * 1024 * 1024  # 10MB
+    ALLOWED_SCRIPT_EXTENSIONS = ['.sh', '.py']
+    
     @staticmethod
     def init_app(app):
         """初始化应用配置"""

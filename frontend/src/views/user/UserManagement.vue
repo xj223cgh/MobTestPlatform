@@ -3,15 +3,10 @@
     <div class="page-header">
       <div class="header-content">
         <h1>用户管理</h1>
-        <p class="description">
-          管理系统用户账号与权限
-        </p>
+        <p class="description">管理系统用户账号与权限</p>
       </div>
       <div class="header-actions">
-        <el-button
-          type="primary"
-          @click="handleAdd"
-        >
+        <el-button type="primary" @click="handleAdd">
           <el-icon><Plus /></el-icon>
           新增用户
         </el-button>
@@ -20,10 +15,7 @@
 
     <!-- 搜索和筛选 -->
     <div class="search-section">
-      <el-form
-        :model="searchForm"
-        inline
-      >
+      <el-form :model="searchForm" inline>
         <el-form-item label="用户名/姓名">
           <el-input
             v-model="searchForm.username"
@@ -52,22 +44,10 @@
             style="width: 120px"
             @clear="handleSearch"
           >
-            <el-option
-              label="超级管理员"
-              value="super"
-            />
-            <el-option
-              label="管理员"
-              value="manager"
-            />
-            <el-option
-              label="测试人员"
-              value="tester"
-            />
-            <el-option
-              label="实习生"
-              value="admin"
-            />
+            <el-option label="超级管理员" value="super" />
+            <el-option label="管理员" value="manager" />
+            <el-option label="测试人员" value="tester" />
+            <el-option label="实习生" value="admin" />
           </el-select>
         </el-form-item>
         <el-form-item label="用户状态">
@@ -78,21 +58,12 @@
             style="width: 120px"
             @clear="handleSearch"
           >
-            <el-option
-              label="启用"
-              value="true"
-            />
-            <el-option
-              label="禁用"
-              value="false"
-            />
+            <el-option label="启用" value="true" />
+            <el-option label="禁用" value="false" />
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button
-            type="primary"
-            @click="handleSearch"
-          >
+          <el-button type="primary" @click="handleSearch">
             <el-icon><Search /></el-icon>
             搜索
           </el-button>
@@ -114,12 +85,7 @@
         style="width: 100%"
         fit
       >
-        <el-table-column
-          prop="id"
-          label="ID"
-          min-width="60"
-          align="center"
-        >
+        <el-table-column prop="id" label="ID" min-width="60" align="center">
           <template #default="{ row }">
             {{ row.id || "-" }}
           </template>
@@ -164,12 +130,7 @@
             {{ row.department || "-" }}
           </template>
         </el-table-column>
-        <el-table-column
-          prop="role"
-          label="角色"
-          min-width="90"
-          align="center"
-        >
+        <el-table-column prop="role" label="角色" min-width="90" align="center">
           <template #default="{ row }">
             <template v-if="row.role">
               <el-tag :type="getRoleTagType(row.role)">
@@ -212,11 +173,7 @@
         >
           <template #default="{ row }">
             <div class="operation-buttons">
-              <el-button
-                type="primary"
-                size="small"
-                @click="handleEdit(row)"
-              >
+              <el-button type="primary" size="small" @click="handleEdit(row)">
                 编辑
               </el-button>
               <el-button
@@ -226,11 +183,7 @@
               >
                 {{ row.is_active ? "禁用" : "启用" }}
               </el-button>
-              <el-button
-                type="danger"
-                size="small"
-                @click="handleDelete(row)"
-              >
+              <el-button type="danger" size="small" @click="handleDelete(row)">
                 删除
               </el-button>
             </div>
@@ -265,39 +218,20 @@
         :rules="userRules"
         label-width="80px"
       >
-        <el-form-item
-          label="用户名"
-          prop="username"
-        >
+        <el-form-item label="用户名" prop="username">
           <el-input
             v-model="userForm.username"
             placeholder="请输入用户名"
             :disabled="isEdit"
           />
         </el-form-item>
-        <el-form-item
-          label="真实姓名"
-          prop="real_name"
-        >
-          <el-input
-            v-model="userForm.real_name"
-            placeholder="请输入真实姓名"
-          />
+        <el-form-item label="真实姓名" prop="real_name">
+          <el-input v-model="userForm.real_name" placeholder="请输入真实姓名" />
         </el-form-item>
-        <el-form-item
-          label="手机号"
-          prop="phone"
-        >
-          <el-input
-            v-model="userForm.phone"
-            placeholder="请输入手机号"
-          />
+        <el-form-item label="手机号" prop="phone">
+          <el-input v-model="userForm.phone" placeholder="请输入手机号" />
         </el-form-item>
-        <el-form-item
-          v-if="!isEdit"
-          label="密码"
-          prop="password"
-        >
+        <el-form-item v-if="!isEdit" label="密码" prop="password">
           <el-input
             v-model="userForm.password"
             type="password"
@@ -305,77 +239,40 @@
             show-password
           />
         </el-form-item>
-        <el-form-item
-          label="角色"
-          prop="role"
-        >
+        <el-form-item label="角色" prop="role">
           <el-select
             v-model="userForm.role"
             placeholder="请选择角色"
             style="width: 100%"
           >
-            <el-option
-              label="超级管理员"
-              value="super"
-            />
-            <el-option
-              label="管理员"
-              value="manager"
-            />
-            <el-option
-              label="测试人员"
-              value="tester"
-            />
-            <el-option
-              label="实习生"
-              value="admin"
-            />
+            <el-option label="超级管理员" value="super" />
+            <el-option label="管理员" value="manager" />
+            <el-option label="测试人员" value="tester" />
+            <el-option label="实习生" value="admin" />
           </el-select>
         </el-form-item>
-        <el-form-item
-          label="性别"
-          prop="gender"
-        >
+        <el-form-item label="性别" prop="gender">
           <el-select
             v-model="userForm.gender"
             placeholder="请选择性别"
             style="width: 100%"
           >
-            <el-option
-              label="男"
-              value="male"
-            />
-            <el-option
-              label="女"
-              value="female"
-            />
-            <el-option
-              label="其他"
-              value="other"
-            />
+            <el-option label="男" value="male" />
+            <el-option label="女" value="female" />
+            <el-option label="其他" value="other" />
           </el-select>
         </el-form-item>
-        <el-form-item
-          label="部门"
-          prop="department"
-        >
+        <el-form-item label="部门" prop="department">
           <el-input
             v-model="userForm.department"
             placeholder="请输入所属部门"
             clearable
           />
         </el-form-item>
-        <el-form-item
-          label="状态"
-          prop="is_active"
-        >
+        <el-form-item label="状态" prop="is_active">
           <el-radio-group v-model="userForm.is_active">
-            <el-radio :label="true">
-              启用
-            </el-radio>
-            <el-radio :label="false">
-              禁用
-            </el-radio>
+            <el-radio :label="true"> 启用 </el-radio>
+            <el-radio :label="false"> 禁用 </el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>

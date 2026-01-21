@@ -2,11 +2,16 @@
   <div class="test-case-management">
     <div class="page-header">
       <div class="header-content">
-        <h1>测试用例管理</h1>
+        <h1>用例管理</h1>
       </div>
       <div class="header-actions">
         <el-button
-          v-if="!showSelection && viewMode === 'list'"
+          v-if="
+            !showSelection &&
+            viewMode === 'list' &&
+            selectedSuite &&
+            selectedSuite.type === 'suite'
+          "
           type="danger"
           icon="Delete"
           @click="toggleSelectionMode"
@@ -14,7 +19,11 @@
           选中删除
         </el-button>
         <el-button
-          v-else-if="viewMode === 'list'"
+          v-else-if="
+            viewMode === 'list' &&
+            selectedSuite &&
+            selectedSuite.type === 'suite'
+          "
           type="danger"
           icon="Delete"
           @click="handleDeleteSelection"
@@ -50,11 +59,7 @@
         </el-button>
 
         <!-- 新增用例按钮 -->
-        <el-button
-          type="success"
-          icon="Plus"
-          @click="handleAddCase"
-        >
+        <el-button type="success" icon="Plus" @click="handleAddCase">
           新增用例
         </el-button>
 
@@ -81,10 +86,7 @@
 
     <div class="main-content">
       <!-- 左侧树形组件 -->
-      <div
-        class="left-panel"
-        :class="{ collapsed: isLeftPanelCollapsed }"
-      >
+      <div class="left-panel" :class="{ collapsed: isLeftPanelCollapsed }">
         <div class="panel-header">
           <el-input
             v-model="searchText"
@@ -129,6 +131,7 @@
             :allow-drop="allowDrop"
             :allow-drag="allowDrag"
             :default-expanded-keys="expandedKeys"
+            :current-node-key="caseForm.suite_id"
             node-key="id"
             @node-click="handleNodeClick"
             @node-drop="handleNodeDrop"
@@ -187,8 +190,9 @@
           >
             <el-icon><Edit /></el-icon> 编辑套件
           </div>
-          <!-- 删除套件：始终显示 -->
+          <!-- 删除套件：只有选择了用例集时才显示 -->
           <div
+            v-if="selectedSuite && selectedSuite.type === 'suite'"
             class="menu-item"
             @click="handleDeleteSuite"
           >
@@ -206,16 +210,14 @@
               <span
                 v-if="
                   selectedSuite &&
-                    selectedSuite.type === 'suite' &&
-                    totalCases > 0
+                  selectedSuite.type === 'suite' &&
+                  totalCases > 0
                 "
                 class="case-count-title"
-              >(用例数: {{ totalCases }}条)</span>
+                >(用例数: {{ totalCases }}条)</span
+              >
             </h3>
-            <div
-              v-if="selectedSuite"
-              class="suite-info"
-            >
+            <div v-if="selectedSuite" class="suite-info">
               <div class="info-item">
                 <span class="label">项目:</span>
                 <span class="value">{{
@@ -283,10 +285,7 @@
         </div>
 
         <!-- 用例列表 -->
-        <div
-          v-if="viewMode === 'list'"
-          class="case-list"
-        >
+        <div v-if="viewMode === 'list'" class="case-list">
           <div class="table-wrapper">
             <!-- AI生成中提示 -->
             <div v-if="isGeneratingCases" class="ai-generating-tip">
@@ -297,7 +296,7 @@
                 :closable="false"
               />
             </div>
-            
+
             <el-table
               ref="caseTableRef"
               :data="testCases"
@@ -321,11 +320,7 @@
                 type="selection"
                 width="55"
               />
-              <el-table-column
-                prop="case_number"
-                label="编号"
-                width="110"
-              >
+              <el-table-column prop="case_number" label="编号" width="110">
                 <template #default="{ row }">
                   <template
                     v-if="
@@ -342,10 +337,7 @@
                       @keyup.esc="cancelCaseEdit"
                     />
                   </template>
-                  <div
-                    v-else
-                    @dblclick="startCaseEdit(row, 'case_number')"
-                  >
+                  <div v-else @dblclick="startCaseEdit(row, 'case_number')">
                     {{ row.case_number || "-" }}
                   </div>
                 </template>
@@ -371,19 +363,12 @@
                       @keyup.esc="cancelCaseEdit"
                     />
                   </template>
-                  <div
-                    v-else
-                    @dblclick="startCaseEdit(row, 'case_name')"
-                  >
+                  <div v-else @dblclick="startCaseEdit(row, 'case_name')">
                     {{ row.case_name }}
                   </div>
                 </template>
               </el-table-column>
-              <el-table-column
-                prop="priority"
-                label="优先级"
-                width="100"
-              >
+              <el-table-column prop="priority" label="优先级" width="100">
                 <template #default="{ row }">
                   <template
                     v-if="
@@ -395,26 +380,11 @@
                       style="width: 100%"
                       @change="saveCaseEdit(row)"
                     >
-                      <el-option
-                        label="P0"
-                        value="P0"
-                      />
-                      <el-option
-                        label="P1"
-                        value="P1"
-                      />
-                      <el-option
-                        label="P2"
-                        value="P2"
-                      />
-                      <el-option
-                        label="P3"
-                        value="P3"
-                      />
-                      <el-option
-                        label="P4"
-                        value="P4"
-                      />
+                      <el-option label="P0" value="P0" />
+                      <el-option label="P1" value="P1" />
+                      <el-option label="P2" value="P2" />
+                      <el-option label="P3" value="P3" />
+                      <el-option label="P4" value="P4" />
                     </el-select>
                   </template>
                   <el-tag
@@ -483,7 +453,7 @@
                   <template
                     v-if="
                       editingCaseId === row.id &&
-                        editingField === 'preconditions'
+                      editingField === 'preconditions'
                     "
                   >
                     <el-input
@@ -549,7 +519,7 @@
                   <template
                     v-if="
                       editingCaseId === row.id &&
-                        editingField === 'expected_result'
+                      editingField === 'expected_result'
                     "
                   >
                     <el-input
@@ -584,7 +554,7 @@
                   <template
                     v-if="
                       editingCaseId === row.id &&
-                        editingField === 'actual_result'
+                      editingField === 'actual_result'
                     "
                   >
                     <el-input
@@ -607,11 +577,7 @@
                 </template>
               </el-table-column>
 
-              <el-table-column
-                prop="status"
-                label="状态"
-                width="150"
-              >
+              <el-table-column prop="status" label="状态" width="150">
                 <template #default="{ row }">
                   <div class="status-cell">
                     <el-select
@@ -653,10 +619,7 @@
         </div>
 
         <!-- 脑图视图 -->
-        <div
-          v-if="viewMode === 'mindmap'"
-          class="mindmap-view"
-        >
+        <div v-if="viewMode === 'mindmap'" class="mindmap-view">
           <MindMap
             :data="mindMapData"
             :visible="true"
@@ -668,10 +631,7 @@
     </div>
 
     <!-- 分页（只在列表视图下显示） -->
-    <div
-      v-if="viewMode === 'list'"
-      class="pagination-container"
-    >
+    <div v-if="viewMode === 'list'" class="pagination-container">
       <el-pagination
         :current-page="currentPage"
         :page-size="pageSize"
@@ -696,39 +656,20 @@
         :rules="suiteFormRules"
         label-width="80px"
       >
-        <el-form-item
-          label="套件名称"
-          prop="suite_name"
-        >
+        <el-form-item label="套件名称" prop="suite_name">
           <el-input
             v-model="suiteForm.suite_name"
             placeholder="请输入测试套件名称"
           />
         </el-form-item>
-        <el-form-item
-          v-if="!isEditSuite"
-          label="套件类型"
-          prop="type"
-        >
-          <el-select
-            v-model="suiteForm.type"
-            placeholder="请选择套件类型"
-          >
-            <el-option
-              label="用例文件夹"
-              value="folder"
-            />
-            <el-option
-              label="用例集"
-              value="suite"
-            />
+        <el-form-item v-if="!isEditSuite" label="套件类型" prop="type">
+          <el-select v-model="suiteForm.type" placeholder="请选择套件类型">
+            <el-option label="用例文件夹" value="folder" />
+            <el-option label="用例集" value="suite" />
           </el-select>
         </el-form-item>
         <!-- 父套件字段：只有非右键菜单操作时显示 -->
-        <el-form-item
-          v-if="!isContextMenuAction"
-          label="父套件"
-        >
+        <el-form-item v-if="!isContextMenuAction" label="父套件">
           <div class="parent-suite-selector">
             <!-- 显示当前选中的父套件路径 -->
             <el-popover
@@ -816,17 +757,11 @@
             <template #empty>
               <div v-if="projects.length === 0">
                 <span>暂无项目数据</span>
-                <el-button
-                  type="text"
-                  size="small"
-                  @click="loadProjects"
-                >
+                <el-button type="text" size="small" @click="loadProjects">
                   重新加载
                 </el-button>
               </div>
-              <div v-else>
-                未找到匹配的项目
-              </div>
+              <div v-else>未找到匹配的项目</div>
             </template>
             <el-option
               v-for="project in filteredProjects"
@@ -848,9 +783,7 @@
             filterable
           >
             <template #empty>
-              <div v-if="!suiteForm.project_id">
-                请先选择项目
-              </div>
+              <div v-if="!suiteForm.project_id">请先选择项目</div>
               <div v-else-if="iterations.length === 0">
                 <span>暂无迭代数据</span>
                 <el-button
@@ -861,9 +794,7 @@
                   重新加载
                 </el-button>
               </div>
-              <div v-else>
-                未找到匹配的迭代
-              </div>
+              <div v-else>未找到匹配的迭代</div>
             </template>
             <el-option
               v-for="iteration in filteredIterations"
@@ -885,9 +816,7 @@
             filterable
           >
             <template #empty>
-              <div v-if="!suiteForm.iteration_id">
-                请先选择迭代
-              </div>
+              <div v-if="!suiteForm.iteration_id">请先选择迭代</div>
               <div v-else-if="requirements.length === 0">
                 <span>暂无需求数据</span>
                 <el-button
@@ -903,9 +832,7 @@
                   重新加载
                 </el-button>
               </div>
-              <div v-else>
-                未找到匹配的需求
-              </div>
+              <div v-else>未找到匹配的需求</div>
             </template>
             <el-option
               v-for="requirement in filteredRequirements"
@@ -927,10 +854,7 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="handleCancelSuite">取消</el-button>
-          <el-button
-            type="primary"
-            @click="handleSaveSuite"
-          >确定</el-button>
+          <el-button type="primary" @click="handleSaveSuite">确定</el-button>
         </span>
       </template>
     </el-dialog>
@@ -943,10 +867,7 @@
       @close="caseSuitePopoverVisible = false"
     >
       <!-- 新增：创建方式选择 -->
-      <div
-        v-if="!isEditCase"
-        class="create-type-selector"
-      >
+      <div v-if="!isEditCase" class="create-type-selector">
         <el-radio-group
           v-model="createCaseType"
           style="
@@ -956,12 +877,8 @@
             gap: 20px;
           "
         >
-          <el-radio label="manual">
-            手动创建
-          </el-radio>
-          <el-radio label="auto">
-            自动生成
-          </el-radio>
+          <el-radio label="manual"> 手动创建 </el-radio>
+          <el-radio label="auto"> 自动生成 </el-radio>
         </el-radio-group>
       </div>
 
@@ -973,20 +890,13 @@
         :rules="caseFormRules"
         label-width="100px"
       >
-        <el-form-item
-          label="用例名称"
-          prop="case_name"
-          required
-        >
+        <el-form-item label="用例名称" prop="case_name" required>
           <el-input
             v-model="caseForm.case_name"
             placeholder="请输入测试用例名称"
           />
         </el-form-item>
-        <el-form-item
-          label="用例编号"
-          prop="case_number"
-        >
+        <el-form-item label="用例编号" prop="case_number">
           <div class="case-number-input-group">
             <el-input
               v-model="caseNumberParts.part1"
@@ -1022,11 +932,7 @@
             />
           </div>
         </el-form-item>
-        <el-form-item
-          label="所属用例集"
-          prop="suite_id"
-          required
-        >
+        <el-form-item label="所属用例集" prop="suite_id" required>
           <div class="case-suite-selector">
             <!-- 显示当前选中的用例集路径 -->
             <el-popover
@@ -1086,7 +992,8 @@
                       <span
                         v-if="data.type === 'suite' && data.cases_count > 0"
                         class="case-count"
-                      >({{ data.cases_count }})</span>
+                        >({{ data.cases_count }})</span
+                      >
                     </span>
                   </template>
                 </el-tree>
@@ -1094,61 +1001,22 @@
             </el-popover>
           </div>
         </el-form-item>
-        <el-form-item
-          label="优先级"
-          required
-        >
-          <el-select
-            v-model="caseForm.priority"
-            placeholder="请选择优先级"
-          >
-            <el-option
-              label="P0"
-              value="P0"
-            />
-            <el-option
-              label="P1"
-              value="P1"
-            />
-            <el-option
-              label="P2"
-              value="P2"
-            />
-            <el-option
-              label="P3"
-              value="P3"
-            />
-            <el-option
-              label="P4"
-              value="P4"
-            />
+        <el-form-item label="优先级" required>
+          <el-select v-model="caseForm.priority" placeholder="请选择优先级">
+            <el-option label="P0" value="P0" />
+            <el-option label="P1" value="P1" />
+            <el-option label="P2" value="P2" />
+            <el-option label="P3" value="P3" />
+            <el-option label="P4" value="P4" />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
-          <el-select
-            v-model="caseForm.status"
-            placeholder="默认未执行"
-          >
-            <el-option
-              label="未执行"
-              value=""
-            />
-            <el-option
-              label="通过"
-              value="pass"
-            />
-            <el-option
-              label="失败"
-              value="fail"
-            />
-            <el-option
-              label="阻塞"
-              value="blocked"
-            />
-            <el-option
-              label="不适用"
-              value="not_applicable"
-            />
+          <el-select v-model="caseForm.status" placeholder="默认未执行">
+            <el-option label="未执行" value="" />
+            <el-option label="通过" value="pass" />
+            <el-option label="失败" value="fail" />
+            <el-option label="阻塞" value="blocked" />
+            <el-option label="不适用" value="not_applicable" />
           </el-select>
         </el-form-item>
         <el-form-item label="测试数据">
@@ -1205,11 +1073,7 @@
         :rules="autoCaseFormRules"
         label-width="100px"
       >
-        <el-form-item
-          label="用例集名称"
-          prop="suite_name"
-          required
-        >
+        <el-form-item label="用例集名称" prop="suite_name" required>
           <el-input
             v-model="autoCaseForm.suite_name"
             placeholder="请输入用例集名称"
@@ -1217,11 +1081,7 @@
           />
         </el-form-item>
 
-        <el-form-item
-          label="所属文件夹"
-          prop="parent_id"
-          required
-        >
+        <el-form-item label="所属文件夹" prop="parent_id" required>
           <div class="case-suite-selector">
             <!-- 显示当前选中的用例文件夹路径 -->
             <el-popover
@@ -1301,17 +1161,11 @@
             <template #empty>
               <div v-if="projects.length === 0">
                 <span>暂无项目数据</span>
-                <el-button
-                  type="text"
-                  size="small"
-                  @click="loadProjects"
-                >
+                <el-button type="text" size="small" @click="loadProjects">
                   重新加载
                 </el-button>
               </div>
-              <div v-else>
-                未找到匹配的项目
-              </div>
+              <div v-else>未找到匹配的项目</div>
             </template>
             <el-option
               v-for="project in filteredProjects"
@@ -1332,12 +1186,12 @@
             :disabled="!autoCaseForm.project_id"
             filterable
             clearable
-            @focus="autoCaseForm.project_id && loadIterations(autoCaseForm.project_id)"
+            @focus="
+              autoCaseForm.project_id && loadIterations(autoCaseForm.project_id)
+            "
           >
             <template #empty>
-              <div v-if="!autoCaseForm.project_id">
-                请先选择项目
-              </div>
+              <div v-if="!autoCaseForm.project_id">请先选择项目</div>
               <div v-else-if="iterations.length === 0">
                 <span>暂无迭代数据</span>
                 <el-button
@@ -1348,9 +1202,7 @@
                   重新加载
                 </el-button>
               </div>
-              <div v-else>
-                未找到匹配的迭代
-              </div>
+              <div v-else>未找到匹配的迭代</div>
             </template>
             <el-option
               v-for="iteration in filteredIterations"
@@ -1371,12 +1223,17 @@
             :disabled="!autoCaseForm.iteration_id"
             filterable
             clearable
-            @focus="autoCaseForm.project_id && autoCaseForm.iteration_id && loadRequirements(autoCaseForm.project_id, autoCaseForm.iteration_id)"
+            @focus="
+              autoCaseForm.project_id &&
+              autoCaseForm.iteration_id &&
+              loadRequirements(
+                autoCaseForm.project_id,
+                autoCaseForm.iteration_id,
+              )
+            "
           >
             <template #empty>
-              <div v-if="!autoCaseForm.iteration_id">
-                请先选择迭代
-              </div>
+              <div v-if="!autoCaseForm.iteration_id">请先选择迭代</div>
               <div v-else-if="requirements.length === 0">
                 <span>暂无需求数据</span>
                 <el-button
@@ -1392,9 +1249,7 @@
                   重新加载
                 </el-button>
               </div>
-              <div v-else>
-                未找到匹配的需求
-              </div>
+              <div v-else>未找到匹配的需求</div>
             </template>
             <el-option
               v-for="requirement in filteredRequirements"
@@ -1405,10 +1260,7 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item
-          label="用例集描述"
-          prop="description"
-        >
+        <el-form-item label="用例集描述" prop="description">
           <el-input
             v-model="autoCaseForm.description"
             type="textarea"
@@ -1430,9 +1282,7 @@
             :limit="1"
             :on-exceed="handleRequirementFileExceed"
           >
-            <el-button type="primary">
-              选择文件
-            </el-button>
+            <el-button type="primary"> 选择文件 </el-button>
             <template #tip>
               <div class="el-upload__tip">
                 支持上传.docx、.pdf和.txt格式的文件，大小不超过10MB
@@ -1449,17 +1299,17 @@
             v-if="createCaseType === 'auto'"
             type="primary"
             @click="handleGenerateCase"
-          >生成用例</el-button>
+            >生成用例</el-button
+          >
           <el-button
             v-if="isEditCase || createCaseType === 'manual'"
             type="primary"
             @click="handleSaveCase"
-          >确定</el-button>
+            >确定</el-button
+          >
         </span>
       </template>
     </el-dialog>
-
-
 
     <!-- 导入/导出用例对话框 -->
     <el-dialog
@@ -1475,12 +1325,8 @@
         <!-- 类型选择 -->
         <el-form-item label="操作类型">
           <el-radio-group v-model="importExportForm.type">
-            <el-radio label="import">
-              导入
-            </el-radio>
-            <el-radio label="export">
-              导出
-            </el-radio>
+            <el-radio label="import"> 导入 </el-radio>
+            <el-radio label="export"> 导出 </el-radio>
           </el-radio-group>
         </el-form-item>
 
@@ -1500,9 +1346,7 @@
               :on-exceed="handleFileExceed"
               class="upload-with-clear"
             >
-              <el-button type="primary">
-                选择文件
-              </el-button>
+              <el-button type="primary"> 选择文件 </el-button>
               <template #tip>
                 <div class="el-upload__tip">
                   支持上传.xlsx和.xls格式的文件，大小不超过10MB
@@ -1569,7 +1413,8 @@
                         </el-icon>
                         <span
                           @click.stop="handleImportParentSuiteSelect(data)"
-                        >{{ node.label }}</span>
+                          >{{ node.label }}</span
+                        >
                       </span>
                     </template>
                   </el-tree>
@@ -1628,7 +1473,8 @@
                         <span
                           v-if="data.type === 'suite' && data.cases_count > 0"
                           class="case-count"
-                        >({{ data.cases_count }})</span>
+                          >({{ data.cases_count }})</span
+                        >
                       </span>
                     </template>
                   </el-tree>
@@ -1665,10 +1511,7 @@
         :rules="reviewFormRules"
         label-width="100px"
       >
-        <el-form-item
-          label="所属用例集"
-          prop="suite_id"
-        >
+        <el-form-item label="所属用例集" prop="suite_id">
           <div class="case-suite-selector">
             <!-- 显示当前选中的用例集路径 -->
             <el-popover
@@ -1729,7 +1572,8 @@
                       <span
                         v-if="data.type === 'suite' && data.cases_count > 0"
                         class="case-count"
-                      >({{ data.cases_count }})</span>
+                        >({{ data.cases_count }})</span
+                      >
                     </span>
                   </template>
                 </el-tree>
@@ -1738,10 +1582,7 @@
           </div>
         </el-form-item>
 
-        <el-form-item
-          label="评审人"
-          prop="reviewer_id"
-        >
+        <el-form-item label="评审人" prop="reviewer_id">
           <el-select
             v-model="reviewForm.reviewer_id"
             placeholder="请选择评审人"
@@ -1759,10 +1600,9 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="initiateReviewVisible = false">取消</el-button>
-          <el-button
-            type="primary"
-            @click="handleInitiateReview"
-          >发起评审</el-button>
+          <el-button type="primary" @click="handleInitiateReview"
+            >发起评审</el-button
+          >
         </span>
       </template>
     </el-dialog>
@@ -1775,14 +1615,8 @@
       :fullscreen="false"
     >
       <!-- 提示消息类型 -->
-      <div
-        v-if="reviewDialogType === 'message'"
-        class="review-message-content"
-      >
-        <el-icon
-          size="48"
-          class="message-icon"
-        >
+      <div v-if="reviewDialogType === 'message'" class="review-message-content">
+        <el-icon size="48" class="message-icon">
           <InfoFilled />
         </el-icon>
         <p class="message-text">
@@ -1790,22 +1624,16 @@
         </p>
       </div>
       <!-- 详情页面类型 -->
-      <div
-        v-else-if="currentReviewTask"
-        class="review-detail-content"
-      >
+      <div v-else-if="currentReviewTask" class="review-detail-content">
         <!-- 评审任务基本信息 -->
         <div class="dialog-section">
           <h4>评审任务信息</h4>
-          <el-descriptions
-            :column="2"
-            border
-          >
+          <el-descriptions :column="2" border>
             <el-descriptions-item label="用例集名称">
               {{
                 currentReviewTask?.suite?.suite_name ||
-                  currentReviewTask?.suite_name ||
-                  "-"
+                currentReviewTask?.suite_name ||
+                "-"
               }}
             </el-descriptions-item>
             <el-descriptions-item label="发起人">
@@ -1823,10 +1651,7 @@
             <el-descriptions-item label="结束时间">
               {{ formatDate(currentReviewTask?.end_time) || "-" }}
             </el-descriptions-item>
-            <el-descriptions-item
-              label="评审状态"
-              :span="2"
-            >
+            <el-descriptions-item label="评审状态" :span="2">
               <el-tag :type="getStatusTagType(currentReviewTask?.status)">
                 {{ getStatusText(currentReviewTask?.status) }}
               </el-tag>
@@ -1840,7 +1665,7 @@
           <el-table
             v-if="
               currentReviewTask.case_reviews &&
-                currentReviewTask.case_reviews.length > 0
+              currentReviewTask.case_reviews.length > 0
             "
             :data="currentReviewTask.case_reviews"
             style="width: 100%"
@@ -1853,32 +1678,23 @@
               'line-height': '1.5',
             }"
           >
-            <el-table-column
-              label="用例编号"
-              min-width="130"
-            >
+            <el-table-column label="用例编号" min-width="130">
               <template #default="scope">
                 {{
                   scope.row.case_number ||
-                    scope.row.test_case?.case_number ||
-                    "-"
+                  scope.row.test_case?.case_number ||
+                  "-"
                 }}
               </template>
             </el-table-column>
-            <el-table-column
-              label="用例名称"
-              min-width="140"
-            >
+            <el-table-column label="用例名称" min-width="140">
               <template #default="scope">
                 {{
                   scope.row.case_name || scope.row.test_case?.case_name || "-"
                 }}
               </template>
             </el-table-column>
-            <el-table-column
-              label="优先级"
-              width="90"
-            >
+            <el-table-column label="优先级" width="90">
               <template #default="scope">
                 <el-tag
                   :type="
@@ -1896,10 +1712,7 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column
-              label="评审状态"
-              width="100"
-            >
+            <el-table-column label="评审状态" width="100">
               <template #default="scope">
                 <el-tag
                   :type="getCaseReviewStatusTagType(scope.row.review_status)"
@@ -1908,79 +1721,55 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column
-              label="测试数据"
-              min-width="150"
-            >
+            <el-table-column label="测试数据" min-width="150">
               <template #default="scope">
                 <div class="read-only-comments">
                   {{ scope.row.test_case?.test_data || "-" }}
                 </div>
               </template>
             </el-table-column>
-            <el-table-column
-              label="前置条件"
-              min-width="150"
-            >
+            <el-table-column label="前置条件" min-width="150">
               <template #default="scope">
                 <div class="read-only-comments">
                   {{ scope.row.test_case?.preconditions || "-" }}
                 </div>
               </template>
             </el-table-column>
-            <el-table-column
-              label="测试步骤"
-              min-width="200"
-            >
+            <el-table-column label="测试步骤" min-width="200">
               <template #default="scope">
                 <div class="read-only-comments">
                   {{ scope.row.test_case?.steps || "-" }}
                 </div>
               </template>
             </el-table-column>
-            <el-table-column
-              label="预期结果"
-              min-width="150"
-            >
+            <el-table-column label="预期结果" min-width="150">
               <template #default="scope">
                 <div class="read-only-comments">
                   {{ scope.row.test_case?.expected_result || "-" }}
                 </div>
               </template>
             </el-table-column>
-            <el-table-column
-              label="实际结果"
-              min-width="150"
-            >
+            <el-table-column label="实际结果" min-width="150">
               <template #default="scope">
                 <div class="read-only-comments">
                   {{ scope.row.test_case?.actual_result || "-" }}
                 </div>
               </template>
             </el-table-column>
-            <el-table-column
-              label="评审意见"
-              min-width="200"
-            >
+            <el-table-column label="评审意见" min-width="200">
               <template #default="scope">
                 <div class="read-only-comments">
                   {{ scope.row.comments || "-" }}
                 </div>
               </template>
             </el-table-column>
-            <el-table-column
-              label="评审时间"
-              width="150"
-            >
+            <el-table-column label="评审时间" width="150">
               <template #default="scope">
                 {{ formatDate(scope.row.updated_at) || "-" }}
               </template>
             </el-table-column>
           </el-table>
-          <div
-            v-else
-            class="no-data"
-          >
+          <div v-else class="no-data">
             <p>暂无评审数据</p>
           </div>
         </div>
@@ -1993,10 +1782,7 @@
           </div>
         </div>
       </div>
-      <div
-        v-else
-        class="review-detail-content"
-      >
+      <div v-else class="review-detail-content">
         <p>正在加载评审详情...</p>
       </div>
       <template #footer>
@@ -2017,7 +1803,7 @@
           const isExcel =
             file.type === 'application/vnd.ms-excel' ||
             file.type ===
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
           const isLt10M = file.size / 1024 / 1024 < 10;
 
           if (!isExcel) {
@@ -2126,12 +1912,7 @@
       "
       style="display: none"
     >
-      <el-button
-        ref="uploadBtnRef"
-        type="primary"
-      >
-        上传
-      </el-button>
+      <el-button ref="uploadBtnRef" type="primary"> 上传 </el-button>
     </el-upload>
   </div>
 </template>
@@ -2146,7 +1927,7 @@ import {
   watch,
   nextTick,
 } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import {
   ElMessage,
   ElMessageBox,
@@ -2376,26 +2157,32 @@ watch(createCaseType, (newType) => {
 });
 
 // 监听项目变化，自动加载迭代数据
-watch(() => autoCaseForm.project_id, (newProjectId) => {
-  if (newProjectId) {
-    loadIterations(newProjectId);
-  } else {
-    autoCaseForm.iteration_id = null;
-    autoCaseForm.version_requirement_id = null;
-    iterations.value = [];
-    requirements.value = [];
-  }
-});
+watch(
+  () => autoCaseForm.project_id,
+  (newProjectId) => {
+    if (newProjectId) {
+      loadIterations(newProjectId);
+    } else {
+      autoCaseForm.iteration_id = null;
+      autoCaseForm.version_requirement_id = null;
+      iterations.value = [];
+      requirements.value = [];
+    }
+  },
+);
 
 // 监听迭代变化，自动加载需求数据
-watch(() => autoCaseForm.iteration_id, (newIterationId) => {
-  if (newIterationId && autoCaseForm.project_id) {
-    loadRequirements(autoCaseForm.project_id, newIterationId);
-  } else {
-    autoCaseForm.version_requirement_id = null;
-    requirements.value = [];
-  }
-});
+watch(
+  () => autoCaseForm.iteration_id,
+  (newIterationId) => {
+    if (newIterationId && autoCaseForm.project_id) {
+      loadRequirements(autoCaseForm.project_id, newIterationId);
+    } else {
+      autoCaseForm.version_requirement_id = null;
+      requirements.value = [];
+    }
+  },
+);
 
 const autoCaseFormRules = reactive({
   suite_name: [
@@ -2574,6 +2361,7 @@ const reviewerOptions = ref([]);
 // 评审状态相关
 const userStore = useUserStore();
 const router = useRouter();
+const route = useRoute();
 const suiteReviewStatus = ref(null);
 const isLoadingReviewStatus = ref(false);
 const reviewButtonText = ref("发起评审");
@@ -3168,13 +2956,88 @@ const loadTreeData = async () => {
     // 更新套件选项
     suiteOptions.value = buildSuiteOptions();
 
-    // 获取所有节点ID并设置为默认展开
-    expandedKeys.value = getAllNodeIds(treeData.value);
+    // 默认收起所有节点
+    expandedKeys.value = [];
 
     // 数据更新后，Element Plus Tree 会自动使用 default-expanded-keys 恢复展开状态
+
+    // 检查路由参数中是否有 suite_id，如果有则自动选中对应的用例集
+    if (route.query.suite_id) {
+      const suiteId = parseInt(route.query.suite_id);
+      await selectSuiteById(suiteId);
+    }
   } catch (error) {
     ElMessage.error("加载测试套件失败");
     console.error("Failed to load test suites:", error);
+  }
+};
+
+// 根据 ID 选择用例集
+const selectSuiteById = async (suiteId) => {
+  try {
+    // 查找对应的用例集节点
+    const findNode = (nodes, id) => {
+      for (const node of nodes) {
+        if (node.id === id) {
+          return node;
+        }
+        if (node.children && node.children.length > 0) {
+          const found = findNode(node.children, id);
+          if (found) {
+            return found;
+          }
+        }
+      }
+      return null;
+    };
+
+    const suiteNode = findNode(treeData.value, suiteId);
+    if (suiteNode) {
+      // 选中该节点
+      selectedSuite.value = suiteNode;
+      caseForm.suite_id = suiteId;
+
+      // 展开父节点
+      const expandParentNodes = (nodes, id, path = []) => {
+        for (const node of nodes) {
+          if (node.id === id) {
+            return path;
+          }
+          if (node.children && node.children.length > 0) {
+            const result = expandParentNodes(node.children, id, [
+              ...path,
+              node.id,
+            ]);
+            if (result) {
+              return result;
+            }
+          }
+        }
+        return null;
+      };
+
+      const parentPath = expandParentNodes(treeData.value, suiteId);
+      if (parentPath) {
+        expandedKeys.value = [
+          ...new Set([...expandedKeys.value, ...parentPath]),
+        ];
+      }
+
+      // 使用 nextTick 确保 DOM 更新后再加载测试用例和设置高亮
+      await nextTick();
+
+      // 加载该用例集的测试用例
+      await loadTestCases(suiteId);
+
+      // 确保树形组件高亮显示当前节点
+      if (treeRef.value) {
+        treeRef.value.setCurrentKey(suiteId);
+      }
+    } else {
+      ElMessage.warning("未找到指定的用例集");
+    }
+  } catch (error) {
+    console.error("选择用例集失败:", error);
   }
 };
 
@@ -3236,7 +3099,10 @@ const loadIterations = async (projectId) => {
     // 获取当前选中的迭代ID（同时考虑suiteForm和autoCaseForm）
     const suiteIterationId = suiteForm.iteration_id;
     const autoIterationId = autoCaseForm.iteration_id;
-    const currentIterationId = projectId === autoCaseForm.project_id ? autoIterationId : suiteIterationId;
+    const currentIterationId =
+      projectId === autoCaseForm.project_id
+        ? autoIterationId
+        : suiteIterationId;
 
     // 如果当前有选中的迭代，但不在结果中，尝试添加到列表中
     if (currentIterationId) {
@@ -3264,8 +3130,11 @@ const loadIterations = async (projectId) => {
     // 获取当前选中的迭代ID（同时考虑suiteForm和autoCaseForm）
     const suiteIterationId = suiteForm.iteration_id;
     const autoIterationId = autoCaseForm.iteration_id;
-    const currentIterationId = projectId === autoCaseForm.project_id ? autoIterationId : suiteIterationId;
-    
+    const currentIterationId =
+      projectId === autoCaseForm.project_id
+        ? autoIterationId
+        : suiteIterationId;
+
     if (currentIterationId) {
       // 创建一个包含当前选中迭代的临时列表
       iterations.value = [
@@ -3312,7 +3181,11 @@ const loadRequirements = async (projectId, iterationId) => {
     // 获取当前选中的需求ID（同时考虑suiteForm和autoCaseForm）
     const suiteRequirementId = suiteForm.version_requirement_id;
     const autoRequirementId = autoCaseForm.version_requirement_id;
-    const currentRequirementId = projectId === autoCaseForm.project_id && iterationId === autoCaseForm.iteration_id ? autoRequirementId : suiteRequirementId;
+    const currentRequirementId =
+      projectId === autoCaseForm.project_id &&
+      iterationId === autoCaseForm.iteration_id
+        ? autoRequirementId
+        : suiteRequirementId;
 
     // 如果当前有选中的需求，但不在筛选结果中，尝试添加到列表中
     if (currentRequirementId) {
@@ -3354,8 +3227,12 @@ const loadRequirements = async (projectId, iterationId) => {
     // 获取当前选中的需求ID（同时考虑suiteForm和autoCaseForm）
     const suiteRequirementId = suiteForm.version_requirement_id;
     const autoRequirementId = autoCaseForm.version_requirement_id;
-    const currentRequirementId = projectId === autoCaseForm.project_id && iterationId === autoCaseForm.iteration_id ? autoRequirementId : suiteRequirementId;
-    
+    const currentRequirementId =
+      projectId === autoCaseForm.project_id &&
+      iterationId === autoCaseForm.iteration_id
+        ? autoRequirementId
+        : suiteRequirementId;
+
     if (currentRequirementId) {
       // 创建一个包含当前选中需求的临时列表，使用真实需求名称
       requirements.value = [
@@ -3624,13 +3501,13 @@ const getFolderTreeData = () => {
       const isFolder = node.type === "folder";
       return isFolder;
     });
-    
+
     return folderNodes.map((node) => ({
       ...node,
       children: node.children ? filterFolderNodes(node.children) : [],
     }));
   };
-  
+
   const folderTreeData = filterFolderNodes(treeData.value);
   return folderTreeData;
 };
@@ -3922,7 +3799,7 @@ const handleGenerateCase = async () => {
 
     // 设置生成状态
     isGeneratingCases.value = true;
-    
+
     // 显示生成中提示
     ElMessage.info("正在生成测试用例，请稍后查看用例集...");
 
@@ -3943,7 +3820,7 @@ const handleGenerateCase = async () => {
       iterationId: generateParams.iterationId,
       requirementId: generateParams.requirementId,
       hasFile: !!generateParams.file,
-      hasDescription: !!generateParams.description
+      hasDescription: !!generateParams.description,
     });
 
     // 调用AI生成服务
@@ -3964,11 +3841,14 @@ const handleGenerateCase = async () => {
       autoCaseForm.parent_id, // 用例集ID
       generatedCasesParams.value, // 生成参数
     );
-    console.log("[前端AI调用] 用例保存成功，保存数量:", saveResult.savedCases.length);
+    console.log(
+      "[前端AI调用] 用例保存成功，保存数量:",
+      saveResult.savedCases.length,
+    );
 
     // 刷新用例树
     await loadTreeData();
-    
+
     // 跳转到创建的用例集
     const newSuiteId = saveResult.suiteId;
     // 导入getTestSuiteDetail函数
@@ -3976,9 +3856,11 @@ const handleGenerateCase = async () => {
     const suiteDetail = await getTestSuiteDetail(newSuiteId);
     selectedSuite.value = suiteDetail.data;
     await loadTestCases(newSuiteId);
-    
+
     // 显示成功消息
-    ElMessage.success(`成功生成并保存 ${saveResult.savedCases.length} 条测试用例到用例集`);
+    ElMessage.success(
+      `成功生成并保存 ${saveResult.savedCases.length} 条测试用例到用例集`,
+    );
     console.log("[前端AI调用] handleGenerateCase函数执行成功");
   } catch (error) {
     console.error("[前端AI调用] handleGenerateCase函数执行失败:", error);

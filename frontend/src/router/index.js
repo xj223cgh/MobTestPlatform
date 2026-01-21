@@ -3,17 +3,17 @@ import { useUserStore } from "@/stores/user";
 import NProgress from "nprogress";
 import "nprogress/nprogress.css";
 
-import TestAIPage from '@/views/TestAIPage.vue';
+import TestAIPage from "@/views/TestAIPage.vue";
 
 // 配置NProgress
 NProgress.configure({ showSpinner: false });
 
 const routes = [
   {
-    path: '/test-ai',
-    name: 'TestAI',
+    path: "/test-ai",
+    name: "TestAI",
     component: TestAIPage,
-    meta: { title: 'AI API测试' }
+    meta: { title: "AI API测试" },
   },
   {
     path: "/login",
@@ -90,6 +90,12 @@ const routes = [
         meta: { title: "设备管理", icon: "Monitor" },
       },
       {
+        path: "devices/:id",
+        name: "DeviceDetail",
+        component: () => import("@/views/device/DeviceDetail.vue"),
+        meta: { title: "设备详情", icon: "Monitor", hidden: true },
+      },
+      {
         path: "test-cases",
         name: "TestCases",
         component: () => import("@/views/testCase/TestCaseManagement.vue"),
@@ -109,10 +115,15 @@ const routes = [
         meta: { title: "测试任务", icon: "Menu" },
       },
       {
-        path: "bugs",
-        name: "Bugs",
-        component: () => import("@/views/bug/BugManagement.vue"),
-        meta: { title: "缺陷管理", icon: "Warning" },
+        path: "test-tasks/:id/execute",
+        name: "TestCaseExecution",
+        component: () => import("@/views/testTask/TestCaseExecution.vue"),
+        meta: {
+          title: "用例执行",
+          icon: "Menu",
+          hidden: true,
+          requiresAuth: true,
+        },
       },
       {
         path: "report",

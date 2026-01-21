@@ -2,9 +2,7 @@
   <div class="reset-password-container">
     <div class="reset-password-card">
       <div class="reset-password-header">
-        <div class="logo-text">
-          MobTest
-        </div>
+        <div class="logo-text">MobTest</div>
         <h1>重置密码</h1>
         <p>请设置您的新密码</p>
       </div>
@@ -54,10 +52,7 @@
         </el-form-item>
 
         <div class="back-link">
-          <el-link
-            type="primary"
-            @click="goToLogin"
-          >
+          <el-link type="primary" @click="goToLogin">
             <el-icon><ArrowLeft /></el-icon>
             返回登录
           </el-link>

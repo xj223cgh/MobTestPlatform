@@ -1,18 +1,12 @@
 <template>
   <div class="profile-container">
     <div class="page-header">
-      <h1 class="title">
-        个人中心
-      </h1>
+      <h1 class="title">个人中心</h1>
     </div>
 
     <div class="profile-header">
       <div class="profile-avatar">
-        <el-avatar
-          :size="80"
-          :src="userInfo.avatar"
-          :class="avatar - gradient"
-        >
+        <el-avatar :size="80" :src="userInfo.avatar" :class="avatar - gradient">
           {{ (userInfo.username || "?").charAt(0).toUpperCase() }}
         </el-avatar>
         <div class="avatar-text">
@@ -25,19 +19,11 @@
     </div>
 
     <div class="profile-content card">
-      <el-tabs
-        v-model="activeTab"
-        class="profile-tabs"
-      >
+      <el-tabs v-model="activeTab" class="profile-tabs">
         <!-- 个人信息 -->
-        <el-tab-pane
-          label="个人信息"
-          name="info"
-        >
+        <el-tab-pane label="个人信息" name="info">
           <div class="info-section">
-            <h3 class="section-title">
-              基本信息
-            </h3>
+            <h3 class="section-title">基本信息</h3>
             <el-form
               ref="infoFormRef"
               :model="infoForm"
@@ -48,21 +34,12 @@
             >
               <el-row :gutter="20">
                 <el-col :span="12">
-                  <el-form-item
-                    label="用户名"
-                    prop="username"
-                  >
-                    <el-input
-                      v-model="infoForm.username"
-                      disabled
-                    />
+                  <el-form-item label="用户名" prop="username">
+                    <el-input v-model="infoForm.username" disabled />
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
-                  <el-form-item
-                    label="真实姓名"
-                    prop="real_name"
-                  >
+                  <el-form-item label="真实姓名" prop="real_name">
                     <el-input
                       v-model="infoForm.real_name"
                       placeholder="请输入真实姓名"
@@ -73,28 +50,16 @@
 
               <el-row :gutter="20">
                 <el-col :span="12">
-                  <el-form-item
-                    label="性别"
-                    prop="gender"
-                  >
+                  <el-form-item label="性别" prop="gender">
                     <el-radio-group v-model="infoForm.gender">
-                      <el-radio value="male">
-                        男
-                      </el-radio>
-                      <el-radio value="female">
-                        女
-                      </el-radio>
-                      <el-radio value="other">
-                        其他
-                      </el-radio>
+                      <el-radio value="male"> 男 </el-radio>
+                      <el-radio value="female"> 女 </el-radio>
+                      <el-radio value="other"> 其他 </el-radio>
                     </el-radio-group>
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
-                  <el-form-item
-                    label="手机号"
-                    prop="phone"
-                  >
+                  <el-form-item label="手机号" prop="phone">
                     <el-input
                       v-model="infoForm.phone"
                       placeholder="请输入手机号"
@@ -105,10 +70,7 @@
 
               <el-row>
                 <el-col :span="24">
-                  <el-form-item
-                    label="部门"
-                    prop="department"
-                  >
+                  <el-form-item label="部门" prop="department">
                     <el-input
                       v-model="infoForm.department"
                       placeholder="请输入部门"
@@ -120,10 +82,7 @@
               <el-row :gutter="20">
                 <el-col :span="12">
                   <el-form-item label="角色">
-                    <el-input
-                      :value="getRoleText(userInfo.role)"
-                      disabled
-                    />
+                    <el-input :value="getRoleText(userInfo.role)" disabled />
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
@@ -146,12 +105,7 @@
                   >
                     保存
                   </el-button>
-                  <el-button
-                    size="large"
-                    @click="resetInfo"
-                  >
-                    重置
-                  </el-button>
+                  <el-button size="large" @click="resetInfo"> 重置 </el-button>
                 </div>
               </el-form-item>
             </el-form>
@@ -159,14 +113,9 @@
         </el-tab-pane>
 
         <!-- 修改密码 -->
-        <el-tab-pane
-          label="修改密码"
-          name="password"
-        >
+        <el-tab-pane label="修改密码" name="password">
           <div class="password-section">
-            <h3 class="section-title">
-              修改密码
-            </h3>
+            <h3 class="section-title">修改密码</h3>
             <el-form
               ref="passwordFormRef"
               :model="passwordForm"
@@ -177,10 +126,7 @@
             >
               <el-row>
                 <el-col :span="24">
-                  <el-form-item
-                    label="原密码"
-                    prop="old_password"
-                  >
+                  <el-form-item label="原密码" prop="old_password">
                     <el-input
                       v-model="passwordForm.old_password"
                       type="password"
@@ -193,10 +139,7 @@
 
               <el-row>
                 <el-col :span="24">
-                  <el-form-item
-                    label="新密码"
-                    prop="new_password"
-                  >
+                  <el-form-item label="新密码" prop="new_password">
                     <el-input
                       v-model="passwordForm.new_password"
                       type="password"
@@ -209,10 +152,7 @@
 
               <el-row>
                 <el-col :span="24">
-                  <el-form-item
-                    label="确认密码"
-                    prop="confirm_password"
-                  >
+                  <el-form-item label="确认密码" prop="confirm_password">
                     <el-input
                       v-model="passwordForm.confirm_password"
                       type="password"
@@ -234,10 +174,7 @@
                   >
                     修改密码
                   </el-button>
-                  <el-button
-                    size="large"
-                    @click="resetPassword"
-                  >
+                  <el-button size="large" @click="resetPassword">
                     重置
                   </el-button>
                 </div>

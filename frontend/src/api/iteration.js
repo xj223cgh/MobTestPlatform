@@ -104,6 +104,18 @@ export function getIterationStats(iterationId) {
   });
 }
 
+/**
+ * 获取迭代下的需求列表
+ * @param {number} iterationId 迭代ID
+ * @returns {Promise}
+ */
+export function getIterationRequirements(iterationId) {
+  return request({
+    url: `/iterations/${iterationId}/requirements`,
+    method: "get",
+  });
+}
+
 // 默认导出所有方法
 export default {
   getIterations,
@@ -114,4 +126,5 @@ export default {
   deleteIteration,
   copyIteration,
   getIterationStats,
+  getIterationRequirements,
 };

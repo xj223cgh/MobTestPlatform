@@ -1,10 +1,7 @@
 <template>
   <div class="layout">
     <!-- 侧边栏 -->
-    <aside
-      class="sidebar"
-      :class="{ collapsed: isCollapsed }"
-    >
+    <aside class="sidebar" :class="{ collapsed: isCollapsed }">
       <div class="logo">
         <h1
           v-if="!isCollapsed"
@@ -12,12 +9,7 @@
         >
           MobTest
         </h1>
-        <h1
-          v-else
-          style="color: white; margin: 0; font-size: 14px"
-        >
-          MT
-        </h1>
+        <h1 v-else style="color: white; margin: 0; font-size: 14px">MT</h1>
       </div>
 
       <el-menu
@@ -131,18 +123,11 @@
       <!-- 顶部导航 -->
       <header class="header">
         <div class="header-left">
-          <el-button
-            type="text"
-            class="collapse-btn"
-            @click="toggleSidebar"
-          >
+          <el-button type="text" class="collapse-btn" @click="toggleSidebar">
             <el-icon><Expand v-if="isCollapsed" /><Fold v-else /></el-icon>
           </el-button>
 
-          <el-breadcrumb
-            separator="/"
-            class="breadcrumb"
-          >
+          <el-breadcrumb separator="/" class="breadcrumb">
             <!-- 动态生成面包屑 -->
             <el-breadcrumb-item :to="{ path: '/home' }">
               首页
@@ -173,29 +158,16 @@
 
         <div class="header-right">
           <!-- 全屏按钮 -->
-          <el-tooltip
-            content="全屏"
-            placement="bottom"
-          >
-            <el-button
-              type="text"
-              class="header-btn"
-              @click="toggleFullscreen"
-            >
+          <el-tooltip content="全屏" placement="bottom">
+            <el-button type="text" class="header-btn" @click="toggleFullscreen">
               <el-icon><FullScreen /></el-icon>
             </el-button>
           </el-tooltip>
 
           <!-- 用户信息 -->
-          <el-dropdown
-            class="user-dropdown"
-            @command="handleCommand"
-          >
+          <el-dropdown class="user-dropdown" @command="handleCommand">
             <div class="user-info">
-              <el-avatar
-                :size="32"
-                :src="userStore.avatar"
-              >
+              <el-avatar :size="32" :src="userStore.avatar">
                 {{ userStore.userName.charAt(0).toUpperCase() }}
               </el-avatar>
               <span class="username">{{ userStore.userName }}</span>
@@ -209,10 +181,7 @@
                   <el-icon><User /></el-icon>
                   个人中心
                 </el-dropdown-item>
-                <el-dropdown-item
-                  divided
-                  command="logout"
-                >
+                <el-dropdown-item divided command="logout">
                   <el-icon><SwitchButton /></el-icon>
                   退出登录
                 </el-dropdown-item>

@@ -89,7 +89,6 @@ export const testCasePromptTemplates = {
     }
   ]
 }`,
-
 };
 
 // 构建提示词

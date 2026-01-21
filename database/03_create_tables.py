@@ -242,12 +242,13 @@ def create_tables():
                 id INT AUTO_INCREMENT PRIMARY KEY COMMENT '任务编号',
                 task_name VARCHAR(200) NOT NULL COMMENT '任务名称',
                 task_description TEXT COMMENT '任务描述',
-                device_id INT NOT NULL COMMENT '测试设备ID',
-                case_ids TEXT NOT NULL COMMENT '测试用例ID列表（JSON格式）',
-                status ENUM('pending', 'running', 'completed', 'failed', 'cancelled') DEFAULT 'pending' COMMENT '任务状态',
+                task_type ENUM('test_case', 'device_script') DEFAULT 'test_case' COMMENT '任务类型',
+                priority ENUM('high', 'medium', 'low') DEFAULT 'medium' COMMENT '任务优先级',
+                status ENUM('pending', 'running', 'completed', 'paused') DEFAULT 'pending' COMMENT '任务状态',
                 creator_id INT NOT NULL COMMENT '创建者ID',
                 executor_id INT COMMENT '执行者ID',
                 scheduled_time TIMESTAMP NULL COMMENT '计划执行时间',
+                scheduled_end_time TIMESTAMP NULL COMMENT '计划结束时间',
                 started_time TIMESTAMP NULL COMMENT '开始执行时间',
                 completed_time TIMESTAMP NULL COMMENT '完成时间',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -257,7 +258,12 @@ def create_tables():
                 suite_id INT NULL COMMENT '关联的测试套件ID',
                 documentation_url TEXT COMMENT '相关文档链接',
                 version_info VARCHAR(100) COMMENT '版本信息',
-                FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE,
+                result TEXT NULL COMMENT '任务执行结果，JSON格式存储',
+                # 设备脚本任务专用字段
+                script_file VARCHAR(200) NULL COMMENT '脚本文件名',
+                file_path VARCHAR(500) NULL COMMENT '服务器上的相对存储路径',
+                file_hash VARCHAR(100) NULL COMMENT '文件哈希值（用于验证文件完整性）',
+                command TEXT NULL COMMENT '完整执行命令',
                 FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE CASCADE,
                 FOREIGN KEY (executor_id) REFERENCES users(id) ON DELETE SET NULL,
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
@@ -271,7 +277,7 @@ def create_tables():
                 INDEX idx_project_id (project_id),
                 INDEX idx_iteration_id (iteration_id),
                 INDEX idx_suite_id (suite_id),
-                INDEX idx_device_id (device_id)
+                INDEX idx_task_type (task_type)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='测试任务表'""")
             
             # 创建test_case_executions表
@@ -297,46 +303,6 @@ def create_tables():
                 INDEX idx_iteration_id (iteration_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='测试用例执行记录表'""")
             
-            # 创建bugs表
-            cursor.execute("""CREATE TABLE IF NOT EXISTS bugs (
-                id INT AUTO_INCREMENT PRIMARY KEY COMMENT '缺陷编号',
-                bug_title VARCHAR(200) NOT NULL COMMENT '缺陷标题',
-                bug_description TEXT NOT NULL COMMENT '缺陷描述',
-                severity ENUM('critical', 'high', 'medium', 'low') DEFAULT 'medium' COMMENT '严重程度',
-                priority ENUM('high', 'medium', 'low') DEFAULT 'medium' COMMENT '优先级',
-                status ENUM('open', 'in_progress', 'resolved', 'closed', 'reopened') DEFAULT 'open' COMMENT '状态',
-                module VARCHAR(100) NOT NULL COMMENT '所属模块',
-                device_id INT DEFAULT NULL COMMENT '相关设备ID',
-                case_id INT DEFAULT NULL COMMENT '相关用例ID',
-                task_id INT DEFAULT NULL COMMENT '相关任务ID',
-                reporter_id INT NOT NULL COMMENT '报告者ID',
-                assignee_id INT DEFAULT NULL COMMENT '分配给ID',
-                project_id INT DEFAULT NULL COMMENT '所属项目ID',
-                iteration_id INT DEFAULT NULL COMMENT '所属迭代ID',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-                resolved_at TIMESTAMP NULL COMMENT '解决时间',
-                FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE SET NULL,
-                FOREIGN KEY (case_id) REFERENCES test_cases(id) ON DELETE SET NULL,
-                FOREIGN KEY (task_id) REFERENCES test_tasks(id) ON DELETE SET NULL,
-                FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL,
-                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
-                FOREIGN KEY (iteration_id) REFERENCES iterations(id) ON DELETE SET NULL,
-                INDEX idx_bug_title (bug_title),
-                INDEX idx_reporter_id (reporter_id),
-                INDEX idx_assignee_id (assignee_id),
-                INDEX idx_module (module),
-                INDEX idx_status (status),
-                INDEX idx_severity (severity),
-                INDEX idx_priority (priority),
-                INDEX idx_case_id (case_id),
-                INDEX idx_task_id (task_id),
-                INDEX idx_device_id (device_id),
-                INDEX idx_project_id (project_id),
-                INDEX idx_iteration_id (iteration_id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='缺陷表'""")
-            
             # 创建tools表
             cursor.execute("""CREATE TABLE IF NOT EXISTS tools (
                 id INT AUTO_INCREMENT PRIMARY KEY COMMENT '工具编号',
@@ -356,21 +322,6 @@ def create_tables():
                 INDEX idx_creator_id (creator_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='工具表'""")
             
-            # 创建execution_bug_relations表
-            cursor.execute("""CREATE TABLE IF NOT EXISTS execution_bug_relations (
-                id INT AUTO_INCREMENT PRIMARY KEY COMMENT '关系ID',
-                execution_id INT NOT NULL COMMENT '执行ID',
-                bug_id INT NOT NULL COMMENT '缺陷ID',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                FOREIGN KEY (execution_id) REFERENCES test_case_executions(id) ON DELETE CASCADE,
-                FOREIGN KEY (bug_id) REFERENCES bugs(id) ON DELETE CASCADE,
-                UNIQUE KEY idx_execution_bug (execution_id, bug_id),
-                INDEX idx_bug_id (bug_id),
-                INDEX idx_execution_bug_relation (bug_id, execution_id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='执行缺陷关联表'""")
-            
-
-            
             # 创建task_case_relation表
             cursor.execute("""CREATE TABLE IF NOT EXISTS task_case_relation (
                 task_id INT NOT NULL COMMENT '任务ID',
@@ -380,6 +331,16 @@ def create_tables():
                 UNIQUE KEY idx_task_case (task_id, case_id),
                 INDEX idx_case_id (case_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='任务用例关联表'""")
+            
+            # 创建task_device_relation表
+            cursor.execute("""CREATE TABLE IF NOT EXISTS task_device_relation (
+                task_id INT NOT NULL COMMENT '任务ID',
+                device_id INT NOT NULL COMMENT '设备ID',
+                FOREIGN KEY (task_id) REFERENCES test_tasks(id) ON DELETE CASCADE,
+                FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE,
+                UNIQUE KEY idx_task_device (task_id, device_id),
+                INDEX idx_device_id (device_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='任务设备关联表'""")
             
             # 创建test_suite_review_tasks表
             cursor.execute("""CREATE TABLE IF NOT EXISTS test_suite_review_tasks (

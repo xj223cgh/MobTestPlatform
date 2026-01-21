@@ -208,7 +208,7 @@ def delete_user(user_id):
         # 导入所有需要的模型
         from app.models.models import (
             Project, ProjectMember, VersionRequirement, Iteration,
-            TestSuite, TestCase, TestTask, Bug, Tool, TestCaseExecution,
+            TestSuite, TestCase, TestTask, Tool, TestCaseExecution,
             Device
         )
         
@@ -241,10 +241,6 @@ def delete_user(user_id):
         # 测试任务表
         TestTask.query.filter_by(creator_id=user_id).update({'creator_id': None}, synchronize_session=False)
         TestTask.query.filter_by(executor_id=user_id).update({'executor_id': None}, synchronize_session=False)
-        
-        # 缺陷表
-        Bug.query.filter_by(reporter_id=user_id).update({'reporter_id': None}, synchronize_session=False)
-        Bug.query.filter_by(assignee_id=user_id).update({'assignee_id': None}, synchronize_session=False)
         
         # 工具表
         Tool.query.filter_by(creator_id=user_id).update({'creator_id': None}, synchronize_session=False)

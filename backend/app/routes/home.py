@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
-from app.models.models import db, User, Device, TestCase, TestTask, Bug
+from app.models.models import db, User, Device, TestCase, TestTask
 from app.utils.helpers import success_response, error_response
 import traceback, logging
 
@@ -68,20 +68,6 @@ def get_activities():
                 'title': '设备上线',
                 'description': f'设备 {device.device_name or "未知设备"} 已连接并上线',
                 'created_at': device.updated_at.isoformat() if device.updated_at else datetime.now().isoformat()
-            })
-        
-        # 获取最近创建的缺陷
-        recent_bugs = db.session.query(Bug).order_by(Bug.created_at.desc())\
-            .limit(limit // 4)\
-            .all()
-        
-        for bug in recent_bugs:
-            activities.append({
-                'id': f'bug_{bug.id}',
-                'type': 'bug',
-                'title': '发现新缺陷',
-                'description': f'在 {bug.module} 中发现 {bug.severity} 级缺陷',
-                'created_at': bug.created_at.isoformat() if bug.created_at else datetime.now().isoformat()
             })
         
         # 获取最近注册的用户

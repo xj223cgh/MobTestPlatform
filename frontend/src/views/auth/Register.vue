@@ -3,9 +3,7 @@
     <div class="register-card">
       <div class="register-header">
         <h1>用户注册</h1>
-        <p class="register-subtitle">
-          Mobile Test Platform
-        </p>
+        <p class="register-subtitle">Mobile Test Platform</p>
       </div>
 
       <el-form
@@ -95,10 +93,7 @@
         </el-form-item>
 
         <div class="login-link">
-          <el-link
-            type="primary"
-            @click="goToLogin"
-          >
+          <el-link type="primary" @click="goToLogin">
             已有账号？立即登录
           </el-link>
         </div>

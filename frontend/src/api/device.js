@@ -304,6 +304,33 @@ export function executeAdbCommand(command, options = {}) {
   });
 }
 
+// 执行设备任务
+export function executeDeviceTask(deviceId, data) {
+  return request({
+    url: `/devices/${deviceId}/tasks`,
+    method: "post",
+    data,
+  });
+}
+
+// 批量执行设备任务
+export function executeBatchTasks(data) {
+  return request({
+    url: "/devices/batch-tasks",
+    method: "post",
+    data,
+  });
+}
+
+// 定时批量执行设备任务
+export function scheduleBatchTasks(data) {
+  return request({
+    url: "/devices/schedule-batch-tasks",
+    method: "post",
+    data,
+  });
+}
+
 export default {
   getDeviceList,
   getDeviceDetail,
@@ -339,5 +366,8 @@ export default {
   addDeviceToGroup,
   removeDeviceFromGroup,
   getAdbDevices,
-  executeAdbCommand
+  executeAdbCommand,
+  executeDeviceTask,
+  executeBatchTasks,
+  scheduleBatchTasks,
 };

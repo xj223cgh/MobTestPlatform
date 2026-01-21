@@ -7,21 +7,12 @@
 
     <!-- 设置选项卡 -->
     <el-card>
-      <el-tabs
-        v-model="activeTab"
-        tab-position="left"
-      >
+      <el-tabs v-model="activeTab" tab-position="left">
         <!-- 基础设置 -->
-        <el-tab-pane
-          label="基础设置"
-          name="basic"
-        >
+        <el-tab-pane label="基础设置" name="basic">
           <div class="settings-content">
             <h3>基础设置</h3>
-            <el-form
-              :model="basicSettings"
-              label-width="120px"
-            >
+            <el-form :model="basicSettings" label-width="120px">
               <el-form-item label="系统名称">
                 <el-input
                   v-model="basicSettings.systemName"
@@ -37,10 +28,7 @@
                 />
               </el-form-item>
               <el-form-item label="系统版本">
-                <el-input
-                  v-model="basicSettings.systemVersion"
-                  disabled
-                />
+                <el-input v-model="basicSettings.systemVersion" disabled />
               </el-form-item>
               <el-form-item label="系统Logo">
                 <el-upload
@@ -54,11 +42,8 @@
                     v-if="basicSettings.systemLogo"
                     :src="basicSettings.systemLogo"
                     class="logo"
-                  >
-                  <el-icon
-                    v-else
-                    class="logo-uploader-icon"
-                  >
+                  />
+                  <el-icon v-else class="logo-uploader-icon">
                     <Plus />
                   </el-icon>
                 </el-upload>
@@ -81,72 +66,39 @@
                   v-model="basicSettings.language"
                   placeholder="请选择语言"
                 >
-                  <el-option
-                    label="中文"
-                    value="zh-CN"
-                  />
-                  <el-option
-                    label="English"
-                    value="en-US"
-                  />
+                  <el-option label="中文" value="zh-CN" />
+                  <el-option label="English" value="en-US" />
                 </el-select>
               </el-form-item>
               <el-form-item label="主题设置">
                 <el-radio-group v-model="basicSettings.theme">
-                  <el-radio label="light">
-                    浅色主题
-                  </el-radio>
-                  <el-radio label="dark">
-                    深色主题
-                  </el-radio>
-                  <el-radio label="auto">
-                    跟随系统
-                  </el-radio>
+                  <el-radio label="light"> 浅色主题 </el-radio>
+                  <el-radio label="dark"> 深色主题 </el-radio>
+                  <el-radio label="auto"> 跟随系统 </el-radio>
                 </el-radio-group>
               </el-form-item>
               <el-form-item>
-                <el-button
-                  type="primary"
-                  @click="saveBasicSettings"
-                >
+                <el-button type="primary" @click="saveBasicSettings">
                   保存设置
                 </el-button>
-                <el-button @click="resetBasicSettings">
-                  重置
-                </el-button>
+                <el-button @click="resetBasicSettings"> 重置 </el-button>
               </el-form-item>
             </el-form>
           </div>
         </el-tab-pane>
 
         <!-- 安全设置 -->
-        <el-tab-pane
-          label="安全设置"
-          name="security"
-        >
+        <el-tab-pane label="安全设置" name="security">
           <div class="settings-content">
             <h3>安全设置</h3>
-            <el-form
-              :model="securitySettings"
-              label-width="120px"
-            >
+            <el-form :model="securitySettings" label-width="120px">
               <el-form-item label="密码策略">
                 <el-checkbox-group v-model="securitySettings.passwordPolicy">
-                  <el-checkbox label="minLength">
-                    最小长度8位
-                  </el-checkbox>
-                  <el-checkbox label="uppercase">
-                    包含大写字母
-                  </el-checkbox>
-                  <el-checkbox label="lowercase">
-                    包含小写字母
-                  </el-checkbox>
-                  <el-checkbox label="numbers">
-                    包含数字
-                  </el-checkbox>
-                  <el-checkbox label="specialChars">
-                    包含特殊字符
-                  </el-checkbox>
+                  <el-checkbox label="minLength"> 最小长度8位 </el-checkbox>
+                  <el-checkbox label="uppercase"> 包含大写字母 </el-checkbox>
+                  <el-checkbox label="lowercase"> 包含小写字母 </el-checkbox>
+                  <el-checkbox label="numbers"> 包含数字 </el-checkbox>
+                  <el-checkbox label="specialChars"> 包含特殊字符 </el-checkbox>
                 </el-checkbox-group>
               </el-form-item>
               <el-form-item label="密码过期">
@@ -165,7 +117,9 @@
                   :max="10"
                   placeholder="次数"
                 />
-                <span style="margin-left: 10px">次后锁定账户（0表示不锁定）</span>
+                <span style="margin-left: 10px"
+                  >次后锁定账户（0表示不锁定）</span
+                >
               </el-form-item>
               <el-form-item label="会话超时">
                 <el-input-number
@@ -192,31 +146,20 @@
                 />
               </el-form-item>
               <el-form-item>
-                <el-button
-                  type="primary"
-                  @click="saveSecuritySettings"
-                >
+                <el-button type="primary" @click="saveSecuritySettings">
                   保存设置
                 </el-button>
-                <el-button @click="resetSecuritySettings">
-                  重置
-                </el-button>
+                <el-button @click="resetSecuritySettings"> 重置 </el-button>
               </el-form-item>
             </el-form>
           </div>
         </el-tab-pane>
 
         <!-- 邮件设置 -->
-        <el-tab-pane
-          label="邮件设置"
-          name="email"
-        >
+        <el-tab-pane label="邮件设置" name="email">
           <div class="settings-content">
             <h3>邮件设置</h3>
-            <el-form
-              :model="emailSettings"
-              label-width="120px"
-            >
+            <el-form :model="emailSettings" label-width="120px">
               <el-form-item label="SMTP服务器">
                 <el-input
                   v-model="emailSettings.smtpHost"
@@ -235,18 +178,9 @@
                   v-model="emailSettings.encryption"
                   placeholder="请选择加密方式"
                 >
-                  <el-option
-                    label="无"
-                    value="none"
-                  />
-                  <el-option
-                    label="SSL"
-                    value="ssl"
-                  />
-                  <el-option
-                    label="TLS"
-                    value="tls"
-                  />
+                  <el-option label="无" value="none" />
+                  <el-option label="SSL" value="ssl" />
+                  <el-option label="TLS" value="tls" />
                 </el-select>
               </el-form-item>
               <el-form-item label="发件人邮箱">
@@ -276,45 +210,26 @@
                 />
               </el-form-item>
               <el-form-item>
-                <el-button
-                  type="primary"
-                  @click="saveEmailSettings"
-                >
+                <el-button type="primary" @click="saveEmailSettings">
                   保存设置
                 </el-button>
-                <el-button @click="testEmailSettings">
-                  测试邮件
-                </el-button>
-                <el-button @click="resetEmailSettings">
-                  重置
-                </el-button>
+                <el-button @click="testEmailSettings"> 测试邮件 </el-button>
+                <el-button @click="resetEmailSettings"> 重置 </el-button>
               </el-form-item>
             </el-form>
           </div>
         </el-tab-pane>
 
         <!-- 存储设置 -->
-        <el-tab-pane
-          label="存储设置"
-          name="storage"
-        >
+        <el-tab-pane label="存储设置" name="storage">
           <div class="settings-content">
             <h3>存储设置</h3>
-            <el-form
-              :model="storageSettings"
-              label-width="120px"
-            >
+            <el-form :model="storageSettings" label-width="120px">
               <el-form-item label="存储类型">
                 <el-radio-group v-model="storageSettings.type">
-                  <el-radio label="local">
-                    本地存储
-                  </el-radio>
-                  <el-radio label="oss">
-                    阿里云OSS
-                  </el-radio>
-                  <el-radio label="s3">
-                    AWS S3
-                  </el-radio>
+                  <el-radio label="local"> 本地存储 </el-radio>
+                  <el-radio label="oss"> 阿里云OSS </el-radio>
+                  <el-radio label="s3"> AWS S3 </el-radio>
                 </el-radio-group>
               </el-form-item>
 
@@ -397,34 +312,21 @@
               </template>
 
               <el-form-item>
-                <el-button
-                  type="primary"
-                  @click="saveStorageSettings"
-                >
+                <el-button type="primary" @click="saveStorageSettings">
                   保存设置
                 </el-button>
-                <el-button @click="testStorageSettings">
-                  测试连接
-                </el-button>
-                <el-button @click="resetStorageSettings">
-                  重置
-                </el-button>
+                <el-button @click="testStorageSettings"> 测试连接 </el-button>
+                <el-button @click="resetStorageSettings"> 重置 </el-button>
               </el-form-item>
             </el-form>
           </div>
         </el-tab-pane>
 
         <!-- 备份设置 -->
-        <el-tab-pane
-          label="备份设置"
-          name="backup"
-        >
+        <el-tab-pane label="备份设置" name="backup">
           <div class="settings-content">
             <h3>备份设置</h3>
-            <el-form
-              :model="backupSettings"
-              label-width="120px"
-            >
+            <el-form :model="backupSettings" label-width="120px">
               <el-form-item label="自动备份">
                 <el-switch
                   v-model="backupSettings.autoBackup"
@@ -432,32 +334,17 @@
                   inactive-text="禁用"
                 />
               </el-form-item>
-              <el-form-item
-                v-if="backupSettings.autoBackup"
-                label="备份频率"
-              >
+              <el-form-item v-if="backupSettings.autoBackup" label="备份频率">
                 <el-select
                   v-model="backupSettings.frequency"
                   placeholder="请选择备份频率"
                 >
-                  <el-option
-                    label="每天"
-                    value="daily"
-                  />
-                  <el-option
-                    label="每周"
-                    value="weekly"
-                  />
-                  <el-option
-                    label="每月"
-                    value="monthly"
-                  />
+                  <el-option label="每天" value="daily" />
+                  <el-option label="每周" value="weekly" />
+                  <el-option label="每月" value="monthly" />
                 </el-select>
               </el-form-item>
-              <el-form-item
-                v-if="backupSettings.autoBackup"
-                label="备份时间"
-              >
+              <el-form-item v-if="backupSettings.autoBackup" label="备份时间">
                 <el-time-picker
                   v-model="backupSettings.backupTime"
                   format="HH:mm"
@@ -480,68 +367,34 @@
               </el-form-item>
               <el-form-item label="备份内容">
                 <el-checkbox-group v-model="backupSettings.backupContent">
-                  <el-checkbox label="database">
-                    数据库
-                  </el-checkbox>
-                  <el-checkbox label="files">
-                    文件
-                  </el-checkbox>
-                  <el-checkbox label="config">
-                    配置文件
-                  </el-checkbox>
-                  <el-checkbox label="logs">
-                    日志文件
-                  </el-checkbox>
+                  <el-checkbox label="database"> 数据库 </el-checkbox>
+                  <el-checkbox label="files"> 文件 </el-checkbox>
+                  <el-checkbox label="config"> 配置文件 </el-checkbox>
+                  <el-checkbox label="logs"> 日志文件 </el-checkbox>
                 </el-checkbox-group>
               </el-form-item>
               <el-form-item>
-                <el-button
-                  type="primary"
-                  @click="saveBackupSettings"
-                >
+                <el-button type="primary" @click="saveBackupSettings">
                   保存设置
                 </el-button>
-                <el-button @click="createBackup">
-                  立即备份
-                </el-button>
-                <el-button @click="resetBackupSettings">
-                  重置
-                </el-button>
+                <el-button @click="createBackup"> 立即备份 </el-button>
+                <el-button @click="resetBackupSettings"> 重置 </el-button>
               </el-form-item>
             </el-form>
 
             <!-- 备份历史 -->
             <div class="backup-history">
               <h4>备份历史</h4>
-              <el-table
-                :data="backupHistory"
-                stripe
-              >
-                <el-table-column
-                  prop="id"
-                  label="ID"
-                  width="80"
-                />
+              <el-table :data="backupHistory" stripe>
+                <el-table-column prop="id" label="ID" width="80" />
                 <el-table-column
                   prop="filename"
                   label="文件名"
                   min-width="150"
                 />
-                <el-table-column
-                  prop="size"
-                  label="文件大小"
-                  width="120"
-                />
-                <el-table-column
-                  prop="type"
-                  label="备份类型"
-                  width="120"
-                />
-                <el-table-column
-                  prop="status"
-                  label="状态"
-                  width="100"
-                >
+                <el-table-column prop="size" label="文件大小" width="120" />
+                <el-table-column prop="type" label="备份类型" width="120" />
+                <el-table-column prop="status" label="状态" width="100">
                   <template #default="{ row }">
                     <el-tag :type="getBackupStatusTag(row.status)">
                       {{ getBackupStatusText(row.status) }}
@@ -553,10 +406,7 @@
                   label="创建时间"
                   width="160"
                 />
-                <el-table-column
-                  label="操作"
-                  width="150"
-                >
+                <el-table-column label="操作" width="150">
                   <template #default="{ row }">
                     <el-button
                       type="primary"
@@ -581,41 +431,20 @@
         </el-tab-pane>
 
         <!-- 日志设置 -->
-        <el-tab-pane
-          label="日志设置"
-          name="logs"
-        >
+        <el-tab-pane label="日志设置" name="logs">
           <div class="settings-content">
             <h3>日志设置</h3>
-            <el-form
-              :model="logSettings"
-              label-width="120px"
-            >
+            <el-form :model="logSettings" label-width="120px">
               <el-form-item label="日志级别">
                 <el-select
                   v-model="logSettings.level"
                   placeholder="请选择日志级别"
                 >
-                  <el-option
-                    label="DEBUG"
-                    value="debug"
-                  />
-                  <el-option
-                    label="INFO"
-                    value="info"
-                  />
-                  <el-option
-                    label="WARNING"
-                    value="warning"
-                  />
-                  <el-option
-                    label="ERROR"
-                    value="error"
-                  />
-                  <el-option
-                    label="CRITICAL"
-                    value="critical"
-                  />
+                  <el-option label="DEBUG" value="debug" />
+                  <el-option label="INFO" value="info" />
+                  <el-option label="WARNING" value="warning" />
+                  <el-option label="ERROR" value="error" />
+                  <el-option label="CRITICAL" value="critical" />
                 </el-select>
               </el-form-item>
               <el-form-item label="日志格式">
@@ -623,14 +452,8 @@
                   v-model="logSettings.format"
                   placeholder="请选择日志格式"
                 >
-                  <el-option
-                    label="JSON"
-                    value="json"
-                  />
-                  <el-option
-                    label="文本"
-                    value="text"
-                  />
+                  <el-option label="JSON" value="json" />
+                  <el-option label="文本" value="text" />
                 </el-select>
               </el-form-item>
               <el-form-item label="日志保留天数">
@@ -664,37 +487,22 @@
                 />
               </el-form-item>
               <el-form-item>
-                <el-button
-                  type="primary"
-                  @click="saveLogSettings"
-                >
+                <el-button type="primary" @click="saveLogSettings">
                   保存设置
                 </el-button>
-                <el-button @click="viewLogs">
-                  查看日志
-                </el-button>
-                <el-button @click="clearLogs">
-                  清理日志
-                </el-button>
-                <el-button @click="resetLogSettings">
-                  重置
-                </el-button>
+                <el-button @click="viewLogs"> 查看日志 </el-button>
+                <el-button @click="clearLogs"> 清理日志 </el-button>
+                <el-button @click="resetLogSettings"> 重置 </el-button>
               </el-form-item>
             </el-form>
           </div>
         </el-tab-pane>
 
         <!-- 通知设置 -->
-        <el-tab-pane
-          label="通知设置"
-          name="notification"
-        >
+        <el-tab-pane label="通知设置" name="notification">
           <div class="settings-content">
             <h3>通知设置</h3>
-            <el-form
-              :model="notificationSettings"
-              label-width="120px"
-            >
+            <el-form :model="notificationSettings" label-width="120px">
               <el-form-item label="邮件通知">
                 <el-switch
                   v-model="notificationSettings.email"
@@ -725,39 +533,20 @@
               </el-form-item>
               <el-form-item label="通知事件">
                 <el-checkbox-group v-model="notificationSettings.events">
-                  <el-checkbox label="task_start">
-                    任务开始
-                  </el-checkbox>
-                  <el-checkbox label="task_complete">
-                    任务完成
-                  </el-checkbox>
-                  <el-checkbox label="task_fail">
-                    任务失败
-                  </el-checkbox>
-                  <el-checkbox label="device_offline">
-                    设备离线
-                  </el-checkbox>
-                  <el-checkbox label="system_error">
-                    系统错误
-                  </el-checkbox>
-                  <el-checkbox label="security_alert">
-                    安全告警
-                  </el-checkbox>
+                  <el-checkbox label="task_start"> 任务开始 </el-checkbox>
+                  <el-checkbox label="task_complete"> 任务完成 </el-checkbox>
+                  <el-checkbox label="task_fail"> 任务失败 </el-checkbox>
+                  <el-checkbox label="device_offline"> 设备离线 </el-checkbox>
+                  <el-checkbox label="system_error"> 系统错误 </el-checkbox>
+                  <el-checkbox label="security_alert"> 安全告警 </el-checkbox>
                 </el-checkbox-group>
               </el-form-item>
               <el-form-item>
-                <el-button
-                  type="primary"
-                  @click="saveNotificationSettings"
-                >
+                <el-button type="primary" @click="saveNotificationSettings">
                   保存设置
                 </el-button>
-                <el-button @click="testNotification">
-                  测试通知
-                </el-button>
-                <el-button @click="resetNotificationSettings">
-                  重置
-                </el-button>
+                <el-button @click="testNotification"> 测试通知 </el-button>
+                <el-button @click="resetNotificationSettings"> 重置 </el-button>
               </el-form-item>
             </el-form>
           </div>

@@ -46,10 +46,8 @@ class User(UserMixin, db.Model):
     # 关系
     created_devices = db.relationship('Device', backref='owner', lazy='dynamic', foreign_keys='Device.owner_id')
     created_cases = db.relationship('TestCase', lazy='dynamic', foreign_keys='TestCase.creator_id')
-    created_tasks = db.relationship('TestTask', backref='creator', lazy='dynamic', foreign_keys='TestTask.creator_id')
-    executed_tasks = db.relationship('TestTask', backref='executor', lazy='dynamic', foreign_keys='TestTask.executor_id')
-    reported_bugs = db.relationship('Bug', backref='reporter', lazy='dynamic', foreign_keys='Bug.reporter_id')
-    assigned_bugs = db.relationship('Bug', backref='assignee', lazy='dynamic', foreign_keys='Bug.assignee_id')
+    created_tasks = db.relationship('TestTask', lazy='dynamic', foreign_keys='TestTask.creator_id')
+    executed_tasks = db.relationship('TestTask', lazy='dynamic', foreign_keys='TestTask.executor_id')
     created_tools = db.relationship('Tool', backref='creator', lazy='dynamic')
     
     def set_password(self, password):
@@ -103,21 +101,10 @@ class Project(db.Model):
     iterations = db.relationship('Iteration', backref='project', cascade='all, delete-orphan')
     test_suites = db.relationship('TestSuite', backref='project', cascade='all, delete-orphan')
     test_cases = db.relationship('TestCase', backref='project', cascade='all, delete-orphan')
-    bugs = db.relationship('Bug', backref='project', cascade='all, delete-orphan')
     
     def to_dict(self):
         """转换为字典"""
         import json
-        
-        # 计算缺陷统计
-        total_bugs = len(self.bugs)
-        bug_stats = {
-            'total': total_bugs,
-            'open': sum(1 for bug in self.bugs if bug.status == 'open'),
-            'in_progress': sum(1 for bug in self.bugs if bug.status == 'in_progress'),
-            'resolved': sum(1 for bug in self.bugs if bug.status == 'resolved'),
-            'closed': sum(1 for bug in self.bugs if bug.status == 'closed')
-        }
         
         # 计算用例统计
         total_cases = len(self.test_cases)
@@ -187,7 +174,6 @@ class Project(db.Model):
             'member_count': len(self.project_members),
             'iteration_count': len(self.iterations),
             'requirement_count': total_requirements,
-            'bug_stats': bug_stats,
             'case_stats': case_stats,
             'iteration_stats': iteration_stats,
             'requirement_stats': requirement_stats,
@@ -306,10 +292,9 @@ class Iteration(db.Model):
     
     # 关系
 
-    test_tasks = db.relationship('TestTask', backref='iteration', cascade='all, delete-orphan')
+    test_tasks = db.relationship('TestTask', cascade='all, delete-orphan')
     version_requirements = db.relationship('VersionRequirement', back_populates='iteration', cascade='all, delete-orphan')
     case_executions = db.relationship('TestCaseExecution', back_populates='iteration', cascade='all, delete-orphan')
-    bugs = db.relationship('Bug', backref='iteration', cascade='all, delete-orphan')
     creator = db.relationship('User', backref='created_iterations', foreign_keys=[created_by])
     updater = db.relationship('User', backref='updated_iterations', foreign_keys=[updated_by])
     
@@ -339,15 +324,6 @@ class Iteration(db.Model):
             'not_applicable': sum(1 for exec in executions if exec.status == 'not_applicable')
         }
         
-        # 计算缺陷统计
-        bug_stats = {
-            'total': len(self.bugs),
-            'open': sum(1 for bug in self.bugs if bug.status == 'open'),
-            'in_progress': sum(1 for bug in self.bugs if bug.status == 'in_progress'),
-            'resolved': sum(1 for bug in self.bugs if bug.status == 'resolved'),
-            'closed': sum(1 for bug in self.bugs if bug.status == 'closed')
-        }
-        
         return {
             'id': self.id,
             'project_id': self.project_id,
@@ -367,14 +343,10 @@ class Iteration(db.Model):
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'test_task_count': len(self.test_tasks),
             'requirement_count': len(self.version_requirements),
-            'bug_count': len(self.bugs),
             'requirement_stats': requirement_stats,
             'execution_stats': execution_stats,
-            'bug_stats': bug_stats,
-            # 返回完整的列表数据
             'version_requirements': [req.to_dict() for req in self.version_requirements],
-            'test_tasks': [task.to_dict() for task in self.test_tasks],
-            'bugs': [bug.to_dict() for bug in self.bugs]
+            'test_tasks': [task.to_dict() for task in self.test_tasks]
         }
 
 
@@ -397,8 +369,6 @@ class Device(db.Model):
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
     # 关系
-    test_tasks = db.relationship('TestTask', backref='device', lazy='dynamic')
-    bugs = db.relationship('Bug', backref='device', lazy='dynamic')
     
     def to_dict(self):
         """转换为字典"""
@@ -439,7 +409,7 @@ class TestSuite(db.Model):
     # 自引用关系，用于构建目录树结构
     parent = db.relationship('TestSuite', remote_side=[id], backref=db.backref('children', order_by='TestSuite.sort_order'))
     # 与测试用例的一对多关系
-    test_cases = db.relationship('TestCase', backref='suite', lazy='dynamic')
+    test_cases = db.relationship('TestCase', backref='suite')
     # 与用户的多对一关系
     creator = db.relationship('User', backref='created_suites', foreign_keys=[creator_id])
     # 与版本需求的多对一关系
@@ -467,8 +437,8 @@ class TestSuite(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'sort_order': self.sort_order,
-            'children_count': len(self.children),
-            'cases_count': self.test_cases.count()
+            'children_count': len(self.children) if self.children else 0,
+            'cases_count': len(self.test_cases) if self.test_cases else 0
         }
 
 
@@ -687,8 +657,7 @@ class TestCase(db.Model):
     review_comments = db.Column(db.Text, comment='审核意见')
     
     # 关系
-    test_tasks = db.relationship('TestTask', secondary='task_case_relation', backref='test_cases')
-    bugs = db.relationship('Bug', backref='test_case', lazy='dynamic')
+    test_tasks = db.relationship('TestTask', secondary='task_case_relation')
     # 移除backref参数，避免与User模型中的created_cases冲突
     creator = db.relationship('User', foreign_keys=[creator_id], overlaps="created_cases")
     assignee = db.relationship('User', backref='assigned_cases', foreign_keys=[assignee_id])
@@ -735,6 +704,12 @@ class TestCase(db.Model):
 task_case_relation = db.Table('task_case_relation',
     db.Column('task_id', db.Integer, db.ForeignKey('test_tasks.id'), primary_key=True),
     db.Column('case_id', db.Integer, db.ForeignKey('test_cases.id'), primary_key=True)
+)
+
+# 测试任务和设备的关联表
+task_device_relation = db.Table('task_device_relation',
+    db.Column('task_id', db.Integer, db.ForeignKey('test_tasks.id'), primary_key=True),
+    db.Column('device_id', db.Integer, db.ForeignKey('devices.id'), primary_key=True)
 )
 
 
@@ -793,133 +768,156 @@ class TestTask(db.Model):
     id = db.Column(db.Integer, primary_key=True, comment='任务编号')
     task_name = db.Column(db.String(200), nullable=False, comment='任务名称')
     task_description = db.Column(db.Text, comment='任务描述')
-    device_id = db.Column(db.Integer, db.ForeignKey('devices.id'), nullable=False, comment='测试设备ID')
     # 添加项目和迭代关联
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=True, comment='所属项目ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
     status = db.Column(db.Enum(*TEST_TASK_STATUS), default='pending', comment='任务状态')
+    priority = db.Column(db.Enum('high', 'medium', 'low'), default='medium', comment='任务优先级')
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建者ID')
     executor_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='执行者ID')
     # 添加与测试套件的关联
     suite_id = db.Column(db.Integer, db.ForeignKey('test_suites.id'), nullable=True, comment='关联的测试套件ID')
+    # 添加版本需求关联
+    version_requirement_id = db.Column(db.Integer, db.ForeignKey('version_requirements.id'), nullable=True, comment='关联的版本需求ID')
     # 添加任务相关信息
     documentation_url = db.Column(db.Text, comment='相关文档链接')
     version_info = db.Column(db.String(100), comment='版本信息')
-    scheduled_time = db.Column(db.DateTime(timezone=True), comment='计划执行时间')
+    scheduled_time = db.Column(db.DateTime(timezone=True), comment='计划开始执行时间')
+    scheduled_end_time = db.Column(db.DateTime(timezone=True), comment='计划结束执行时间')
     started_time = db.Column(db.DateTime(timezone=True), comment='开始执行时间')
     completed_time = db.Column(db.DateTime(timezone=True), comment='完成时间')
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
-    # 添加缺失的字段
-    case_ids = db.Column(db.Text, nullable=False, comment='测试用例ID列表，JSON格式存储')
+    # 添加任务类型字段：test_case-测试用例任务，device_script-设备脚本任务
+    task_type = db.Column(db.Enum('test_case', 'device_script'), default='test_case', comment='任务类型')
+    # 设备脚本任务专用字段
+    script_file = db.Column(db.String(200), nullable=True, comment='脚本文件名')
+    file_path = db.Column(db.String(500), nullable=True, comment='服务器上的相对存储路径')
+    file_hash = db.Column(db.String(100), nullable=True, comment='文件哈希值（用于验证文件完整性）')
+    command = db.Column(db.Text, nullable=True, comment='完整执行命令')
+    # 添加任务结果字段
+    result = db.Column(db.Text, comment='任务执行结果，JSON格式存储')
     
     # 关系
-    bugs = db.relationship('Bug', backref='test_task', lazy='dynamic')
-    # 与测试套件的多对一关系
     suite = db.relationship('TestSuite', backref='test_tasks')
     # 与项目的多对一关系
     project = db.relationship('Project', backref='test_tasks')
+    # 与迭代的多对一关系
+    iteration = db.relationship('Iteration')
+    # 与设备的多对多关系
+    devices = db.relationship('Device', secondary='task_device_relation', backref='test_tasks')
+    # 与测试用例的多对多关系
+    test_cases = db.relationship('TestCase', secondary='task_case_relation')
+    # 与创建者的多对一关系
+    creator = db.relationship('User', foreign_keys=[creator_id])
+    # 与执行者的多对一关系
+    executor = db.relationship('User', foreign_keys=[executor_id])
+    # 与版本需求的多对一关系
+    version_requirement = db.relationship('VersionRequirement', backref='test_tasks')
     
     def to_dict(self):
         """转换为字典"""
-        # 统计执行结果
-        executions = self.case_executions.all() if hasattr(self, 'case_executions') else []
-        pass_count = sum(1 for e in executions if e.status == 'pass')
-        fail_count = sum(1 for e in executions if e.status == 'fail')
-        blocked_count = sum(1 for e in executions if e.status == 'blocked')
-        not_applicable_count = sum(1 for e in executions if e.status == 'not_applicable')
-        total_executed = len(executions)
-        
-        # 计算通过率
-        pass_rate = (pass_count / total_executed * 100) if total_executed > 0 else 0
-        
-        return {
+        # 构建基础返回字典
+        result = {
             'id': self.id,
             'task_name': self.task_name,
             'task_description': self.task_description,
-            'device_id': self.device_id,
-            'device_name': self.device.device_name if self.device else None,
+            'task_type': self.task_type,
             'project_id': self.project_id,
             'project_name': self.project.project_name if self.project else None,
             'iteration_id': self.iteration_id,
             'iteration_name': self.iteration.iteration_name if self.iteration else None,
             'status': self.status,
+            'priority': self.priority,
             'creator_id': self.creator_id,
             'creator_name': self.creator.real_name if self.creator else None,
             'executor_id': self.executor_id,
             'executor_name': self.executor.real_name if self.executor else None,
             'suite_id': self.suite_id,
             'suite_name': self.suite.suite_name if self.suite else None,
+            'version_requirement_id': self.version_requirement_id,
+            'version_requirement_name': self.version_requirement.requirement_name if self.version_requirement else None,
             'documentation_url': self.documentation_url,
             'version_info': self.version_info,
             'scheduled_time': self.scheduled_time.isoformat() if self.scheduled_time else None,
+            'scheduled_end_time': self.scheduled_end_time.isoformat() if self.scheduled_end_time else None,
             'started_time': self.started_time.isoformat() if self.started_time else None,
             'completed_time': self.completed_time.isoformat() if self.completed_time else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            # 统计信息
-            'statistics': {
-                'pass_count': pass_count,
-                'fail_count': fail_count,
-                'blocked_count': blocked_count,
-                'not_applicable_count': not_applicable_count,
-                'total_executed': total_executed,
-                'pass_rate': round(pass_rate, 2)
+            'devices': [device.to_dict() for device in self.devices] if self.devices else [],
+            'device_count': len(self.devices) if self.devices else 0,
+            # 设备脚本任务专用字段
+            'script_file': self.script_file,
+            'file_path': self.file_path,
+            'file_hash': self.file_hash,
+            'command': self.command,
+            'result': self.result
+        }
+        
+        # 只有非设备脚本任务才显示用例相关信息
+        if self.task_type != 'device_script':
+            # 获取关联的测试用例 - 当关联了用例集时，动态获取用例集中的所有用例
+            try:
+                if self.suite_id and self.suite:
+                    # 如果关联了用例集，动态获取用例集中的所有用例
+                    test_cases = self.suite.test_cases if self.suite else []
+                else:
+                    # 否则使用任务直接关联的用例
+                    test_cases = self.test_cases if self.test_cases else []
+            except:
+                test_cases = []
+            
+            # 直接从测试用例表中统计各状态的数量，不需要TestCaseExecution表
+            stats = {
+                'pass': 0,
+                'fail': 0,
+                'blocked': 0,
+                'not_applicable': 0
             }
-        }
-
-
-class Bug(db.Model):
-    """缺陷模型"""
-    __tablename__ = 'bugs'
-    
-    id = db.Column(db.Integer, primary_key=True, comment='缺陷编号')
-    bug_title = db.Column(db.String(200), nullable=False, comment='缺陷标题')
-    bug_description = db.Column(db.Text, nullable=False, comment='缺陷描述')
-    severity = db.Column(db.Enum('critical', 'high', 'medium', 'low'), default='medium', comment='严重程度')
-    priority = db.Column(db.Enum('high', 'medium', 'low'), default='medium', comment='优先级')
-    status = db.Column(db.Enum('open', 'in_progress', 'resolved', 'closed', 'reopened'), default='open', comment='状态')
-    module = db.Column(db.String(100), nullable=False, comment='所属模块')
-    device_id = db.Column(db.Integer, db.ForeignKey('devices.id'), comment='相关设备ID')
-    case_id = db.Column(db.Integer, db.ForeignKey('test_cases.id'), comment='相关用例ID')
-    task_id = db.Column(db.Integer, db.ForeignKey('test_tasks.id'), comment='相关任务ID')
-    reporter_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='报告者ID')
-    assignee_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='分配给ID')
-    # 添加与项目和迭代的关联
-    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=True, comment='所属项目ID')
-    iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
-    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
-    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
-    resolved_at = db.Column(db.DateTime(timezone=True), comment='解决时间')
-    
-    def to_dict(self):
-        """转换为字典"""
-        return {
-            'id': self.id,
-            'bug_title': self.bug_title,
-            'bug_description': self.bug_description,
-            'severity': self.severity,
-            'priority': self.priority,
-            'status': self.status,
-            'module': self.module,
-            'device_id': self.device_id,
-            'device_name': self.device.device_name if self.device else None,
-            'case_id': self.case_id,
-            'case_name': self.test_case.case_name if self.test_case else None,
-            'task_id': self.task_id,
-            'task_name': self.test_task.task_name if self.test_task else None,
-            'reporter_id': self.reporter_id,
-            'reporter_name': self.reporter.real_name if self.reporter else None,
-            'assignee_id': self.assignee_id,
-            'assignee_name': self.assignee.real_name if self.assignee else None,
-            'project_id': self.project_id,
-            'project_name': self.project.project_name if hasattr(self, 'project') and self.project else None,
-            'iteration_id': self.iteration_id,
-            'iteration_name': self.iteration.iteration_name if hasattr(self, 'iteration') and self.iteration else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'resolved_at': self.resolved_at.isoformat() if self.resolved_at else None
-        }
+            
+            for test_case in test_cases:
+                if test_case.status in stats:
+                    stats[test_case.status] += 1
+                    print(f"[DEBUG] 测试用例ID {test_case.id}，状态 {test_case.status}，当前统计: {stats}")
+                else:
+                    print(f"[DEBUG] 测试用例ID {test_case.id}，状态 {test_case.status}，不在统计范围内")
+            
+            pass_count = stats['pass']
+            fail_count = stats['fail']
+            blocked_count = stats['blocked']
+            not_applicable_count = stats['not_applicable']
+            
+            # 计算总数和通过率
+            total_cases = len(test_cases)
+            print(f"[DEBUG] 总用例数: {total_cases}")
+            print(f"[DEBUG] 关联的用例集: {self.suite_id} - {self.suite_name if hasattr(self, 'suite_name') else '无'}")
+            print(f"[DEBUG] 执行记录状态统计: {stats}")
+            total_executed = sum(stats.values())
+            not_executed = total_cases - total_executed
+            print(f"[DEBUG] 任务ID {self.id} 统计结果: 已执行 {total_executed}，未执行 {not_executed}，通过率 {round((pass_count / total_executed * 100) if total_executed > 0 else 0, 2)}%")
+            
+            # 计算通过率
+            pass_rate = (pass_count / total_executed * 100) if total_executed > 0 else 0
+            
+            # 添加用例相关信息
+            result.update({
+                'test_cases': [case.id for case in self.test_cases] if self.test_cases else [],
+                'test_case_count': len(self.test_cases) if self.test_cases else 0,
+                # 统计信息
+                'statistics': {
+                    'pass_count': pass_count,
+                    'fail_count': fail_count,
+                    'blocked_count': blocked_count,
+                    'not_applicable_count': not_applicable_count,
+                    'total_executed': total_executed,
+                    'total_cases': total_cases,
+                    'not_executed': not_executed,
+                    'pass_rate': round(pass_rate, 2)
+                }
+            })
+        
+        return result
 
 
 class Tool(db.Model):
@@ -951,29 +949,6 @@ class Tool(db.Model):
             'creator_name': self.creator.real_name if self.creator else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
-        }
-
-
-class ExecutionBugRelation(db.Model):
-    """执行记录与缺陷关联模型"""
-    __tablename__ = 'execution_bug_relations'
-    
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True, comment='关联编号')
-    execution_id = db.Column(db.Integer, db.ForeignKey('test_case_executions.id'), nullable=False, comment='执行记录ID')
-    bug_id = db.Column(db.Integer, db.ForeignKey('bugs.id'), nullable=False, comment='缺陷ID')
-    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
-    
-    # 关系
-    execution = db.relationship('TestCaseExecution', backref='bug_relations')
-    bug = db.relationship('Bug', backref='execution_relations')
-    
-    def to_dict(self):
-        """转换为字典"""
-        return {
-            'id': self.id,
-            'execution_id': self.execution_id,
-            'bug_id': self.bug_id,
-            'created_at': self.created_at.isoformat() if self.created_at else None
         }
 
 

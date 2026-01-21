@@ -3,9 +3,7 @@
     <div class="page-header">
       <div class="header-content">
         <h1>项目管理</h1>
-        <p class="description">
-          管理系统项目信息
-        </p>
+        <p class="description">管理系统项目信息</p>
       </div>
       <div class="header-actions">
         <el-button
@@ -21,10 +19,7 @@
 
     <!-- 搜索和筛选 -->
     <div class="search-section">
-      <el-form
-        :model="searchForm"
-        inline
-      >
+      <el-form :model="searchForm" inline>
         <el-form-item label="项目名称">
           <el-input
             v-model="searchQuery"
@@ -43,30 +38,12 @@
             style="width: 120px"
             @clear="getProjectList"
           >
-            <el-option
-              label="全部"
-              value=""
-            />
-            <el-option
-              label="未开始"
-              value="not_started"
-            />
-            <el-option
-              label="进行中"
-              value="in_progress"
-            />
-            <el-option
-              label="已暂停"
-              value="paused"
-            />
-            <el-option
-              label="已完成"
-              value="completed"
-            />
-            <el-option
-              label="已关闭"
-              value="closed"
-            />
+            <el-option label="全部" value="" />
+            <el-option label="未开始" value="not_started" />
+            <el-option label="进行中" value="in_progress" />
+            <el-option label="已暂停" value="paused" />
+            <el-option label="已完成" value="completed" />
+            <el-option label="已关闭" value="closed" />
           </el-select>
         </el-form-item>
 
@@ -78,37 +55,18 @@
             style="width: 120px"
             @clear="getProjectList"
           >
-            <el-option
-              label="全部"
-              value=""
-            />
-            <el-option
-              label="高"
-              value="high"
-            />
-            <el-option
-              label="中"
-              value="medium"
-            />
-            <el-option
-              label="低"
-              value="low"
-            />
+            <el-option label="全部" value="" />
+            <el-option label="高" value="high" />
+            <el-option label="中" value="medium" />
+            <el-option label="低" value="low" />
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button
-            type="primary"
-            :loading="loading"
-            @click="getProjectList"
-          >
+          <el-button type="primary" :loading="loading" @click="getProjectList">
             <el-icon><Search /></el-icon>
             搜索
           </el-button>
-          <el-button
-            :loading="loading"
-            @click="resetFilters"
-          >
+          <el-button :loading="loading" @click="resetFilters">
             <el-icon><Refresh /></el-icon>
             重置
           </el-button>
@@ -217,20 +175,12 @@
             {{ scope.row.owner_name || "-" }}
           </template>
         </el-table-column>
-        <el-table-column
-          label="开始日期"
-          min-width="120"
-          align="center"
-        >
+        <el-table-column label="开始日期" min-width="120" align="center">
           <template #default="scope">
             {{ formatDateTime(scope.row.start_date) }}
           </template>
         </el-table-column>
-        <el-table-column
-          label="结束日期"
-          min-width="120"
-          align="center"
-        >
+        <el-table-column label="结束日期" min-width="120" align="center">
           <template #default="scope">
             {{ formatDateTime(scope.row.end_date) }}
           </template>
@@ -297,20 +247,13 @@
         :rules="projectRules"
         label-width="100px"
       >
-        <el-form-item
-          label="项目名称"
-          prop="project_name"
-        >
+        <el-form-item label="项目名称" prop="project_name">
           <el-input
             v-model="projectForm.project_name"
             placeholder="请输入项目名称"
           />
         </el-form-item>
-        <el-form-item
-          label="项目描述"
-          prop="description"
-          required
-        >
+        <el-form-item label="项目描述" prop="description" required>
           <el-input
             v-model="projectForm.description"
             type="textarea"
@@ -318,63 +261,26 @@
             placeholder="请输入项目描述"
           />
         </el-form-item>
-        <el-form-item
-          label="状态"
-          prop="status"
-        >
-          <el-select
-            v-model="projectForm.status"
-            placeholder="请选择项目状态"
-          >
-            <el-option
-              label="未开始"
-              value="not_started"
-            />
-            <el-option
-              label="进行中"
-              value="in_progress"
-            />
-            <el-option
-              label="已暂停"
-              value="paused"
-            />
-            <el-option
-              label="已完成"
-              value="completed"
-            />
-            <el-option
-              label="已关闭"
-              value="closed"
-            />
+        <el-form-item label="状态" prop="status">
+          <el-select v-model="projectForm.status" placeholder="请选择项目状态">
+            <el-option label="未开始" value="not_started" />
+            <el-option label="进行中" value="in_progress" />
+            <el-option label="已暂停" value="paused" />
+            <el-option label="已完成" value="completed" />
+            <el-option label="已关闭" value="closed" />
           </el-select>
         </el-form-item>
-        <el-form-item
-          label="优先级"
-          prop="priority"
-        >
+        <el-form-item label="优先级" prop="priority">
           <el-select
             v-model="projectForm.priority"
             placeholder="请选择项目优先级"
           >
-            <el-option
-              label="高"
-              value="high"
-            />
-            <el-option
-              label="中"
-              value="medium"
-            />
-            <el-option
-              label="低"
-              value="low"
-            />
+            <el-option label="高" value="high" />
+            <el-option label="中" value="medium" />
+            <el-option label="低" value="low" />
           </el-select>
         </el-form-item>
-        <el-form-item
-          label="项目负责人"
-          prop="owner_id"
-          required
-        >
+        <el-form-item label="项目负责人" prop="owner_id" required>
           <el-select
             v-model="projectForm.owner_id"
             placeholder="请选择项目负责人"
@@ -412,11 +318,7 @@
             <span>注意：当前项目负责人无法从成员列表中删除</span>
           </div>
         </el-form-item>
-        <el-form-item
-          label="开始日期"
-          prop="start_date"
-          required
-        >
+        <el-form-item label="开始日期" prop="start_date" required>
           <el-date-picker
             v-model="projectForm.start_date"
             type="datetime"
@@ -424,11 +326,7 @@
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item
-          label="结束日期"
-          prop="end_date"
-          required
-        >
+        <el-form-item label="结束日期" prop="end_date" required>
           <el-date-picker
             v-model="projectForm.end_date"
             type="datetime"
@@ -436,19 +334,13 @@
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item
-          label="项目文档链接"
-          prop="doc_url"
-        >
+        <el-form-item label="项目文档链接" prop="doc_url">
           <el-input
             v-model="projectForm.doc_url"
             placeholder="请输入项目文档链接"
           />
         </el-form-item>
-        <el-form-item
-          label="流水线链接"
-          prop="pipeline_url"
-        >
+        <el-form-item label="流水线链接" prop="pipeline_url">
           <el-input
             v-model="projectForm.pipeline_url"
             placeholder="请输入流水线链接"
@@ -456,9 +348,7 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">
-          取消
-        </el-button>
+        <el-button @click="dialogVisible = false"> 取消 </el-button>
         <el-button
           type="primary"
           :loading="dialogLoading"
@@ -470,16 +360,10 @@
     </el-dialog>
 
     <!-- 删除项目确认对话框 -->
-    <el-dialog
-      v-model="deleteDialogVisible"
-      title="删除项目"
-      width="400px"
-    >
+    <el-dialog v-model="deleteDialogVisible" title="删除项目" width="400px">
       <p>确定要删除项目 "{{ deleteProjectName }}" 吗？此操作不可撤销！</p>
       <template #footer>
-        <el-button @click="deleteDialogVisible = false">
-          取消
-        </el-button>
+        <el-button @click="deleteDialogVisible = false"> 取消 </el-button>
         <el-button
           type="danger"
           :loading="dialogLoading"

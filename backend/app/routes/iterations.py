@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-from app.models.models import db, Project, ProjectMember, Iteration
+from app.models.models import db, Project, ProjectMember, Iteration, VersionRequirement
 from datetime import datetime
 import json
 
@@ -318,10 +318,38 @@ def get_iteration_stats(iteration_id):
                 'iteration': iteration.to_dict(),
                 'stats': {
                     'requirement_stats': iteration.requirement_stats,
-                    'execution_stats': iteration.execution_stats,
-                    'bug_stats': iteration.bug_stats
+                    'execution_stats': iteration.execution_stats
                 }
             }
         }), 200
     except Exception as e:
         return jsonify({'error': f'获取迭代统计信息失败: {str(e)}'}), 500
+
+@bp.route('/<int:iteration_id>/requirements', methods=['GET'])
+@login_required
+def get_iteration_requirements(iteration_id):
+    """获取迭代下的需求列表"""
+    try:
+        # 获取迭代
+        iteration = Iteration.query.get(iteration_id)
+        if not iteration:
+            return jsonify({'error': '迭代不存在'}), 404
+        
+        # 不需要检查用户是否有权限访问该项目，所有用户都可以查看
+        
+        # 获取迭代下的需求列表
+        requirements = VersionRequirement.query.filter_by(iteration_id=iteration_id).all()
+        
+        # 转换为字典列表
+        requirement_list = [req.to_dict() for req in requirements]
+        
+        return jsonify({
+            'code': 200,
+            'message': 'success',
+            'data': {
+                'items': requirement_list,
+                'total': len(requirement_list)
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({'error': f'获取迭代需求列表失败: {str(e)}'}), 500

@@ -7,16 +7,18 @@
       @click="handleClick(device)"
     >
       <template #icon>
-        <el-icon v-if="!loading"><Connection /></el-icon>
+        <el-icon v-if="!loading">
+          <Connection />
+        </el-icon>
       </template>
     </el-button>
   </el-tooltip>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Connection } from '@element-plus/icons-vue'
+import { ref } from "vue";
+import { ElMessage } from "element-plus";
+import { Connection } from "@element-plus/icons-vue";
 
 const props = defineProps({
   device: {
@@ -27,21 +29,21 @@ const props = defineProps({
     type: Function,
     default: () => false,
   },
-})
+});
 
-const loading = ref(false)
+const loading = ref(false);
 
 async function handleClick(device) {
-  loading.value = true
-  
+  loading.value = true;
+
   try {
-    await props.handleConnect(device.id)
-    ElMessage.success('设备连接成功')
+    await props.handleConnect(device.id);
+    ElMessage.success("设备连接成功");
   } catch (error) {
-    console.warn('设备连接失败:', error)
-    ElMessage.error('设备连接失败')
+    console.warn("设备连接失败:", error);
+    ElMessage.error("设备连接失败");
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 </script>
