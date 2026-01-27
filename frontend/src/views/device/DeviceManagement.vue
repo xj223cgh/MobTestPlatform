@@ -91,7 +91,7 @@
             sortable
             show-overflow-tooltip
             align="center"
-            min-width="180"
+            min-width="170"
             width="auto"
           >
             <template #default="{ row }">
@@ -123,7 +123,7 @@
             align="center"
             sortable
             show-overflow-tooltip
-            min-width="100"
+            min-width="110"
             width="auto"
           >
             <el-tag :type="getStatusTagType(row.status)">
@@ -139,7 +139,7 @@
             align="center"
             sortable
             show-overflow-tooltip
-            min-width="180"
+            min-width="120"
             width="auto"
           >
             <div
@@ -182,7 +182,7 @@
             align="center"
             sortable
             show-overflow-tooltip
-            min-width="100"
+            min-width="110"
             width="auto"
           >
             <el-tag

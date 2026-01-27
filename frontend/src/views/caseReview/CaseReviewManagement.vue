@@ -683,19 +683,20 @@
           <template v-if="!currentReviewTask?.version">
             <!-- 评审人操作按钮 -->
             <template v-if="isReviewer">
-              <!-- 如果评审未完成，显示完成评审按钮 -->
-              <el-button
-                v-if="
-                  currentReviewTask &&
-                  currentReviewTask.status !== 'completed' &&
-                  currentReviewTask.status !== 'rejected'
-                "
-                type="primary"
-                :disabled="!canCompleteReview"
-                @click="handleCompleteReview"
-              >
-                完成评审
-              </el-button>
+              <!-- 如果评审未完成且没有被拒绝的用例，显示完成评审按钮 -->
+      <el-button
+        v-if="
+          currentReviewTask &&
+          currentReviewTask.status !== 'completed' &&
+          currentReviewTask.status !== 'rejected' &&
+          !hasRejectedCases
+        "
+        type="primary"
+        :disabled="!canCompleteReview"
+        @click="handleCompleteReview"
+      >
+        完成评审
+      </el-button>
               <!-- 如果评审已完成，显示重新评审按钮 -->
               <el-button
                 v-else-if="
@@ -706,18 +707,18 @@
               >
                 重新评审
               </el-button>
-              <!-- 如果是评审人且评审状态不是待处理，显示打回评审按钮 -->
-              <el-button
-                v-if="
-                  currentReviewTask &&
-                  currentReviewTask.status !== 'pending' &&
-                  currentReviewTask.status !== 'rejected'
-                "
-                type="danger"
-                @click="handleRejectReview"
-              >
-                打回评审
-              </el-button>
+              <!-- 如果是评审人且评审状态不是待处理，或者有被拒绝的用例，显示打回评审按钮 -->
+      <el-button
+        v-if="
+          currentReviewTask &&
+          (currentReviewTask.status !== 'pending' && currentReviewTask.status !== 'rejected') ||
+          hasRejectedCases
+        "
+        type="danger"
+        @click="handleRejectReview"
+      >
+        打回评审
+      </el-button>
             </template>
 
             <!-- 发起人操作按钮：已拒绝的评审可以重新发起 -->
@@ -741,7 +742,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import * as reviewApi from "@/api/reviewTask";
 import * as testSuiteApi from "@/api/testSuite";
@@ -750,6 +751,7 @@ import { useUserStore } from "@/stores/user";
 // 状态管理
 const userStore = useUserStore();
 const route = useRoute();
+const router = useRouter();
 // 从路由参数中获取activeTab，默认值为'my-tasks'
 const activeTab = ref(route.query.activeTab || "my-tasks");
 const loading = ref({
@@ -826,6 +828,11 @@ const canCompleteReview = computed(() => {
   if (!caseReviews.value.length) return true;
   // 检查是否所有用例都已评审
   return caseReviews.value.every((cr) => cr.review_status !== "pending");
+});
+
+// 检查是否有被拒绝的用例
+const hasRejectedCases = computed(() => {
+  return caseReviews.value.some((cr) => cr.review_status === "rejected");
 });
 
 // 方法
@@ -1465,12 +1472,47 @@ const progressColor = (percentage) => {
 };
 
 // 生命周期
-onMounted(() => {
+onMounted(async () => {
   // 初始加载数据
-  getMyTasks();
-  getMyInitiated();
+  await getMyTasks();
+  await getMyInitiated();
   // 获取可用用例集列表，用于评审历史查询
-  getAvailableSuites();
+  await getAvailableSuites();
+  
+  // 处理从用例集页面跳转过来的情况
+  const suiteId = route.query.suiteId;
+  if (suiteId) {
+    try {
+      // 查找对应套件的最新评审任务
+      const tasks = myInitiated.value;
+      const suiteTask = tasks.find(task => task.suite_id === parseInt(suiteId));
+      if (suiteTask) {
+        // 显示评审详情
+        await getReviewTaskDetail(suiteTask.id);
+        reviewDialogTitle.value = "评审详情";
+        reviewDialogVisible.value = true;
+      } else {
+        console.log('未找到对应套件的评审任务:', suiteId);
+      }
+      
+      // 移除URL中的suiteId参数，避免刷新页面时再次触发
+      router.replace({
+        query: {
+          activeTab: route.query.activeTab || "my-initiated"
+        }
+      });
+    } catch (error) {
+      console.error('处理套件ID跳转失败:', error);
+      ElMessage.error('处理跳转失败，请手动查找评审任务');
+      
+      // 即使出错也移除URL中的suiteId参数
+      router.replace({
+        query: {
+          activeTab: route.query.activeTab || "my-initiated"
+        }
+      });
+    }
+  }
 });
 </script>
 

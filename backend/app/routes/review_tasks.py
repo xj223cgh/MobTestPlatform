@@ -227,7 +227,7 @@ def complete_review(task_id):
             db.session.add(case_review_history)
         
         # 3. 更新评审任务
-        review_task.status = 'completed'
+        review_task.status = 'rejected' if has_rejected else 'completed'
         review_task.end_time = datetime.now(LOCAL_TIMEZONE)
         review_task.overall_comments = overall_comments
         review_task.updated_at = datetime.now(LOCAL_TIMEZONE)
@@ -621,6 +621,8 @@ def get_suite_review_status(suite_id):
                 current_status = 'in_review'
             elif latest_task.status == 'pending':
                 current_status = 'pending'
+            elif latest_task.status == 'rejected':
+                current_status = 'rejected'
             
             response_data.update({
                 'current_status': current_status,

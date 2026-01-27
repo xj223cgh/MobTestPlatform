@@ -218,7 +218,7 @@
         </el-table-column>
         <el-table-column
           label="操作"
-          min-width="140"
+          width="180"
           fixed="right"
           align="center"
         >
@@ -1474,9 +1474,30 @@ onMounted(async () => {
 
 .operation-buttons {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   justify-content: center;
   align-items: center;
+  flex-wrap: wrap;
+  padding: 4px;
+  min-height: 40px;
+}
+
+.operation-buttons :deep(.el-button) {
+  flex: 1;
+  min-width: 50px;
+  max-width: 60px;
+  font-size: 12px;
+  padding: 4px 8px;
+  margin: 2px 0;
+}
+
+/* 确保在小屏幕下操作列不会被遮挡 */
+:deep(.el-table__fixed-right) {
+  height: calc(100% - 32px) !important;
+}
+
+:deep(.el-table__fixed-right-patch) {
+  display: none;
 }
 
 .ellipsis-text {

@@ -2491,6 +2491,8 @@ const allowDrop = (draggingNode, dropNode, type) => {
 const handleNodeExpand = (data) => {
   if (!expandedKeys.value.includes(data.id)) {
     expandedKeys.value.push(data.id);
+    // 存储到localStorage
+    localStorage.setItem('testCaseExpandedKeys', JSON.stringify(expandedKeys.value));
   }
 };
 
@@ -2499,6 +2501,8 @@ const handleNodeCollapse = (data) => {
   const index = expandedKeys.value.indexOf(data.id);
   if (index > -1) {
     expandedKeys.value.splice(index, 1);
+    // 存储到localStorage
+    localStorage.setItem('testCaseExpandedKeys', JSON.stringify(expandedKeys.value));
   }
 };
 
@@ -2535,19 +2539,17 @@ const updateReviewButtonText = () => {
 
   // 根据用户角色和评审状态更新按钮文本
   if (isCreator) {
-    // 作为评审发起人
-    if (status === "not_submitted") {
-      reviewButtonText.value = "发起评审";
-    } else if (status === "pending") {
-      reviewButtonText.value = "评审待处理";
-    } else if (status === "in_review") {
-      reviewButtonText.value = "等待评审中";
-    } else if (status === "approved" || status === "completed") {
-      reviewButtonText.value = "查看评审";
-    } else if (status === "rejected") {
-      reviewButtonText.value = "重新发起评审";
-    }
-  } else if (isReviewer) {
+      // 作为评审发起人
+      if (status === "not_submitted") {
+        reviewButtonText.value = "发起评审";
+      } else if (status === "pending") {
+        reviewButtonText.value = "评审待处理";
+      } else if (status === "in_review") {
+        reviewButtonText.value = "等待评审中";
+      } else if (status === "approved" || status === "completed" || status === "rejected") {
+        reviewButtonText.value = "重新发起评审";
+      }
+    } else if (isReviewer) {
     // 作为评审人
     if (status === "not_submitted") {
       reviewButtonText.value = "暂未发起评审";
@@ -2684,28 +2686,24 @@ const handleReviewButtonClick = async () => {
   const isReviewer = userStore.userInfo && userStore.userInfo.id === reviewerId;
 
   if (isCreator) {
-    // 作为评审发起人
-    if (status === "not_submitted") {
-      // 发起评审
-      showInitiateReviewDialog();
-    } else if (status === "pending") {
-      // 显示悬浮提示信息
-      ElMessage.info("等待评审人处理...");
-    } else if (status === "in_review") {
-      // 显示悬浮提示信息
-      ElMessage.info("等待评审人完成评审...");
-    } else if (
-      status === "approved" ||
-      status === "completed" ||
-      status === "rejected"
-    ) {
-      // 跳转到我发起的评审标签页
-      router.push({
-        path: "/case-reviews",
-        query: { activeTab: "my-initiated" },
-      });
-    }
-  } else if (isReviewer) {
+      // 作为评审发起人
+      if (status === "not_submitted") {
+        // 发起评审
+        showInitiateReviewDialog();
+      } else if (status === "pending") {
+        // 显示悬浮提示信息
+        ElMessage.info("等待评审人处理...");
+      } else if (status === "in_review") {
+        // 显示悬浮提示信息
+        ElMessage.info("等待评审人完成评审...");
+      } else if (status === "approved" || status === "completed" || status === "rejected") {
+        // 先跳转到我发起的评审标签页，再弹出评审详情
+        router.push({
+          path: "/case-reviews",
+          query: { activeTab: "my-initiated", suiteId: selectedSuite.value.id }
+        });
+      }
+    } else if (isReviewer) {
     // 作为评审人
     if (status === "not_submitted") {
       // 显示悬浮提示信息
@@ -2770,6 +2768,9 @@ const handleReviewButtonClick = async () => {
 // 节点点击事件
 const handleNodeClick = (data) => {
   selectedSuite.value = data;
+  // 存储选中状态到localStorage
+  localStorage.setItem('testCaseSelectedSuite', JSON.stringify(data));
+  
   if (data.type === "suite") {
     // 只有用例集才能加载测试用例
     loadTestCases(data.id);
@@ -2956,8 +2957,18 @@ const loadTreeData = async () => {
     // 更新套件选项
     suiteOptions.value = buildSuiteOptions();
 
-    // 默认收起所有节点
-    expandedKeys.value = [];
+    // 从localStorage恢复展开状态
+    const savedExpandedKeys = localStorage.getItem('testCaseExpandedKeys');
+    if (savedExpandedKeys) {
+      try {
+        expandedKeys.value = JSON.parse(savedExpandedKeys);
+      } catch (error) {
+        console.error('Failed to parse saved expanded keys:', error);
+        expandedKeys.value = [];
+      }
+    } else {
+      expandedKeys.value = [];
+    }
 
     // 数据更新后，Element Plus Tree 会自动使用 default-expanded-keys 恢复展开状态
 
@@ -2965,6 +2976,30 @@ const loadTreeData = async () => {
     if (route.query.suite_id) {
       const suiteId = parseInt(route.query.suite_id);
       await selectSuiteById(suiteId);
+    } else {
+      // 从localStorage恢复选中状态
+      const savedSelectedSuite = localStorage.getItem('testCaseSelectedSuite');
+      if (savedSelectedSuite) {
+        try {
+          const selectedData = JSON.parse(savedSelectedSuite);
+          selectedSuite.value = selectedData;
+          
+          if (selectedData.type === "suite") {
+            // 加载该用例集的测试用例
+            await loadTestCases(selectedData.id);
+            // 获取用例集评审状态
+            getSuiteReviewStatusData(selectedData.id);
+            
+            // 确保树形组件高亮显示当前节点
+            await nextTick();
+            if (treeRef.value) {
+              treeRef.value.setCurrentKey(selectedData.id);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to parse saved selected suite:', error);
+        }
+      }
     }
   } catch (error) {
     ElMessage.error("加载测试套件失败");
