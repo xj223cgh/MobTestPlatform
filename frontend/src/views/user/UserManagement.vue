@@ -294,7 +294,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, computed } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus, Search, Refresh } from "@element-plus/icons-vue";
 import {
@@ -305,6 +305,7 @@ import {
   toggleUserStatus,
 } from "@/api/user";
 import dayjs from "dayjs";
+import { useUserStore } from "@/stores/user";
 
 // 响应式数据
 const loading = ref(false);
@@ -313,6 +314,12 @@ const dialogVisible = ref(false);
 const isEdit = ref(false);
 const dialogTitle = ref("");
 const userFormRef = ref();
+
+// 用户store
+const userStore = useUserStore();
+
+// 计算属性：当前登录用户ID
+const currentUserId = computed(() => userStore.userInfo?.id);
 
 // 搜索表单
 const searchForm = reactive({
@@ -473,6 +480,12 @@ const handleEdit = (row) => {
 
 // 删除用户
 const handleDelete = (row) => {
+  // 防止用户删除自己的账户
+  if (row.id === currentUserId.value) {
+    ElMessage.warning("无法删除自己的账户");
+    return;
+  }
+  
   ElMessageBox.confirm(
     `确定要删除用户 "${row.username}" 吗？此操作不可恢复。`,
     "确认删除",
@@ -498,6 +511,12 @@ const handleDelete = (row) => {
 
 // 切换用户状态
 const handleToggleStatus = (row) => {
+  // 防止用户禁用/启用自己的账户
+  if (row.id === currentUserId.value) {
+    ElMessage.warning("无法操作自己的账户状态");
+    return;
+  }
+  
   const action = row.is_active ? "禁用" : "启用";
   ElMessageBox.confirm(
     `确定要${action}用户 "${row.username}" 吗？`,
@@ -524,6 +543,13 @@ const handleSubmit = async () => {
   if (!userFormRef.value) return;
   const isValid = await userFormRef.value.validate();
   if (!isValid) return;
+  
+  // 防止用户修改自己的账户状态
+  if (isEdit.value && userForm.id === currentUserId.value) {
+    // 如果用户试图修改自己的状态，强制保持启用
+    userForm.is_active = true;
+  }
+  
   submitLoading.value = true;
   try {
     // 构建提交数据

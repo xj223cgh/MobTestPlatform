@@ -23,38 +23,63 @@
 
     <div class="main-content">
       <!-- 左侧：用例列表 -->
-      <div class="left-panel">
-        <div class="filter-section">
-          <el-input
-            v-model="filterForm.search"
-            placeholder="搜索名称/描述"
-            clearable
-            @input="handleFilter"
-            @clear="handleFilter"
-          >
-            <template #prefix>
-              <el-icon><Search /></el-icon>
-            </template>
-          </el-input>
+      <div class="left-panel" :class="{ collapsed: isCaseTreeCollapsed }">
+        <div class="filter-section" v-if="!isCaseTreeCollapsed">
+          <div style="display: flex; align-items: center; flex: 1;">
+            <el-input
+              v-model="filterForm.search"
+              placeholder="搜索名称/描述"
+              clearable
+              @input="handleFilter"
+              @clear="handleFilter"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
 
-          <el-select
-            v-model="filterForm.status"
-            placeholder="筛选状态"
-            clearable
-            multiple
-            style="margin-left: 10px"
-            @change="handleFilter"
+            <el-select
+              v-model="filterForm.status"
+              placeholder="筛选状态"
+              clearable
+              multiple
+              style="margin-left: 10px; flex: 1;"
+              @change="handleFilter"
+            >
+              <el-option label="通过" value="pass" />
+              <el-option label="失败" value="fail" />
+              <el-option label="阻塞" value="blocked" />
+              <el-option label="不适用" value="not_applicable" />
+              <el-option label="未执行" value="" />
+            </el-select>
+          </div>
+          <div style="margin-left: 5px;">
+            <el-button
+              size="small"
+              circle
+              @click="toggleCaseTree"
+              :title="isCaseTreeCollapsed ? '展开用例树' : '收起用例树'"
+            >
+              <el-icon v-if="isCaseTreeCollapsed"><ArrowRight /></el-icon>
+              <el-icon v-else><ArrowLeft /></el-icon>
+            </el-button>
+          </div>
+        </div>
+        <div v-else class="collapsed-header">
+          <el-button
+            size="small"
+            circle
+            @click="toggleCaseTree"
+            :title="isCaseTreeCollapsed ? '展开用例树' : '收起用例树'"
           >
-            <el-option label="通过" value="pass" />
-            <el-option label="失败" value="fail" />
-            <el-option label="阻塞" value="blocked" />
-            <el-option label="不适用" value="not_applicable" />
-            <el-option label="未执行" value="" />
-          </el-select>
+            <el-icon v-if="isCaseTreeCollapsed"><ArrowRight /></el-icon>
+            <el-icon v-else><ArrowLeft /></el-icon>
+          </el-button>
         </div>
 
-        <div class="case-list">
+        <div class="case-list" v-if="!isCaseTreeCollapsed">
           <el-tree
+            ref="caseTreeRef"
             :data="testCaseTree"
             :props="treeProps"
             node-key="id"
@@ -90,130 +115,173 @@
 
       <!-- 中间：用例详情和执行区域 -->
       <div class="middle-panel">
-        <el-card v-if="selectedCase" shadow="hover">
-          <template #header>
-            <div class="card-header">
-              <div class="case-main-info">
-                <h3>{{ selectedCase.case_name }}</h3>
-              </div>
-              <div class="case-meta">
-                <div class="meta-item">
-                  <span class="meta-label">编号：</span>
-                  <span class="meta-value">{{
-                    selectedCase.case_number || "-"
-                  }}</span>
+        <!-- 左侧导航区域 -->
+      <div class="nav-area left-nav-area">
+        <el-button
+          v-if="hasPreviousCase"
+          :disabled="!hasPreviousCase"
+          @click="previousCase"
+          circle
+          class="nav-button left-button"
+          title="上一条"
+        >
+          <el-icon><ArrowLeft /></el-icon>
+        </el-button>
+        <!-- 当没有上一条用例时，显示占位元素 -->
+        <div v-else class="nav-button placeholder"></div>
+      </div>
+
+        <!-- 用例内容区域 -->
+        <div class="content-area">
+          <el-card v-if="selectedCase" shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <div class="case-main-info">
+                  <h3>{{ selectedCase.case_name }}</h3>
                 </div>
-                <div class="meta-item">
-                  <span class="meta-label">优先级：</span>
-                  <el-tag
-                    size="small"
-                    :type="getPriorityType(selectedCase.priority)"
-                  >
-                    {{ selectedCase.priority }}
-                  </el-tag>
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <div class="case-detail">
-            <!-- 用例描述 -->
-            <el-descriptions title="用例描述" :column="1">
-              <el-descriptions-item>
-                {{ selectedCase.case_description || "-" }}
-              </el-descriptions-item>
-            </el-descriptions>
-
-            <!-- 前置条件 -->
-            <el-descriptions title="前置条件" :column="1">
-              <el-descriptions-item>
-                {{ selectedCase.preconditions || "-" }}
-              </el-descriptions-item>
-            </el-descriptions>
-
-            <!-- 测试步骤 -->
-            <el-descriptions title="测试步骤" :column="1">
-              <el-descriptions-item>
-                <div
-                  v-for="(step, index) in parseSteps(selectedCase.steps)"
-                  :key="index"
-                  class="step-item"
-                >
-                  <div class="step-content">
-                    {{ step }}
+                <div class="case-meta">
+                  <div class="meta-item">
+                    <span class="meta-label">编号：</span>
+                    <span class="meta-value">
+                      {{ selectedCase.case_number || "-" }}
+                    </span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">优先级：</span>
+                    <el-tag
+                      size="small"
+                      :type="getPriorityType(selectedCase.priority)"
+                    >
+                      {{ selectedCase.priority }}
+                    </el-tag>
                   </div>
                 </div>
-              </el-descriptions-item>
-            </el-descriptions>
+              </div>
+            </template>
 
-            <!-- 预期结果 -->
-            <el-descriptions title="预期结果" :column="1">
-              <el-descriptions-item>
-                {{ selectedCase.expected_result || "-" }}
-              </el-descriptions-item>
-            </el-descriptions>
+            <div class="case-detail">
+              <!-- 用例描述 -->
+              <el-descriptions title="用例描述" :column="1">
+                <el-descriptions-item>
+                  {{ selectedCase.case_description || "-" }}
+                </el-descriptions-item>
+              </el-descriptions>
 
-            <!-- 实际结果 -->
-            <el-form class="actual-result-section">
-              <el-form-item label="实际结果">
-                <el-input
-                  v-model="executionForm.actual_result"
-                  type="textarea"
-                  :rows="4"
-                  placeholder="请输入实际执行结果"
-                />
-              </el-form-item>
-            </el-form>
+              <!-- 测试数据 -->
+              <el-descriptions title="测试数据" :column="1">
+                <el-descriptions-item>
+                  {{ selectedCase.test_data || "-" }}
+                </el-descriptions-item>
+              </el-descriptions>
 
-            <!-- 执行区域 -->
-            <div class="execution-section">
-              <h4>执行操作</h4>
+              <!-- 前置条件 -->
+              <el-descriptions title="前置条件" :column="1">
+                <el-descriptions-item>
+                  {{ selectedCase.preconditions || "-" }}
+                </el-descriptions-item>
+              </el-descriptions>
 
-              <div class="status-buttons">
-                <el-button
-                  type="success"
-                  :disabled="loading.updateStatus"
-                  @click="updateCaseStatus('pass')"
-                >
-                  <el-icon><CircleCheck /></el-icon>
-                  通过
-                </el-button>
-                <el-button
-                  type="danger"
-                  :disabled="loading.updateStatus"
-                  @click="updateCaseStatus('fail')"
-                >
-                  <el-icon><CircleClose /></el-icon>
-                  失败
-                </el-button>
-                <el-button
-                  type="warning"
-                  :disabled="loading.updateStatus"
-                  @click="updateCaseStatus('blocked')"
-                >
-                  <el-icon><Warning /></el-icon>
-                  阻塞
-                </el-button>
-                <el-button
-                  :disabled="loading.updateStatus"
-                  @click="updateCaseStatus('not_applicable')"
-                >
-                  <el-icon><Close /></el-icon>
-                  不适用
-                </el-button>
-                <el-button
-                  :disabled="loading.updateStatus"
-                  @click="updateCaseStatus('')"
-                >
-                  <el-icon><RefreshRight /></el-icon>
-                  重置
-                </el-button>
+              <!-- 测试步骤 -->
+              <el-descriptions title="测试步骤" :column="1">
+                <el-descriptions-item>
+                  <div
+                    v-for="(step, index) in parseSteps(selectedCase.steps)"
+                    :key="index"
+                    class="step-item"
+                  >
+                    <div class="step-content">
+                      {{ step }}
+                    </div>
+                  </div>
+                </el-descriptions-item>
+              </el-descriptions>
+
+              <!-- 预期结果 -->
+              <el-descriptions title="预期结果" :column="1">
+                <el-descriptions-item>
+                  {{ selectedCase.expected_result || "-" }}
+                </el-descriptions-item>
+              </el-descriptions>
+
+              <!-- 实际结果 -->
+              <el-descriptions title="实际结果" :column="1">
+                <el-descriptions-item>
+                  <el-input
+                    v-model="executionForm.actual_result"
+                    type="textarea"
+                    :rows="4"
+                    placeholder="请输入实际执行结果"
+                    @input="debouncedSaveActualResult"
+                    style="width: 100%"
+                  />
+                </el-descriptions-item>
+              </el-descriptions>
+
+              <!-- 执行区域 -->
+              <div class="execution-section">
+                <div class="status-buttons">
+                  <el-button
+                    type="success"
+                    :disabled="loading.updateStatus"
+                    @click="updateCaseStatus('pass')"
+                  >
+                    <el-icon><CircleCheck /></el-icon>
+                    通过
+                  </el-button>
+                  <el-button
+                    type="danger"
+                    :disabled="loading.updateStatus"
+                    @click="updateCaseStatus('fail')"
+                  >
+                    <el-icon><CircleClose /></el-icon>
+                    失败
+                  </el-button>
+                  <el-button
+                    type="warning"
+                    :disabled="loading.updateStatus"
+                    @click="updateCaseStatus('blocked')"
+                  >
+                    <el-icon><Warning /></el-icon>
+                    阻塞
+                  </el-button>
+                  <el-button
+                    :disabled="loading.updateStatus"
+                    @click="updateCaseStatus('not_applicable')"
+                  >
+                    <el-icon><Close /></el-icon>
+                    不适用
+                  </el-button>
+                  <el-button
+                    type="primary"
+                    :disabled="loading.updateStatus"
+                    @click="updateCaseStatus('')"
+                  >
+                    <el-icon><RefreshRight /></el-icon>
+                    重置
+                  </el-button>
+                </div>
               </div>
             </div>
+          </el-card>
+          <div v-else class="no-selection">
+            <el-empty description="请选择一个测试用例进行执行" />
           </div>
-        </el-card>
-        <div v-else class="no-selection">
-          <el-empty description="请选择一个测试用例进行执行" />
+        </div>
+
+        <!-- 右侧导航区域 -->
+        <div class="nav-area right-nav-area">
+          <el-button
+            v-if="hasNextCase"
+            :disabled="!hasNextCase"
+            @click="nextCase"
+            circle
+            class="nav-button right-button"
+            title="下一条"
+          >
+            <el-icon><ArrowRight /></el-icon>
+          </el-button>
+          <!-- 当没有下一条用例时，显示占位元素 -->
+          <div v-else class="nav-button placeholder"></div>
         </div>
       </div>
 
@@ -296,6 +364,7 @@ import {
   Close,
   Search,
   ArrowLeft,
+  ArrowRight
 } from "@element-plus/icons-vue";
 import testTaskApi from "@/api/testTask";
 import { updateTestCase } from "@/api/testCase";
@@ -307,6 +376,7 @@ const taskId = route.params.id;
 const taskInfo = ref({});
 const testCases = ref([]);
 const testCaseTree = ref([]);
+const caseTreeRef = ref(null);
 const selectedCase = ref(null);
 const loading = reactive({
   getTaskInfo: false,
@@ -325,6 +395,53 @@ const filterForm = reactive({
 const executionForm = reactive({
   actual_result: "",
 });
+
+// 用例树收起/展开状态
+const isCaseTreeCollapsed = ref(false);
+
+// 切换用例树收起/展开状态
+const toggleCaseTree = () => {
+  isCaseTreeCollapsed.value = !isCaseTreeCollapsed.value;
+  // 当展开用例树时，重新设置选中状态
+  if (!isCaseTreeCollapsed.value && selectedCase.value) {
+    // 确保DOM更新完成后再设置选中状态
+    setTimeout(() => {
+      if (caseTreeRef.value) {
+        caseTreeRef.value.setCurrentKey(selectedCase.value.id);
+      }
+    }, 0);
+  }
+};
+
+// 防抖函数，避免频繁保存
+const debounce = (func, delay) => {
+  let timer;
+  return function(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => func.apply(this, args), delay);
+  };
+};
+
+// 实时保存实际结果
+const saveActualResult = async () => {
+  if (!selectedCase.value) return;
+  
+  try {
+    await updateTestCase(selectedCase.value.id, {
+      actual_result: executionForm.actual_result,
+    });
+    // 更新本地数据
+    selectedCase.value.actual_result = executionForm.actual_result;
+    // 显示保存成功提示
+    ElMessage.success("保存成功");
+  } catch (error) {
+    console.error("保存实际结果失败:", error);
+    ElMessage.error("保存失败");
+  }
+};
+
+// 防抖处理后的保存函数
+const debouncedSaveActualResult = debounce(saveActualResult, 500);
 
 const treeProps = {
   label: "case_name",
@@ -387,15 +504,14 @@ const updateTaskToRunning = async () => {
   loading.updateTaskStatus = true;
   try {
     // API只允许执行待执行或已完成状态的任务
-    // 如果任务已经处于运行中状态，或者不是待执行/已完成状态，就不需要再次调用API
-    if (
-      taskInfo.value.status === "running" ||
-      (taskInfo.value.status !== "pending" &&
-        taskInfo.value.status !== "completed")
-    ) {
-      console.log(`任务当前状态为${taskInfo.value.status}，不允许执行API调用`);
-      return;
-    }
+      // 如果任务已经处于运行中状态，或者不是待执行/已完成状态，就不需要再次调用API
+      if (
+        taskInfo.value.status === "running" ||
+        (taskInfo.value.status !== "pending" &&
+          taskInfo.value.status !== "completed")
+      ) {
+        return;
+      }
 
     await testTaskApi.executeTestTask(taskId);
     // 重新获取任务信息，更新状态
@@ -479,6 +595,48 @@ const handleCaseClick = (data) => {
   if (data.type !== "suite") {
     selectedCase.value = data;
     executionForm.actual_result = data.actual_result || "";
+  }
+};
+
+// 当前选中用例的索引
+const currentCaseIndex = computed(() => {
+  if (!selectedCase.value) return -1;
+  return filteredCases.value.findIndex(
+    (caseItem) => caseItem.id === selectedCase.value.id,
+  );
+});
+
+// 是否有上一条用例
+const hasPreviousCase = computed(() => {
+  return currentCaseIndex.value > 0;
+});
+
+// 是否有下一条用例
+const hasNextCase = computed(() => {
+  return currentCaseIndex.value < filteredCases.value.length - 1;
+});
+
+// 上一条用例
+const previousCase = () => {
+  if (hasPreviousCase.value) {
+    selectedCase.value = filteredCases.value[currentCaseIndex.value - 1];
+    executionForm.actual_result = selectedCase.value.actual_result || "";
+    // 更新左侧用例列表的选中效果
+    if (caseTreeRef.value) {
+      caseTreeRef.value.setCurrentKey(selectedCase.value.id);
+    }
+  }
+};
+
+// 下一条用例
+const nextCase = () => {
+  if (hasNextCase.value) {
+    selectedCase.value = filteredCases.value[currentCaseIndex.value + 1];
+    executionForm.actual_result = selectedCase.value.actual_result || "";
+    // 更新左侧用例列表的选中效果
+    if (caseTreeRef.value) {
+      caseTreeRef.value.setCurrentKey(selectedCase.value.id);
+    }
   }
 };
 
@@ -566,9 +724,21 @@ const handleCompleteTask = async () => {
     });
 
     loading.completeTask = true;
+    // 调用API完成任务，更新任务状态
     await testTaskApi.completeTestTask(taskId);
     ElMessage.success("任务完成成功");
-    router.push("/test-task");
+    
+    // 等待API调用完全完成，然后再关闭标签页
+    // 使用更可靠的方式，先刷新当前任务状态，确保任务已完成
+    await getTaskInfo();
+    
+    // 关闭当前标签页
+    window.close();
+    
+    // 如果关闭失败（如从其他页面打开），则跳转回任务列表页面
+    setTimeout(() => {
+      router.push("/test-task");
+    }, 100);
   } catch (error) {
     if (error !== "cancel") {
       console.error("完成任务失败:", error);
@@ -677,6 +847,7 @@ onMounted(async () => {
     display: flex;
     padding: 20px;
     gap: 20px;
+    align-items: stretch;
 
     // 左侧用例列表
     .left-panel {
@@ -686,6 +857,16 @@ onMounted(async () => {
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
       display: flex;
       flex-direction: column;
+      transition: width 0.3s ease;
+      // 固定高度，确保折叠时高度不变
+      height: calc(100vh - 160px);
+
+      // 折叠状态样式
+      &.collapsed {
+        width: 50px;
+        // 折叠时保持相同高度
+        height: calc(100vh - 160px);
+      }
 
       .filter-section {
         padding: 14px;
@@ -693,20 +874,57 @@ onMounted(async () => {
         display: flex;
         align-items: center;
         gap: 10px;
+        box-sizing: border-box;
+        width: 100%;
 
         .el-input {
-          width: 200px;
+          flex: 1;
+          width: auto;
+          max-width: 200px;
         }
 
         .el-select {
-          width: 340px;
+          flex: 1;
+          width: auto;
+          max-width: 250px;
         }
+      }
+
+      // 折叠状态下的头部样式
+      .collapsed-header {
+        padding: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
 
       .case-list {
         flex: 1;
         overflow-y: auto;
         padding: 10px;
+        // 设置最大高度，确保内容超出时显示滚动条
+        max-height: calc(100vh - 220px);
+        // 优化滚动条样式
+        scrollbar-width: thin;
+        scrollbar-color: #c0c4cc #f5f7fa;
+
+        // Webkit滚动条样式
+        &::-webkit-scrollbar {
+          width: 6px;
+        }
+
+        &::-webkit-scrollbar-track {
+          background: #f5f7fa;
+        }
+
+        &::-webkit-scrollbar-thumb {
+          background-color: #c0c4cc;
+          border-radius: 3px;
+        }
+
+        &::-webkit-scrollbar-thumb:hover {
+          background-color: #909399;
+        }
 
         .tree-node-content {
           display: flex;
@@ -740,7 +958,99 @@ onMounted(async () => {
       background: white;
       border-radius: 8px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-      overflow-y: auto;
+      display: flex;
+      overflow: hidden;
+      // 固定高度，确保折叠时高度不变
+      height: calc(100vh - 160px);
+
+      // 导航区域
+      .nav-area {
+        width: 50px;
+        background-color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        // 移除过渡和悬浮效果
+        transition: none;
+
+        &:hover {
+          background-color: white; // 保持原有背景色，无悬浮效果
+        }
+
+        // 移除边框，实现无缝衔接
+        &.left-nav-area {
+          border-right: none;
+        }
+
+        &.right-nav-area {
+          border-left: none;
+        }
+      }
+
+      // 导航按钮
+      .nav-button {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: rgba(255, 255, 255, 0.9);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+        transition: none;
+        // 按钮垂直往上移动一点
+        margin-top: -50px;
+
+        &:hover {
+          background-color: rgba(255, 255, 255, 0.9);
+          color: inherit;
+        }
+
+        // 左侧按钮增加左外边距
+        &.left-button {
+          margin-left: 10px;
+        }
+
+        // 右侧按钮增加右外边距
+        &.right-button {
+          margin-right: 10px;
+        }
+
+        // 占位元素样式，保持与按钮相同大小
+        &.placeholder {
+          background: transparent;
+          box-shadow: none;
+          margin: 0 5px;
+          margin-top: -50px;
+        }
+      }
+
+      // 内容区域
+      .content-area {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+
+        // 让卡片占满内容区域的高度
+        .el-card {
+          flex: 1;
+          margin: 0;
+          border-radius: 0;
+          border: none;
+
+          &__header {
+            padding: 20px;
+            border-bottom: 1px solid #e4e7ed;
+          }
+
+          &__body {
+            padding: 0;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+          }
+        }
+      }
 
       // 卡片头部样式
       .card-header {
@@ -748,6 +1058,8 @@ onMounted(async () => {
         justify-content: space-between;
         align-items: center;
         width: 100%;
+        padding: 0;
+        margin: 0;
 
         .case-main-info {
           flex: 1;
@@ -789,54 +1101,56 @@ onMounted(async () => {
       }
 
       .case-detail {
-        padding: 20px;
+          padding: 20px 20px 0 20px;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
 
-        .el-descriptions {
-          margin-bottom: 20px;
+          .el-descriptions {
+            margin-bottom: 15px;
 
-          &__title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 10px;
+            &__title {
+              font-size: 15px;
+              font-weight: 600;
+              margin-bottom: 8px;
+            }
+
+            &__item-label {
+              font-weight: 500;
+            }
+
+            // 调整描述内容字体大小和行高
+            &__item-content {
+              font-size: 14px;
+              line-height: 20px;
+              color: #606266;
+            }
           }
-        }
 
-        // 测试步骤样式，移除序号
-        .step-item {
-          margin-bottom: 10px;
-          padding-left: 10px;
-          border-left: 3px solid #ecf5ff;
+          // 测试步骤样式，移除序号
+          .step-item {
+            margin-bottom: 8px;
+            padding-left: 10px;
+            border-left: 3px solid #ecf5ff;
 
-          .step-content {
-            color: #606266;
-            line-height: 24px;
+            .step-content {
+              color: #606266;
+              line-height: 20px;
+              font-size: 14px;
+            }
           }
-        }
 
         .execution-section {
-          margin-top: 30px;
-          padding-top: 20px;
+          margin-top: 15px;
+          padding-top: 15px;
           border-top: 1px solid #e4e7ed;
-
-          h4 {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 15px;
-          }
 
           .status-buttons {
             display: flex;
             gap: 10px;
-            margin-bottom: 20px;
 
             .el-button {
               min-width: 80px;
-            }
-          }
-
-          .actual-result-section {
-            .el-form-item {
-              margin-bottom: 0;
             }
           }
         }
@@ -846,13 +1160,28 @@ onMounted(async () => {
         display: flex;
         align-items: center;
         justify-content: center;
-        height: 400px;
+        height: 100%;
+        flex: 1;
       }
     }
 
     // 右侧执行统计
     .right-panel {
       width: 200px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      // 确保高度与其他区域同步
+      display: flex;
+      flex-direction: column;
+
+      .el-card {
+        flex: 1;
+        margin: 0;
+        border-radius: 8px;
+        border: none;
+        box-shadow: none;
+      }
 
       .stats-content {
         padding: 12px;

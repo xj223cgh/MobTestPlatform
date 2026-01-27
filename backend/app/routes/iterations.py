@@ -86,11 +86,7 @@ def get_iterations(project_id):
         iteration_list = [iteration.to_dict() for iteration in iterations]
         
         # 调试信息：打印当前项目的迭代数量
-        print(f"DEBUG: Project {project_id} has {len(iteration_list)} iterations")
-        
-        # 调试信息：打印所有迭代的基本信息
-        for iteration in iterations:
-            print(f"DEBUG: Iteration {iteration.id}: {iteration.iteration_name} (Project: {iteration.project_id})")
+
         
         return jsonify({
             'code': 200,

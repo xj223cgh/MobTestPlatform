@@ -65,6 +65,7 @@
             placeholder="全部迭代"
             clearable
             style="width: 180px"
+            :disabled="!filterForm.project_id"
             @change="handleSearch"
           >
             <el-option
@@ -109,7 +110,6 @@
               style="width: 100%"
               fit
             >
-              <el-table-column prop="id" label="ID" width="70" align="center" />
               <el-table-column
                 prop="task_name"
                 label="任务名称"
@@ -120,7 +120,7 @@
               <el-table-column
                 prop="project_name"
                 label="项目"
-                width="160"
+                width="170"
                 show-overflow-tooltip
                 align="center"
               >
@@ -131,7 +131,7 @@
               <el-table-column
                 prop="iteration_name"
                 label="迭代"
-                width="130"
+                width="140"
                 show-overflow-tooltip
                 align="center"
               >
@@ -142,7 +142,7 @@
               <el-table-column
                 prop="version_requirement_name"
                 label="需求"
-                width="160"
+                width="170"
                 show-overflow-tooltip
                 align="center"
               >
@@ -315,7 +315,7 @@
                     title="重新执行"
                     @click="handleReExecute(row)"
                   >
-                    <el-icon color="#e6a23c">
+                    <el-icon color="#409eff">
                       <RefreshRight />
                     </el-icon>
                   </el-button>
@@ -368,7 +368,6 @@
               style="width: 100%"
               fit
             >
-              <el-table-column prop="id" label="ID" width="70" align="center" />
               <el-table-column
                 prop="task_name"
                 label="任务名称"
@@ -501,7 +500,7 @@
                     title="重新执行"
                     @click="handleReExecute(row)"
                   >
-                    <el-icon color="#e6a23c">
+                    <el-icon color="#409eff">
                       <RefreshRight />
                     </el-icon>
                   </el-button>
@@ -552,8 +551,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { ref, reactive, onMounted, watch } from "vue";
+import { useRouter, useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   Plus,
@@ -584,6 +583,7 @@ const projects = ref([]);
 const iterations = ref([]);
 const taskDialogRef = ref(null);
 const router = useRouter();
+const route = useRoute();
 
 const filterForm = reactive({
   search: "",
@@ -869,9 +869,7 @@ const handleDownloadScript = (row) => {
   if (row.file_path) {
     // 构建完整的下载URL，包含原始文件名作为查询参数
     const downloadUrl = `/api/files/${row.file_path}?filename=${encodeURIComponent(row.script_file || "script_file")}`;
-    console.log("下载URL:", downloadUrl);
-    console.log("脚本文件名:", row.script_file);
-    console.log("文件路径:", row.file_path);
+
 
     // 创建下载链接并触发下载
     const a = document.createElement("a");
@@ -904,7 +902,29 @@ const handleTabChange = () => {
 onMounted(() => {
   loadTasks();
   loadProjects();
+  
+  // 添加页面可见性监听，当页面重新可见时刷新数据
+  document.addEventListener('visibilitychange', handleVisibilityChange);
 });
+
+// 监听路由变化，当导航到任务列表页面时自动刷新数据
+watch(
+  () => route.path,
+  (newPath) => {
+    // 当用户导航到任务管理页面时，刷新任务列表
+    if (newPath === "/test-task") {
+      loadTasks();
+    }
+  }
+);
+
+// 页面可见性变化处理
+const handleVisibilityChange = () => {
+  if (document.visibilityState === 'visible') {
+    // 当页面重新可见时，刷新任务列表
+    loadTasks();
+  }
+};
 </script>
 
 <style lang="scss" scoped>

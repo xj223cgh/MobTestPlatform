@@ -89,20 +89,20 @@ def create_test_task():
     """创建测试任务"""
     data = request.get_json()
     
-    print(f"[DEBUG] 收到创建测试任务请求，数据: {data}")
+
     
     # 兼容前端字段：test_cases（套件ID）映射到 suite_id
     if 'test_cases' in data and not data.get('suite_id'):
         data['suite_id'] = data['test_cases']
-        print(f"[DEBUG] 将 test_cases 映射到 suite_id: {data['suite_id']}")
+
     
     # 验证套件是否存在
     if data.get('suite_id'):
         suite = TestSuite.query.get(data['suite_id'])
         if not suite:
-            print(f"[DEBUG] 套件不存在: {data['suite_id']}")
+
             return error_response(400, "指定的测试套件不存在")
-        print(f"[DEBUG] 套件存在: {suite.suite_name}")
+
     
     test_task = TestTask(
         task_name=data['task_name'],
@@ -125,7 +125,7 @@ def create_test_task():
         command=data.get('command')
     )
     
-    print(f"[DEBUG] 创建测试任务对象: {test_task.task_name}")
+
     
     # 处理计划时间范围
     scheduled_time = data.get('scheduled_time')
@@ -141,7 +141,7 @@ def create_test_task():
     try:
         # 根据任务类型处理关联
         task_type = data.get('task_type', 'test_case')
-        print(f"[DEBUG] 任务类型: {task_type}")
+
         
         # 处理测试用例关联（仅测试用例任务）
         # 注意：前端传递的 test_cases 字段是套件ID，不是测试用例ID列表
@@ -151,7 +151,7 @@ def create_test_task():
             suite = TestSuite.query.get(data['suite_id'])
             if suite:
                 test_cases = suite.test_cases
-                print(f"[DEBUG] 套件中有 {len(test_cases)} 个测试用例")
+    
                 test_task.test_cases = test_cases
             else:
                 test_task.test_cases = []
@@ -169,14 +169,14 @@ def create_test_task():
                 test_task.devices = []
         # 其他任务类型不关联设备，不需要显式设置为空列表
         
-        print(f"[DEBUG] 准备提交到数据库")
+
         db.session.add(test_task)
         db.session.commit()
-        print(f"[DEBUG] 数据库提交成功，任务ID: {test_task.id}")
+
         
         log_user_action("创建测试任务", f"任务名称: {test_task.task_name}")
         
-        print(f"[DEBUG] 准备返回响应")
+
         return success_response({
             'test_task': test_task.to_dict()
         }, "测试任务创建成功")

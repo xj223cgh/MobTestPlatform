@@ -879,10 +879,7 @@ class TestTask(db.Model):
             for test_case in test_cases:
                 if test_case.status in stats:
                     stats[test_case.status] += 1
-                    print(f"[DEBUG] 测试用例ID {test_case.id}，状态 {test_case.status}，当前统计: {stats}")
-                else:
-                    print(f"[DEBUG] 测试用例ID {test_case.id}，状态 {test_case.status}，不在统计范围内")
-            
+                
             pass_count = stats['pass']
             fail_count = stats['fail']
             blocked_count = stats['blocked']
@@ -890,12 +887,12 @@ class TestTask(db.Model):
             
             # 计算总数和通过率
             total_cases = len(test_cases)
-            print(f"[DEBUG] 总用例数: {total_cases}")
-            print(f"[DEBUG] 关联的用例集: {self.suite_id} - {self.suite_name if hasattr(self, 'suite_name') else '无'}")
-            print(f"[DEBUG] 执行记录状态统计: {stats}")
+
+
+
             total_executed = sum(stats.values())
             not_executed = total_cases - total_executed
-            print(f"[DEBUG] 任务ID {self.id} 统计结果: 已执行 {total_executed}，未执行 {not_executed}，通过率 {round((pass_count / total_executed * 100) if total_executed > 0 else 0, 2)}%")
+
             
             # 计算通过率
             pass_rate = (pass_count / total_executed * 100) if total_executed > 0 else 0

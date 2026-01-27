@@ -341,7 +341,7 @@ def execute_adb_command():
             else:
                 # 命令执行失败，返回错误响应
                 error_message = result.stderr or result.stdout or "命令执行失败"
-                print(f"DEBUG: Command failed with exit code {result.returncode}, has_error: {has_error}, message: {error_message}")
+
                 return error_response(500, f"命令执行失败: {error_message}")
         
     except subprocess.CalledProcessError as e:

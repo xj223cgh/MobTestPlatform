@@ -698,7 +698,7 @@ const loadSuites = async () => {
   try {
     const response = await getTestSuiteTree();
     suiteTree.value = response.data || [];
-    console.log("加载的测试套件树:", suiteTree.value);
+
   } catch (error) {
     console.error("加载测试套件树失败:", error);
   }
@@ -952,7 +952,7 @@ const handleSubmit = async () => {
       delete submitData.file_hash;
     }
 
-    console.log("提交的表单数据:", JSON.stringify(submitData, null, 2));
+
 
     await testTaskApi.createTestTask(submitData);
 
@@ -978,7 +978,7 @@ const handleUpdate = async () => {
 
     submitting.value = true;
 
-    console.log("更新的表单数据:", JSON.stringify(form, null, 2));
+
 
     // 只发送需要更新的字段，避免发送空字符串导致验证错误
     const updateData = {
@@ -1163,9 +1163,7 @@ const downloadScriptFile = () => {
   if (form.file_path) {
     // 构建完整的下载URL，包含原始文件名作为查询参数
     const downloadUrl = `/api/files/${form.file_path}?filename=${encodeURIComponent(form.script_file || "script_file")}`;
-    console.log("下载URL:", downloadUrl);
-    console.log("脚本文件名:", form.script_file);
-    console.log("文件路径:", form.file_path);
+
 
     // 创建下载链接并触发下载
     const a = document.createElement("a");

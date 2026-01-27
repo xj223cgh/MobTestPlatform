@@ -236,7 +236,7 @@ export const updateReportStyleConfig = (type, data) => {
 // 获取报告数据
 export const getReportData = (id, params = {}) => {
   return request({
-    url: `/api/reports/${id}/data`,
+    url: `/reports/${id}/data`,
     method: "get",
     params,
   });

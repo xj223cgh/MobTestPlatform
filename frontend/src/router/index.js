@@ -132,6 +132,12 @@ const routes = [
         meta: { title: "报告管理", icon: "Odometer" },
       },
       {
+        path: "report/:id",
+        name: "ReportDetail",
+        component: () => import("@/views/report/ReportDetail.vue"),
+        meta: { title: "报告详情", icon: "Odometer", hidden: true },
+      },
+      {
         path: "users",
         name: "Users",
         component: () => import("@/views/user/UserManagement.vue"),
