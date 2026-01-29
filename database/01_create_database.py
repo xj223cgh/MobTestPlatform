@@ -11,14 +11,17 @@ import os
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# 导入配置
+from database.config import DB_CONFIG, DB_NAME
+
 def get_db_connection():
     """获取数据库连接（不指定数据库）"""
     try:
         connection = pymysql.connect(
-            host='localhost',
-            user='root',
-            password='123456',
-            charset='utf8mb4'
+            host=DB_CONFIG['host'],
+            user=DB_CONFIG['user'],
+            password=DB_CONFIG['password'],
+            charset=DB_CONFIG['charset']
         )
         return connection
     except Exception as e:
@@ -34,17 +37,17 @@ def create_database():
     try:
         with connection.cursor() as cursor:
             # 创建数据库
-            cursor.execute("""
-                CREATE DATABASE IF NOT EXISTS mobile_test_platform 
+            cursor.execute(f"""
+                CREATE DATABASE IF NOT EXISTS {DB_NAME} 
                 DEFAULT CHARACTER SET utf8mb4 
                 DEFAULT COLLATE utf8mb4_unicode_ci
             """)
             
             # 使用数据库
-            cursor.execute("USE mobile_test_platform")
+            cursor.execute(f"USE {DB_NAME}")
             
             connection.commit()
-            print("数据库 mobile_test_platform 创建成功！")
+            print(f"数据库 {DB_NAME} 创建成功！")
             return True
             
     except Exception as e:

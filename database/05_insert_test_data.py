@@ -13,15 +13,18 @@ import os
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# 导入配置
+from database.config import DB_CONFIG
+
 def get_db_connection():
     """获取数据库连接"""
     try:
         connection = pymysql.connect(
-            host='localhost',
-            user='root',
-            password='123456',
-            database='mobile_test_platform',
-            charset='utf8mb4'
+            host=DB_CONFIG['host'],
+            user=DB_CONFIG['user'],
+            password=DB_CONFIG['password'],
+            database=DB_CONFIG['database'],
+            charset=DB_CONFIG['charset']
         )
         return connection
     except Exception as e:

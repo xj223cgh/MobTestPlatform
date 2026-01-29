@@ -11,15 +11,18 @@ import os
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# 导入配置
+from database.config import DB_CONFIG
+
 def get_db_connection():
     """获取数据库连接"""
     try:
         connection = pymysql.connect(
-            host='localhost',
-            user='root',
-            password='123456',
-            database='mobile_test_platform',
-            charset='utf8mb4'
+            host=DB_CONFIG['host'],
+            user=DB_CONFIG['user'],
+            password=DB_CONFIG['password'],
+            database=DB_CONFIG['database'],
+            charset=DB_CONFIG['charset']
         )
         return connection
     except Exception as e:
@@ -36,10 +39,22 @@ def drop_tables():
         with connection.cursor() as cursor:
             # 按照外键依赖关系倒序删除表
             tables = [
-                'tools',
+                'test_case_review_history',
+                'test_suite_review_history',
+                'test_case_review_details',
+                'test_suite_review_tasks',
+                'task_device_relation',
+                'task_case_relation',
+                'test_case_executions',
                 'test_tasks',
                 'test_cases',
+                'test_suites',
+                'version_requirements',
+                'iterations',
+                'project_members',
+                'projects',
                 'devices',
+                'tools',
                 'users'
             ]
             
