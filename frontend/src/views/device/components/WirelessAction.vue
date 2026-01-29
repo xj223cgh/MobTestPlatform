@@ -1,6 +1,10 @@
 <template>
   <div>
-    <el-tooltip v-if="!row.wifi" placement="top" content="开启无线模式">
+    <el-tooltip
+      v-if="!row.wifi"
+      placement="top"
+      content="开启无线模式"
+    >
       <el-button
         type="primary"
         text

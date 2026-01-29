@@ -1,136 +1,255 @@
 <template>
   <div class="report-management">
-    <div class="page-header">
-      <h2>报告管理</h2>
+    <!-- 筛选条件 -->
+    <div class="filter-section">
+      <el-form
+        :model="filterForm"
+        inline
+      >
+        <el-form-item label="任务名称">
+          <el-input
+            v-model="filterForm.taskName"
+            placeholder="请输入任务名称"
+            clearable
+            style="width: 200px"
+            @clear="handleFilter"
+            @keyup.enter="handleFilter"
+          />
+        </el-form-item>
+
+        <el-form-item>
+          <el-button
+            type="primary"
+            @click="handleFilter"
+          >
+            <el-icon><Search /></el-icon>
+            搜索
+          </el-button>
+          <el-button @click="handleReset">
+            <el-icon><Refresh /></el-icon>
+            重置
+          </el-button>
+        </el-form-item>
+      </el-form>
     </div>
 
-    <!-- 报告列表区域 -->
-    <div class="report-content">
-      <!-- 筛选条件 -->
-      <div class="filter-section">
-        <el-form :model="filterForm" inline>
-          <el-form-item label="任务名称">
-            <el-input
-              v-model="filterForm.taskName"
-              placeholder="请输入任务名称"
-              clearable
-              style="width: 200px"
-              @clear="handleFilter"
-              @keyup.enter="handleFilter"
-            />
-          </el-form-item>
-          <el-form-item label="任务类型">
-            <el-select
-              v-model="filterForm.taskType"
-              placeholder="全部类型"
-              clearable
-              style="width: 150px"
-              @change="handleFilter"
-            >
-              <el-option label="测试用例任务" value="test_case" />
-              <el-option label="设备脚本任务" value="device_script" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="状态">
-            <el-select
-              v-model="filterForm.status"
-              placeholder="全部状态"
-              clearable
-              style="width: 150px"
-              @change="handleFilter"
-            >
-              <el-option label="已完成" value="completed" />
-              <el-option label="执行中" value="executing" />
-              <el-option label="待执行" value="pending" />
-              <el-option label="已终止" value="terminated" />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" @click="handleFilter">
-              <el-icon><Search /></el-icon>
-              搜索
-            </el-button>
-            <el-button @click="handleReset">
-              <el-icon><Refresh /></el-icon>
-              重置
-            </el-button>
-          </el-form-item>
-        </el-form>
-      </div>
-
-      <!-- 报告列表 -->
-      <div class="table-section">
-        <el-table
-          v-loading="loading"
-          :data="reportList"
-          stripe
-          border
-          style="width: 100%"
-          fit
+    <!-- 报告类型选项卡 -->
+    <div class="report-tabs-section">
+      <el-tabs
+        v-model="activeTab"
+        class="report-tabs"
+        @tab-change="handleTabChange"
+      >
+        <!-- 测试用例报告 -->
+        <el-tab-pane
+          label="用例执行报告"
+          name="test_case"
         >
-          <el-table-column prop="task_name" label="任务名称" min-width="180">
-            <template #default="{ row }">
-              <span>{{ row.task_name }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="task_type" label="任务类型" min-width="120" align="center">
-            <template #default="{ row }">
-              <el-tag :type="row.task_type === 'test_case' ? 'primary' : 'success'">
-                {{ row.task_type === 'test_case' ? '测试用例任务' : '设备脚本任务' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="status" label="状态" min-width="100" align="center">
-            <template #default="{ row }">
-              <el-tag
-                :type="getStatusTagType(row.status)"
+          <div class="table-section">
+            <el-table
+              v-loading="loading.testCase"
+              :data="reportList.testCase"
+              stripe
+              border
+              style="width: 100%"
+              fit
+            >
+              <el-table-column
+                prop="task_name"
+                label="任务名称"
+                min-width="180"
+                align="center"
               >
-                {{ getStatusLabel(row.status) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="created_by" label="创建人" min-width="100" align="center">
-            <template #default="{ row }">
-              {{ row.created_by || '-' }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="created_at" label="创建时间" min-width="160" align="center">
-            <template #default="{ row }">
-              {{ formatDateTime(row.created_at) }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="completed_at" label="完成时间" min-width="160" align="center">
-            <template #default="{ row }">
-              {{ row.completed_at ? formatDateTime(row.completed_at) : '-' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" min-width="120" fixed="right" align="center">
-            <template #default="{ row }">
-              <el-button
-                type="primary"
-                size="small"
-                @click="handleViewReport(row)"
+                <template #default="{ row }">
+                  <span>{{ row.task_name }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="status"
+                label="状态"
+                min-width="100"
+                align="center"
               >
-                <el-icon><View /></el-icon>
-                查看报告
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+                <template #default="{ row }">
+                  <el-tag
+                    :type="getStatusTagType(row.status)"
+                  >
+                    {{ getStatusLabel(row.status) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="created_by"
+                label="创建人"
+                min-width="100"
+                align="center"
+              >
+                <template #default="{ row }">
+                  {{ row.created_by || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="created_at"
+                label="创建时间"
+                min-width="160"
+                align="center"
+              >
+                <template #default="{ row }">
+                  {{ formatDateTime(row.created_at) }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="completed_at"
+                label="完成时间"
+                min-width="160"
+                align="center"
+              >
+                <template #default="{ row }">
+                  {{ row.completed_at ? formatDateTime(row.completed_at) : '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                label="操作"
+                min-width="120"
+                fixed="right"
+                align="center"
+              >
+                <template #default="{ row }">
+                  <el-button
+                    type="primary"
+                    size="small"
+                    @click="handleViewReport(row)"
+                  >
+                    查看
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </el-tab-pane>
 
-        <!-- 分页 -->
-        <div class="pagination-container">
-          <el-pagination
-            :current-page="pagination.page"
-            :page-size="pagination.size"
-            :total="pagination.total"
-            :page-sizes="[10, 20, 50, 100]"
-            layout="total, sizes, prev, pager, next, jumper"
-            @size-change="handleSizeChange"
-            @current-change="handleCurrentChange"
-          />
-        </div>
-      </div>
+        <!-- 脚本执行报告 -->
+        <el-tab-pane
+          label="脚本执行报告"
+          name="device_script"
+        >
+          <div class="table-section">
+            <el-table
+              v-loading="loading.deviceScript"
+              :data="reportList.deviceScript"
+              stripe
+              border
+              style="width: 100%"
+              fit
+            >
+              <el-table-column
+                prop="task_name"
+                label="任务名称"
+                min-width="180"
+                align="center"
+              >
+                <template #default="{ row }">
+                  <span>{{ row.task_name }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="script_file"
+                label="脚本文件"
+                min-width="140"
+                align="center"
+              >
+                <template #default="{ row }">
+                  <span>{{ row.script_file || '-' }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="status"
+                label="状态"
+                min-width="100"
+                align="center"
+              >
+                <template #default="{ row }">
+                  <el-tag
+                    :type="getStatusTagType(row.status)"
+                  >
+                    {{ getStatusLabel(row.status) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="created_by"
+                label="创建人"
+                min-width="100"
+                align="center"
+              >
+                <template #default="{ row }">
+                  {{ row.created_by || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="created_at"
+                label="创建时间"
+                min-width="160"
+                align="center"
+              >
+                <template #default="{ row }">
+                  {{ formatDateTime(row.created_at) }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="completed_at"
+                label="完成时间"
+                min-width="160"
+                align="center"
+              >
+                <template #default="{ row }">
+                  {{ row.completed_at ? formatDateTime(row.completed_at) : '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                label="操作"
+                min-width="120"
+                fixed="right"
+                align="center"
+              >
+                <template #default="{ row }">
+                  <el-button
+                    type="primary"
+                    size="small"
+                    @click="handleViewReport(row)"
+                  >   
+                    查看
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+
+    <!-- 分页 -->
+    <div class="pagination-container">
+      <el-pagination
+        v-if="activeTab === 'test_case'"
+        :current-page="pagination.testCase.page"
+        :page-size="pagination.testCase.size"
+        :total="pagination.testCase.total"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
+        @size-change="(size) => handleSizeChange(size, 'testCase')"
+        @current-change="(page) => handleCurrentChange(page, 'testCase')"
+      />
+      <el-pagination
+        v-else
+        :current-page="pagination.deviceScript.page"
+        :page-size="pagination.deviceScript.size"
+        :total="pagination.deviceScript.total"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
+        @size-change="(size) => handleSizeChange(size, 'deviceScript')"
+        @current-change="(page) => handleCurrentChange(page, 'deviceScript')"
+      />
     </div>
 
     <!-- 执行输出弹窗 -->
@@ -159,7 +278,10 @@
             <h5>标准输出：</h5>
             <pre class="output-pre">{{ currentOutputDetail?.output || '无输出' }}</pre>
           </div>
-          <div class="output-section" v-if="currentOutputDetail?.error_output">
+          <div
+            v-if="currentOutputDetail?.error_output"
+            class="output-section"
+          >
             <h5>错误输出：</h5>
             <pre class="output-pre error">{{ currentOutputDetail?.error_output }}</pre>
           </div>
@@ -168,7 +290,10 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="outputDialogVisible = false">关闭</el-button>
-          <el-button type="primary" @click="handleCopyOutput">复制输出</el-button>
+          <el-button
+            type="primary"
+            @click="handleCopyOutput"
+          >复制输出</el-button>
         </span>
       </template>
     </el-dialog>
@@ -188,80 +313,122 @@ import { getReportData } from '@/api/report';
 const router = useRouter();
 
 // 响应式数据
-const loading = ref(false);
+const activeTab = ref('test_case');
+const loading = reactive({
+  testCase: false,
+  deviceScript: false
+});
 const outputDialogVisible = ref(false);
 const currentOutputDetail = ref(null);
 
 // 筛选表单
 const filterForm = reactive({
-  taskName: '',
-  taskType: '',
-  status: ''
+  taskName: ''
 });
 
 // 分页
 const pagination = reactive({
-  page: 1,
-  size: 10,
-  total: 0
+  testCase: {
+    page: 1,
+    size: 10,
+    total: 0
+  },
+  deviceScript: {
+    page: 1,
+    size: 10,
+    total: 0
+  }
 });
 
 // 报告列表
-const reportList = ref([]);
+const reportList = reactive({
+  testCase: [],
+  deviceScript: []
+});
 
 // 获取报告列表（基于任务列表）
 const fetchReportList = async () => {
+  // 加载测试用例报告
+  loading.testCase = true;
   try {
-    loading.value = true;
-    const params = {
-      page: pagination.page,
-      size: pagination.size,
+    const testCaseParams = {
+      page: pagination.testCase.page,
+      size: pagination.testCase.size,
       search: filterForm.taskName,
-      task_type: filterForm.taskType,
-      status: filterForm.status
+      task_type: 'test_case',
+      status: 'completed'
     };
 
-    const response = await getTestTaskList(params);
-    if (response.success) {
-      reportList.value = response.data.test_tasks || [];
-      pagination.total = response.data.pagination.total || 0;
+    const testCaseResponse = await getTestTaskList(testCaseParams);
+    if (testCaseResponse.success) {
+      reportList.testCase = testCaseResponse.data.test_tasks || [];
+      pagination.testCase.total = testCaseResponse.data.pagination.total || 0;
     } else {
-      ElMessage.error(response.message || '获取报告列表失败');
+      ElMessage.error(testCaseResponse.message || '获取测试用例报告列表失败');
     }
   } catch (error) {
-    ElMessage.error('获取报告列表失败');
+    ElMessage.error('获取测试用例报告列表失败');
   } finally {
-    loading.value = false;
+    loading.testCase = false;
+  }
+
+  // 加载设备脚本报告
+  loading.deviceScript = true;
+  try {
+    const deviceScriptParams = {
+      page: pagination.deviceScript.page,
+      size: pagination.deviceScript.size,
+      search: filterForm.taskName,
+      task_type: 'device_script',
+      status: 'completed'
+    };
+
+    const deviceScriptResponse = await getTestTaskList(deviceScriptParams);
+    if (deviceScriptResponse.success) {
+      reportList.deviceScript = deviceScriptResponse.data.test_tasks || [];
+      pagination.deviceScript.total = deviceScriptResponse.data.pagination.total || 0;
+    } else {
+      ElMessage.error(deviceScriptResponse.message || '获取设备脚本报告列表失败');
+    }
+  } catch (error) {
+    ElMessage.error('获取设备脚本报告列表失败');
+  } finally {
+    loading.deviceScript = false;
   }
 };
 
 // 搜索
 const handleFilter = () => {
-  pagination.page = 1;
+  pagination.testCase.page = 1;
+  pagination.deviceScript.page = 1;
   fetchReportList();
 };
 
 // 重置
 const handleReset = () => {
   Object.assign(filterForm, {
-    taskName: '',
-    taskType: '',
-    status: ''
+    taskName: ''
   });
-  pagination.page = 1;
+  pagination.testCase.page = 1;
+  pagination.deviceScript.page = 1;
   fetchReportList();
 };
 
 // 分页处理
-const handleSizeChange = (size) => {
-  pagination.size = size;
-  pagination.page = 1;
+const handleSizeChange = (size, tab) => {
+  pagination[tab].size = size;
+  pagination[tab].page = 1;
   fetchReportList();
 };
 
-const handleCurrentChange = (page) => {
-  pagination.page = page;
+const handleCurrentChange = (page, tab) => {
+  pagination[tab].page = page;
   fetchReportList();
+};
+
+// 标签页切换
+const handleTabChange = () => {
+  // 切换标签页时不需要重新加载，因为已经在fetchReportList中加载了所有数据
 };
 
 // 查看报告
@@ -326,42 +493,60 @@ onMounted(() => {
 .report-management {
   padding: 20px;
   background: #f5f7fa;
-  min-height: calc(100vh - 60px);
-}
-
-.page-header {
-  margin-bottom: 20px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #e4e7ed;
-
-  h2 {
-    margin: 0;
-    color: #303133;
-    font-size: 24px;
-    font-weight: 600;
-  }
+  min-height: 100vh;
 }
 
 .filter-section {
   background: white;
   padding: 20px;
   border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   margin-bottom: 20px;
+}
+
+.report-tabs-section {
+  margin-bottom: 70px;
+}
+
+.report-tabs {
+  margin-bottom: 20px;
+
+  :deep(.el-tabs__header) {
+    margin-bottom: 0;
+  }
+
+  :deep(.el-tabs__content) {
+    padding: 0;
+  }
 }
 
 .table-section {
   background: white;
   border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
   overflow: hidden;
+  margin-top: 16px;
+  margin-bottom: 70px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .pagination-container {
-  padding: 15px 20px;
-  text-align: right;
+  position: fixed;
+  bottom: 0;
+  left: 230px;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   background: white;
+  padding: 15px 20px;
   border-top: 1px solid #e4e7ed;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+}
+
+.pagination-container .el-pagination {
+  margin: 0;
+  text-align: center;
 }
 
 /* 输出弹窗样式 */

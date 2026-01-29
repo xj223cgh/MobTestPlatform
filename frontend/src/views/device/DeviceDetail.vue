@@ -2,7 +2,12 @@
   <div class="device-detail">
     <div class="page-header">
       <div class="header-content">
-        <el-button :icon="ArrowLeft" @click="goBack"> 返回 </el-button>
+        <el-button
+          :icon="ArrowLeft"
+          @click="goBack"
+        >
+          返回
+        </el-button>
         <h1>设备详情</h1>
         <el-button
           type="primary"
@@ -24,10 +29,16 @@
       </div>
     </div>
 
-    <div v-loading="loading" class="device-detail-content">
+    <div
+      v-loading="loading"
+      class="device-detail-content"
+    >
       <el-row :gutter="20">
         <el-col :span="24">
-          <el-card shadow="hover" class="device-info-card">
+          <el-card
+            shadow="hover"
+            class="device-info-card"
+          >
             <template #header>
               <div class="card-header">
                 <span class="card-title">设备信息</span>
@@ -37,7 +48,10 @@
               </div>
             </template>
 
-            <el-descriptions :column="3" border>
+            <el-descriptions
+              :column="3"
+              border
+            >
               <el-descriptions-item label="设备序列号">
                 {{ device.id || "-" }}
               </el-descriptions-item>
@@ -95,9 +109,15 @@
         </el-col>
       </el-row>
 
-      <el-row :gutter="20" style="margin-top: 20px">
+      <el-row
+        :gutter="20"
+        style="margin-top: 20px"
+      >
         <el-col :span="24">
-          <el-card shadow="hover" class="mirror-card">
+          <el-card
+            shadow="hover"
+            class="mirror-card"
+          >
             <template #header>
               <div class="card-header">
                 <span class="card-title">设备投屏</span>
@@ -116,14 +136,23 @@
             </template>
 
             <div class="mirror-container">
-              <div v-if="!mirrorStarted" class="mirror-placeholder">
+              <div
+                v-if="!mirrorStarted"
+                class="mirror-placeholder"
+              >
                 <el-empty description="点击上方按钮启动投屏">
-                  <el-icon :size="80" color="#909399">
+                  <el-icon
+                    :size="80"
+                    color="#909399"
+                  >
                     <Monitor />
                   </el-icon>
                 </el-empty>
               </div>
-              <div v-else class="mirror-content">
+              <div
+                v-else
+                class="mirror-content"
+              >
                 <div class="mirror-placeholder">
                   <el-alert
                     title="投屏功能开发中"
@@ -146,9 +175,15 @@
         </el-col>
       </el-row>
 
-      <el-row :gutter="20" style="margin-top: 20px">
+      <el-row
+        :gutter="20"
+        style="margin-top: 20px"
+      >
         <el-col :span="24">
-          <el-card shadow="hover" class="operations-card">
+          <el-card
+            shadow="hover"
+            class="operations-card"
+          >
             <template #header>
               <div class="card-header">
                 <span class="card-title">快捷操作</span>
@@ -170,7 +205,11 @@
               >
                 刷新状态
               </el-button>
-              <el-button :icon="Lock" :disabled="!isOnline" @click="lockDevice">
+              <el-button
+                :icon="Lock"
+                :disabled="!isOnline"
+                @click="lockDevice"
+              >
                 锁定设备
               </el-button>
               <el-button
@@ -192,7 +231,10 @@
         </el-col>
       </el-row>
 
-      <TaskDialog ref="taskDialogRef" :devices="[device]" />
+      <TaskDialog
+        ref="taskDialogRef"
+        :devices="[device]"
+      />
     </div>
   </div>
 </template>

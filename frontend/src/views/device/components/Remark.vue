@@ -6,7 +6,10 @@
     @show="onShow"
   >
     <template #reference>
-      <el-tag effect="light" class="cursor-pointer">
+      <el-tag
+        effect="light"
+        class="cursor-pointer"
+      >
         <div class="flex items-center space-x-1">
           <span>{{ device.name || "未命名设备" }}</span>
           <el-icon><EditPen /></el-icon>

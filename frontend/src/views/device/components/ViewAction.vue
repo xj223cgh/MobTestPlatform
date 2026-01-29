@@ -1,6 +1,13 @@
 <template>
-  <el-tooltip placement="top" content="查看详情">
-    <el-button type="primary" text @click="handleClick(row)">
+  <el-tooltip
+    placement="top"
+    content="查看详情"
+  >
+    <el-button
+      type="primary"
+      text
+      @click="handleClick(row)"
+    >
       <template #icon>
         <el-icon><View /></el-icon>
       </template>

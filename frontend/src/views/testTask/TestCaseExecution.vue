@@ -14,7 +14,10 @@
           <el-icon><Check /></el-icon>
           完成任务
         </el-button>
-        <el-button :loading="loading.navigate" @click="handleBack">
+        <el-button
+          :loading="loading.navigate"
+          @click="handleBack"
+        >
           <el-icon><ArrowLeft /></el-icon>
           返回任务列表
         </el-button>
@@ -23,8 +26,14 @@
 
     <div class="main-content">
       <!-- 左侧：用例列表 -->
-      <div class="left-panel" :class="{ collapsed: isCaseTreeCollapsed }">
-        <div class="filter-section" v-if="!isCaseTreeCollapsed">
+      <div
+        class="left-panel"
+        :class="{ collapsed: isCaseTreeCollapsed }"
+      >
+        <div
+          v-if="!isCaseTreeCollapsed"
+          class="filter-section"
+        >
           <div style="display: flex; align-items: center; flex: 1;">
             <el-input
               v-model="filterForm.search"
@@ -46,38 +55,67 @@
               style="margin-left: 10px; flex: 1;"
               @change="handleFilter"
             >
-              <el-option label="通过" value="pass" />
-              <el-option label="失败" value="fail" />
-              <el-option label="阻塞" value="blocked" />
-              <el-option label="不适用" value="not_applicable" />
-              <el-option label="未执行" value="" />
+              <el-option
+                label="通过"
+                value="pass"
+              />
+              <el-option
+                label="失败"
+                value="fail"
+              />
+              <el-option
+                label="阻塞"
+                value="blocked"
+              />
+              <el-option
+                label="不适用"
+                value="not_applicable"
+              />
+              <el-option
+                label="未执行"
+                value=""
+              />
             </el-select>
           </div>
           <div style="margin-left: 5px;">
             <el-button
               size="small"
               circle
-              @click="toggleCaseTree"
               :title="isCaseTreeCollapsed ? '展开用例树' : '收起用例树'"
+              @click="toggleCaseTree"
             >
-              <el-icon v-if="isCaseTreeCollapsed"><ArrowRight /></el-icon>
-              <el-icon v-else><ArrowLeft /></el-icon>
+              <el-icon v-if="isCaseTreeCollapsed">
+                <ArrowRight />
+              </el-icon>
+              <el-icon v-else>
+                <ArrowLeft />
+              </el-icon>
             </el-button>
           </div>
         </div>
-        <div v-else class="collapsed-header">
+        <div
+          v-else
+          class="collapsed-header"
+        >
           <el-button
             size="small"
             circle
-            @click="toggleCaseTree"
             :title="isCaseTreeCollapsed ? '展开用例树' : '收起用例树'"
+            @click="toggleCaseTree"
           >
-            <el-icon v-if="isCaseTreeCollapsed"><ArrowRight /></el-icon>
-            <el-icon v-else><ArrowLeft /></el-icon>
+            <el-icon v-if="isCaseTreeCollapsed">
+              <ArrowRight />
+            </el-icon>
+            <el-icon v-else>
+              <ArrowLeft />
+            </el-icon>
           </el-button>
         </div>
 
-        <div class="case-list" v-if="!isCaseTreeCollapsed">
+        <div
+          v-if="!isCaseTreeCollapsed"
+          class="case-list"
+        >
           <el-tree
             ref="caseTreeRef"
             :data="testCaseTree"
@@ -88,7 +126,10 @@
             @node-click="handleCaseClick"
           >
             <template #default="{ node, data }">
-              <div v-if="data.type === 'suite'" class="tree-node-content">
+              <div
+                v-if="data.type === 'suite'"
+                class="tree-node-content"
+              >
                 <span>{{ node.label }}</span>
                 <span class="suite-count">
                   (通过: {{ data.pass_count || 0 }} / 失败:
@@ -97,14 +138,18 @@
                   {{ data.not_applicable_count || 0 }})
                 </span>
               </div>
-              <div v-else class="tree-node-content">
+              <div
+                v-else
+                class="tree-node-content"
+              >
                 <span class="case-name">
                   {{ node.label }}
-                  <span class="case-number"
-                    >({{ data.case_number || "无编号" }})</span
-                  >
+                  <span class="case-number">({{ data.case_number || "无编号" }})</span>
                 </span>
-                <el-tag :type="getStatusType(data.status)" size="small">
+                <el-tag
+                  :type="getStatusType(data.status)"
+                  size="small"
+                >
                   {{ getStatusText(data.status || "") }}
                 </el-tag>
               </div>
@@ -116,24 +161,30 @@
       <!-- 中间：用例详情和执行区域 -->
       <div class="middle-panel">
         <!-- 左侧导航区域 -->
-      <div class="nav-area left-nav-area">
-        <el-button
-          v-if="hasPreviousCase"
-          :disabled="!hasPreviousCase"
-          @click="previousCase"
-          circle
-          class="nav-button left-button"
-          title="上一条"
-        >
-          <el-icon><ArrowLeft /></el-icon>
-        </el-button>
-        <!-- 当没有上一条用例时，显示占位元素 -->
-        <div v-else class="nav-button placeholder"></div>
-      </div>
+        <div class="nav-area left-nav-area">
+          <el-button
+            v-if="hasPreviousCase"
+            :disabled="!hasPreviousCase"
+            circle
+            class="nav-button left-button"
+            title="上一条"
+            @click="previousCase"
+          >
+            <el-icon><ArrowLeft /></el-icon>
+          </el-button>
+          <!-- 当没有上一条用例时，显示占位元素 -->
+          <div
+            v-else
+            class="nav-button placeholder"
+          />
+        </div>
 
         <!-- 用例内容区域 -->
         <div class="content-area">
-          <el-card v-if="selectedCase" shadow="hover">
+          <el-card
+            v-if="selectedCase"
+            shadow="hover"
+          >
             <template #header>
               <div class="card-header">
                 <div class="case-main-info">
@@ -161,28 +212,40 @@
 
             <div class="case-detail">
               <!-- 用例描述 -->
-              <el-descriptions title="用例描述" :column="1">
+              <el-descriptions
+                title="用例描述"
+                :column="1"
+              >
                 <el-descriptions-item>
                   {{ selectedCase.case_description || "-" }}
                 </el-descriptions-item>
               </el-descriptions>
 
               <!-- 测试数据 -->
-              <el-descriptions title="测试数据" :column="1">
+              <el-descriptions
+                title="测试数据"
+                :column="1"
+              >
                 <el-descriptions-item>
                   {{ selectedCase.test_data || "-" }}
                 </el-descriptions-item>
               </el-descriptions>
 
               <!-- 前置条件 -->
-              <el-descriptions title="前置条件" :column="1">
+              <el-descriptions
+                title="前置条件"
+                :column="1"
+              >
                 <el-descriptions-item>
                   {{ selectedCase.preconditions || "-" }}
                 </el-descriptions-item>
               </el-descriptions>
 
               <!-- 测试步骤 -->
-              <el-descriptions title="测试步骤" :column="1">
+              <el-descriptions
+                title="测试步骤"
+                :column="1"
+              >
                 <el-descriptions-item>
                   <div
                     v-for="(step, index) in parseSteps(selectedCase.steps)"
@@ -197,22 +260,28 @@
               </el-descriptions>
 
               <!-- 预期结果 -->
-              <el-descriptions title="预期结果" :column="1">
+              <el-descriptions
+                title="预期结果"
+                :column="1"
+              >
                 <el-descriptions-item>
                   {{ selectedCase.expected_result || "-" }}
                 </el-descriptions-item>
               </el-descriptions>
 
               <!-- 实际结果 -->
-              <el-descriptions title="实际结果" :column="1">
+              <el-descriptions
+                title="实际结果"
+                :column="1"
+              >
                 <el-descriptions-item>
                   <el-input
                     v-model="executionForm.actual_result"
                     type="textarea"
                     :rows="4"
                     placeholder="请输入实际执行结果"
-                    @input="debouncedSaveActualResult"
                     style="width: 100%"
+                    @input="debouncedSaveActualResult"
                   />
                 </el-descriptions-item>
               </el-descriptions>
@@ -263,7 +332,10 @@
               </div>
             </div>
           </el-card>
-          <div v-else class="no-selection">
+          <div
+            v-else
+            class="no-selection"
+          >
             <el-empty description="请选择一个测试用例进行执行" />
           </div>
         </div>
@@ -273,15 +345,18 @@
           <el-button
             v-if="hasNextCase"
             :disabled="!hasNextCase"
-            @click="nextCase"
             circle
             class="nav-button right-button"
             title="下一条"
+            @click="nextCase"
           >
             <el-icon><ArrowRight /></el-icon>
           </el-button>
           <!-- 当没有下一条用例时，显示占位元素 -->
-          <div v-else class="nav-button placeholder"></div>
+          <div
+            v-else
+            class="nav-button placeholder"
+          />
         </div>
       </div>
 
@@ -297,39 +372,66 @@
               <div class="total-number">
                 {{ totalCases }}
               </div>
-              <div class="total-label">总用例数</div>
+              <div class="total-label">
+                总用例数
+              </div>
             </div>
 
             <div class="status-stats">
-              <div class="stat-item" :class="['status-pass']">
+              <div
+                class="stat-item"
+                :class="['status-pass']"
+              >
                 <div class="stat-number">
                   {{ passCount }}
                 </div>
-                <div class="stat-label">通过</div>
+                <div class="stat-label">
+                  通过
+                </div>
               </div>
-              <div class="stat-item" :class="['status-fail']">
+              <div
+                class="stat-item"
+                :class="['status-fail']"
+              >
                 <div class="stat-number">
                   {{ failCount }}
                 </div>
-                <div class="stat-label">失败</div>
+                <div class="stat-label">
+                  失败
+                </div>
               </div>
-              <div class="stat-item" :class="['status-blocked']">
+              <div
+                class="stat-item"
+                :class="['status-blocked']"
+              >
                 <div class="stat-number">
                   {{ blockedCount }}
                 </div>
-                <div class="stat-label">阻塞</div>
+                <div class="stat-label">
+                  阻塞
+                </div>
               </div>
-              <div class="stat-item" :class="['status-not-applicable']">
+              <div
+                class="stat-item"
+                :class="['status-not-applicable']"
+              >
                 <div class="stat-number">
                   {{ notApplicableCount }}
                 </div>
-                <div class="stat-label">不适用</div>
+                <div class="stat-label">
+                  不适用
+                </div>
               </div>
-              <div class="stat-item" :class="['status-not-executed']">
+              <div
+                class="stat-item"
+                :class="['status-not-executed']"
+              >
                 <div class="stat-number">
                   {{ notExecutedCount }}
                 </div>
-                <div class="stat-label">未执行</div>
+                <div class="stat-label">
+                  未执行
+                </div>
               </div>
             </div>
 

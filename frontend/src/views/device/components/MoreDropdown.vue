@@ -1,7 +1,19 @@
 <template>
-  <el-tooltip effect="light" placement="top" :offset="1" content="更多操作">
-    <el-dropdown :hide-on-click="false" trigger="click">
-      <el-button type="primary" text :disabled="!isOnline">
+  <el-tooltip
+    effect="light"
+    placement="top"
+    :offset="1"
+    content="更多操作"
+  >
+    <el-dropdown
+      :hide-on-click="false"
+      trigger="click"
+    >
+      <el-button
+        type="primary"
+        text
+        :disabled="!isOnline"
+      >
         <template #icon>
           <el-icon><Operation /></el-icon>
         </template>

@@ -1,5 +1,8 @@
 <template>
-  <el-tooltip placement="top" :content="loading ? '连接中...' : '连接设备'">
+  <el-tooltip
+    placement="top"
+    :content="loading ? '连接中...' : '连接设备'"
+  >
     <el-button
       type="primary"
       text

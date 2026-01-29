@@ -3,8 +3,15 @@
     <div class="page-header">
       <div class="header-content">
         <h1>设备管理</h1>
-        <div class="right-content flex items-center" style="gap: 25px">
-          <el-button type="primary" :icon="Operation" @click="openTaskDialog">
+        <div
+          class="right-content flex items-center"
+          style="gap: 25px"
+        >
+          <el-button
+            type="primary"
+            :icon="Operation"
+            @click="openTaskDialog"
+          >
             测试任务
           </el-button>
           <div class="refresh-control">
@@ -35,7 +42,10 @@
     </div>
 
     <div class="device-content">
-      <el-card shadow="hover" class="device-card">
+      <el-card
+        shadow="hover"
+        class="device-card"
+      >
         <el-table
           ref="tableRef"
           v-loading="loading && !deviceList.length"
@@ -69,7 +79,10 @@
             <template #default="{ row }">
               <div class="device-serial-wrapper">
                 <div class="popover-wrapper">
-                  <DevicePopover :key="row.status" :device="row" />
+                  <DevicePopover
+                    :key="row.status"
+                    :device="row"
+                  />
                 </div>
                 <span class="device-id">{{ row.id }}</span>
                 <el-link
@@ -172,7 +185,12 @@
                   />
                 </div>
               </div>
-              <div v-else style="width: 100%; text-align: center">-</div>
+              <div
+                v-else
+                style="width: 100%; text-align: center"
+              >
+                -
+              </div>
             </div>
           </el-table-column>
 
@@ -243,7 +261,10 @@
               </div>
 
               <div class="flex-1 flex justify-center">
-                <ViewAction :row="row" :is-online="row.status === 'online'" />
+                <ViewAction
+                  :row="row"
+                  :is-online="row.status === 'online'"
+                />
               </div>
 
               <div class="flex-1 flex justify-center">
@@ -289,15 +310,24 @@
               </div>
             </div>
           </el-table-column>
-          <el-table-column type="expand" width="75">
+          <el-table-column
+            type="expand"
+            width="75"
+          >
             <template #header>
-              <el-icon class="" title="更多操作">
+              <el-icon
+                class=""
+                title="更多操作"
+              >
                 <Operation />
               </el-icon>
             </template>
 
             <template #default="{ row }">
-              <ControlBar :device="row" class="-my-4" />
+              <ControlBar
+                :device="row"
+                class="-my-4"
+              />
             </template>
           </el-table-column>
         </el-table>

@@ -1,5 +1,8 @@
 <template>
-  <div class="flex items-center flex-none" style="gap: 15px">
+  <div
+    class="flex items-center flex-none"
+    style="gap: 15px"
+  >
     <div class="w-96 flex-none">
       <el-autocomplete
         v-model="address"

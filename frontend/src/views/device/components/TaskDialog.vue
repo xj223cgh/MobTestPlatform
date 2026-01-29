@@ -41,13 +41,20 @@
         :rules="scriptRules"
         label-width="100px"
       >
-        <el-form-item label="任务类型" prop="taskType">
+        <el-form-item
+          label="任务类型"
+          prop="taskType"
+        >
           <el-radio-group
             v-model="scriptForm.taskType"
             @change="handleScriptTaskTypeChange"
           >
-            <el-radio label="script"> 脚本执行 </el-radio>
-            <el-radio label="install"> 安装应用 </el-radio>
+            <el-radio label="script">
+              脚本执行
+            </el-radio>
+            <el-radio label="install">
+              安装应用
+            </el-radio>
           </el-radio-group>
         </el-form-item>
 
@@ -62,14 +69,19 @@
               placeholder="请选择脚本文件"
               readonly
             />
-            <el-button type="primary" @click="selectFile"> 选择文件 </el-button>
+            <el-button
+              type="primary"
+              @click="selectFile"
+            >
+              选择文件
+            </el-button>
           </div>
         </el-form-item>
 
         <el-form-item
           v-if="
             scriptForm.taskType === 'script' &&
-            scriptForm.scriptType === 'shell'
+              scriptForm.scriptType === 'shell'
           "
           label="完整执行命令"
         >
@@ -87,7 +99,7 @@
         <el-form-item
           v-if="
             scriptForm.taskType === 'script' &&
-            scriptForm.scriptType === 'python'
+              scriptForm.scriptType === 'python'
           "
           label="完整执行命令"
         >
@@ -113,11 +125,19 @@
               placeholder="请选择 APK 文件"
               readonly
             />
-            <el-button type="primary" @click="selectFile"> 选择文件 </el-button>
+            <el-button
+              type="primary"
+              @click="selectFile"
+            >
+              选择文件
+            </el-button>
           </div>
         </el-form-item>
 
-        <el-form-item label="执行设备" prop="deviceIds">
+        <el-form-item
+          label="执行设备"
+          prop="deviceIds"
+        >
           <el-select
             v-model="scriptForm.deviceIds"
             multiple
@@ -146,21 +166,33 @@
             v-model="scriptForm.executionMode"
             @change="handleExecutionModeChange"
           >
-            <el-radio label="immediate"> 立即执行 </el-radio>
-            <el-radio label="scheduled"> 定时执行 </el-radio>
+            <el-radio label="immediate">
+              立即执行
+            </el-radio>
+            <el-radio label="scheduled">
+              定时执行
+            </el-radio>
           </el-radio-group>
         </el-form-item>
 
         <!-- 定时执行相关参数 -->
         <template v-if="scriptForm.executionMode === 'scheduled'">
-          <el-form-item label="任务名称" prop="taskName" :required="true">
+          <el-form-item
+            label="任务名称"
+            prop="taskName"
+            :required="true"
+          >
             <el-input
               v-model="scriptForm.taskName"
               placeholder="请输入任务名称"
             />
           </el-form-item>
 
-          <el-form-item label="执行时间" prop="scheduledTime" :required="true">
+          <el-form-item
+            label="执行时间"
+            prop="scheduledTime"
+            :required="true"
+          >
             <el-date-picker
               v-model="scriptForm.scheduledTime"
               type="datetime"
@@ -174,7 +206,10 @@
             />
           </el-form-item>
 
-          <el-form-item label="任务描述" prop="taskDescription">
+          <el-form-item
+            label="任务描述"
+            prop="taskDescription"
+          >
             <el-input
               v-model="scriptForm.taskDescription"
               type="textarea"
@@ -183,15 +218,33 @@
             />
           </el-form-item>
 
-          <el-form-item label="优先级" prop="priority">
-            <el-select v-model="scriptForm.priority" placeholder="请选择优先级">
-              <el-option label="高" value="high" />
-              <el-option label="中" value="medium" />
-              <el-option label="低" value="low" />
+          <el-form-item
+            label="优先级"
+            prop="priority"
+          >
+            <el-select
+              v-model="scriptForm.priority"
+              placeholder="请选择优先级"
+            >
+              <el-option
+                label="高"
+                value="high"
+              />
+              <el-option
+                label="中"
+                value="medium"
+              />
+              <el-option
+                label="低"
+                value="low"
+              />
             </el-select>
           </el-form-item>
 
-          <el-form-item label="相关文档" prop="documentationUrl">
+          <el-form-item
+            label="相关文档"
+            prop="documentationUrl"
+          >
             <el-input
               v-model="scriptForm.documentationUrl"
               type="textarea"
@@ -203,7 +256,9 @@
       </el-form>
 
       <template #footer>
-        <el-button @click="handleClose"> 取消 </el-button>
+        <el-button @click="handleClose">
+          取消
+        </el-button>
         <el-button
           type="primary"
           :loading="submitting"
@@ -222,7 +277,10 @@
     >
       <div v-if="resultData">
         <div v-if="resultData.single">
-          <el-descriptions :column="1" border>
+          <el-descriptions
+            :column="1"
+            border
+          >
             <el-descriptions-item label="退出码">
               {{ resultData.single.exit_code }}
             </el-descriptions-item>
@@ -231,12 +289,18 @@
             </el-descriptions-item>
           </el-descriptions>
 
-          <div v-if="resultData.single.stdout" class="result-section">
+          <div
+            v-if="resultData.single.stdout"
+            class="result-section"
+          >
             <h4>标准输出:</h4>
             <pre class="result-output">{{ resultData.single.stdout }}</pre>
           </div>
 
-          <div v-if="resultData.single.stderr" class="result-section">
+          <div
+            v-if="resultData.single.stderr"
+            class="result-section"
+          >
             <h4>标准错误:</h4>
             <pre class="result-output error">{{
               resultData.single.stderr
@@ -245,16 +309,31 @@
         </div>
 
         <div v-if="resultData.batch">
-          <el-table :data="resultData.batch" border>
-            <el-table-column prop="device_id" label="设备ID" width="120" />
-            <el-table-column prop="success" label="状态" width="80">
+          <el-table
+            :data="resultData.batch"
+            border
+          >
+            <el-table-column
+              prop="device_id"
+              label="设备ID"
+              width="120"
+            />
+            <el-table-column
+              prop="success"
+              label="状态"
+              width="80"
+            >
               <template #default="{ row }">
                 <el-tag :type="row.success ? 'success' : 'danger'">
                   {{ row.success ? "成功" : "失败" }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="message" label="消息" width="200" />
+            <el-table-column
+              prop="message"
+              label="消息"
+              width="200"
+            />
             <el-table-column label="输出">
               <template #default="{ row }">
                 <pre class="table-output">{{ row.output || "无输出" }}</pre>
@@ -265,7 +344,10 @@
       </div>
 
       <template #footer>
-        <el-button type="primary" @click="resultVisible = false">
+        <el-button
+          type="primary"
+          @click="resultVisible = false"
+        >
           关闭
         </el-button>
       </template>

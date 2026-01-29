@@ -2,9 +2,15 @@
   <div class="case-review-management">
     <el-card class="review-card">
       <!-- 评审中心选项卡 -->
-      <el-tabs v-model="activeTab" class="review-tabs">
+      <el-tabs
+        v-model="activeTab"
+        class="review-tabs"
+      >
         <!-- 待我评审 -->
-        <el-tab-pane label="待我评审" name="my-tasks">
+        <el-tab-pane
+          label="待我评审"
+          name="my-tasks"
+        >
           <div class="review-section">
             <div class="section-header">
               <h3>待我评审的用例集</h3>
@@ -113,7 +119,7 @@
                     size="small"
                     @click.stop="
                       scope.row.status === 'completed' ||
-                      scope.row.status === 'rejected'
+                        scope.row.status === 'rejected'
                         ? handleViewDetail(scope.row)
                         : handleReview(scope.row)
                     "
@@ -135,7 +141,10 @@
         </el-tab-pane>
 
         <!-- 我发起的评审 -->
-        <el-tab-pane label="我发起的评审" name="my-initiated">
+        <el-tab-pane
+          label="我发起的评审"
+          name="my-initiated"
+        >
           <div class="review-section">
             <div class="section-header">
               <h3>我发起的评审</h3>
@@ -253,7 +262,10 @@
         </el-tab-pane>
 
         <!-- 评审历史 -->
-        <el-tab-pane label="评审历史" name="review-history">
+        <el-tab-pane
+          label="评审历史"
+          name="review-history"
+        >
           <div class="review-section">
             <div class="section-header">
               <h3>用例集评审历史记录</h3>
@@ -261,7 +273,10 @@
 
             <!-- 用例集选择器 -->
             <div class="suite-selector">
-              <el-form :inline="true" class="suite-form">
+              <el-form
+                :inline="true"
+                class="suite-form"
+              >
                 <el-form-item label="目标用例集">
                   <div class="case-suite-selector">
                     <!-- 显示当前选中的用例集路径 -->
@@ -314,7 +329,7 @@
                                 class="node-icon"
                                 @click.stop="
                                   data.type === 'suite' &&
-                                  handleSuiteSelect(data)
+                                    handleSuiteSelect(data)
                                 "
                               >
                                 <!-- 这里使用el-icon，需要确保已导入相关图标 -->
@@ -325,17 +340,15 @@
                                 class="node-label"
                                 @click.stop="
                                   data.type === 'suite' &&
-                                  handleSuiteSelect(data)
+                                    handleSuiteSelect(data)
                                 "
-                                >{{ node.label }}</span
-                              >
+                              >{{ node.label }}</span>
                               <span
                                 v-if="
                                   data.type === 'suite' && data.cases_count > 0
                                 "
                                 class="case-count"
-                                >({{ data.cases_count }})</span
-                              >
+                              >({{ data.cases_count }})</span>
                             </span>
                           </template>
                         </el-tree>
@@ -451,16 +464,22 @@
       :width="'90%'"
       :before-close="handleDialogClose"
     >
-      <div v-if="currentReviewTask" class="review-dialog-content">
+      <div
+        v-if="currentReviewTask"
+        class="review-dialog-content"
+      >
         <!-- 评审任务基本信息 -->
         <div class="dialog-section">
           <h4>评审任务信息</h4>
-          <el-descriptions :column="2" border>
+          <el-descriptions
+            :column="2"
+            border
+          >
             <el-descriptions-item label="用例集名称">
               {{
                 currentReviewTask?.suite?.suite_name ||
-                currentReviewTask?.suite_name ||
-                "-"
+                  currentReviewTask?.suite_name ||
+                  "-"
               }}
             </el-descriptions-item>
             <el-descriptions-item label="发起人">
@@ -517,23 +536,32 @@
               'line-height': '1.5',
             }"
           >
-            <el-table-column label="用例编号" min-width="130">
+            <el-table-column
+              label="用例编号"
+              min-width="130"
+            >
               <template #default="scope">
                 {{
                   scope.row.case_number ||
-                  scope.row.test_case?.case_number ||
-                  "-"
+                    scope.row.test_case?.case_number ||
+                    "-"
                 }}
               </template>
             </el-table-column>
-            <el-table-column label="用例名称" min-width="140">
+            <el-table-column
+              label="用例名称"
+              min-width="140"
+            >
               <template #default="scope">
                 {{
                   scope.row.case_name || scope.row.test_case?.case_name || "-"
                 }}
               </template>
             </el-table-column>
-            <el-table-column label="优先级" width="90">
+            <el-table-column
+              label="优先级"
+              width="90"
+            >
               <template #default="scope">
                 <el-tag
                   :type="
@@ -552,7 +580,10 @@
               </template>
             </el-table-column>
 
-            <el-table-column label="测试数据" min-width="120">
+            <el-table-column
+              label="测试数据"
+              min-width="120"
+            >
               <template #default="scope">
                 <div class="text-with-newlines">
                   {{
@@ -561,47 +592,63 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column label="前置条件" min-width="160">
+            <el-table-column
+              label="前置条件"
+              min-width="160"
+            >
               <template #default="scope">
                 <div class="text-with-newlines">
                   {{
                     scope.row.preconditions ||
-                    scope.row.test_case?.preconditions ||
-                    "-"
+                      scope.row.test_case?.preconditions ||
+                      "-"
                   }}
                 </div>
               </template>
             </el-table-column>
-            <el-table-column label="测试步骤" min-width="170">
+            <el-table-column
+              label="测试步骤"
+              min-width="170"
+            >
               <template #default="scope">
                 <div class="text-with-newlines">
                   {{ scope.row.steps || scope.row.test_case?.steps || "-" }}
                 </div>
               </template>
             </el-table-column>
-            <el-table-column label="预期结果" min-width="160">
+            <el-table-column
+              label="预期结果"
+              min-width="160"
+            >
               <template #default="scope">
                 <div class="text-with-newlines">
                   {{
                     scope.row.expected_result ||
-                    scope.row.test_case?.expected_result ||
-                    "-"
+                      scope.row.test_case?.expected_result ||
+                      "-"
                   }}
                 </div>
               </template>
             </el-table-column>
-            <el-table-column label="实际结果" min-width="160">
+            <el-table-column
+              label="实际结果"
+              min-width="160"
+            >
               <template #default="scope">
                 <div class="text-with-newlines">
                   {{
                     scope.row.actual_result ||
-                    scope.row.test_case?.actual_result ||
-                    "-"
+                      scope.row.test_case?.actual_result ||
+                      "-"
                   }}
                 </div>
               </template>
             </el-table-column>
-            <el-table-column prop="review_status" label="评审状态" width="100">
+            <el-table-column
+              prop="review_status"
+              label="评审状态"
+              width="100"
+            >
               <template #default="scope">
                 <!-- 如果是评审人，显示可编辑的单选按钮组 -->
                 <el-radio-group
@@ -609,9 +656,15 @@
                   v-model="scope.row.review_status"
                   size="small"
                 >
-                  <el-radio-button label="pending"> 待审核 </el-radio-button>
-                  <el-radio-button label="approved"> 已通过 </el-radio-button>
-                  <el-radio-button label="rejected"> 已拒绝 </el-radio-button>
+                  <el-radio-button label="pending">
+                    待审核
+                  </el-radio-button>
+                  <el-radio-button label="approved">
+                    已通过
+                  </el-radio-button>
+                  <el-radio-button label="rejected">
+                    已拒绝
+                  </el-radio-button>
                 </el-radio-group>
                 <!-- 如果是发起人或其他用户，显示只读的状态标签 -->
                 <el-tag
@@ -622,7 +675,11 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="comments" label="评审意见" min-width="200">
+            <el-table-column
+              prop="comments"
+              label="评审意见"
+              min-width="200"
+            >
               <template #default="scope">
                 <!-- 如果是评审人，显示可编辑的输入框 -->
                 <el-input
@@ -635,7 +692,10 @@
                   size="small"
                 />
                 <!-- 如果是发起人或其他用户，显示只读的评审意见 -->
-                <div v-else class="read-only-comments">
+                <div
+                  v-else
+                  class="read-only-comments"
+                >
                   {{ scope.row.comments || "-" }}
                 </div>
               </template>
@@ -668,7 +728,10 @@
             placeholder="请输入整体评审意见"
           />
           <!-- 如果是发起人或评审历史详情，显示只读的评审意见 -->
-          <div v-else class="read-only-comments">
+          <div
+            v-else
+            class="read-only-comments"
+          >
             {{ overallComments || "暂无整体评审意见" }}
           </div>
         </div>
@@ -684,19 +747,19 @@
             <!-- 评审人操作按钮 -->
             <template v-if="isReviewer">
               <!-- 如果评审未完成且没有被拒绝的用例，显示完成评审按钮 -->
-      <el-button
-        v-if="
-          currentReviewTask &&
-          currentReviewTask.status !== 'completed' &&
-          currentReviewTask.status !== 'rejected' &&
-          !hasRejectedCases
-        "
-        type="primary"
-        :disabled="!canCompleteReview"
-        @click="handleCompleteReview"
-      >
-        完成评审
-      </el-button>
+              <el-button
+                v-if="
+                  currentReviewTask &&
+                    currentReviewTask.status !== 'completed' &&
+                    currentReviewTask.status !== 'rejected' &&
+                    !hasRejectedCases
+                "
+                type="primary"
+                :disabled="!canCompleteReview"
+                @click="handleCompleteReview"
+              >
+                完成评审
+              </el-button>
               <!-- 如果评审已完成，显示重新评审按钮 -->
               <el-button
                 v-else-if="
@@ -708,25 +771,25 @@
                 重新评审
               </el-button>
               <!-- 如果是评审人且评审状态不是待处理，或者有被拒绝的用例，显示打回评审按钮 -->
-      <el-button
-        v-if="
-          currentReviewTask &&
-          (currentReviewTask.status !== 'pending' && currentReviewTask.status !== 'rejected') ||
-          hasRejectedCases
-        "
-        type="danger"
-        @click="handleRejectReview"
-      >
-        打回评审
-      </el-button>
+              <el-button
+                v-if="
+                  currentReviewTask &&
+                    (currentReviewTask.status !== 'pending' && currentReviewTask.status !== 'rejected') ||
+                    hasRejectedCases
+                "
+                type="danger"
+                @click="handleRejectReview"
+              >
+                打回评审
+              </el-button>
             </template>
 
             <!-- 发起人操作按钮：已拒绝的评审可以重新发起 -->
             <el-button
               v-if="
                 isInitiator &&
-                currentReviewTask &&
-                currentReviewTask.status === 'rejected'
+                  currentReviewTask &&
+                  currentReviewTask.status === 'rejected'
               "
               type="warning"
               @click="handleReinitiateReview"

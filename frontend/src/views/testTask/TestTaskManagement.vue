@@ -1,7 +1,11 @@
 <template>
   <div class="test-task-management">
     <div class="filter-section">
-      <el-form :inline="true" :model="filterForm" class="filter-form">
+      <el-form
+        :inline="true"
+        :model="filterForm"
+        class="filter-form"
+      >
         <el-form-item label="搜索">
           <el-input
             v-model="filterForm.search"
@@ -24,10 +28,22 @@
             style="width: 120px"
             @change="handleSearch"
           >
-            <el-option label="待执行" value="pending" />
-            <el-option label="执行中" value="running" />
-            <el-option label="已暂停" value="paused" />
-            <el-option label="已完成" value="completed" />
+            <el-option
+              label="待执行"
+              value="pending"
+            />
+            <el-option
+              label="执行中"
+              value="running"
+            />
+            <el-option
+              label="已暂停"
+              value="paused"
+            />
+            <el-option
+              label="已完成"
+              value="completed"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="优先级">
@@ -38,9 +54,18 @@
             style="width: 120px"
             @change="handleSearch"
           >
-            <el-option label="高" value="high" />
-            <el-option label="中" value="medium" />
-            <el-option label="低" value="low" />
+            <el-option
+              label="高"
+              value="high"
+            />
+            <el-option
+              label="中"
+              value="medium"
+            />
+            <el-option
+              label="低"
+              value="low"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="项目">
@@ -77,14 +102,28 @@
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleSearch"> 搜索 </el-button>
-          <el-button @click="handleReset"> 重置 </el-button>
+          <el-button
+            type="primary"
+            @click="handleSearch"
+          >
+            搜索
+          </el-button>
+          <el-button @click="handleReset">
+            重置
+          </el-button>
         </el-form-item>
         <el-form-item style="margin-left: auto">
-          <el-button @click="loadTasks" circle title="刷新任务列表">
+          <el-button
+            circle
+            title="刷新任务列表"
+            @click="loadTasks"
+          >
             <el-icon><Refresh /></el-icon>
           </el-button>
-          <el-button type="primary" @click="handleCreate">
+          <el-button
+            type="primary"
+            @click="handleCreate"
+          >
             <el-icon><Plus /></el-icon>
             创建任务
           </el-button>
@@ -100,7 +139,10 @@
         @tab-change="handleTabChange"
       >
         <!-- 测试用例任务 -->
-        <el-tab-pane label="测试用例任务" name="test_case">
+        <el-tab-pane
+          label="测试用例任务"
+          name="test_case"
+        >
           <div class="table-section">
             <el-table
               v-loading="loading.testCase"
@@ -168,7 +210,10 @@
                 align="center"
               >
                 <template #default="{ row }">
-                  <el-tag :type="getPriorityType(row.priority)" size="small">
+                  <el-tag
+                    :type="getPriorityType(row.priority)"
+                    size="small"
+                  >
                     {{ getPriorityText(row.priority) }}
                   </el-tag>
                 </template>
@@ -180,12 +225,19 @@
                 align="center"
               >
                 <template #default="{ row }">
-                  <el-tag :type="getStatusType(row.status)" size="small">
+                  <el-tag
+                    :type="getStatusType(row.status)"
+                    size="small"
+                  >
                     {{ getStatusText(row.status) }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="计划时间" width="180" align="center">
+              <el-table-column
+                label="计划时间"
+                width="180"
+                align="center"
+              >
                 <template #default="{ row }">
                   <div
                     v-if="row.scheduled_time || row.scheduled_end_time"
@@ -204,12 +256,22 @@
                       }}</span>
                     </div>
                   </div>
-                  <span v-else class="no-data">-</span>
+                  <span
+                    v-else
+                    class="no-data"
+                  >-</span>
                 </template>
               </el-table-column>
-              <el-table-column label="统计" width="280" align="center">
+              <el-table-column
+                label="统计"
+                width="280"
+                align="center"
+              >
                 <template #default="{ row }">
-                  <div v-if="row.statistics" class="stats-mini">
+                  <div
+                    v-if="row.statistics"
+                    class="stats-mini"
+                  >
                     <div class="stats-header">
                       <span class="stats-rate">
                         <span class="stats-label">通过率:</span>
@@ -222,9 +284,7 @@
                           {{ row.statistics.pass_rate }}%
                         </span>
                       </span>
-                      <span class="stats-total"
-                        >总数: {{ row.statistics.total_cases }}</span
-                      >
+                      <span class="stats-total">总数: {{ row.statistics.total_cases }}</span>
                     </div>
                     <el-progress
                       :percentage="row.statistics.pass_rate"
@@ -265,7 +325,10 @@
                       </div>
                     </div>
                   </div>
-                  <span v-else class="no-data">-</span>
+                  <span
+                    v-else
+                    class="no-data"
+                  >-</span>
                 </template>
               </el-table-column>
               <el-table-column
@@ -358,7 +421,10 @@
         </el-tab-pane>
 
         <!-- 设备脚本任务 -->
-        <el-tab-pane label="设备脚本任务" name="device_script">
+        <el-tab-pane
+          label="设备脚本任务"
+          name="device_script"
+        >
           <div class="table-section">
             <el-table
               v-loading="loading.deviceScript"
@@ -393,7 +459,10 @@
                 align="center"
               >
                 <template #default="{ row }">
-                  <el-tag :type="getPriorityType(row.priority)" size="small">
+                  <el-tag
+                    :type="getPriorityType(row.priority)"
+                    size="small"
+                  >
                     {{ getPriorityText(row.priority) }}
                   </el-tag>
                 </template>
@@ -405,7 +474,10 @@
                 align="center"
               >
                 <template #default="{ row }">
-                  <el-tag :type="getStatusType(row.status)" size="small">
+                  <el-tag
+                    :type="getStatusType(row.status)"
+                    size="small"
+                  >
                     {{ getStatusText(row.status) }}
                   </el-tag>
                 </template>
@@ -428,10 +500,17 @@
                       </a>
                     </div>
                   </template>
-                  <span v-else class="no-data">-</span>
+                  <span
+                    v-else
+                    class="no-data"
+                  >-</span>
                 </template>
               </el-table-column>
-              <el-table-column label="计划时间" width="260" align="center">
+              <el-table-column
+                label="计划时间"
+                width="260"
+                align="center"
+              >
                 <template #default="{ row }">
                   <div
                     v-if="row.scheduled_time || row.scheduled_end_time"
@@ -450,7 +529,10 @@
                       }}</span>
                     </div>
                   </div>
-                  <span v-else class="no-data">-</span>
+                  <span
+                    v-else
+                    class="no-data"
+                  >-</span>
                 </template>
               </el-table-column>
               <el-table-column
@@ -546,7 +628,10 @@
       </el-tabs>
     </div>
 
-    <TaskDialog ref="taskDialogRef" @refresh="loadTasks" />
+    <TaskDialog
+      ref="taskDialogRef"
+      @refresh="loadTasks"
+    />
   </div>
 </template>
 

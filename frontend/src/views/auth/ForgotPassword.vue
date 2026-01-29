@@ -2,7 +2,9 @@
   <div class="forgot-password-container">
     <div class="forgot-password-card">
       <div class="forgot-password-header">
-        <div class="logo-text">MobTest</div>
+        <div class="logo-text">
+          MobTest
+        </div>
         <h1>忘记密码</h1>
         <p>请输入您的邮箱地址，我们将发送重置密码链接</p>
       </div>
@@ -37,7 +39,10 @@
         </el-form-item>
 
         <div class="back-link">
-          <el-link type="primary" @click="goToLogin">
+          <el-link
+            type="primary"
+            @click="goToLogin"
+          >
             <el-icon><ArrowLeft /></el-icon>
             返回登录
           </el-link>

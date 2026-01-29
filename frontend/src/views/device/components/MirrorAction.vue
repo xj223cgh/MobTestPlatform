@@ -1,5 +1,8 @@
 <template>
-  <el-tooltip placement="top" :content="loading ? '启动中...' : '启动投屏'">
+  <el-tooltip
+    placement="top"
+    :content="loading ? '启动中...' : '启动投屏'"
+  >
     <el-button
       type="primary"
       text

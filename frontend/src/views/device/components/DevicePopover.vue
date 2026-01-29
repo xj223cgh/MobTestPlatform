@@ -35,16 +35,24 @@
           class="w-full h-full object-contain"
           alt="设备截图"
           @click="handlePreview"
-        />
-        <div v-else class="text-center p-1 text-gray-500">
+        >
+        <div
+          v-else
+          class="text-center p-1 text-gray-500"
+        >
           <el-icon class="text-xl mb-0.5">
             <Picture />
           </el-icon>
-          <p class="text-xs">无法获取截图</p>
+          <p class="text-xs">
+            无法获取截图
+          </p>
         </div>
       </div>
 
-      <div class="overflow-auto mt-1" style="max-height: 40px">
+      <div
+        class="overflow-auto mt-1"
+        style="max-height: 40px"
+      >
         <el-descriptions
           border
           :column="1"

@@ -42,28 +42,58 @@
     >
       <el-row :gutter="20">
         <el-col :span="8">
-          <el-form-item label="任务名称" prop="task_name">
-            <el-input v-model="form.task_name" placeholder="请输入任务名称" />
+          <el-form-item
+            label="任务名称"
+            prop="task_name"
+          >
+            <el-input
+              v-model="form.task_name"
+              placeholder="请输入任务名称"
+            />
           </el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item label="任务类型" prop="task_type">
+          <el-form-item
+            label="任务类型"
+            prop="task_type"
+          >
             <el-select
               v-model="form.task_type"
               placeholder="请选择任务类型"
               @change="handleTaskTypeChange"
             >
-              <el-option label="测试用例任务" value="test_case" />
-              <el-option label="设备脚本任务" value="device_script" />
+              <el-option
+                label="测试用例任务"
+                value="test_case"
+              />
+              <el-option
+                label="设备脚本任务"
+                value="device_script"
+              />
             </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item label="优先级" prop="priority">
-            <el-select v-model="form.priority" placeholder="请选择优先级">
-              <el-option label="高" value="high" />
-              <el-option label="中" value="medium" />
-              <el-option label="低" value="low" />
+          <el-form-item
+            label="优先级"
+            prop="priority"
+          >
+            <el-select
+              v-model="form.priority"
+              placeholder="请选择优先级"
+            >
+              <el-option
+                label="高"
+                value="high"
+              />
+              <el-option
+                label="中"
+                value="medium"
+              />
+              <el-option
+                label="低"
+                value="low"
+              />
             </el-select>
           </el-form-item>
         </el-col>
@@ -135,7 +165,10 @@
 
       <el-row :gutter="20">
         <el-col :span="8">
-          <el-form-item label="负责人" prop="executor_id">
+          <el-form-item
+            label="负责人"
+            prop="executor_id"
+          >
             <el-select
               v-model="form.executor_id"
               placeholder="请选择任务负责人"
@@ -151,7 +184,10 @@
           </el-form-item>
         </el-col>
         <el-col :span="16">
-          <el-form-item label="计划时间" prop="scheduled_time">
+          <el-form-item
+            label="计划时间"
+            prop="scheduled_time"
+          >
             <el-date-picker
               v-model="form.scheduled_time"
               :type="
@@ -170,7 +206,10 @@
         </el-col>
       </el-row>
 
-      <el-form-item label="任务描述" prop="task_description">
+      <el-form-item
+        label="任务描述"
+        prop="task_description"
+      >
         <el-input
           v-model="form.task_description"
           type="textarea"
@@ -179,7 +218,10 @@
         />
       </el-form-item>
 
-      <el-form-item label="相关文档" prop="documentation_url">
+      <el-form-item
+        label="相关文档"
+        prop="documentation_url"
+      >
         <el-input
           v-model="form.documentation_url"
           type="textarea"
@@ -277,7 +319,10 @@
 
       <!-- 脚本文件和设备选择 - 仅设备脚本任务显示 -->
       <template v-if="form.task_type === 'device_script'">
-        <el-form-item label="脚本文件" prop="script_file">
+        <el-form-item
+          label="脚本文件"
+          prop="script_file"
+        >
           <div class="file-input-wrapper">
             <el-input
               v-if="!isEdit"
@@ -285,7 +330,10 @@
               placeholder="请选择脚本文件"
               readonly
             />
-            <div v-else class="file-link-wrapper">
+            <div
+              v-else
+              class="file-link-wrapper"
+            >
               <template v-if="form.script_file">
                 <div class="suite-link-wrapper">
                   <a
@@ -304,17 +352,28 @@
                   </el-icon>
                 </div>
               </template>
-              <el-button v-else type="primary" @click="selectScriptFile">
+              <el-button
+                v-else
+                type="primary"
+                @click="selectScriptFile"
+              >
                 选择文件
               </el-button>
             </div>
-            <el-button v-if="!isEdit" type="primary" @click="selectScriptFile">
+            <el-button
+              v-if="!isEdit"
+              type="primary"
+              @click="selectScriptFile"
+            >
               选择文件
             </el-button>
           </div>
         </el-form-item>
 
-        <el-form-item label="完整执行命令" prop="command">
+        <el-form-item
+          label="完整执行命令"
+          prop="command"
+        >
           <el-input
             v-model="form.command"
             type="textarea"
@@ -326,7 +385,10 @@
           />
         </el-form-item>
 
-        <el-form-item label="执行设备" prop="device_ids">
+        <el-form-item
+          label="执行设备"
+          prop="device_ids"
+        >
           <el-select
             v-model="form.device_ids"
             multiple
@@ -343,7 +405,10 @@
         </el-form-item>
       </template>
 
-      <el-row v-if="isEdit" :gutter="20">
+      <el-row
+        v-if="isEdit"
+        :gutter="20"
+      >
         <el-col :span="8">
           <el-form-item label="任务状态">
             <el-tag :type="getStatusType(taskDetail?.status)">
@@ -353,7 +418,10 @@
         </el-col>
         <el-col :span="8">
           <el-form-item label="创建者">
-            <el-tag type="info" size="default">
+            <el-tag
+              type="info"
+              size="default"
+            >
               {{ taskDetail?.creator_name || "-" }}
             </el-tag>
           </el-form-item>
@@ -366,7 +434,10 @@
       >
         执行统计
       </el-divider>
-      <div v-if="isEdit && taskDetail?.statistics" class="stats-detail-section">
+      <div
+        v-if="isEdit && taskDetail?.statistics"
+        class="stats-detail-section"
+      >
         <div class="stats-header">
           <div class="stats-rate">
             <span class="stats-label">通过率:</span>
@@ -379,9 +450,7 @@
               {{ taskDetail.statistics.pass_rate }}%
             </span>
           </div>
-          <span class="stats-total"
-            >总数: {{ taskDetail.test_case_count }}</span
-          >
+          <span class="stats-total">总数: {{ taskDetail.test_case_count }}</span>
         </div>
         <el-progress
           :percentage="taskDetail.statistics.pass_rate"

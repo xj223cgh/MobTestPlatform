@@ -1,5 +1,8 @@
 <template>
-  <el-tooltip placement="top" content="移除设备">
+  <el-tooltip
+    placement="top"
+    content="移除设备"
+  >
     <el-button
       type="danger"
       text

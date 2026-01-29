@@ -1,6 +1,9 @@
 <template>
   <div class="mindmap-container">
-    <div ref="mindmapRef" class="mindmap-wrapper" />
+    <div
+      ref="mindmapRef"
+      class="mindmap-wrapper"
+    />
   </div>
 </template>
 

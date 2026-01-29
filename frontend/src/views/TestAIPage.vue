@@ -3,9 +3,15 @@
     <h1>AI接口测试页面</h1>
     <div class="test-form">
       <h2>测试配置</h2>
-      <el-form :model="testForm" label-width="120px">
+      <el-form
+        :model="testForm"
+        label-width="120px"
+      >
         <el-form-item label="API基础URL">
-          <el-input v-model="testForm.baseUrl" placeholder="请输入API基础URL" />
+          <el-input
+            v-model="testForm.baseUrl"
+            placeholder="请输入API基础URL"
+          />
         </el-form-item>
         <el-form-item label="API密钥">
           <el-input
@@ -15,7 +21,10 @@
           />
         </el-form-item>
         <el-form-item label="模型名称">
-          <el-input v-model="testForm.model" placeholder="请输入模型名称" />
+          <el-input
+            v-model="testForm.model"
+            placeholder="请输入模型名称"
+          />
         </el-form-item>
         <el-form-item label="测试提示词">
           <el-input
@@ -52,15 +61,25 @@
           >
             {{ isLoading ? "测试中..." : "测试AI接口" }}
           </el-button>
-          <el-button type="default" @click="resetForm"> 重置 </el-button>
+          <el-button
+            type="default"
+            @click="resetForm"
+          >
+            重置
+          </el-button>
         </el-form-item>
       </el-form>
     </div>
     <div class="test-result">
       <h2>测试结果</h2>
-      <div v-if="result.success" class="success">
+      <div
+        v-if="result.success"
+        class="success"
+      >
         <div class="result-header">
-          <el-tag type="success"> 调用成功 </el-tag>
+          <el-tag type="success">
+            调用成功
+          </el-tag>
           <span class="time">耗时: {{ result.time }}ms</span>
         </div>
         <div class="result-content">
@@ -68,9 +87,14 @@
           <pre>{{ result.data }}</pre>
         </div>
       </div>
-      <div v-else-if="result.error" class="error">
+      <div
+        v-else-if="result.error"
+        class="error"
+      >
         <div class="result-header">
-          <el-tag type="danger"> 调用失败 </el-tag>
+          <el-tag type="danger">
+            调用失败
+          </el-tag>
           <span class="time">耗时: {{ result.time }}ms</span>
         </div>
         <div class="result-content">
@@ -78,7 +102,10 @@
           <pre>{{ result.error }}</pre>
         </div>
       </div>
-      <div v-else class="empty">
+      <div
+        v-else
+        class="empty"
+      >
         <p>请点击"测试AI接口"按钮开始测试</p>
       </div>
     </div>
