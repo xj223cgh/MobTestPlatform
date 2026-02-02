@@ -78,49 +78,58 @@
       v-else-if="currentReport"
       class="report-content"
     >
-      <!-- Tab 导航 -->
-      <el-tabs
-        v-model="activeTab"
-        class="report-tabs"
-      >
-        <el-tab-pane
-          label="概览"
-          name="overview"
-        >
-          <!-- 报告概览（可折叠） -->
-          <el-collapse v-model="collapseOverview">
-            <el-collapse-item name="overview">
-              <template #title>
-                <span class="collapse-title">报告概览</span>
-              </template>
-              <div class="overview-content">
-                <div class="overview-info">
-                  <div class="info-item">
-                    <span class="label">任务ID：</span>
-                    <span class="value">{{ currentReport.id }}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="label">任务类型：</span>
-                    <el-tag :type="currentReport.task_type === 'test_case' ? 'primary' : 'success'">
-                      {{ currentReport.task_type === 'test_case' ? '测试用例任务' : '设备脚本任务' }}
-                    </el-tag>
-                  </div>
-                  <div class="info-item">
-                    <span class="label">创建人：</span>
-                    <span class="value">{{ currentReport.created_by }}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="label">创建时间：</span>
-                    <span class="value">{{ formatDateTime(currentReport.created_at) }}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="label">完成时间：</span>
-                    <span class="value">{{ currentReport.completed_at ? formatDateTime(currentReport.completed_at) : '-' }}</span>
-                  </div>
-                </div>
+          <!-- 报告概览 -->
+          <div class="overview-section">
+            <h4 class="section-title">
+              报告概览
+            </h4>
+            <div class="overview-info">
+              <div class="info-item">
+                <span class="label">任务ID：</span>
+                <span class="value">{{ currentReport.id }}</span>
               </div>
-            </el-collapse-item>
-          </el-collapse>
+              <div class="info-item">
+                <span class="label">任务类型：</span>
+                <el-tag :type="currentReport.task_type === 'test_case' ? 'primary' : 'success'">
+                  {{ currentReport.task_type === 'test_case' ? '测试用例任务' : '设备脚本任务' }}
+                </el-tag>
+              </div>
+              <div class="info-item">
+                <span class="label">所属项目：</span>
+                <span class="value">{{ currentReport.project_name || '-' }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">所属迭代：</span>
+                <span class="value">{{ currentReport.iteration_name || '-' }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">所属需求：</span>
+                <span class="value">{{ currentReport.requirement_name || '-' }}</span>
+              </div>
+              <div v-if="currentReport.task_type === 'test_case'" class="info-item">
+                <span class="label">用例集：</span>
+                <el-link 
+                  type="primary" 
+                  :underline="false"
+                  @click="goToTestSuite(currentReport.suite_id)"
+                >
+                  {{ currentReport.suite_name || '-' }}
+                </el-link>
+              </div>
+              <div class="info-item">
+                <span class="label">创建人：</span>
+                <span class="value">{{ currentReport.created_by }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">创建时间：</span>
+                <span class="value">{{ formatDateTime(currentReport.created_at) }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">完成时间：</span>
+                <span class="value">{{ currentReport.completed_at ? formatDateTime(currentReport.completed_at) : '-' }}</span>
+              </div>
+            </div>
+          </div>
 
           <!-- 测试用例：统计卡片 + 图表 -->
           <template v-if="currentReport.task_type === 'test_case'">
@@ -228,27 +237,26 @@
 
           <!-- 设备脚本：统计 + 图表 -->
           <template v-else-if="currentReport.task_type === 'device_script'">
-            <el-collapse v-model="collapseScript">
-              <el-collapse-item name="script">
-                <template #title>
-                  <span class="collapse-title">脚本信息</span>
-                </template>
-                <div class="script-info-content">
-                  <div class="info-item">
-                    <span class="label">脚本文件名：</span>
-                    <span class="value">{{ currentReport.script_file || '-' }}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="label">执行命令：</span>
-                    <span class="value">{{ currentReport.command || '-' }}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="label">文件路径：</span>
-                    <span class="value">{{ currentReport.file_path || '-' }}</span>
-                  </div>
+            <!-- 脚本信息 -->
+            <div class="script-section">
+              <h4 class="section-title">
+                脚本信息
+              </h4>
+              <div class="script-info-content">
+                <div class="info-item">
+                  <span class="label">脚本文件名：</span>
+                  <span class="value">{{ currentReport.script_file || '-' }}</span>
                 </div>
-              </el-collapse-item>
-            </el-collapse>
+                <div class="info-item">
+                  <span class="label">执行命令：</span>
+                  <span class="value">{{ currentReport.command || '-' }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">文件路径：</span>
+                  <span class="value">{{ currentReport.file_path || '-' }}</span>
+                </div>
+              </div>
+            </div>
             <div class="stats-section">
               <h4 class="section-title">
                 执行统计
@@ -336,282 +344,131 @@
               </el-row>
             </div>
           </template>
-        </el-tab-pane>
 
-        <!-- 用例明细 Tab -->
-        <el-tab-pane
-          v-if="currentReport?.task_type === 'test_case'"
-          label="用例明细"
-          name="details"
-        >
-          <div class="table-toolbar">
-            <el-input
-              v-model="searchKeyword"
-              placeholder="搜索用例标题、备注、实际结果"
-              clearable
-              style="width: 280px"
-              @input="handleSearch"
-            >
-              <template #prefix>
-                <el-icon><Search /></el-icon>
-              </template>
-            </el-input>
-            <el-select
-              v-model="statusFilter"
-              placeholder="状态筛选"
-              clearable
-              style="width: 120px"
-              @change="handleFilter"
-            >
-              <el-option
-                label="全部"
-                value=""
-              />
-              <el-option
-                label="通过"
-                value="pass"
-              />
-              <el-option
-                label="失败"
-                value="fail"
-              />
-              <el-option
-                label="阻塞"
-                value="blocked"
-              />
-              <el-option
-                label="不适用"
-                value="not_applicable"
-              />
-            </el-select>
-            <el-button-group>
-              <el-button
-                :type="quickFilter === 'fail' ? 'danger' : 'default'"
-                @click="quickFilter = quickFilter === 'fail' ? '' : 'fail'"
+          <!-- 设备明细 -->
+          <div v-if="currentReport?.task_type === 'device_script'" class="device-details-section">
+            <h4 class="section-title">设备明细</h4>
+            <div class="table-toolbar">
+              <el-input
+                v-model="deviceSearchKeyword"
+                placeholder="搜索设备名称、ID"
+                clearable
+                style="width: 240px"
+                @input="handleDeviceSearch"
               >
-                仅失败
-              </el-button>
-              <el-button
-                :type="quickFilter === 'blocked' ? 'warning' : 'default'"
-                @click="quickFilter = quickFilter === 'blocked' ? '' : 'blocked'"
+                <template #prefix>
+                  <el-icon><Search /></el-icon>
+                </template>
+              </el-input>
+              <el-select
+                v-model="deviceStatusFilter"
+                placeholder="状态筛选"
+                clearable
+                style="width: 120px"
+                @change="handleDeviceFilter"
               >
-                仅阻塞
+                <el-option
+                  label="全部"
+                  value=""
+                />
+                <el-option
+                  label="成功"
+                  value="success"
+                />
+                <el-option
+                  label="失败"
+                  value="failed"
+                />
+              </el-select>
+              <el-button
+                :type="quickFilter === 'failed' ? 'danger' : 'default'"
+                @click="quickFilter = quickFilter === 'failed' ? '' : 'failed'"
+              >
+                仅失败设备
               </el-button>
-            </el-button-group>
+            </div>
+            <el-table
+              :data="paginatedDeviceDetails"
+              stripe
+              border
+              style="width: 100%"
+              fit
+            >
+              <el-table-column
+                prop="device_id"
+                label="设备ID"
+                width="90"
+                align="center"
+              >
+                <template #default="{ row }">
+                  <el-link
+                    type="primary"
+                    :underline="false"
+                    @click="goToDevice(row.device_id)"
+                  >
+                    {{ row.device_id }}
+                  </el-link>
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="device_name"
+                label="设备名称"
+                min-width="150"
+                show-overflow-tooltip
+              />
+              <el-table-column
+                prop="status"
+                label="执行状态"
+                width="100"
+                align="center"
+              >
+                <template #default="{ row }">
+                  <el-tag :type="row.status === 'success' ? 'success' : 'danger'">
+                    {{ row.status === 'success' ? '成功' : '失败' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="execution_time"
+                label="执行时间(s)"
+                width="120"
+                align="center"
+                sortable
+              />
+              <el-table-column
+                prop="exit_code"
+                label="退出码"
+                width="90"
+                align="center"
+              />
+              <el-table-column
+                label="操作"
+                width="120"
+                align="center"
+                fixed="right"
+              >
+                <template #default="{ row }">
+                  <el-button
+                    type="primary"
+                    size="small"
+                    link
+                    @click="handleViewOutput(row)"
+                  >
+                    <el-icon><Document /></el-icon>
+                    查看输出
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <el-pagination
+              :current-page="deviceCurrentPage"
+              :page-size="devicePageSize"
+              :page-sizes="[10, 20, 50, 100]"
+              :total="filteredDeviceDetails.length"
+              layout="total, sizes, prev, pager, next"
+              style="margin-top: 16px; justify-content: flex-end"
+            />
           </div>
-          <el-table
-            :data="paginatedCaseDetails"
-            stripe
-            border
-            style="width: 100%"
-            fit
-            default-sort="{ prop: 'status', order: 'ascending' }"
-            @sort-change="handleSortChange"
-          >
-            <el-table-column
-              prop="case_id"
-              label="用例ID"
-              width="90"
-              align="center"
-              sortable="custom"
-            >
-              <template #default="{ row }">
-                <el-link
-                  type="primary"
-                  :underline="false"
-                  @click="goToTestCase(row.case_id)"
-                >
-                  {{ row.case_id }}
-                </el-link>
-              </template>
-            </el-table-column>
-            <el-table-column
-              prop="case_title"
-              label="用例标题"
-              min-width="220"
-              show-overflow-tooltip
-            />
-            <el-table-column
-              prop="status"
-              label="执行状态"
-              width="100"
-              align="center"
-              sortable="custom"
-            >
-              <template #default="{ row }">
-                <el-tag :type="getCaseStatusTagType(row.status)">
-                  {{ getCaseStatusLabel(row.status) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column
-              prop="executed_by"
-              label="执行人"
-              width="100"
-              align="center"
-            />
-            <el-table-column
-              prop="executed_at"
-              label="执行时间"
-              width="170"
-              align="center"
-              sortable="custom"
-            >
-              <template #default="{ row }">
-                {{ row.executed_at ? formatDateTime(row.executed_at) : '-' }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              prop="actual_result"
-              label="实际结果"
-              min-width="180"
-              show-overflow-tooltip
-            />
-            <el-table-column
-              prop="remarks"
-              label="备注"
-              min-width="120"
-              show-overflow-tooltip
-            />
-          </el-table>
-          <el-pagination
-            :current-page="caseCurrentPage"
-            :page-size="casePageSize"
-            :page-sizes="[10, 20, 50, 100]"
-            :total="filteredCaseDetails.length"
-            layout="total, sizes, prev, pager, next"
-            style="margin-top: 16px; justify-content: flex-end"
-          />
-        </el-tab-pane>
-
-        <!-- 设备明细 Tab -->
-        <el-tab-pane
-          v-if="currentReport?.task_type === 'device_script'"
-          label="设备明细"
-          name="deviceDetails"
-        >
-          <div class="table-toolbar">
-            <el-input
-              v-model="deviceSearchKeyword"
-              placeholder="搜索设备名称、ID"
-              clearable
-              style="width: 240px"
-              @input="handleDeviceSearch"
-            >
-              <template #prefix>
-                <el-icon><Search /></el-icon>
-              </template>
-            </el-input>
-            <el-select
-              v-model="deviceStatusFilter"
-              placeholder="状态筛选"
-              clearable
-              style="width: 120px"
-              @change="handleDeviceFilter"
-            >
-              <el-option
-                label="全部"
-                value=""
-              />
-              <el-option
-                label="成功"
-                value="success"
-              />
-              <el-option
-                label="失败"
-                value="failed"
-              />
-            </el-select>
-            <el-button
-              :type="quickFilter === 'failed' ? 'danger' : 'default'"
-              @click="quickFilter = quickFilter === 'failed' ? '' : 'failed'"
-            >
-              仅失败设备
-            </el-button>
-          </div>
-          <el-table
-            :data="paginatedDeviceDetails"
-            stripe
-            border
-            style="width: 100%"
-            fit
-          >
-            <el-table-column
-              prop="device_id"
-              label="设备ID"
-              width="90"
-              align="center"
-            >
-              <template #default="{ row }">
-                <el-link
-                  type="primary"
-                  :underline="false"
-                  @click="goToDevice(row.device_id)"
-                >
-                  {{ row.device_id }}
-                </el-link>
-              </template>
-            </el-table-column>
-            <el-table-column
-              prop="device_name"
-              label="设备名称"
-              min-width="150"
-              show-overflow-tooltip
-            />
-            <el-table-column
-              prop="status"
-              label="执行状态"
-              width="100"
-              align="center"
-            >
-              <template #default="{ row }">
-                <el-tag :type="row.status === 'success' ? 'success' : 'danger'">
-                  {{ row.status === 'success' ? '成功' : '失败' }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column
-              prop="execution_time"
-              label="执行时间(s)"
-              width="120"
-              align="center"
-              sortable
-            />
-            <el-table-column
-              prop="exit_code"
-              label="退出码"
-              width="90"
-              align="center"
-            />
-            <el-table-column
-              label="操作"
-              width="120"
-              align="center"
-              fixed="right"
-            >
-              <template #default="{ row }">
-                <el-button
-                  type="primary"
-                  size="small"
-                  link
-                  @click="handleViewOutput(row)"
-                >
-                  <el-icon><Document /></el-icon>
-                  查看输出
-                </el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <el-pagination
-            :current-page="deviceCurrentPage"
-            :page-size="devicePageSize"
-            :page-sizes="[10, 20, 50, 100]"
-            :total="filteredDeviceDetails.length"
-            layout="total, sizes, prev, pager, next"
-            style="margin-top: 16px; justify-content: flex-end"
-          />
-        </el-tab-pane>
-      </el-tabs>
     </div>
 
     <div
@@ -687,8 +544,7 @@
             <div class="output-section">
               <pre
                 class="output-pre"
-                v-html="highlightedStdout"
-              />
+              >{{ currentOutputDetail?.output || '无输出' }}</pre>
             </div>
           </el-tab-pane>
           <el-tab-pane
@@ -759,7 +615,6 @@ const reportSummary = ref({
   not_applicable_count: 0,
   pass_rate: 0
 });
-const reportDetails = ref([]);
 const deviceReportSummary = ref({
   total_devices: 0,
   success_count: 0,
@@ -769,20 +624,12 @@ const deviceReportSummary = ref({
 const deviceReportDetails = ref([]);
 
 const activeTab = ref('overview');
-const collapseOverview = ref(['overview']);
-const collapseScript = ref(['script']);
 const quickFilter = ref('');
-const searchKeyword = ref('');
-const statusFilter = ref('');
 const deviceSearchKeyword = ref('');
 const deviceStatusFilter = ref('');
 const outputActiveTab = ref('stdout');
 const outputSearchKeyword = ref('');
 
-const caseCurrentPage = ref(1);
-const casePageSize = ref(20);
-const caseSortProp = ref('');
-const caseSortOrder = ref('');
 const deviceCurrentPage = ref(1);
 const devicePageSize = ref(20);
 
@@ -862,53 +709,7 @@ const deviceBarOption = computed(() => {
   };
 });
 
-// 筛选后的用例数据
-const filteredCaseDetails = computed(() => {
-  let list = [...reportDetails.value];
-  if (quickFilter.value) {
-    list = list.filter(r => r.status === quickFilter.value);
-  }
-  if (statusFilter.value) {
-    list = list.filter(r => r.status === statusFilter.value);
-  }
-  if (searchKeyword.value) {
-    const kw = searchKeyword.value.toLowerCase();
-    list = list.filter(r =>
-      (r.case_title || '').toLowerCase().includes(kw) ||
-      (r.remarks || '').toLowerCase().includes(kw) ||
-      (r.actual_result || '').toLowerCase().includes(kw)
-    );
-  }
-  if (caseSortProp.value) {
-    list.sort((a, b) => {
-      const va = a[caseSortProp.value];
-      const vb = b[caseSortProp.value];
-      if (caseSortProp.value === 'executed_at') {
-        const ta = va ? new Date(va).getTime() : 0;
-        const tb = vb ? new Date(vb).getTime() : 0;
-        return caseSortOrder.value === 'ascending' ? ta - tb : tb - ta;
-      }
-      if (caseSortProp.value === 'status') {
-        const order = ['fail', 'blocked', 'not_applicable', 'pass'];
-        const ia = order.indexOf(va) >= 0 ? order.indexOf(va) : 999;
-        const ib = order.indexOf(vb) >= 0 ? order.indexOf(vb) : 999;
-        return caseSortOrder.value === 'ascending' ? ia - ib : ib - ia;
-      }
-      const cmp = String(va || '').localeCompare(String(vb || ''));
-      return caseSortOrder.value === 'ascending' ? cmp : -cmp;
-    });
-  }
-  return list;
-});
 
-const paginatedCaseDetails = computed(() => {
-  const start = (caseCurrentPage.value - 1) * casePageSize.value;
-  return filteredCaseDetails.value.slice(start, start + casePageSize.value);
-});
-
-watch([quickFilter, statusFilter, searchKeyword], () => {
-  caseCurrentPage.value = 1;
-});
 
 // 筛选后的设备数据
 const filteredDeviceDetails = computed(() => {
@@ -948,25 +749,7 @@ const mergedOutput = computed(() => {
   return `=== 标准输出 ===\n${out}\n\n=== 错误输出 ===\n${err}`;
 });
 
-// 输出高亮（简单关键词高亮）
-const highlightedStdout = computed(() => {
-  const text = currentOutputDetail.value?.output || '无输出';
-  const kw = outputSearchKeyword.value;
-  if (!kw) return escapeHtml(text);
-  const regex = new RegExp(`(${escapeRegex(kw)})`, 'gi');
-  return escapeHtml(text).replace(regex, '<mark>$1</mark>');
-});
-
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-function escapeRegex(s) {
-  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+// 搜索关键词功能已移除，直接显示原始输出
 
 const fetchReportData = async () => {
   try {
@@ -983,7 +766,6 @@ const fetchReportData = async () => {
       currentReport.value = response.data.task_info;
       if (currentReport.value.task_type === 'test_case') {
         reportSummary.value = response.data.summary || {};
-        reportDetails.value = response.data.details || [];
       } else if (currentReport.value.task_type === 'device_script') {
         deviceReportSummary.value = response.data.summary || {};
         deviceReportDetails.value = response.data.details || [];
@@ -1002,18 +784,11 @@ const fetchReportData = async () => {
 };
 
 const handleBack = () => router.push('/report');
-const handleSearch = () => { caseCurrentPage.value = 1; };
-const handleFilter = () => { caseCurrentPage.value = 1; };
 const handleDeviceSearch = () => { deviceCurrentPage.value = 1; };
 const handleDeviceFilter = () => { deviceCurrentPage.value = 1; };
 
-const handleSortChange = ({ prop, order }) => {
-  caseSortProp.value = prop || '';
-  caseSortOrder.value = order || '';
-};
-
-const goToTestCase = (caseId) => {
-  router.push({ path: '/test-cases', query: { caseId } });
+const goToTestSuite = (suiteId) => {
+  router.push({ path: '/test-cases', query: { suite_id: suiteId } });
 };
 
 const goToDevice = (deviceId) => {
@@ -1048,18 +823,20 @@ const handleExportReport = async (format) => {
   if (!currentReport.value) return;
   try {
     if (format === 'excel') {
-      exportExcel();
+      await exportExcel();
     } else if (format === 'html') {
-      exportHtml();
+      await exportHtml();
     } else if (format === 'print') {
       handlePrint();
     }
   } catch (e) {
-    ElMessage.error('导出失败：' + (e.message || '未知错误'));
+    if (e.name !== 'AbortError') {
+      ElMessage.error('导出失败：' + (e.message || '未知错误'));
+    }
   }
 };
 
-function exportExcel() {
+async function exportExcel() {
   const wb = XLSX.utils.book_new();
   const taskInfo = currentReport.value;
   const overviewData = [
@@ -1067,6 +844,10 @@ function exportExcel() {
     ['任务ID', taskInfo.id],
     ['任务名称', taskInfo.task_name],
     ['任务类型', taskInfo.task_type === 'test_case' ? '测试用例任务' : '设备脚本任务'],
+    ['所属项目', taskInfo.project_name || '-'],
+    ['所属迭代', taskInfo.iteration_name || '-'],
+    ['所属需求', taskInfo.requirement_name || '-'],
+    ['用例集', taskInfo.suite_name || '-'],
     ['状态', getStatusLabel(taskInfo.status)],
     ['创建人', taskInfo.created_by],
     ['创建时间', formatDateTime(taskInfo.created_at)],
@@ -1087,19 +868,6 @@ function exportExcel() {
       []
     ];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), '统计');
-    const detailsData = [
-      ['用例ID', '用例标题', '执行状态', '执行人', '执行时间', '实际结果', '备注'],
-      ...filteredCaseDetails.value.map(r => [
-        r.case_id,
-        r.case_title,
-        getCaseStatusLabel(r.status),
-        r.executed_by,
-        r.executed_at ? formatDateTime(r.executed_at) : '-',
-        r.actual_result,
-        r.remarks
-      ])
-    ];
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detailsData), '用例明细');
   } else {
     const summaryData = [
       ['执行统计'],
@@ -1122,33 +890,99 @@ function exportExcel() {
     ];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detailsData), '设备明细');
   }
-  const fileName = `报告_${currentReport.value.task_name}_${dayjs().format('YYYYMMDDHHmmss')}.xlsx`;
-  XLSX.writeFile(wb, fileName);
-  ElMessage.success('Excel 导出成功');
+  
+  try {
+    // 生成 Excel 文件数据
+    const fileName = `报告_${currentReport.value.task_name}_${dayjs().format('YYYYMMDDHHmmss')}.xlsx`;
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    
+    // 检查是否支持 File System Access API
+    if ('showSaveFilePicker' in window) {
+      // 使用本地文件保存窗口
+      const fileHandle = await window.showSaveFilePicker({
+        suggestedName: fileName,
+        types: [
+          {
+            description: 'Excel 文件',
+            accept: {
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
+            }
+          }
+        ]
+      });
+      
+      // 写入文件
+      const writableStream = await fileHandle.createWritable();
+      await writableStream.write(blob);
+      await writableStream.close();
+      
+      ElMessage.success('Excel 导出成功');
+    } else {
+      // 降级方案：使用浏览器保存对话框
+      saveAs(blob, fileName);
+      ElMessage.success('Excel 导出成功');
+    }
+  } catch (error) {
+    if (error.name !== 'AbortError') {
+      ElMessage.error('导出失败：' + (error.message || '未知错误'));
+    }
+  }
 }
 
-function exportHtml() {
+async function exportHtml() {
   const taskInfo = currentReport.value;
   let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${taskInfo.task_name}</title>
 <style>body{font-family:sans-serif;padding:20px;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #ddd;padding:8px;}th{background:#f5f5f5;}</style></head><body>`;
   html += `<h1>${taskInfo.task_name}</h1><p>创建时间：${formatDateTime(taskInfo.created_at)} | 创建人：${taskInfo.created_by}</p>`;
+  html += `<p>所属项目：${taskInfo.project_name || '-'} | 所属迭代：${taskInfo.iteration_name || '-'} | 所属需求：${taskInfo.requirement_name || '-'} | 用例集：${taskInfo.suite_name || '-'}</p>`;
   if (currentReport.value.task_type === 'test_case') {
     html += `<h2>执行统计</h2><p>通过率：${reportSummary.value.pass_rate}% | 通过：${reportSummary.value.pass_count} | 失败：${reportSummary.value.fail_count}</p>`;
-    html += '<h2>用例明细</h2><table><tr><th>用例ID</th><th>用例标题</th><th>状态</th><th>执行人</th><th>执行时间</th><th>实际结果</th><th>备注</th></tr>';
-    filteredCaseDetails.value.forEach(r => {
-      html += `<tr><td>${r.case_id}</td><td>${r.case_title}</td><td>${getCaseStatusLabel(r.status)}</td><td>${r.executed_by || '-'}</td><td>${r.executed_at ? formatDateTime(r.executed_at) : '-'}</td><td>${r.actual_result || '-'}</td><td>${r.remarks || '-'}</td></tr>`;
-    });
   } else {
     html += `<h2>执行统计</h2><p>成功率：${deviceReportSummary.value.success_rate}% | 成功：${deviceReportSummary.value.success_count} | 失败：${deviceReportSummary.value.failed_count}</p>`;
     html += '<h2>设备明细</h2><table><tr><th>设备ID</th><th>设备名称</th><th>状态</th><th>执行时间(s)</th><th>退出码</th></tr>';
     filteredDeviceDetails.value.forEach(r => {
       html += `<tr><td>${r.device_id}</td><td>${r.device_name}</td><td>${r.status === 'success' ? '成功' : '失败'}</td><td>${r.execution_time || '-'}</td><td>${r.exit_code || '-'}</td></tr>`;
     });
+    html += '</table>';
   }
-  html += '</table></body></html>';
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  saveAs(blob, `报告_${taskInfo.task_name}_${dayjs().format('YYYYMMDDHHmmss')}.html`);
-  ElMessage.success('HTML 导出成功');
+  html += '</body></html>';
+  
+  try {
+    const fileName = `报告_${taskInfo.task_name}_${dayjs().format('YYYYMMDDHHmmss')}.html`;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    
+    // 检查是否支持 File System Access API
+    if ('showSaveFilePicker' in window) {
+      // 使用本地文件保存窗口
+      const fileHandle = await window.showSaveFilePicker({
+        suggestedName: fileName,
+        types: [
+          {
+            description: 'HTML 文件',
+            accept: {
+              'text/html': ['.html']
+            }
+          }
+        ]
+      });
+      
+      // 写入文件
+      const writableStream = await fileHandle.createWritable();
+      await writableStream.write(blob);
+      await writableStream.close();
+      
+      ElMessage.success('HTML 导出成功');
+    } else {
+      // 降级方案：使用浏览器保存对话框
+      saveAs(blob, fileName);
+      ElMessage.success('HTML 导出成功');
+    }
+  } catch (error) {
+    if (error.name !== 'AbortError') {
+      ElMessage.error('导出失败：' + (error.message || '未知错误'));
+    }
+  }
 }
 
 function handlePrint() {
@@ -1157,25 +991,12 @@ function handlePrint() {
 
 const formatDateTime = (dateTime) => (dateTime ? dayjs(dateTime).format('YYYY-MM-DD HH:mm:ss') : '-');
 
-const getStatusTagType = (status) => {
-  const map = { pending: 'info', executing: 'warning', completed: 'success', terminated: 'danger' };
-  return map[status] || 'info';
-};
-
 const getStatusLabel = (status) => {
   const map = { pending: '待执行', executing: '执行中', completed: '已完成', terminated: '已终止' };
   return map[status] || status;
 };
 
-const getCaseStatusTagType = (status) => {
-  const map = { pass: 'success', fail: 'danger', blocked: 'warning', not_applicable: 'info' };
-  return map[status] || 'info';
-};
 
-const getCaseStatusLabel = (status) => {
-  const map = { pass: '通过', fail: '失败', blocked: '阻塞', not_applicable: '不适用' };
-  return map[status] || status;
-};
 
 onMounted(() => fetchReportData());
 </script>
@@ -1253,18 +1074,11 @@ onMounted(() => fetchReportData());
   }
 }
 
-.report-tabs {
-  :deep(.el-tabs__header) {
-    margin-bottom: 20px;
-  }
-}
+/* 标签页组件已移除 */
 
-.collapse-title {
-  font-weight: 600;
-}
-
-.overview-content {
-  padding: 10px 0;
+.overview-section,
+.script-section {
+  margin-bottom: 24px;
 }
 
 .overview-info {

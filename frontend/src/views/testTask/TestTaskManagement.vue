@@ -444,7 +444,7 @@
               <el-table-column
                 prop="executor_name"
                 label="负责人"
-                width="220"
+                width="210"
                 show-overflow-tooltip
                 align="center"
               >
@@ -455,7 +455,7 @@
               <el-table-column
                 prop="priority"
                 label="优先级"
-                width="180"
+                width="100"
                 align="center"
               >
                 <template #default="{ row }">
@@ -470,7 +470,7 @@
               <el-table-column
                 prop="status"
                 label="状态"
-                width="180"
+                width="110"
                 align="center"
               >
                 <template #default="{ row }">
@@ -485,7 +485,7 @@
               <el-table-column
                 prop="script_file"
                 label="脚本文件"
-                min-width="140"
+                min-width="170"
                 align="center"
               >
                 <template #default="{ row }">
@@ -508,7 +508,7 @@
               </el-table-column>
               <el-table-column
                 label="计划时间"
-                width="260"
+                width="240"
                 align="center"
               >
                 <template #default="{ row }">
@@ -537,7 +537,7 @@
               </el-table-column>
               <el-table-column
                 label="操作"
-                width="240"
+                width="230"
                 fixed="right"
                 align="center"
               >
@@ -550,17 +550,6 @@
                     @click="handleExecute(row)"
                   >
                     <el-icon color="#67c23a">
-                      <VideoPlay />
-                    </el-icon>
-                  </el-button>
-                  <el-button
-                    v-if="row.status === 'running'"
-                    size="small"
-                    circle
-                    title="继续执行"
-                    @click="handleExecute(row)"
-                  >
-                    <el-icon color="#409eff">
                       <VideoPlay />
                     </el-icon>
                   </el-button>
@@ -653,6 +642,7 @@ import {
 import testTaskApi from "@/api/testTask";
 import projectApi from "@/api/project";
 import { getIterations, getProjectIterations } from "@/api/iteration";
+import deviceApi from "@/api/device";
 import TaskDialog from "./components/TaskDialog.vue";
 
 const activeTab = ref("test_case");
@@ -868,10 +858,87 @@ const handleExecute = async (row) => {
       const url = `${window.location.origin}/test-tasks/${row.id}/execute`;
       window.open(url, "_blank");
     } else {
-      // 对于设备脚本任务，直接调用API执行
-      await testTaskApi.executeTestTask(row.id);
-      ElMessage.success("测试任务开始执行");
-      loadTasks();
+      // 对于设备脚本任务，执行前检查设备连接状态
+      if (row.status === 'pending' || row.status === 'completed') {
+        // 获取任务关联的设备列表
+        const taskDevicesResponse = await testTaskApi.getTaskDevices(row.id);
+        const taskDevices = taskDevicesResponse.data?.devices || [];
+        
+        if (taskDevices.length === 0) {
+          ElMessage.warning("任务未关联任何设备，无法执行");
+          return;
+        }
+        
+        // 检查设备连接状态
+        let allDevicesConnected = true;
+        const disconnectedDevices = [];
+        
+        for (const device of taskDevices) {
+          try {
+            const statusResponse = await deviceApi.getDeviceStatus(device.id);
+            const deviceStatus = statusResponse.data?.status;
+            if (deviceStatus !== 'connected') {
+              allDevicesConnected = false;
+              disconnectedDevices.push(device.device_name || device.device_id);
+            }
+          } catch (error) {
+            // 设备状态检查失败，视为未连接
+            allDevicesConnected = false;
+            disconnectedDevices.push(device.device_name || device.device_id);
+          }
+        }
+        
+        if (!allDevicesConnected) {
+          ElMessage.warning(`以下设备未连接，无法执行任务：${disconnectedDevices.join(', ')}`);
+          return;
+        }
+        
+        // 执行待执行或已完成的任务
+        await testTaskApi.executeTestTask(row.id);
+        ElMessage.success("测试任务开始执行");
+        loadTasks();
+        
+        // 对于设备脚本任务，自动执行设备脚本
+        if (row.task_type === "device_script") {
+          try {
+            // 根据脚本文件扩展名确定任务类型
+            let taskType = "shell";
+            if (row.script_file) {
+              const fileExt = row.script_file.toLowerCase().split('.').pop();
+              if (fileExt === "py") {
+                taskType = "python";
+              }
+            }
+            
+            // 构建请求数据
+            const requestData = {
+              task_type: taskType, // 根据脚本文件扩展名确定任务类型
+              command: row.command || "",
+              task_id: row.id // 传递任务ID，以便后端在脚本执行完成后更新任务状态
+            };
+            
+            // 如果有脚本文件，使用file_path
+            if (row.file_path) {
+              requestData.file_path = row.file_path;
+              requestData.script_file = row.script_file;
+            }
+            
+            // 执行设备脚本
+            for (const device of taskDevices) {
+              await deviceApi.executeDeviceTask(device.id, requestData);
+            }
+            
+            ElMessage.success("设备脚本开始执行");
+          } catch (error) {
+            console.error("执行设备脚本失败:", error);
+            ElMessage.error(
+              "执行设备脚本失败：" + (error.response?.data?.message || error.message)
+            );
+          }
+        }
+      } else {
+        ElMessage.warning("当前任务状态不支持此操作");
+      }
     }
   } catch (error) {
     if (error !== "cancel") {
@@ -879,6 +946,17 @@ const handleExecute = async (row) => {
       ElMessage.error(
         "执行测试任务失败：" + (error.response?.data?.message || error.message),
       );
+      
+      // 如果是设备脚本任务，且任务状态为执行中，自动终止任务
+      if (row.task_type === "device_script" && row.status === "running") {
+        try {
+          await testTaskApi.completeTestTask(row.id);
+          ElMessage.success("任务已自动终止");
+          loadTasks();
+        } catch (stopError) {
+          console.error("终止任务失败:", stopError);
+        }
+      }
     }
   }
 };

@@ -165,6 +165,68 @@ def delete_device(device_id):
         return error_response(500, "设备删除失败，请稍后重试")
 
 
+@bp.route('/<device_id>/status', methods=['GET'])
+@login_required
+def get_device_status(device_id):
+    """获取设备状态"""
+    # 尝试根据设备ID查询（数据库主键）
+    try:
+        device = Device.query.get(int(device_id))
+    except ValueError:
+        device = None
+    
+    # 如果根据数据库主键查询不到，尝试根据设备序列号查询
+    if not device:
+        device = Device.query.filter_by(device_id=device_id).first()
+    
+    # 如果仍然查询不到设备，返回404
+    if not device:
+        return error_response(404, "设备不存在")
+    
+    try:
+        # 计算项目根目录路径
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        
+        # 使用escrcpy中的adb
+        adb_path = os.path.join(
+            project_root,
+            'escrcpy', 'electron', 'resources', 'extra', 'win', 'scrcpy', 'adb.exe'
+        )
+        
+        # 执行adb命令检查设备状态
+        result = subprocess.run(
+            [adb_path, '-s', device.device_id, 'get-state'],
+            capture_output=True,
+            text=True,
+            shell=False,
+            encoding='utf-8',
+            errors='ignore'
+        )
+        
+        # 解析设备状态
+        adb_status = result.stdout.strip()
+        
+        if adb_status == 'device':
+            # 设备已连接
+            return success_response({
+                'status': 'connected',
+                'adb_status': adb_status
+            })
+        else:
+            # 设备未连接
+            return success_response({
+                'status': 'disconnected',
+                'adb_status': adb_status
+            })
+            
+    except Exception as e:
+        # 执行adb命令失败，视为设备未连接
+        return success_response({
+            'status': 'disconnected',
+            'error': str(e)
+        })
+
+
 @bp.route('/os-types', methods=['GET'])
 @login_required
 def get_os_types():
@@ -378,10 +440,27 @@ def execute_task(device_id):
     command = data.get('command', '')
     file_path = data.get('file_path', '')
     file_content = data.get('file_content', '')
+    task_id = data.get('task_id')  # 可选的测试任务ID，用于执行完成后更新任务状态
 
     try:
         # 计算项目根目录路径
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        
+        # 获取设备对象，以便使用device.device_id构建adb命令
+        from app.models.models import Device
+        # 尝试根据设备ID查询（数据库主键）
+        try:
+            device = Device.query.get(int(device_id))
+        except ValueError:
+            device = None
+        
+        # 如果根据数据库主键查询不到，尝试根据设备序列号查询
+        if not device:
+            device = Device.query.filter_by(device_id=device_id).first()
+        
+        # 如果仍然查询不到设备，返回404
+        if not device:
+            return error_response(404, "设备不存在")
 
         if task_type == 'install' and (file_path or file_content):
             # 安装 APK
@@ -402,7 +481,7 @@ def execute_task(device_id):
                     file_path = f.name
 
             # 构建完整的命令
-            command_parts = [adb_path, '-s', str(device_id), 'install', '-r', file_path]
+            command_parts = [adb_path, '-s', device.device_id, 'install', '-r', file_path]
 
             # 执行安装命令
             result = subprocess.run(
@@ -421,6 +500,19 @@ def execute_task(device_id):
 
             # 检查安装是否成功
             if result.returncode == 0:
+                # 如果提供了任务ID，更新测试任务状态
+                if task_id:
+                    try:
+                        from app.models.models import TestTask
+                        test_task = TestTask.query.get(task_id)
+                        if test_task and test_task.status == 'running':
+                            test_task.status = 'completed'
+                            test_task.completed_time = datetime.now(timezone(timedelta(hours=8)))
+                            db.session.commit()
+                    except Exception as e:
+                        # 更新任务状态失败，不影响脚本执行结果
+                        pass
+                
                 return success_response({
                     'stdout': result.stdout,
                     'stderr': result.stderr,
@@ -444,15 +536,18 @@ def execute_task(device_id):
 
             if file_content:
                 # 执行脚本内容
-                command_parts = [adb_path, '-s', str(device_id), 'shell', file_content]
+                command_parts = [adb_path, '-s', device.device_id, 'shell', file_content]
             elif file_path:
                 # 执行脚本文件
-                with open(file_path, 'r', encoding='utf-8') as f:
+                # 将相对路径转换为完整路径
+                from flask import current_app
+                full_file_path = os.path.join(current_app.config['SCRIPT_STORAGE_PATH'], file_path)
+                with open(full_file_path, 'r', encoding='utf-8') as f:
                     script_content = f.read()
-                command_parts = [adb_path, '-s', str(device_id), 'shell', script_content]
+                command_parts = [adb_path, '-s', device.device_id, 'shell', script_content]
             elif command:
                 # 执行命令
-                command_parts = [adb_path, '-s', str(device_id), 'shell'] + command.split()
+                command_parts = [adb_path, '-s', device.device_id, 'shell'] + command.split()
             else:
                 return error_response(400, "请提供脚本文件或命令")
 
@@ -469,6 +564,19 @@ def execute_task(device_id):
 
             # 检查命令是否成功
             if result.returncode == 0:
+                # 如果提供了任务ID，更新测试任务状态
+                if task_id:
+                    try:
+                        from app.models.models import TestTask
+                        test_task = TestTask.query.get(task_id)
+                        if test_task and test_task.status == 'running':
+                            test_task.status = 'completed'
+                            test_task.completed_time = datetime.now(timezone(timedelta(hours=8)))
+                            db.session.commit()
+                    except Exception as e:
+                        # 更新任务状态失败，不影响脚本执行结果
+                        pass
+                
                 return success_response({
                     'stdout': result.stdout,
                     'stderr': result.stderr,
@@ -489,7 +597,10 @@ def execute_task(device_id):
                 script_content = file_content
             elif file_path:
                 # 执行 Python 脚本文件
-                with open(file_path, 'r', encoding='utf-8') as f:
+                # 将相对路径转换为完整路径
+                from flask import current_app
+                full_file_path = os.path.join(current_app.config['SCRIPT_STORAGE_PATH'], file_path)
+                with open(full_file_path, 'r', encoding='utf-8') as f:
                     script_content = f.read()
             else:
                 # 直接执行 Python 命令
@@ -503,7 +614,7 @@ def execute_task(device_id):
             try:
                 # 设置环境变量，传递设备ID
                 env = os.environ.copy()
-                env['DEVICE_ID'] = str(device_id)
+                env['DEVICE_ID'] = device.device_id
                 env['ADB_PATH'] = os.path.join(
                     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
                     'escrcpy', 'electron', 'resources', 'extra', 'win', 'scrcpy', 'adb.exe'
@@ -537,6 +648,19 @@ def execute_task(device_id):
 
                 # 检查命令是否成功
                 if result.returncode == 0:
+                    # 如果提供了任务ID，更新测试任务状态
+                    if task_id:
+                        try:
+                            from app.models.models import TestTask
+                            test_task = TestTask.query.get(task_id)
+                            if test_task and test_task.status == 'running':
+                                test_task.status = 'completed'
+                                test_task.completed_time = datetime.now(timezone(timedelta(hours=8)))
+                                db.session.commit()
+                        except Exception as e:
+                            # 更新任务状态失败，不影响脚本执行结果
+                            pass
+                    
                     return success_response({
                         'stdout': stdout,
                         'stderr': stderr,
@@ -570,8 +694,12 @@ def execute_task(device_id):
         # 其他错误返回简化的错误信息
         else:
             return error_response(500, "任务执行失败")
-    except FileNotFoundError:
-        return error_response(500, "执行任务失败: 找不到可执行文件")
+    except FileNotFoundError as e:
+        # 检查是找不到adb.exe还是找不到脚本文件
+        if "adb.exe" in str(e) or "adb" in str(e):
+            return error_response(500, "执行任务失败: 找不到adb可执行文件")
+        else:
+            return error_response(500, f"执行任务失败: 找不到文件: {str(e)}")
     except Exception as e:
         error_str = str(e).lower()
         # 检查是否是设备断开连接导致的错误
@@ -594,6 +722,7 @@ def execute_batch_tasks():
     command = data.get('command', '')
     file_path = data.get('file_path', '')
     file_content = data.get('file_content', '')
+    task_id = data.get('task_id')  # 可选的测试任务ID，用于执行完成后更新任务状态
 
     if not device_ids:
         return error_response(400, "请选择设备")
@@ -785,6 +914,19 @@ def execute_batch_tasks():
                 'output': ''
             })
 
+    # 如果提供了任务ID，更新测试任务状态
+    if task_id:
+        try:
+            from app.models.models import TestTask
+            test_task = TestTask.query.get(task_id)
+            if test_task and test_task.status == 'running':
+                test_task.status = 'completed'
+                test_task.completed_time = datetime.now(timezone(timedelta(hours=8)))
+                db.session.commit()
+        except Exception as e:
+            # 更新任务状态失败，不影响脚本执行结果
+            pass
+    
     return success_response({
         'results': results,
         'total': len(results),
@@ -793,7 +935,7 @@ def execute_batch_tasks():
     })
 
 
-def execute_batch_task_wrapper(device_ids, task_type, command, file_path, file_content=None):
+def execute_batch_task_wrapper(device_ids, task_type, command, file_path, file_content=None, task_id=None):
     """批量执行任务的包装函数，用于定时任务调用"""
     results = []
 
@@ -967,6 +1109,19 @@ def execute_batch_task_wrapper(device_ids, task_type, command, file_path, file_c
                 'output': ''
             })
 
+    # 如果提供了任务ID，更新测试任务状态
+    if task_id:
+        try:
+            from app.models.models import TestTask
+            test_task = TestTask.query.get(task_id)
+            if test_task and test_task.status == 'running':
+                test_task.status = 'completed'
+                test_task.completed_time = datetime.now(timezone(timedelta(hours=8)))
+                db.session.commit()
+        except Exception as e:
+            # 更新任务状态失败，不影响脚本执行结果
+            pass
+    
     return results
 
 
