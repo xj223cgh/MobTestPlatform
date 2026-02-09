@@ -74,6 +74,50 @@ class User(UserMixin, db.Model):
         }
 
 
+class SystemSetting(db.Model):
+    """系统设置模型（全局生效）"""
+    __tablename__ = 'system_settings'
+
+    id = db.Column(db.Integer, primary_key=True, comment='设置ID')
+    setting_key = db.Column(db.String(100), unique=True, nullable=False, comment='设置键')
+    setting_value = db.Column(db.Text, comment='设置值，可为字符串或JSON')
+    description = db.Column(db.String(255), comment='设置说明')
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'setting_key': self.setting_key,
+            'setting_value': self.setting_value,
+            'description': self.description,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class UserSetting(db.Model):
+    """用户个人设置模型"""
+    __tablename__ = 'user_settings'
+
+    id = db.Column(db.Integer, primary_key=True, comment='设置ID')
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, comment='用户ID')
+    setting_key = db.Column(db.String(100), nullable=False, comment='设置键')
+    setting_value = db.Column(db.Text, comment='设置值，可为字符串或JSON')
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
+
+    user = db.relationship('User', backref=db.backref('settings', lazy='dynamic', cascade='all, delete-orphan'))
+
+    __table_args__ = (db.UniqueConstraint('user_id', 'setting_key', name='uk_user_setting'),)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'setting_key': self.setting_key,
+            'setting_value': self.setting_value,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 class Project(db.Model):
     """项目模型"""
     __tablename__ = 'projects'
@@ -82,8 +126,8 @@ class Project(db.Model):
     project_name = db.Column(db.String(200), nullable=False, unique=True, comment='项目名称')
     description = db.Column(db.Text, comment='项目描述')
     status = db.Column(db.Enum(*PROJECT_STATUS), default='not_started', comment='项目状态')
-    owner_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='项目负责人ID')
-    creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='项目创建者ID')
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='项目负责人ID')
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='项目创建者ID')
     start_date = db.Column(db.DateTime, comment='开始日期')
     end_date = db.Column(db.DateTime, comment='结束日期')
     tags = db.Column(db.Text, comment='项目标签，JSON格式存储')
@@ -193,11 +237,11 @@ class VersionRequirement(db.Model):
     status = db.Column(db.Enum(*VERSION_REQUIREMENT_STATUS), default='new', comment='需求状态')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
-    priority = db.Column(db.Enum(*TEST_CASE_PRIORITY), default='medium', comment='优先级')
+    priority = db.Column(db.Enum(*PROJECT_PRIORITY), default='medium', comment='优先级')
     environment = db.Column(db.Enum(*PROJECT_ENVIRONMENT), default='test', comment='需求环境')
     estimated_hours = db.Column(db.Float, comment='预估工时')
     actual_hours = db.Column(db.Float, comment='实际工时')
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建者ID')
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, comment='创建者ID')
     assigned_to = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='分配给ID')
     start_date = db.Column(db.DateTime, comment='开始时间')
     end_date = db.Column(db.DateTime, comment='结束时间')
@@ -247,7 +291,7 @@ class ProjectMember(db.Model):
     
     id = db.Column(db.Integer, primary_key=True, comment='成员ID')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='项目ID')
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='用户ID')
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='用户ID')
     role = db.Column(db.Enum(*PROJECT_ROLE), default='tester', comment='项目角色')
     joined_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='加入时间')
     
@@ -397,7 +441,7 @@ class TestSuite(db.Model):
     parent_id = db.Column(db.Integer, db.ForeignKey('test_suites.id'), nullable=True, comment='父套件ID，用于构建目录结构')
     status = db.Column(db.Enum(*TEST_SUITE_STATUS), default='active', comment='状态')
     type = db.Column(db.Enum(*TEST_SUITE_TYPE), default='folder', comment='类型：folder-用例文件夹, suite-用例集')
-    creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建者ID')
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, comment='创建者ID')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
     version_requirement_id = db.Column(db.Integer, db.ForeignKey('version_requirements.id'), nullable=True, comment='关联的版本需求ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
@@ -632,7 +676,7 @@ class TestCase(db.Model):
     case_description = db.Column(db.Text, comment='用例描述')
     priority = db.Column(db.Enum(*TEST_CASE_PRIORITY), default='P1', comment='优先级')
     status = db.Column(db.Enum(*TEST_CASE_STATUS), default='', comment='状态')
-    creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建者ID')
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, comment='创建者ID')
     suite_id = db.Column(db.Integer, db.ForeignKey('test_suites.id'), nullable=False, comment='所属套件ID（用于模块树）')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
     version_requirement_id = db.Column(db.Integer, db.ForeignKey('version_requirements.id'), nullable=True, comment='关联的版本需求ID')
@@ -773,7 +817,7 @@ class TestTask(db.Model):
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
     status = db.Column(db.Enum(*TEST_TASK_STATUS), default='pending', comment='任务状态')
     priority = db.Column(db.Enum('high', 'medium', 'low'), default='medium', comment='任务优先级')
-    creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建者ID')
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, comment='创建者ID')
     executor_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='执行者ID')
     # 添加与测试套件的关联
     suite_id = db.Column(db.Integer, db.ForeignKey('test_suites.id'), nullable=True, comment='关联的测试套件ID')
@@ -917,6 +961,39 @@ class TestTask(db.Model):
         return result
 
 
+class Report(db.Model):
+    """报告模型（落库）"""
+    __tablename__ = 'reports'
+
+    id = db.Column(db.Integer, primary_key=True, comment='报告ID')
+    task_id = db.Column(db.Integer, db.ForeignKey('test_tasks.id', ondelete='CASCADE'), nullable=False, comment='关联任务ID')
+    report_type = db.Column(db.Enum('test_case', 'device_script'), nullable=False, comment='报告类型')
+    task_name = db.Column(db.String(200), nullable=False, comment='任务名称')
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id', ondelete='SET NULL'), nullable=True, comment='项目ID')
+    project_name = db.Column(db.String(200), comment='项目名称')
+    summary = db.Column(db.JSON, comment='报告摘要')
+    details = db.Column(db.JSON, comment='报告明细')
+    completed_at = db.Column(db.DateTime(timezone=True), comment='任务完成时间')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='报告生成时间')
+
+    task = db.relationship('TestTask', backref=db.backref('reports', lazy='dynamic'))
+    project = db.relationship('Project', backref=db.backref('report_list', lazy='dynamic'))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'task_id': self.task_id,
+            'report_type': self.report_type,
+            'task_name': self.task_name,
+            'project_id': self.project_id,
+            'project_name': self.project_name,
+            'summary': self.summary,
+            'details': self.details,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 class Tool(db.Model):
     """工具模型"""
     __tablename__ = 'tools'
@@ -928,7 +1005,7 @@ class Tool(db.Model):
     tool_path = db.Column(db.String(500), nullable=False, comment='工具路径')
     tool_config = db.Column(db.Text, comment='工具配置（JSON格式）')
     status = db.Column(db.Enum('active', 'inactive', 'maintenance'), default='active', comment='状态')
-    creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建者ID')
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, comment='创建者ID')
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     

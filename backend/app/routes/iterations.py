@@ -55,6 +55,7 @@ def create_iteration(project_id):
             end_date=end_date,
             version=data['version'],
             goal=data.get('goal', ''),
+            description=data.get('description', '') or '',
             status=data.get('status', 'planning'),
             created_by=current_user.id,
             updated_by=current_user.id
@@ -155,6 +156,8 @@ def update_iteration(iteration_id):
             iteration.status = data['status']
         if 'version' in data:
             iteration.version = data['version']
+        if 'description' in data:
+            iteration.description = data['description'] or ''
         if 'start_date' in data:
             try:
                 iteration.start_date = datetime.strptime(data['start_date'], '%Y-%m-%d')

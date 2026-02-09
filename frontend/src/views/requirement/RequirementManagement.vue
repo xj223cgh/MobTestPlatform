@@ -15,17 +15,17 @@
             end-placeholder="结束年月"
             format="YYYY-MM"
             value-format="YYYY-MM"
-            style="width: 220px"
+            style="width: 200px"
             @change="handleTimeRangeChange"
           />
         </el-form-item>
         <el-form-item label="所属项目">
           <el-select
             v-model="projectFilter"
-            placeholder="请选择所属项目"
+            placeholder="请选择项目"
             multiple
             clearable
-            style="width: 180px"
+            style="width: 135px"
             @change="handleProjectFilterChange"
           >
             <el-option
@@ -39,11 +39,11 @@
         <el-form-item label="所属迭代">
           <el-select
             v-model="iterationFilter"
-            placeholder="请选择所属迭代"
+            placeholder="请选择迭代"
             multiple
             clearable
             :disabled="!projectFilter || projectFilter.length === 0"
-            style="width: 180px"
+            style="width: 135px"
             @change="handleIterationFilterChange"
           >
             <el-option
@@ -51,26 +51,6 @@
               :key="iteration.id"
               :label="iteration.iteration_name"
               :value="iteration.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="创建者">
-          <el-select
-            v-model="creatorFilter"
-            placeholder="请选择创建者"
-            multiple
-            clearable
-            filterable
-            allow-create
-            default-first-option
-            style="width: 180px"
-            @change="getRequirementList"
-          >
-            <el-option
-              v-for="user in creatorOptions"
-              :key="user.id"
-              :label="user.real_name"
-              :value="user.id"
             />
           </el-select>
         </el-form-item>
@@ -83,7 +63,7 @@
             filterable
             allow-create
             default-first-option
-            style="width: 180px"
+            style="width: 140px"
             @change="getRequirementList"
           >
             <el-option
@@ -94,31 +74,34 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item>
-          <el-button
-            :loading="loading"
-            @click="resetFilters"
-          >
-            <el-icon><Refresh /></el-icon>
-            重置
-          </el-button>
-        </el-form-item>
-        <el-form-item>
-          <el-button
-            type="primary"
-            :loading="loading"
-            @click="handleCreateRequirement"
-          >
-            <el-icon><Plus /></el-icon>
-            创建需求
-          </el-button>
-        </el-form-item>
+        <div class="search-actions">
+          <el-form-item>
+            <el-button
+              :loading="loading"
+              @click="resetFilters"
+            >
+              <el-icon><Refresh /></el-icon>
+              重置
+            </el-button>
+          </el-form-item>
+          <el-form-item>
+            <el-button
+              type="primary"
+              :loading="loading"
+              @click="handleCreateRequirement"
+            >
+              <el-icon><Plus /></el-icon>
+              创建
+            </el-button>
+          </el-form-item>
+        </div>
       </el-form>
     </div>
 
-    <!-- 需求列表 -->
+    <!-- 需求列表：表格放在滚动视口内，横向滚动条在视口底部，无需滚到列表底部即可左右滑动 -->
     <div class="table-section">
-      <el-table
+      <div class="table-scroll-viewport">
+        <el-table
         v-loading="loading"
         :data="requirementList"
         stripe
@@ -131,11 +114,15 @@
           label="ID"
           width="80"
           align="center"
-        />
+        >
+          <template #default="scope">
+            {{ scope.row.id ?? "-" }}
+          </template>
+        </el-table-column>
         <el-table-column
           prop="requirement_name"
           label="需求名称"
-          min-width="150"
+          min-width="120"
           align="center"
         >
           <template #default="scope">
@@ -206,16 +193,6 @@
           </template>
         </el-table-column>
         <el-table-column
-          prop="updated_at"
-          label="更新时间"
-          min-width="120"
-          align="center"
-        >
-          <template #default="scope">
-            {{ formatDateTime(scope.row.updated_at) || "-" }}
-          </template>
-        </el-table-column>
-        <el-table-column
           prop="estimated_hours"
           label="预估工时"
           min-width="90"
@@ -229,22 +206,16 @@
         </el-table-column>
         <el-table-column
           label="操作"
-          width="180"
+          width="150"
           fixed="right"
           align="center"
         >
           <template #default="scope">
             <div class="operation-buttons">
               <el-button
-                type="primary"
-                size="small"
-                @click="handleViewRequirement(scope.row)"
-              >
-                查看
-              </el-button>
-              <el-button
                 type="success"
                 size="small"
+                class="op-btn"
                 @click="handleEditRequirement(scope.row)"
               >
                 编辑
@@ -252,6 +223,7 @@
               <el-button
                 type="danger"
                 size="small"
+                class="op-btn"
                 @click="handleDeleteRequirement(scope.row)"
               >
                 删除
@@ -260,6 +232,7 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
     </div>
 
     <!-- 分页 - 固定在右侧区域底部 -->
@@ -498,99 +471,6 @@
         </el-button>
       </template>
     </el-dialog>
-
-    <!-- 查看需求详情对话框 -->
-    <el-dialog
-      v-model="viewDialogVisible"
-      title="需求详情"
-      width="800px"
-    >
-      <div class="requirement-detail-view">
-        <el-descriptions
-          :column="2"
-          border
-          label-width="120px"
-        >
-          <el-descriptions-item label="需求名称">
-            {{ viewRequirement.requirement_name || "-" }}
-          </el-descriptions-item>
-          <el-descriptions-item label="状态">
-            <el-tag :type="getStatusType(viewRequirement.status)">
-              {{ getStatusText(viewRequirement.status) }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="优先级">
-            <el-tag :type="getPriorityType(viewRequirement.priority)">
-              {{ getPriorityText(viewRequirement.priority) }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="环境">
-            <el-tag :type="getEnvironmentType(viewRequirement.environment)">
-              {{ getEnvironmentText(viewRequirement.environment) }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="所属项目">
-            {{ viewRequirement.project_name || "-" }}
-          </el-descriptions-item>
-          <el-descriptions-item label="所属迭代">
-            {{ viewRequirement.iteration_name || "-" }}
-          </el-descriptions-item>
-          <el-descriptions-item label="负责人">
-            {{
-              viewRequirement.assigned_to_name ||
-                viewRequirement.assigned_to ||
-                "-"
-            }}
-          </el-descriptions-item>
-          <el-descriptions-item label="创建者">
-            {{
-              viewRequirement.created_by_name ||
-                viewRequirement.created_by ||
-                "-"
-            }}
-          </el-descriptions-item>
-          <el-descriptions-item label="预估工时">
-            {{
-              viewRequirement.estimated_hours
-                ? `${viewRequirement.estimated_hours}h`
-                : "-"
-            }}
-          </el-descriptions-item>
-          <el-descriptions-item label="实际工时">
-            {{
-              viewRequirement.actual_hours
-                ? `${viewRequirement.actual_hours}h`
-                : "-"
-            }}
-          </el-descriptions-item>
-          <el-descriptions-item label="开始时间">
-            {{ formatDateTime(viewRequirement.start_date) || "-" }}
-          </el-descriptions-item>
-          <el-descriptions-item label="结束时间">
-            {{ formatDateTime(viewRequirement.end_date) || "-" }}
-          </el-descriptions-item>
-          <el-descriptions-item label="更新时间">
-            {{ formatDateTime(viewRequirement.updated_at) || "-" }}
-          </el-descriptions-item>
-          <el-descriptions-item label="创建时间">
-            {{ formatDateTime(viewRequirement.created_at) || "-" }}
-          </el-descriptions-item>
-          <el-descriptions-item
-            label="需求描述"
-            :span="2"
-          >
-            <div class="description-content">
-              {{ viewRequirement.requirement_description || "-" }}
-            </div>
-          </el-descriptions-item>
-        </el-descriptions>
-      </div>
-      <template #footer>
-        <el-button @click="viewDialogVisible = false">
-          关闭
-        </el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -622,7 +502,6 @@ const timeRangeFilter = ref([
 ]);
 const projectFilter = ref([]);
 const iterationFilter = ref([]);
-const creatorFilter = ref([]);
 const assigneeFilter = ref([]);
 
 // 搜索表单
@@ -650,10 +529,6 @@ const dialogVisible = ref(false);
 const dialogTitle = ref("");
 const dialogLoading = ref(false);
 const editingRequirementId = ref(null);
-
-// 查看需求详情对话框
-const viewDialogVisible = ref(false);
-const viewRequirement = ref({});
 
 // 表单引用
 const requirementFormRef = ref(null);
@@ -738,13 +613,6 @@ const getRequirementList = async () => {
       if (iterationFilter.value && iterationFilter.value.length > 0) {
         allItems = allItems.filter((item) =>
           iterationFilter.value.includes(item.iteration_id),
-        );
-      }
-
-      // 按创建者筛选
-      if (creatorFilter.value && creatorFilter.value.length > 0) {
-        allItems = allItems.filter((item) =>
-          creatorFilter.value.includes(item.created_by),
         );
       }
 
@@ -844,7 +712,6 @@ const resetFilters = () => {
   ];
   projectFilter.value = [];
   iterationFilter.value = [];
-  creatorFilter.value = [];
   assigneeFilter.value = [];
   pagination.currentPage = 1;
   getOptionData(); // 重新获取选项数据
@@ -1396,14 +1263,6 @@ const handleEditRequirement = (row) => {
   dialogVisible.value = true;
 };
 
-// 查看需求详情
-const handleViewRequirement = (row) => {
-  // 设置查看需求数据
-  viewRequirement.value = { ...row };
-  // 显示查看对话框
-  viewDialogVisible.value = true;
-};
-
 // 保存需求
 const handleSaveRequirement = async () => {
   if (!requirementFormRef.value) return;
@@ -1485,17 +1344,20 @@ const handleDeleteRequirement = (row) => {
     });
 };
 
-// 页面加载时获取需求列表和选项数据
-onMounted(async () => {
-  await getOptionData();
+// 页面加载时：需求列表立即请求，选项数据并行加载，避免列表等待下拉数据
+onMounted(() => {
   getRequirementList();
+  getOptionData();
 });
 </script>
 
 <style lang="scss" scoped>
 .requirement-management {
   padding: 20px;
-  min-height: 100vh;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background-color: #f5f7fa;
 }
 
@@ -1505,41 +1367,74 @@ onMounted(async () => {
 }
 
 .search-section {
+  flex-shrink: 0;
   background: white;
   padding: 20px;
   border-radius: 8px;
   margin-bottom: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  overflow-x: hidden;
+  min-width: 0;
 }
 
 .search-section :deep(.el-form) {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 12px 16px;
   width: 100%;
 }
 
 .search-section :deep(.el-form-item) {
   margin-bottom: 0;
-}
-
-.search-section :deep(.el-form-item:last-child) {
-  margin-left: auto;
   margin-right: 0;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
-.search-section :deep(.el-form-item) {
-  margin-right: 10px;
+.search-section :deep(.el-form-item .el-date-editor),
+.search-section :deep(.el-form-item .el-select) {
+  min-width: 0;
 }
 
-.search-section :deep(.el-form-item:last-child) {
-  margin-right: 20px;
+/* 两个按钮始终靠右：一行时在右侧，换行时也在行末右对齐 */
+.search-section .search-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0 16px;
+}
+
+.search-section .search-actions :deep(.el-form-item) {
+  margin-bottom: 0;
 }
 
 .table-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   background: white;
   border-radius: 8px;
   overflow: hidden;
-  margin-bottom: 70px; /* 为固定的分页组件留出空间 */
+  margin-bottom: 56px; /* 分页条高度，表格底部与分页无明显间隔 */
+}
+
+/* 表格视口填满剩余高度，仅纵向滚动，不显示横向滑动条 */
+.table-section .table-scroll-viewport {
+  max-height: none !important;
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.table-section .table-scroll-viewport :deep(.el-table) {
+  min-width: 0 !important;
+}
+
+.table-section .table-scroll-viewport :deep(.el-table__body-wrapper) {
+  overflow-x: hidden !important;
 }
 
 /* 固定分页组件样式 */
@@ -1547,7 +1442,6 @@ onMounted(async () => {
   position: fixed;
   bottom: 0;
   right: 0;
-  left: 240px;
   z-index: 100;
   background: white;
   padding: 15px 20px;
@@ -1572,27 +1466,28 @@ onMounted(async () => {
   }
 
   .table-section {
-    margin-bottom: 70px;
+    margin-bottom: 56px;
   }
 }
 
+/* 操作列：三按钮单行、紧凑宽度，列已 fixed="right" 冻结 */
 .operation-buttons {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   justify-content: center;
   align-items: center;
-  flex-wrap: wrap;
-  padding: 4px;
-  min-height: 40px;
+  flex-wrap: nowrap;
+  padding: 2px 0;
 }
 
+.operation-buttons :deep(.el-button.op-btn),
 .operation-buttons :deep(.el-button) {
-  flex: 1;
-  min-width: 50px;
-  max-width: 60px;
+  flex: none;
+  min-width: 0;
+  padding: 2px 6px;
   font-size: 12px;
-  padding: 4px 8px;
-  margin: 2px 0;
+  margin: 0;
+  white-space: nowrap;
 }
 
 /* 确保在小屏幕下操作列不会被遮挡 */
@@ -1642,32 +1537,4 @@ onMounted(async () => {
   background-color: rgba(0, 0, 0, 0.2);
 }
 
-/* 查看需求详情样式 */
-.requirement-detail-view {
-  padding: 20px 0;
-}
-
-.description-content {
-  white-space: normal;
-  word-break: break-word;
-  line-height: 1.6;
-  padding: 10px;
-  min-height: 100px;
-}
-
-/* 描述项样式优化 */
-:deep(.el-descriptions__cell) {
-  vertical-align: top;
-}
-
-:deep(.el-descriptions__label) {
-  font-weight: 500;
-  background-color: #f5f7fa;
-  text-align: center;
-}
-
-/* 标签样式优化 */
-:deep(.el-descriptions .el-tag) {
-  margin-right: 0;
-}
 </style>

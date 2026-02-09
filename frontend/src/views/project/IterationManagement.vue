@@ -5,6 +5,8 @@
         <el-select
           v-model="selectedProjectId"
           placeholder="选择项目名称"
+          filterable
+          clearable
           style="width: 200px; margin-right: 15px"
           @change="handleProjectChange"
         >
@@ -25,7 +27,11 @@
     </div>
 
     <!-- 迭代卡片列表 -->
-    <div class="iteration-timeline-container">
+    <div
+      v-loading="pageLoading"
+      class="iteration-timeline-container"
+      element-loading-text="加载中..."
+    >
       <div
         v-for="(iteration, index) in iterationsData"
         :key="iteration.id"
@@ -184,7 +190,7 @@
 
     <!-- 创建/编辑迭代对话框 -->
     <el-dialog
-      :visible="iterationDialogVisible"
+      v-model="iterationDialogVisible"
       :title="iterationDialogTitle"
       width="500px"
       @close="resetIterationForm"
@@ -312,10 +318,10 @@ import {
   getProjectIterations,
   createIteration,
   updateIteration,
-  deleteIteration,
+  deleteIteration as deleteIterationApi,
 } from "@/api/iteration";
 import { getProjects } from "@/api/project";
-import { ElLoading } from "element-plus";
+import { ElLoading, ElMessage, ElMessageBox } from "element-plus";
 
 export default {
   name: "IterationManagement",
@@ -328,6 +334,9 @@ export default {
       // 迭代列表数据
       iterations: [],
       iterationsData: [],
+
+      // 页面初始加载状态，避免进入页面时数据延迟出现
+      pageLoading: true,
 
       // 创建/编辑迭代表单
       iterationDialogVisible: false,
@@ -406,15 +415,16 @@ export default {
       try {
         const response = await getProjects();
         this.projects = response.data?.items || [];
-        // 调试：检查项目数据结构
-        console.log("Projects data:", this.projects);
         if (this.projects.length > 0) {
           this.selectedProjectId = this.projects[0].id;
-          this.loadIterations();
+          await this.loadIterations();
+        } else {
+          this.pageLoading = false;
         }
       } catch (error) {
         console.error("获取项目列表失败:", error);
-        this.$message.error(
+        this.pageLoading = false;
+        ElMessage.error(
           "获取项目列表失败: " + (error?.message || "未知错误"),
         );
       }
@@ -422,14 +432,15 @@ export default {
 
     // 加载迭代列表
     async loadIterations() {
-      if (!this.selectedProjectId) return;
+      if (!this.selectedProjectId) {
+        this.pageLoading = false;
+        return;
+      }
 
-      const loadingInstance = ElLoading.service();
       try {
         const response = await getProjectIterations(this.selectedProjectId);
         if (response && response.code === 200 && response.data) {
           this.iterations = response.data?.items || [];
-          // 按开始日期排序，最新的在下面
           this.iterationsData = [...this.iterations].sort((a, b) => {
             return new Date(a.start_date) - new Date(b.start_date);
           });
@@ -439,18 +450,19 @@ export default {
         }
       } catch (error) {
         console.error("获取迭代列表失败:", error);
-        this.$message.error(
+        ElMessage.error(
           "获取迭代列表失败: " + (error?.message || "未知错误"),
         );
         this.iterations = [];
         this.iterationsData = [];
       } finally {
-        loadingInstance.close();
+        this.pageLoading = false;
       }
     },
 
     // 处理项目变更
     handleProjectChange() {
+      this.pageLoading = true;
       this.loadIterations();
     },
 
@@ -486,6 +498,18 @@ export default {
       this.resetIterationForm();
     },
 
+    // 将日期格式化为 YYYY-MM-DD，后端只接受该格式
+    formatDateForApi(value) {
+      if (!value) return "";
+      if (typeof value === "string") {
+        return value.slice(0, 10);
+      }
+      if (value instanceof Date) {
+        return value.toISOString().slice(0, 10);
+      }
+      return "";
+    },
+
     // 提交迭代表单
     async submitIterationForm() {
       if (!this.$refs.iterationForm) return;
@@ -498,27 +522,27 @@ export default {
           iteration_name: this.iterationForm.iteration_name,
           goal: this.iterationForm.goal,
           version: this.iterationForm.version,
-          start_date: this.iterationForm.start_date,
-          end_date: this.iterationForm.end_date,
+          start_date: this.formatDateForApi(this.iterationForm.start_date),
+          end_date: this.formatDateForApi(this.iterationForm.end_date),
           status: this.iterationForm.status,
-          description: this.iterationForm.description,
+          description: this.iterationForm.description ?? "",
         };
 
         if (this.iterationForm.id) {
           // 更新迭代
           await updateIteration(this.iterationForm.id, iterationData);
-          this.$message.success("迭代更新成功");
+          ElMessage.success("迭代更新成功");
         } else {
           // 创建迭代
           await createIteration(iterationData);
-          this.$message.success("迭代创建成功");
+          ElMessage.success("迭代创建成功");
         }
 
         this.closeIterationDialog();
         this.loadIterations();
       } catch (error) {
         console.error("提交迭代表单失败:", error);
-        this.$message.error("操作失败: " + (error?.message || "未知错误"));
+        ElMessage.error("操作失败: " + (error?.message || "未知错误"));
       }
     },
 
@@ -538,19 +562,19 @@ export default {
     // 删除迭代
     async deleteIteration(iteration) {
       try {
-        await this.$confirm("确定要删除这个迭代吗？", "警告", {
+        await ElMessageBox.confirm("确定要删除这个迭代吗？", "警告", {
           confirmButtonText: "确定",
           cancelButtonText: "取消",
           type: "warning",
         });
 
-        await deleteIteration(iteration.id);
-        this.$message.success("迭代删除成功");
+        await deleteIterationApi(iteration.id);
+        ElMessage.success("迭代删除成功");
         this.loadIterations();
       } catch (error) {
         if (error !== "cancel") {
           console.error("删除迭代失败:", error);
-          this.$message.error("删除失败: " + (error?.message || "未知错误"));
+          ElMessage.error("删除失败: " + (error?.message || "未知错误"));
         }
       }
     },

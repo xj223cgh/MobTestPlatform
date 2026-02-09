@@ -2,10 +2,8 @@
   <div class="user-management">
     <div class="page-header">
       <div class="header-content">
-        <h1>用户管理</h1>
-        <p class="description">
-          管理系统用户账号与权限
-        </p>
+        <h1 class="header-title">用户管理</h1>
+        <span class="header-description">管理系统用户账号与权限</span>
       </div>
       <div class="header-actions">
         <el-button
@@ -106,9 +104,10 @@
 
     <!-- 用户表格 -->
     <div class="table-section">
-      <el-table
-        v-loading="loading"
-        :data="userList"
+      <div class="table-scroll-viewport">
+        <el-table
+          v-loading="loading"
+          :data="userList"
         stripe
         border
         style="width: 100%"
@@ -206,7 +205,7 @@
         </el-table-column>
         <el-table-column
           label="操作"
-          min-width="180"
+          width="150"
           fixed="right"
           align="center"
         >
@@ -215,6 +214,7 @@
               <el-button
                 type="primary"
                 size="small"
+                class="op-btn"
                 @click="handleEdit(row)"
               >
                 编辑
@@ -222,6 +222,7 @@
               <el-button
                 :type="row.is_active ? 'warning' : 'success'"
                 size="small"
+                class="op-btn"
                 @click="handleToggleStatus(row)"
               >
                 {{ row.is_active ? "禁用" : "启用" }}
@@ -229,6 +230,7 @@
               <el-button
                 type="danger"
                 size="small"
+                class="op-btn"
                 @click="handleDelete(row)"
               >
                 删除
@@ -237,6 +239,7 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
     </div>
 
     <!-- 分页 - 固定在右侧区域底部 -->
@@ -770,47 +773,87 @@ onMounted(() => {
 <style lang="scss" scoped>
 .user-management {
   padding: 20px;
-  min-height: 100vh;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background-color: #f5f7fa;
 }
 
 .page-header {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   background: white;
-  padding: 20px;
+  padding: 16px 20px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 
-  .header-content h1 {
+  .header-content {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .header-title {
     margin: 0;
     font-size: 24px;
     font-weight: 500;
     color: #303133;
   }
 
-  .description {
-    margin: 8px 0 0;
+  .header-description {
     color: #606266;
     font-size: 14px;
   }
 }
 
 .search-section {
+  flex-shrink: 0;
   background: white;
-  padding: 20px;
+  padding: 16px 20px;
   border-radius: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
+/* 去掉表单项默认下边距，使搜索区域上下空白与 padding 一致 */
+.search-section :deep(.el-form) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin-bottom: 0;
+}
+
+.search-section :deep(.el-form-item) {
+  margin-bottom: 0;
+  margin-right: 0;
+}
+
 .table-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   background: white;
   border-radius: 8px;
   overflow: hidden;
   margin-bottom: 70px; /* 为固定的分页组件留出空间 */
+}
+
+/* 用户列表固定在一屏内，仅表格区域垂直滚动 */
+.table-section .table-scroll-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.table-section .table-scroll-viewport :deep(.el-table__body-wrapper) {
+  overflow-x: hidden !important;
 }
 
 /* 固定分页组件样式 */
@@ -818,7 +861,6 @@ onMounted(() => {
   position: fixed;
   bottom: 0;
   right: 0;
-  left: 240px;
   z-index: 100;
   background: white;
   padding: 15px 20px;
@@ -847,10 +889,23 @@ onMounted(() => {
   }
 }
 
+/* 操作列：与需求管理页面一致，紧凑按钮样式 */
 .operation-buttons {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   justify-content: center;
   align-items: center;
+  flex-wrap: nowrap;
+  padding: 2px 0;
+}
+
+.operation-buttons :deep(.el-button.op-btn),
+.operation-buttons :deep(.el-button) {
+  flex: none;
+  min-width: 0;
+  padding: 2px 6px;
+  font-size: 12px;
+  margin: 0;
+  white-space: nowrap;
 }
 </style>

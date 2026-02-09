@@ -138,7 +138,7 @@
             :allow-drop="allowDrop"
             :allow-drag="allowDrag"
             :default-expanded-keys="expandedKeys"
-            :current-node-key="caseForm.suite_id"
+            :current-node-key="selectedSuite?.id"
             node-key="id"
             @node-click="handleNodeClick"
             @node-drop="handleNodeDrop"
@@ -298,7 +298,7 @@
           v-if="viewMode === 'list'"
           class="case-list"
         >
-          <div class="table-wrapper">
+          <div class="table-wrapper table-scroll-viewport">
             <!-- AI生成中提示 -->
             <div
               v-if="isGeneratingCases"
@@ -669,14 +669,28 @@
         <!-- 脑图视图 -->
         <div
           v-if="viewMode === 'mindmap'"
-          class="mindmap-view"
+          class="mindmap-view-wrapper"
         >
-          <MindMap
-            :data="mindMapData"
-            :visible="true"
-            @node-select="handleMindMapNodeSelect"
-            @content-change="handleMindMapContentChange"
-          />
+          <el-tooltip
+            content="新标签页全屏查看"
+            placement="left"
+          >
+            <el-button
+              class="mindmap-fullscreen-btn"
+              :icon="FullScreen"
+              circle
+              size="small"
+              @click="openMindmapFullscreen"
+            />
+          </el-tooltip>
+          <div class="mindmap-view">
+            <MindMap
+              :data="mindMapData"
+              :visible="true"
+              @node-select="handleMindMapNodeSelect"
+              @content-change="handleMindMapContentChange"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -1580,6 +1594,12 @@
                     :data="getFolderTreeData()"
                     :props="defaultProps"
                     node-key="id"
+                    style="
+                      max-height: 300px;
+                      overflow-y: auto;
+                      width: 100%;
+                      padding-right: 10px;
+                    "
                     :expand-on-click-node="false"
                     @node-click="handleImportParentSuiteSelect"
                   >
@@ -1634,6 +1654,12 @@
                     :data="treeData"
                     :props="defaultProps"
                     node-key="id"
+                    style="
+                      max-height: 300px;
+                      overflow-y: auto;
+                      width: 100%;
+                      padding-right: 10px;
+                    "
                     :expand-on-click-node="false"
                     @node-click="handleExportCaseSuiteSelect"
                   >
@@ -2183,6 +2209,7 @@ import {
   Download,
   Upload,
   DocumentCopy,
+  FullScreen,
 } from "@element-plus/icons-vue";
 import {
   getTestSuiteTree,
@@ -3168,10 +3195,7 @@ onMounted(() => {
 
 // 组件销毁时移除事件监听器
 onUnmounted(() => {
-  // 移除mousedown事件监听器，注意这里不能直接传递closeContextMenu函数
-  // 因为添加的是一个匿名函数，需要重新获取并移除
-  // 或者使用命名函数来处理
-  document.removeEventListener("click", handleGlobalClick);
+  document.removeEventListener("click", handleSuitePopoverGlobalClick);
 });
 
 // 递归获取所有节点ID
@@ -3928,65 +3952,6 @@ watch(
   },
 );
 
-// 监听父套件弹出层可见性变化，添加或移除全局点击事件监听器
-watch(
-  () => parentSuitePopoverVisible,
-  (newValue) => {
-    if (newValue) {
-      // 添加全局点击事件监听器
-      document.addEventListener("click", handleGlobalClick);
-    } else if (!caseSuitePopoverVisible.value) {
-      // 只有当所有弹出层都关闭时，才移除监听器
-      document.removeEventListener("click", handleGlobalClick);
-    }
-  },
-);
-
-// 监听用例集弹出层可见性变化，添加或移除全局点击事件监听器
-watch(
-  () => caseSuitePopoverVisible,
-  (newValue) => {
-    if (newValue) {
-      // 添加全局点击事件监听器
-      document.addEventListener("click", handleGlobalClick);
-    } else if (!parentSuitePopoverVisible.value) {
-      // 只有当所有弹出层都关闭时，才移除监听器
-      document.removeEventListener("click", handleGlobalClick);
-    }
-  },
-);
-
-// 全局点击事件处理函数
-const handleGlobalClick = (event) => {
-  // 检查父套件选择器
-  const parentSuiteSelector = document.querySelector(".parent-suite-selector");
-  const parentPopover = document.querySelector(".el-popover");
-
-  // 检查用例集选择器
-  const caseSuiteSelector = document.querySelector(".case-suite-selector");
-  const casePopover = document.querySelectorAll(".el-popover")[1]; // 获取第二个popover
-
-  // 关闭父套件弹出层
-  if (
-    parentSuiteSelector &&
-    !parentSuiteSelector.contains(event.target) &&
-    parentPopover &&
-    !parentPopover.contains(event.target)
-  ) {
-    parentSuitePopoverVisible.value = false;
-  }
-
-  // 关闭用例集弹出层
-  if (
-    caseSuiteSelector &&
-    !caseSuiteSelector.contains(event.target) &&
-    casePopover &&
-    !casePopover.contains(event.target)
-  ) {
-    caseSuitePopoverVisible.value = false;
-  }
-};
-
 // 清除父套件选择
 const clearParentSuiteSelection = () => {
   suiteForm.parent_id = null;
@@ -4416,10 +4381,13 @@ const resetCaseForm = () => {
 };
 
 // 切换视图模式
-const toggleViewMode = () => {
+const toggleViewMode = async () => {
   viewMode.value = viewMode.value === "list" ? "mindmap" : "list";
-  // 切换到脑图视图时，生成脑图数据
-  if (viewMode.value === "mindmap") {
+  // 切换到脑图视图时，先拉取当前用例集全部用例再生成脑图
+  if (viewMode.value === "mindmap" && selectedSuite.value?.type === "suite") {
+    await loadAllTestCases(selectedSuite.value.id);
+    generateMindMapData();
+  } else if (viewMode.value === "mindmap") {
     generateMindMapData();
   }
 };
@@ -4456,8 +4424,9 @@ const generateMindMapData = () => {
     },
   };
 
-  // 如果当前用例集没有用例，显示提示
-  if (!testCases.value || testCases.value.length === 0) {
+  // 脑图使用当前用例集全部数据（allTestCases），而非列表分页数据
+  const casesForMindMap = allTestCases.value || [];
+  if (casesForMindMap.length === 0) {
     mindMapRoot.root.children.push({
       id: "no-cases",
       data: {
@@ -4468,8 +4437,8 @@ const generateMindMapData = () => {
     return;
   }
 
-  // 遍历当前用例集中的所有用例
-  testCases.value.forEach((testCase) => {
+  // 遍历当前用例集中的全部用例
+  casesForMindMap.forEach((testCase) => {
     // 优先级和状态图标映射
     const priorityIconMap = {
       P0: "🔴P0",
@@ -4556,9 +4525,31 @@ const generateMindMapData = () => {
   mindMapData.value = mindMapRoot;
 };
 
-// 刷新脑图
-const refreshMindMap = () => {
+// 刷新脑图（先拉取当前用例集全部用例再生成）
+const refreshMindMap = async () => {
+  if (selectedSuite.value?.type === "suite") {
+    await loadAllTestCases(selectedSuite.value.id);
+  }
   generateMindMapData();
+};
+
+// 新标签页全屏查看脑图
+const openMindmapFullscreen = () => {
+  if (!selectedSuite.value || selectedSuite.value.type !== "suite") {
+    ElMessage.warning("请先选择一个用例集");
+    return;
+  }
+  const resolved = router.resolve({
+    name: "MindmapFullscreen",
+    query: {
+      suite_id: selectedSuite.value.id,
+      suite_name: selectedSuite.value.suite_name || "",
+    },
+  });
+  const fullUrl = resolved.href.startsWith("http")
+    ? resolved.href
+    : `${window.location.origin}${resolved.href}`;
+  window.open(fullUrl, "_blank");
 };
 
 // 脑图节点选择事件处理
@@ -4906,6 +4897,51 @@ const exportCaseSuiteVisible = ref(false);
 const exportSelectedCaseSuitePath = ref("");
 const importUploadRef = ref(null);
 const uploadBtnRef = ref(null);
+
+// 全局点击：点击在任意“触发区域”或“下拉面板”外时，关闭所有用例集/父套件下拉
+const handleSuitePopoverGlobalClick = (event) => {
+  const triggers = document.querySelectorAll(
+    ".parent-suite-selector, .case-suite-selector",
+  );
+  const panels = document.querySelectorAll(".el-popover");
+  const isInsideAny = (el) => {
+    if (!el) return false;
+    for (const t of triggers) {
+      if (t.contains(el)) return true;
+    }
+    for (const p of panels) {
+      if (p.contains(el)) return true;
+    }
+    return false;
+  };
+  if (!isInsideAny(event.target)) {
+    parentSuitePopoverVisible.value = false;
+    caseSuitePopoverVisible.value = false;
+    importParentSuiteVisible.value = false;
+    exportCaseSuiteVisible.value = false;
+    reviewSuitePopoverVisible.value = false;
+  }
+};
+
+// 任一用例集/父套件下拉打开时注册全局点击，全部关闭时移除
+watch(
+  () => [
+    parentSuitePopoverVisible.value,
+    caseSuitePopoverVisible.value,
+    importParentSuiteVisible.value,
+    exportCaseSuiteVisible.value,
+    reviewSuitePopoverVisible.value,
+  ],
+  (vals) => {
+    const anyOpen = vals.some(Boolean);
+    if (anyOpen) {
+      document.addEventListener("click", handleSuitePopoverGlobalClick);
+    } else {
+      document.removeEventListener("click", handleSuitePopoverGlobalClick);
+    }
+  },
+  { immediate: true },
+);
 
 // 导入状态管理
 const isImporting = ref(false);
@@ -6011,7 +6047,8 @@ const handleCurrentChange = (page) => {
     .tree-container {
       flex: 1;
       padding: 15px 15px 15px 20px;
-      overflow: auto;
+      overflow-x: auto;
+      overflow-y: auto;
       background-color: #ffffff;
       width: fit-content;
       min-width: 100%;
@@ -6064,6 +6101,15 @@ const handleCurrentChange = (page) => {
         border-top: 1px solid #ebeef5;
       }
     }
+  }
+
+  /* 用例集/父套件下拉树：统一最大高度与垂直滚动条，数据多时可滚动 */
+  :deep(.suite-tree-popover) {
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  :deep(.suite-tree-popover .el-tree) {
+    min-height: 0;
   }
 
   .right-panel {
@@ -6256,7 +6302,6 @@ const handleCurrentChange = (page) => {
 .pagination-container {
   position: fixed;
   bottom: 0;
-  left: 230px; /* 与左侧菜单栏实际宽度对齐 */
   right: 0;
   display: flex;
   justify-content: center;
@@ -6323,11 +6368,26 @@ const handleCurrentChange = (page) => {
 }
 
 /* 脑图缺省页面样式 */
-.mindmap-view {
+.mindmap-view-wrapper {
+  position: relative;
   flex: 1;
+  min-height: 0;
   display: flex;
-  justify-content: center;
-  align-items: center;
+  flex-direction: column;
+}
+
+.mindmap-fullscreen-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+}
+
+.mindmap-view-wrapper .mindmap-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   background-color: #f5f7fa;
 }
 

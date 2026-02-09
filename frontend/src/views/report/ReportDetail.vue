@@ -591,7 +591,7 @@ import { CanvasRenderer } from 'echarts/renderers';
 import { PieChart, BarChart } from 'echarts/charts';
 import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components';
 import dayjs from 'dayjs';
-import { getReportData } from '@/api/report';
+import { getReportData, getReportByRecordId } from '@/api/report';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 
@@ -761,7 +761,8 @@ const fetchReportData = async () => {
       ElMessage.error('报告ID无效');
       return;
     }
-    const response = await getReportData(id);
+    const isRecord = route.name === 'ReportDetailByRecord' || route.path.indexOf('record') !== -1;
+    const response = isRecord ? await getReportByRecordId(id) : await getReportData(id);
     if (response && response.success && response.data) {
       currentReport.value = response.data.task_info;
       if (currentReport.value.task_type === 'test_case') {
@@ -999,6 +1000,14 @@ const getStatusLabel = (status) => {
 
 
 onMounted(() => fetchReportData());
+
+watch(
+  () => [route.params.id, route.path],
+  () => {
+    reportId.value = route.params.id;
+    fetchReportData();
+  },
+);
 </script>
 
 <style lang="scss" scoped>

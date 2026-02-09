@@ -118,9 +118,10 @@
 
     <!-- 项目列表 -->
     <div class="table-section">
-      <el-table
-        v-loading="loading"
-        :data="projectList"
+      <div class="table-scroll-viewport">
+        <el-table
+          v-loading="loading"
+          :data="projectList"
         stripe
         border
         style="width: 100%"
@@ -128,16 +129,16 @@
       >
         <el-table-column
           prop="id"
-          label="项目ID"
+          label="ID"
           type="index"
-          width="100"
+          width="80"
           fixed="left"
           align="center"
         />
         <el-table-column
           prop="project_name"
           label="项目名称"
-          min-width="150"
+          min-width="175"
           fixed="left"
           align="center"
         >
@@ -148,7 +149,7 @@
         <el-table-column
           prop="status"
           label="状态"
-          min-width="80"
+          min-width="85"
           align="center"
         >
           <template #default="scope">
@@ -161,7 +162,7 @@
         <el-table-column
           prop="priority"
           label="优先级"
-          min-width="80"
+          min-width="85"
           align="center"
         >
           <template #default="scope">
@@ -173,7 +174,7 @@
         <el-table-column
           prop="creator_name"
           label="项目成员"
-          min-width="140"
+          min-width="175"
           align="center"
         >
           <template #default="scope">
@@ -210,7 +211,7 @@
         <el-table-column
           prop="owner_name"
           label="负责人"
-          min-width="100"
+          min-width="125"
           align="center"
         >
           <template #default="scope">
@@ -237,7 +238,7 @@
         </el-table-column>
         <el-table-column
           label="操作"
-          min-width="190"
+          width="160"
           fixed="right"
           align="center"
         >
@@ -246,6 +247,7 @@
               <el-button
                 type="primary"
                 size="small"
+                class="op-btn"
                 @click="handleViewProject(scope.row)"
               >
                 查看
@@ -253,6 +255,7 @@
               <el-button
                 type="success"
                 size="small"
+                class="op-btn"
                 @click="handleEditProject(scope.row)"
               >
                 编辑
@@ -260,6 +263,7 @@
               <el-button
                 type="danger"
                 size="small"
+                class="op-btn"
                 :disabled="scope.row.is_owner"
                 @click="handleDeleteProject(scope.row)"
               >
@@ -269,6 +273,7 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
     </div>
 
     <!-- 分页 - 固定在右侧区域底部 -->
@@ -916,19 +921,30 @@ onMounted(() => {
 <style lang="scss" scoped>
 .project-management {
   padding: 20px;
-  min-height: 100vh;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background-color: #f5f7fa;
 }
 
 .page-header {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   background: white;
-  padding: 20px;
+  padding: 16px 20px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+
+  .header-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
 
   .header-content h1 {
     margin: 0;
@@ -938,7 +954,7 @@ onMounted(() => {
   }
 
   .description {
-    margin: 8px 0 0;
+    margin: 0;
     color: #606266;
     font-size: 14px;
   }
@@ -950,18 +966,53 @@ onMounted(() => {
 }
 
 .search-section {
+  flex-shrink: 0;
   background: white;
-  padding: 20px;
+  padding: 16px 20px;
   border-radius: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
+/* 去掉表单项默认下边距，使搜索区域上下空白对称 */
+.search-section :deep(.el-form) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin-bottom: 0;
+}
+
+.search-section :deep(.el-form-item) {
+  margin-bottom: 0;
+  margin-right: 0;
+}
+
+.search-section :deep(.el-form-item:last-child) {
+  margin-left: auto;
+}
+
 .table-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   background: white;
   border-radius: 8px;
   overflow: hidden;
   margin-bottom: 70px; /* 为固定的分页组件留出空间 */
+}
+
+/* 表格区域占满剩余高度，表头冻结、表体垂直滚动（由 Layout 全局样式配合） */
+.table-section .table-scroll-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.table-section .table-scroll-viewport :deep(.el-table__body-wrapper) {
+  overflow-x: hidden !important;
 }
 
 /* 固定分页组件样式 */
@@ -969,7 +1020,6 @@ onMounted(() => {
   position: fixed;
   bottom: 0;
   right: 0;
-  left: 240px;
   z-index: 100;
   background: white;
   padding: 15px 20px;
@@ -998,11 +1048,24 @@ onMounted(() => {
   }
 }
 
+/* 操作列：紧凑按钮，参考需求管理 */
 .operation-buttons {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   justify-content: center;
   align-items: center;
+  flex-wrap: nowrap;
+  padding: 2px 0;
+}
+
+.operation-buttons :deep(.el-button.op-btn),
+.operation-buttons :deep(.el-button) {
+  flex: none;
+  min-width: 0;
+  padding: 2px 6px;
+  font-size: 12px;
+  margin: 0;
+  white-space: nowrap;
 }
 
 /* 项目成员样式 */

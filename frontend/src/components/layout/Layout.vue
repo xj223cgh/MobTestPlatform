@@ -1,5 +1,8 @@
 <template>
-  <div class="layout">
+  <div
+    class="layout"
+    :class="{ 'sidebar-collapsed': isCollapsed }"
+  >
     <!-- 侧边栏 -->
     <aside
       class="sidebar"
@@ -143,31 +146,15 @@
             separator="/"
             class="breadcrumb"
           >
-            <!-- 动态生成面包屑 -->
-            <el-breadcrumb-item :to="{ path: '/home' }">
-              首页
+            <el-breadcrumb-item
+              v-for="(item, index) in breadcrumbItems"
+              :key="item.path"
+            >
+              <template v-if="index < breadcrumbItems.length - 1">
+                <router-link :to="item.path">{{ item.title }}</router-link>
+              </template>
+              <span v-else>{{ item.title }}</span>
             </el-breadcrumb-item>
-
-            <!-- 生成所有面包屑 -->
-            <template v-if="breadcrumbItems.length > 0">
-              <el-breadcrumb-item
-                v-for="item in breadcrumbItems"
-                :key="item.path"
-                :to="{ path: item.path }"
-              >
-                <div class="breadcrumb-item-with-close">
-                  {{ item.title }}
-                  <el-button
-                    type="text"
-                    size="small"
-                    class="breadcrumb-close-btn"
-                    @click.stop="handleCloseBreadcrumb(item.path)"
-                  >
-                    <el-icon><Close /></el-icon>
-                  </el-button>
-                </div>
-              </el-breadcrumb-item>
-            </template>
           </el-breadcrumb>
         </div>
 
@@ -209,6 +196,10 @@
                   <el-icon><User /></el-icon>
                   个人中心
                 </el-dropdown-item>
+                <el-dropdown-item command="settings">
+                  <el-icon><Setting /></el-icon>
+                  系统设置
+                </el-dropdown-item>
                 <el-dropdown-item
                   divided
                   command="logout"
@@ -222,8 +213,11 @@
         </div>
       </header>
 
-      <!-- 页面内容 -->
-      <main class="content">
+      <!-- 页面内容：测试任务页用 content-no-outer-scroll，仅表格内部滚动 -->
+      <main
+        class="content"
+        :class="{ 'content-no-outer-scroll': ['TestTasks', 'ReportManagement', 'Users', 'Requirements', 'CaseReviews', 'Projects'].includes($route.name) }"
+      >
         <router-view />
       </main>
     </div>
@@ -231,7 +225,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { ElMessageBox } from "element-plus";
@@ -242,7 +236,7 @@ import {
   ArrowDown,
   User,
   SwitchButton,
-  Close,
+  Setting,
 } from "@element-plus/icons-vue";
 
 const route = useRoute();
@@ -251,12 +245,6 @@ const userStore = useUserStore();
 
 // 侧边栏折叠状态
 const isCollapsed = ref(false);
-
-// 当前路由
-const currentRoute = computed(() => route);
-
-// 记录当前路由路径，用于检测浏览器返回
-const previousRoutePath = ref(route.path);
 
 // 菜单路由
 const menuRoutes = computed(() => {
@@ -286,142 +274,53 @@ const menuRoutes = computed(() => {
   );
 });
 
-// 面包屑历史记录 - 从sessionStorage恢复
-const loadBreadcrumbHistory = () => {
-  const savedHistory = sessionStorage.getItem("breadcrumbHistory");
-  if (savedHistory) {
-    try {
-      return JSON.parse(savedHistory);
-    } catch (e) {
-      console.error(
-        "Failed to parse breadcrumb history from sessionStorage:",
-        e,
+// 根据当前路由生成层级面包屑：首页 + 父级（若有）+ 当前页
+const breadcrumbItems = computed(() => {
+  const path = route.path;
+  const meta = route.meta || {};
+  const title = meta.title;
+
+  const items = [{ path: "/home", title: "首页" }];
+  if (!title || path === "/home") return items;
+
+  const allRoutes = router.getRoutes();
+  const layoutRoute = allRoutes.find((r) => r.name === "Layout");
+  const children = layoutRoute?.children || [];
+
+  const layoutPrefix =
+    !layoutRoute || layoutRoute.path === "/" ? "" : layoutRoute.path;
+
+  // 详情页：路径含动态段（如 /projects/1、/test-tasks/2/execute）
+  const segments = path.split("/").filter(Boolean);
+  const isDetailRoute =
+    segments.length >= 2 &&
+    (path.includes("/execute") || /^[^/]+\/[^/]+/.test(path.replace(/^\//, "")));
+
+  if (isDetailRoute) {
+    const parentSegment = path.includes("/execute")
+      ? segments[0]
+      : segments[0];
+    const parentPath = "/" + parentSegment;
+    // 父级为列表页，path 不含动态参数（如 projects 而非 projects/:id）
+    const parentRoute = children.find((r) => {
+      if (r.path.includes(":")) return false;
+      const full = (layoutPrefix + "/" + r.path).replace(/\/+/g, "/");
+      return full === parentPath || "/" + r.path === parentPath;
+    });
+    if (parentRoute?.meta?.title) {
+      const fullPath = (layoutPrefix + "/" + parentRoute.path).replace(
+        /\/+/g,
+        "/",
       );
-      return [];
-    }
-  }
-  return [];
-};
-
-const breadcrumbHistory = ref(loadBreadcrumbHistory());
-
-// 保存面包屑历史到sessionStorage
-const saveBreadcrumbHistory = () => {
-  sessionStorage.setItem(
-    "breadcrumbHistory",
-    JSON.stringify(breadcrumbHistory.value),
-  );
-};
-
-// 面包屑历史最大长度限制
-const MAX_BREADCRUMB_HISTORY = 10;
-
-// 清理面包屑历史，移除最早的面包屑项
-const cleanupBreadcrumbHistory = () => {
-  if (breadcrumbHistory.value.length > MAX_BREADCRUMB_HISTORY) {
-    breadcrumbHistory.value = breadcrumbHistory.value.slice(
-      -MAX_BREADCRUMB_HISTORY,
-    );
-  }
-};
-
-// 监听路由变化，更新面包屑历史
-watch(
-  () => route.path,
-  (newPath) => {
-    // 获取当前路由的标题
-    const routeTitle = currentRoute.value.meta.title;
-
-    // 如果没有标题，不添加到面包屑
-    if (!routeTitle) return;
-
-    // 如果是首页，清空面包屑历史
-    if (newPath === "/home") {
-      breadcrumbHistory.value = [];
-      saveBreadcrumbHistory();
-      previousRoutePath.value = newPath;
-      return;
-    }
-
-    // 检查是否已经存在相同路径的面包屑
-    const existingPathIndex = breadcrumbHistory.value.findIndex(
-      (item) => item.path === newPath,
-    );
-
-    // 检查当前路由是否在面包屑历史中，用于处理浏览器返回
-    const currentPathIndex = breadcrumbHistory.value.findIndex(
-      (item) => item.path === previousRoutePath.value,
-    );
-
-    if (existingPathIndex > -1) {
-      // 如果新路径已经存在于面包屑历史中，且当前路径在新路径之后，说明是浏览器返回
-      if (currentPathIndex > existingPathIndex) {
-        // 删除当前路径及之后的面包屑
-        breadcrumbHistory.value = breadcrumbHistory.value.slice(
-          0,
-          existingPathIndex + 1,
-        );
-        saveBreadcrumbHistory();
-      }
-      // 更新之前的路由路径
-      previousRoutePath.value = newPath;
-      return;
-    }
-
-    // 检查是否已经存在相同标题的面包屑（用于动态路由，如项目详情）
-    const existingTitleIndex = breadcrumbHistory.value.findIndex(
-      (item) => item.title === routeTitle,
-    );
-
-    if (existingTitleIndex > -1) {
-      // 如果存在相同标题的面包屑，替换其路径为新路径
-      breadcrumbHistory.value[existingTitleIndex] = {
-        path: newPath,
-        title: routeTitle,
-      };
-    } else {
-      // 添加到面包屑历史末尾
-      breadcrumbHistory.value.push({
-        path: newPath,
-        title: routeTitle,
+      items.push({
+        path: fullPath || "/",
+        title: parentRoute.meta.title,
       });
     }
+  }
 
-    // 清理面包屑历史，保持最大长度
-    cleanupBreadcrumbHistory();
-
-    // 保存到localStorage
-    saveBreadcrumbHistory();
-
-    // 更新之前的路由路径
-    previousRoutePath.value = newPath;
-  },
-);
-
-// 监听面包屑历史变化，保存到localStorage
-watch(
-  breadcrumbHistory,
-  () => {
-    saveBreadcrumbHistory();
-  },
-  { deep: true },
-);
-
-// 退出登录时清空面包屑历史（在userStore.logout时调用）
-// 这里添加一个清理函数，方便在需要时调用
-const clearBreadcrumbHistory = () => {
-  breadcrumbHistory.value = [];
-  sessionStorage.removeItem("breadcrumbHistory");
-};
-
-// 暴露清理函数，方便其他组件调用
-defineExpose({
-  clearBreadcrumbHistory,
-});
-
-// 生成面包屑层级
-const breadcrumbItems = computed(() => {
-  return breadcrumbHistory.value;
+  items.push({ path, title });
+  return items;
 });
 
 // 切换侧边栏
@@ -438,57 +337,6 @@ const toggleFullscreen = () => {
   }
 };
 
-// 关闭面包屑，返回指定页面或上一个页面
-const handleCloseBreadcrumb = (path = "") => {
-  // 获取当前页面的路径
-  const currentPath = route.path;
-
-  if (path) {
-    // 如果指定了路径，检查是否是当前页面的面包屑
-    const isCurrentPage = path === currentPath;
-
-    // 查找要删除的面包屑索引
-    const index = breadcrumbHistory.value.findIndex(
-      (item) => item.path === path,
-    );
-    if (index > -1) {
-      // 只删除指定的面包屑，不影响后续面包屑
-      breadcrumbHistory.value.splice(index, 1);
-
-      // 如果关闭的是当前页面的面包屑，跳转到未关闭的最新面包屑对应的页面
-      if (isCurrentPage) {
-        if (breadcrumbHistory.value.length > 0) {
-          // 跳转到最后一个面包屑对应的页面
-          const lastPath =
-            breadcrumbHistory.value[breadcrumbHistory.value.length - 1].path;
-          router.push(lastPath);
-        } else {
-          // 如果没有面包屑了，跳转到首页
-          router.push("/home");
-        }
-      }
-      // 如果关闭的不是当前页面的面包屑，不跳转页面，保持当前页面不变
-    }
-  } else {
-    // 关闭当前页面的面包屑（没有指定路径时）
-    if (breadcrumbHistory.value.length > 0) {
-      // 删除最后一个面包屑
-      breadcrumbHistory.value.pop();
-      // 跳转到前一个面包屑对应的页面
-      if (breadcrumbHistory.value.length > 0) {
-        const lastPath =
-          breadcrumbHistory.value[breadcrumbHistory.value.length - 1].path;
-        router.push(lastPath);
-      } else {
-        // 如果没有面包屑了，跳转到首页
-        router.push("/home");
-      }
-    }
-  }
-  // 保存面包屑历史到localStorage
-  saveBreadcrumbHistory();
-};
-
 // 处理下拉菜单命令
 const handleCommand = (command) => {
   switch (command) {
@@ -496,7 +344,7 @@ const handleCommand = (command) => {
       router.push("/profile");
       break;
     case "settings":
-      // TODO: 跳转到设置页面
+      router.push("/settings");
       break;
     case "logout":
       ElMessageBox.confirm("确定要退出登录吗？", "提示", {
@@ -642,27 +490,6 @@ const handleCommand = (command) => {
       color: inherit;
     }
 
-    .breadcrumb-item-with-close {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      height: 100%;
-      align-items: center;
-    }
-
-    .breadcrumb-close-btn {
-      padding: 0;
-      margin: 0;
-      font-size: 12px;
-      color: $text-secondary;
-      height: 20px;
-      line-height: 20px;
-
-      &:hover {
-        color: $text-primary;
-      }
-    }
-
     .el-breadcrumb__item {
       display: flex;
       align-items: center;
@@ -715,8 +542,21 @@ const handleCommand = (command) => {
 
 .content {
   flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
   background: $background-color;
+
+  /* 测试任务页：最外层不出现垂直滚动条，仅标签页内表格滚动 */
+  &.content-no-outer-scroll {
+    overflow: hidden;
+  }
+}
+
+.content > * {
+  flex: 1;
+  min-height: 0;
 }
 
 // 响应式
@@ -738,5 +578,71 @@ const handleCommand = (command) => {
   .main-container {
     margin-left: 0;
   }
+}
+</style>
+
+<!-- 分页区域与左侧菜单无缝对齐，无间隔 -->
+<style lang="scss">
+@use "@/styles/variables.scss" as *;
+
+.layout {
+  --layout-sidebar-width: #{$sidebar-width};
+}
+
+.layout.sidebar-collapsed {
+  --layout-sidebar-width: #{$sidebar-collapsed-width};
+}
+
+/* 所有功能页固定分页：左边紧贴侧边栏无间隔，左侧内边距与页面内容对齐 */
+.layout .content .fixed-pagination,
+.layout .content .pagination-container {
+  left: var(--layout-sidebar-width) !important;
+  padding-left: 20px;
+  padding-right: 20px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .layout .content .fixed-pagination,
+  .layout .content .pagination-container {
+    left: 0 !important;
+  }
+}
+
+/* 表格滚动视口：横向滚动条在视口底部，查看首行时也可直接左右滑动，无需滚到列表底部 */
+.layout .content .table-scroll-viewport {
+  overflow: auto;
+  max-height: calc(100vh - 320px);
+  width: 100%;
+}
+
+.layout .content .table-scroll-viewport .el-table {
+  min-width: max-content;
+}
+
+/* 表格表头首行冻结：视口不滚动，仅表体区域滚动，表头自然固定 */
+.layout .content .table-section .table-scroll-viewport {
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.layout .content .table-section .table-scroll-viewport .el-table {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+  min-width: 0 !important; /* 不撑出横向滚动条（测试任务/报告/用户/需求管理） */
+}
+
+.layout .content .table-section .table-scroll-viewport .el-table__header-wrapper {
+  flex-shrink: 0 !important;
+}
+
+.layout .content .table-section .table-scroll-viewport .el-table__body-wrapper {
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
 }
 </style>

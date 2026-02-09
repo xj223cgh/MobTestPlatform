@@ -1582,6 +1582,58 @@ onMounted(async () => {
 <style lang="scss" scoped>
 .case-review-management {
   padding: 20px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.review-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.review-card :deep(.el-card__body) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px;
+}
+
+.review-tabs {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.review-tabs :deep(.el-tabs__content) {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.review-tabs :deep(.el-tabs__panel) {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.review-tabs :deep(.el-tab-pane) {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 树节点样式优化 */
@@ -1620,20 +1672,20 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-.review-card {
+.review-tabs :deep(.el-tabs__header) {
   margin-bottom: 20px;
-}
-
-.review-tabs {
-  .el-tabs__header {
-    margin-bottom: 20px;
-  }
+  flex-shrink: 0;
 }
 
 .review-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   background: #fafafa;
   padding: 20px;
   border-radius: 8px;
+  overflow: hidden;
 }
 
 .section-header {

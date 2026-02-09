@@ -85,9 +85,6 @@ export const useUserStore = defineStore("user", () => {
       userInfo.value = null;
       sessionStorage.removeItem(USER_KEY);
 
-      // 清除面包屑历史
-      sessionStorage.removeItem("breadcrumbHistory");
-
       // 注意：不在这里清除记住的登录信息，让用户主动选择是否记住
 
       // 只有在真正需要时才显示成功消息

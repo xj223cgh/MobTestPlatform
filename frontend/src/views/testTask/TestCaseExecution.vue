@@ -34,11 +34,12 @@
           v-if="!isCaseTreeCollapsed"
           class="filter-section"
         >
-          <div style="display: flex; align-items: center; flex: 1;">
+          <div class="filter-row filter-row-search">
             <el-input
               v-model="filterForm.search"
               placeholder="搜索名称/描述"
               clearable
+              size="small"
               @input="handleFilter"
               @clear="handleFilter"
             >
@@ -46,13 +47,29 @@
                 <el-icon><Search /></el-icon>
               </template>
             </el-input>
-
+            <el-button
+              size="small"
+              circle
+              class="collapse-btn"
+              :title="isCaseTreeCollapsed ? '展开用例树' : '收起用例树'"
+              @click="toggleCaseTree"
+            >
+              <el-icon v-if="isCaseTreeCollapsed">
+                <ArrowRight />
+              </el-icon>
+              <el-icon v-else>
+                <ArrowLeft />
+              </el-icon>
+            </el-button>
+          </div>
+          <div class="filter-row filter-row-status">
             <el-select
               v-model="filterForm.status"
               placeholder="筛选状态"
               clearable
               multiple
-              style="margin-left: 10px; flex: 1;"
+              size="small"
+              class="status-select"
               @change="handleFilter"
             >
               <el-option
@@ -77,20 +94,8 @@
               />
             </el-select>
           </div>
-          <div style="margin-left: 5px;">
-            <el-button
-              size="small"
-              circle
-              :title="isCaseTreeCollapsed ? '展开用例树' : '收起用例树'"
-              @click="toggleCaseTree"
-            >
-              <el-icon v-if="isCaseTreeCollapsed">
-                <ArrowRight />
-              </el-icon>
-              <el-icon v-else>
-                <ArrowLeft />
-              </el-icon>
-            </el-button>
+          <div class="filter-stats">
+            通过: {{ passCount }} / 失败: {{ failCount }} / 阻塞: {{ blockedCount }} / 不适用: {{ notApplicableCount }}
           </div>
         </div>
         <div
@@ -128,24 +133,21 @@
             <template #default="{ node, data }">
               <div
                 v-if="data.type === 'suite'"
-                class="tree-node-content"
+                class="tree-node-content tree-node-suite"
               >
                 <span>{{ node.label }}</span>
-                <span class="suite-count">
-                  (通过: {{ data.pass_count || 0 }} / 失败:
-                  {{ data.fail_count || 0 }} / 阻塞:
-                  {{ data.block_count || 0 }} / 不适用:
-                  {{ data.not_applicable_count || 0 }})
-                </span>
               </div>
               <div
                 v-else
                 class="tree-node-content"
               >
-                <span class="case-name">
-                  {{ node.label }}
-                  <span class="case-number">({{ data.case_number || "无编号" }})</span>
-                </span>
+                <el-tooltip
+                  :content="`编号：${data.case_number || '无编号'}`"
+                  placement="top"
+                  :show-after="300"
+                >
+                  <span class="case-name">{{ node.label }}</span>
+                </el-tooltip>
                 <el-tag
                   :type="getStatusType(data.status)"
                   size="small"
@@ -165,25 +167,23 @@
           <el-button
             v-if="hasPreviousCase"
             :disabled="!hasPreviousCase"
-            circle
+            text
             class="nav-button left-button"
             title="上一条"
             @click="previousCase"
           >
-            <el-icon><ArrowLeft /></el-icon>
+            &lt;
           </el-button>
-          <!-- 当没有上一条用例时，显示占位元素 -->
-          <div
+          <span
             v-else
             class="nav-button placeholder"
-          />
+          >&lt;</span>
         </div>
 
         <!-- 用例内容区域 -->
         <div class="content-area">
           <el-card
             v-if="selectedCase"
-            shadow="hover"
           >
             <template #header>
               <div class="card-header">
@@ -211,123 +211,121 @@
             </template>
 
             <div class="case-detail">
-              <!-- 用例描述 -->
-              <el-descriptions
-                title="用例描述"
-                :column="1"
-              >
-                <el-descriptions-item>
-                  {{ selectedCase.case_description || "-" }}
-                </el-descriptions-item>
-              </el-descriptions>
-
-              <!-- 测试数据 -->
-              <el-descriptions
-                title="测试数据"
-                :column="1"
-              >
-                <el-descriptions-item>
-                  {{ selectedCase.test_data || "-" }}
-                </el-descriptions-item>
-              </el-descriptions>
-
-              <!-- 前置条件 -->
-              <el-descriptions
-                title="前置条件"
-                :column="1"
-              >
-                <el-descriptions-item>
-                  {{ selectedCase.preconditions || "-" }}
-                </el-descriptions-item>
-              </el-descriptions>
-
-              <!-- 测试步骤 -->
-              <el-descriptions
-                title="测试步骤"
-                :column="1"
-              >
-                <el-descriptions-item>
-                  <div
-                    v-for="(step, index) in parseSteps(selectedCase.steps)"
-                    :key="index"
-                    class="step-item"
+              <!-- 上半部分：左右两列 -->
+              <div class="case-detail-upper">
+                <div class="case-detail-left">
+                  <el-descriptions
+                    title="用例描述"
+                    :column="1"
                   >
-                    <div class="step-content">
-                      {{ step }}
-                    </div>
+                    <el-descriptions-item>
+                      {{ selectedCase.case_description || "-" }}
+                    </el-descriptions-item>
+                  </el-descriptions>
+                  <el-descriptions
+                    title="测试数据"
+                    :column="1"
+                  >
+                    <el-descriptions-item>
+                      {{ selectedCase.test_data || "-" }}
+                    </el-descriptions-item>
+                  </el-descriptions>
+                  <el-descriptions
+                    title="前置条件"
+                    :column="1"
+                  >
+                    <el-descriptions-item>
+                      {{ selectedCase.preconditions || "-" }}
+                    </el-descriptions-item>
+                  </el-descriptions>
+                </div>
+                <div class="case-detail-right">
+                  <el-descriptions
+                    title="操作步骤"
+                    :column="1"
+                  >
+                    <el-descriptions-item>
+                      <div
+                        v-for="(step, index) in parseSteps(selectedCase.steps)"
+                        :key="index"
+                        class="step-item"
+                      >
+                        <div class="step-content">
+                          {{ step }}
+                        </div>
+                      </div>
+                    </el-descriptions-item>
+                  </el-descriptions>
+                  <el-descriptions
+                    title="预期结果"
+                    :column="1"
+                  >
+                    <el-descriptions-item>
+                      {{ selectedCase.expected_result || "-" }}
+                    </el-descriptions-item>
+                  </el-descriptions>
+                </div>
+              </div>
+
+              <!-- 下半部分：实际结果 + 按钮区域 -->
+              <div class="case-detail-lower">
+                <el-descriptions
+                  title="实际结果"
+                  :column="1"
+                >
+                  <el-descriptions-item>
+                    <el-input
+                      v-model="executionForm.actual_result"
+                      type="textarea"
+                      :rows="4"
+                      placeholder="请输入实际执行结果，失焦时自动保存"
+                      style="width: 100%"
+                      @blur="saveActualResult"
+                    />
+                  </el-descriptions-item>
+                </el-descriptions>
+                <div class="execution-section">
+                  <div class="status-buttons">
+                    <el-button
+                      type="success"
+                      :disabled="loading.updateStatus"
+                      @click="updateCaseStatus('pass')"
+                    >
+                      <el-icon><CircleCheck /></el-icon>
+                      通过
+                    </el-button>
+                    <el-button
+                      type="danger"
+                      :disabled="loading.updateStatus"
+                      @click="updateCaseStatus('fail')"
+                    >
+                      <el-icon><CircleClose /></el-icon>
+                      失败
+                    </el-button>
+                    <el-button
+                      type="warning"
+                      :disabled="loading.updateStatus"
+                      @click="updateCaseStatus('blocked')"
+                    >
+                      <el-icon><Warning /></el-icon>
+                      阻塞
+                    </el-button>
+                    <el-button
+                      :disabled="loading.updateStatus"
+                      @click="updateCaseStatus('not_applicable')"
+                    >
+                      <el-icon><Close /></el-icon>
+                      不适用
+                    </el-button>
+                    <el-button
+                      type="primary"
+                      :disabled="loading.updateStatus"
+                      @click="updateCaseStatus('')"
+                    >
+                      <el-icon><RefreshRight /></el-icon>
+                      重置
+                    </el-button>
                   </div>
-                </el-descriptions-item>
-              </el-descriptions>
-
-              <!-- 预期结果 -->
-              <el-descriptions
-                title="预期结果"
-                :column="1"
-              >
-                <el-descriptions-item>
-                  {{ selectedCase.expected_result || "-" }}
-                </el-descriptions-item>
-              </el-descriptions>
-
-              <!-- 实际结果 -->
-              <el-descriptions
-                title="实际结果"
-                :column="1"
-              >
-                <el-descriptions-item>
-                  <el-input
-                    v-model="executionForm.actual_result"
-                    type="textarea"
-                    :rows="4"
-                    placeholder="请输入实际执行结果"
-                    style="width: 100%"
-                    @input="debouncedSaveActualResult"
-                  />
-                </el-descriptions-item>
-              </el-descriptions>
-
-              <!-- 执行区域 -->
-              <div class="execution-section">
-                <div class="status-buttons">
-                  <el-button
-                    type="success"
-                    :disabled="loading.updateStatus"
-                    @click="updateCaseStatus('pass')"
-                  >
-                    <el-icon><CircleCheck /></el-icon>
-                    通过
-                  </el-button>
-                  <el-button
-                    type="danger"
-                    :disabled="loading.updateStatus"
-                    @click="updateCaseStatus('fail')"
-                  >
-                    <el-icon><CircleClose /></el-icon>
-                    失败
-                  </el-button>
-                  <el-button
-                    type="warning"
-                    :disabled="loading.updateStatus"
-                    @click="updateCaseStatus('blocked')"
-                  >
-                    <el-icon><Warning /></el-icon>
-                    阻塞
-                  </el-button>
-                  <el-button
-                    :disabled="loading.updateStatus"
-                    @click="updateCaseStatus('not_applicable')"
-                  >
-                    <el-icon><Close /></el-icon>
-                    不适用
-                  </el-button>
-                  <el-button
-                    type="primary"
-                    :disabled="loading.updateStatus"
-                    @click="updateCaseStatus('')"
-                  >
-                    <el-icon><RefreshRight /></el-icon>
-                    重置
-                  </el-button>
                 </div>
               </div>
             </div>
@@ -345,18 +343,17 @@
           <el-button
             v-if="hasNextCase"
             :disabled="!hasNextCase"
-            circle
+            text
             class="nav-button right-button"
             title="下一条"
             @click="nextCase"
           >
-            <el-icon><ArrowRight /></el-icon>
+            &gt;
           </el-button>
-          <!-- 当没有下一条用例时，显示占位元素 -->
-          <div
+          <span
             v-else
             class="nav-button placeholder"
-          />
+          >&gt;</span>
         </div>
       </div>
 
@@ -515,35 +512,21 @@ const toggleCaseTree = () => {
   }
 };
 
-// 防抖函数，避免频繁保存
-const debounce = (func, delay) => {
-  let timer;
-  return function(...args) {
-    clearTimeout(timer);
-    timer = setTimeout(() => func.apply(this, args), delay);
-  };
-};
-
-// 实时保存实际结果
+// 实际结果：失焦时保存
 const saveActualResult = async () => {
   if (!selectedCase.value) return;
-  
+
   try {
     await updateTestCase(selectedCase.value.id, {
       actual_result: executionForm.actual_result,
     });
-    // 更新本地数据
     selectedCase.value.actual_result = executionForm.actual_result;
-    // 显示保存成功提示
     ElMessage.success("保存成功");
   } catch (error) {
     console.error("保存实际结果失败:", error);
     ElMessage.error("保存失败");
   }
 };
-
-// 防抖处理后的保存函数
-const debouncedSaveActualResult = debounce(saveActualResult, 500);
 
 const treeProps = {
   label: "case_name",
@@ -764,7 +747,7 @@ const handleFilter = () => {
   buildTestCaseTree();
 };
 
-// 获取状态类型
+// 获取状态类型（未执行用 info 灰色，避免空字符串时 el-tag 使用 primary 蓝色导致末端出现蓝块）
 const getStatusType = (status) => {
   const typeMap = {
     pass: "success",
@@ -772,7 +755,7 @@ const getStatusType = (status) => {
     blocked: "warning",
     not_applicable: "info",
   };
-  return typeMap[status] || "";
+  return typeMap[status] ?? "info";
 };
 
 // 获取状态文本
@@ -782,8 +765,9 @@ const getStatusText = (status) => {
     fail: "失败",
     blocked: "阻塞",
     not_applicable: "不适用",
+    "": "未执行",
   };
-  return textMap[status] || "";
+  return textMap[status] ?? "未执行";
 };
 
 // 更新用例状态
@@ -910,16 +894,16 @@ onMounted(async () => {
 <style lang="scss" scoped>
 .test-case-execution {
   min-height: 100vh;
-  background-color: #f5f7fa;
+  background-color: #fff;
 
-  // 页面标题和按钮区域样式
+  // 页面标题和按钮：与主内容统一为整体，用底边线划分
   .page-header-container {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 20px;
-    background-color: white;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    padding: 14px 20px;
+    background-color: #fff;
+    border-bottom: 1px solid #e4e7ed;
 
     .title-section {
       flex: 1;
@@ -944,51 +928,73 @@ onMounted(async () => {
     }
   }
 
-  // 主内容区域
+  // 主内容区域：整体一块，用竖线划分左中右；整块可滚动，中间不单独出现滚动条
   .main-content {
     display: flex;
-    padding: 20px;
-    gap: 20px;
+    padding: 0;
+    gap: 0;
     align-items: stretch;
+    background-color: #fff;
+    max-height: calc(100vh - 57px);
+    overflow-y: auto;
 
-    // 左侧用例列表
+    // 左侧用例目录：线条划分，适当缩小宽度
     .left-panel {
-      width: 430px;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      width: 280px;
+      min-width: 240px;
+      max-width: 320px;
+      flex-shrink: 0;
+      background: #fff;
       display: flex;
       flex-direction: column;
       transition: width 0.3s ease;
-      // 固定高度，确保折叠时高度不变
-      height: calc(100vh - 160px);
+      min-height: calc(100vh - 57px);
+      border-right: 1px solid #e4e7ed;
 
-      // 折叠状态样式
       &.collapsed {
-        width: 50px;
-        // 折叠时保持相同高度
-        height: calc(100vh - 160px);
+        width: 52px;
+        min-width: 52px;
+        max-width: 52px;
+        min-height: calc(100vh - 57px);
       }
 
       .filter-section {
-        padding: 14px;
+        padding: 10px 12px;
         border-bottom: 1px solid #e4e7ed;
         display: flex;
-        align-items: center;
-        gap: 10px;
+        flex-direction: column;
+        gap: 8px;
         box-sizing: border-box;
         width: 100%;
+        flex-shrink: 0;
 
-        .el-input {
-          flex: 1;
-          width: auto;
-          max-width: 200px;
+        .filter-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+
+          &.filter-row-search {
+            .el-input {
+              flex: 1;
+              min-width: 0;
+            }
+            .collapse-btn {
+              flex-shrink: 0;
+            }
+          }
+
+          &.filter-row-status .status-select {
+            width: 100%;
+            min-width: 0;
+          }
         }
 
-        .el-select {
-          flex: 1;
-          width: auto;
-          max-width: 250px;
+        .filter-stats {
+          font-size: 12px;
+          color: #909399;
+          padding: 4px 0 0;
+          line-height: 1.4;
         }
       }
 
@@ -1003,20 +1009,22 @@ onMounted(async () => {
       .case-list {
         flex: 1;
         overflow-y: auto;
+        overflow-x: hidden;
         padding: 10px;
-        // 设置最大高度，确保内容超出时显示滚动条
-        max-height: calc(100vh - 220px);
+        min-height: 0;
+        max-height: none;
+        width: 100%;
+        box-sizing: border-box;
         // 优化滚动条样式
         scrollbar-width: thin;
-        scrollbar-color: #c0c4cc #f5f7fa;
+        scrollbar-color: #c0c4cc #fafafa;
 
-        // Webkit滚动条样式
         &::-webkit-scrollbar {
           width: 6px;
         }
 
         &::-webkit-scrollbar-track {
-          background: #f5f7fa;
+          background: #fafafa;
         }
 
         &::-webkit-scrollbar-thumb {
@@ -1028,128 +1036,178 @@ onMounted(async () => {
           background-color: #909399;
         }
 
+        :deep(.el-tree) {
+          width: 100%;
+          min-width: 0;
+        }
+
+        /* 消除选中行末端蓝色矩形：见下方说明 */
+        :deep(.el-tree-node) {
+          outline: none;
+        }
+        :deep(.el-tree-node:focus),
+        :deep(.el-tree-node:focus > .el-tree-node__content) {
+          outline: none;
+        }
+        :deep(.el-tree-node__content) {
+          outline: none;
+          border-radius: 4px;
+          padding-right: 8px;
+        }
+        :deep(.el-tree-node:focus > .el-tree-node__content),
+        :deep(.el-tree-node.is-current > .el-tree-node__content) {
+          background-color: #ecf5ff;
+        }
+        :deep(.el-tree-node__content::after),
+        :deep(.el-tree-node__content::before) {
+          display: none !important;
+        }
+        /* 让自定义节点内容占满整行，避免右侧留白显示为蓝条 */
+        :deep(.el-tree-node__content > *:last-child) {
+          flex: 1 1 0%;
+          min-width: 0;
+        }
+
         .tree-node-content {
           display: flex;
           justify-content: space-between;
           align-items: center;
           width: 100%;
+          min-width: 0;
+          flex: 1;
+          overflow: hidden;
 
-          .suite-count {
-            font-size: 12px;
-            color: #909399;
+          &.tree-node-suite {
+            font-weight: 500;
+          }
+
+          /* 首个子元素（含 el-tooltip）占满剩余宽度，保证布局 */
+          & > :first-child {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
           }
 
           .case-name {
-            display: flex;
-            align-items: center;
-            gap: 5px;
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            cursor: default;
           }
 
-          .case-number {
-            font-size: 12px;
-            color: #909399;
-            font-weight: normal;
+          .el-tag {
+            flex-shrink: 0;
           }
         }
       }
     }
 
-    // 中间用例详情和执行区域
+    // 中间用例详情和执行区域：线条与左侧划分，无独立背景块；高度与左右统一，无内部滚动条
     .middle-panel {
       flex: 1;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      min-width: 0;
+      min-height: calc(100vh - 57px);
+      background: #fff;
       display: flex;
-      overflow: hidden;
-      // 固定高度，确保折叠时高度不变
-      height: calc(100vh - 160px);
+      overflow: visible;
 
-      // 导航区域
+      // 导航区域：与内容区同背景、无边界，视觉上为一体
       .nav-area {
-        width: 50px;
-        background-color: white;
+        width: 48px;
+        background: transparent;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        // 移除过渡和悬浮效果
-        transition: none;
-
-        &:hover {
-          background-color: white; // 保持原有背景色，无悬浮效果
-        }
-
-        // 移除边框，实现无缝衔接
-        &.left-nav-area {
-          border-right: none;
-        }
-
-        &.right-nav-area {
-          border-left: none;
-        }
       }
 
-      // 导航按钮
+      // 导航：仅显示 < > 符号，拉长、收窄宽度
+      .nav-area :deep(.el-button.nav-button) {
+        min-width: auto;
+        width: auto;
+        height: auto;
+        padding: 10px 2px;
+        font-size: 16px;
+        font-weight: 600;
+        line-height: 1;
+        color: #606266;
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        transition: color 0.2s;
+        transform: scaleY(1.35) scaleX(0.78);
+      }
+
+      .nav-area :deep(.el-button.nav-button:hover:not(:disabled)) {
+        color: #409eff;
+        background: transparent;
+        border: none;
+      }
+
+      .nav-area :deep(.el-button.nav-button:disabled) {
+        color: #c0c4cc;
+        background: transparent;
+      }
+
       .nav-button {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background-color: rgba(255, 255, 255, 0.9);
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-        transition: none;
-        // 按钮垂直往上移动一点
-        margin-top: -50px;
-
-        &:hover {
-          background-color: rgba(255, 255, 255, 0.9);
-          color: inherit;
-        }
-
-        // 左侧按钮增加左外边距
         &.left-button {
-          margin-left: 10px;
+          margin-left: 4px;
         }
 
-        // 右侧按钮增加右外边距
         &.right-button {
-          margin-right: 10px;
+          margin-right: 4px;
         }
 
-        // 占位元素样式，保持与按钮相同大小
         &.placeholder {
-          background: transparent;
-          box-shadow: none;
-          margin: 0 5px;
-          margin-top: -50px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 10px 2px;
+          font-size: 16px;
+          font-weight: 600;
+          color: #c0c4cc;
+          cursor: default;
+          transform: scaleY(1.35) scaleX(0.78);
         }
       }
 
-      // 内容区域
+      // 内容区域：高度与左/右统一；用例内容过多时卡片主体内部可滚动，保证完整显示
       .content-area {
         flex: 1;
-        overflow-y: auto;
+        min-height: 0;
+        overflow: hidden;
         padding: 0;
         display: flex;
         flex-direction: column;
 
-        // 让卡片占满内容区域的高度
         .el-card {
-          flex: 1;
           margin: 0;
           border-radius: 0;
           border: none;
+          box-shadow: none;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+
+          &:hover {
+            box-shadow: none;
+          }
 
           &__header {
             padding: 20px;
             border-bottom: 1px solid #e4e7ed;
+            flex-shrink: 0;
           }
 
           &__body {
-            padding: 0;
             flex: 1;
-            display: flex;
-            flex-direction: column;
+            padding: 0;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
           }
         }
       }
@@ -1203,49 +1261,70 @@ onMounted(async () => {
       }
 
       .case-detail {
-          padding: 20px 20px 0 20px;
-          flex: 1;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+
+        // 上半部分：左右两列
+        .case-detail-upper {
           display: flex;
-          flex-direction: column;
+          gap: 24px;
+          flex: 0 0 auto;
 
-          .el-descriptions {
-            margin-bottom: 15px;
-
-            &__title {
-              font-size: 15px;
-              font-weight: 600;
-              margin-bottom: 8px;
-            }
-
-            &__item-label {
-              font-weight: 500;
-            }
-
-            // 调整描述内容字体大小和行高
-            &__item-content {
-              font-size: 14px;
-              line-height: 20px;
-              color: #606266;
-            }
+          .case-detail-left,
+          .case-detail-right {
+            flex: 1;
+            min-width: 0;
           }
 
-          // 测试步骤样式，移除序号
-          .step-item {
+          .case-detail-left {
+            padding-right: 12px;
+            border-right: 1px solid #e4e7ed;
+          }
+        }
+
+        // 下半部分：实际结果 + 按钮
+        .case-detail-lower {
+          flex: 0 0 auto;
+          padding-top: 16px;
+          border-top: 1px solid #e4e7ed;
+        }
+
+        .el-descriptions {
+          margin-bottom: 15px;
+
+          &__title {
+            font-size: 15px;
+            font-weight: 600;
             margin-bottom: 8px;
-            padding-left: 10px;
-            border-left: 3px solid #ecf5ff;
-
-            .step-content {
-              color: #606266;
-              line-height: 20px;
-              font-size: 14px;
-            }
           }
+
+          &__item-label {
+            font-weight: 500;
+          }
+
+          &__item-content {
+            font-size: 14px;
+            line-height: 20px;
+            color: #606266;
+          }
+        }
+
+        .step-item {
+          margin-bottom: 8px;
+          padding-left: 10px;
+          border-left: 3px solid #ecf5ff;
+
+          .step-content {
+            color: #606266;
+            line-height: 20px;
+            font-size: 14px;
+          }
+        }
 
         .execution-section {
-          margin-top: 15px;
-          padding-top: 15px;
-          border-top: 1px solid #e4e7ed;
+          margin-top: 16px;
 
           .status-buttons {
             display: flex;
@@ -1267,22 +1346,23 @@ onMounted(async () => {
       }
     }
 
-    // 右侧执行统计
+    // 右侧执行统计：线条与中间划分，无独立背景块
     .right-panel {
       width: 200px;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-      // 确保高度与其他区域同步
+      flex-shrink: 0;
+      min-height: calc(100vh - 57px);
+      background: #fff;
       display: flex;
       flex-direction: column;
+      border-left: 1px solid #e4e7ed;
 
       .el-card {
         flex: 1;
         margin: 0;
-        border-radius: 8px;
+        border-radius: 0;
         border: none;
         box-shadow: none;
+        min-height: 0;
       }
 
       .stats-content {

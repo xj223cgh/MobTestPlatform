@@ -1,6 +1,6 @@
 import request from "../utils/request";
 
-// 获取报告列表
+// 获取报告列表（从 reports 表，分页）
 export const getReportList = (params) => {
   return request({
     url: "/reports",
@@ -9,7 +9,23 @@ export const getReportList = (params) => {
   });
 };
 
-// 获取报告详情
+// 按报告 ID 获取详情（落库报告）
+export const getReportByRecordId = (reportId) => {
+  return request({
+    url: `/reports/record/${reportId}`,
+    method: "get",
+  });
+};
+
+// 手动生成报告（对已完成任务落库）
+export const manualGenerateReport = (taskId) => {
+  return request({
+    url: `/reports/generate/${taskId}`,
+    method: "post",
+  });
+};
+
+// 获取报告详情（按任务 ID 实时数据，兼容旧用法）
 export const getReportDetail = (id) => {
   return request({
     url: `/reports/${id}`,
@@ -233,10 +249,10 @@ export const updateReportStyleConfig = (type, data) => {
   });
 };
 
-// 获取报告数据
-export const getReportData = (id, params = {}) => {
+// 获取报告数据（按任务 ID，实时计算）
+export const getReportData = (taskId, params = {}) => {
   return request({
-    url: `/reports/${id}/data`,
+    url: `/reports/${taskId}/data`,
     method: "get",
     params,
   });

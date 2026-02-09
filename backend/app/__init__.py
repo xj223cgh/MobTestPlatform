@@ -104,9 +104,10 @@ def setup_logging(app):
 
 def register_blueprints(app):
     """注册蓝图"""
-    from app.routes import auth, users, devices, test_cases, test_tasks, tools, home, projects, iterations, suite_case_relations, test_suites, review_tasks, files, reports
-    
+    from app.routes import auth, users, devices, test_cases, test_tasks, tools, home, projects, iterations, suite_case_relations, test_suites, review_tasks, files, reports, settings_routes
+
     app.register_blueprint(auth.bp, url_prefix='/api/auth')
+    app.register_blueprint(settings_routes.bp)
     app.register_blueprint(users.bp, url_prefix='/api/users')
     app.register_blueprint(devices.bp, url_prefix='/api/devices')
     app.register_blueprint(test_cases.bp, url_prefix='/api/test-cases')

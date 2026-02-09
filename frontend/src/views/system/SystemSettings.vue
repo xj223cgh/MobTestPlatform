@@ -11,6 +11,39 @@
         v-model="activeTab"
         tab-position="left"
       >
+        <!-- 报告设置 -->
+        <el-tab-pane
+          label="报告设置"
+          name="report"
+        >
+          <div class="settings-content">
+            <h3>报告设置</h3>
+            <el-form
+              :model="reportSettings"
+              label-width="140px"
+            >
+              <el-form-item label="报告生成方式">
+                <el-radio-group v-model="reportSettings.report_auto_generate">
+                  <el-radio label="auto">
+                    自动：任务状态变为「已完成」时自动生成报告并落库
+                  </el-radio>
+                  <el-radio label="manual">
+                    手动：需在任务页对已完成任务点击「生成报告」按钮生成
+                  </el-radio>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item>
+                <el-button
+                  type="primary"
+                  @click="saveReportSettings"
+                >
+                  保存设置
+                </el-button>
+              </el-form-item>
+            </el-form>
+          </div>
+        </el-tab-pane>
+
         <!-- 基础设置 -->
         <el-tab-pane
           label="基础设置"
@@ -149,15 +182,6 @@
                   </el-checkbox>
                 </el-checkbox-group>
               </el-form-item>
-              <el-form-item label="密码过期">
-                <el-input-number
-                  v-model="securitySettings.passwordExpiry"
-                  :min="0"
-                  :max="365"
-                  placeholder="天数"
-                />
-                <span style="margin-left: 10px">天后过期（0表示永不过期）</span>
-              </el-form-item>
               <el-form-item label="登录失败锁定">
                 <el-input-number
                   v-model="securitySettings.loginFailureLock"
@@ -175,21 +199,6 @@
                   placeholder="分钟"
                 />
                 <span style="margin-left: 10px">分钟后自动登出</span>
-              </el-form-item>
-              <el-form-item label="双因素认证">
-                <el-switch
-                  v-model="securitySettings.twoFactorAuth"
-                  active-text="启用"
-                  inactive-text="禁用"
-                />
-              </el-form-item>
-              <el-form-item label="IP白名单">
-                <el-input
-                  v-model="securitySettings.ipWhitelist"
-                  type="textarea"
-                  :rows="3"
-                  placeholder="请输入IP地址，每行一个"
-                />
               </el-form-item>
               <el-form-item>
                 <el-button
@@ -293,397 +302,6 @@
           </div>
         </el-tab-pane>
 
-        <!-- 存储设置 -->
-        <el-tab-pane
-          label="存储设置"
-          name="storage"
-        >
-          <div class="settings-content">
-            <h3>存储设置</h3>
-            <el-form
-              :model="storageSettings"
-              label-width="120px"
-            >
-              <el-form-item label="存储类型">
-                <el-radio-group v-model="storageSettings.type">
-                  <el-radio label="local">
-                    本地存储
-                  </el-radio>
-                  <el-radio label="oss">
-                    阿里云OSS
-                  </el-radio>
-                  <el-radio label="s3">
-                    AWS S3
-                  </el-radio>
-                </el-radio-group>
-              </el-form-item>
-
-              <!-- 本地存储设置 -->
-              <template v-if="storageSettings.type === 'local'">
-                <el-form-item label="存储路径">
-                  <el-input
-                    v-model="storageSettings.localPath"
-                    placeholder="请输入本地存储路径"
-                  />
-                </el-form-item>
-                <el-form-item label="最大文件大小">
-                  <el-input-number
-                    v-model="storageSettings.maxFileSize"
-                    :min="1"
-                    :max="1024"
-                  />
-                  <span style="margin-left: 10px">MB</span>
-                </el-form-item>
-              </template>
-
-              <!-- OSS设置 -->
-              <template v-if="storageSettings.type === 'oss'">
-                <el-form-item label="AccessKey ID">
-                  <el-input
-                    v-model="storageSettings.ossAccessKeyId"
-                    placeholder="请输入AccessKey ID"
-                  />
-                </el-form-item>
-                <el-form-item label="AccessKey Secret">
-                  <el-input
-                    v-model="storageSettings.ossAccessKeySecret"
-                    type="password"
-                    placeholder="请输入AccessKey Secret"
-                    show-password
-                  />
-                </el-form-item>
-                <el-form-item label="Endpoint">
-                  <el-input
-                    v-model="storageSettings.ossEndpoint"
-                    placeholder="请输入Endpoint"
-                  />
-                </el-form-item>
-                <el-form-item label="Bucket">
-                  <el-input
-                    v-model="storageSettings.ossBucket"
-                    placeholder="请输入Bucket名称"
-                  />
-                </el-form-item>
-              </template>
-
-              <!-- S3设置 -->
-              <template v-if="storageSettings.type === 's3'">
-                <el-form-item label="Access Key ID">
-                  <el-input
-                    v-model="storageSettings.s3AccessKeyId"
-                    placeholder="请输入Access Key ID"
-                  />
-                </el-form-item>
-                <el-form-item label="Secret Access Key">
-                  <el-input
-                    v-model="storageSettings.s3SecretAccessKey"
-                    type="password"
-                    placeholder="请输入Secret Access Key"
-                    show-password
-                  />
-                </el-form-item>
-                <el-form-item label="Region">
-                  <el-input
-                    v-model="storageSettings.s3Region"
-                    placeholder="请输入Region"
-                  />
-                </el-form-item>
-                <el-form-item label="Bucket">
-                  <el-input
-                    v-model="storageSettings.s3Bucket"
-                    placeholder="请输入Bucket名称"
-                  />
-                </el-form-item>
-              </template>
-
-              <el-form-item>
-                <el-button
-                  type="primary"
-                  @click="saveStorageSettings"
-                >
-                  保存设置
-                </el-button>
-                <el-button @click="testStorageSettings">
-                  测试连接
-                </el-button>
-                <el-button @click="resetStorageSettings">
-                  重置
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </div>
-        </el-tab-pane>
-
-        <!-- 备份设置 -->
-        <el-tab-pane
-          label="备份设置"
-          name="backup"
-        >
-          <div class="settings-content">
-            <h3>备份设置</h3>
-            <el-form
-              :model="backupSettings"
-              label-width="120px"
-            >
-              <el-form-item label="自动备份">
-                <el-switch
-                  v-model="backupSettings.autoBackup"
-                  active-text="启用"
-                  inactive-text="禁用"
-                />
-              </el-form-item>
-              <el-form-item
-                v-if="backupSettings.autoBackup"
-                label="备份频率"
-              >
-                <el-select
-                  v-model="backupSettings.frequency"
-                  placeholder="请选择备份频率"
-                >
-                  <el-option
-                    label="每天"
-                    value="daily"
-                  />
-                  <el-option
-                    label="每周"
-                    value="weekly"
-                  />
-                  <el-option
-                    label="每月"
-                    value="monthly"
-                  />
-                </el-select>
-              </el-form-item>
-              <el-form-item
-                v-if="backupSettings.autoBackup"
-                label="备份时间"
-              >
-                <el-time-picker
-                  v-model="backupSettings.backupTime"
-                  format="HH:mm"
-                  placeholder="选择备份时间"
-                />
-              </el-form-item>
-              <el-form-item label="保留天数">
-                <el-input-number
-                  v-model="backupSettings.retentionDays"
-                  :min="1"
-                  :max="365"
-                />
-                <span style="margin-left: 10px">天</span>
-              </el-form-item>
-              <el-form-item label="备份位置">
-                <el-input
-                  v-model="backupSettings.backupPath"
-                  placeholder="请输入备份存储路径"
-                />
-              </el-form-item>
-              <el-form-item label="备份内容">
-                <el-checkbox-group v-model="backupSettings.backupContent">
-                  <el-checkbox label="database">
-                    数据库
-                  </el-checkbox>
-                  <el-checkbox label="files">
-                    文件
-                  </el-checkbox>
-                  <el-checkbox label="config">
-                    配置文件
-                  </el-checkbox>
-                  <el-checkbox label="logs">
-                    日志文件
-                  </el-checkbox>
-                </el-checkbox-group>
-              </el-form-item>
-              <el-form-item>
-                <el-button
-                  type="primary"
-                  @click="saveBackupSettings"
-                >
-                  保存设置
-                </el-button>
-                <el-button @click="createBackup">
-                  立即备份
-                </el-button>
-                <el-button @click="resetBackupSettings">
-                  重置
-                </el-button>
-              </el-form-item>
-            </el-form>
-
-            <!-- 备份历史 -->
-            <div class="backup-history">
-              <h4>备份历史</h4>
-              <el-table
-                :data="backupHistory"
-                stripe
-              >
-                <el-table-column
-                  prop="id"
-                  label="ID"
-                  width="80"
-                />
-                <el-table-column
-                  prop="filename"
-                  label="文件名"
-                  min-width="150"
-                />
-                <el-table-column
-                  prop="size"
-                  label="文件大小"
-                  width="120"
-                />
-                <el-table-column
-                  prop="type"
-                  label="备份类型"
-                  width="120"
-                />
-                <el-table-column
-                  prop="status"
-                  label="状态"
-                  width="100"
-                >
-                  <template #default="{ row }">
-                    <el-tag :type="getBackupStatusTag(row.status)">
-                      {{ getBackupStatusText(row.status) }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column
-                  prop="createdAt"
-                  label="创建时间"
-                  width="160"
-                />
-                <el-table-column
-                  label="操作"
-                  width="150"
-                >
-                  <template #default="{ row }">
-                    <el-button
-                      type="primary"
-                      size="small"
-                      :disabled="row.status !== 'completed'"
-                      @click="downloadBackup(row)"
-                    >
-                      下载
-                    </el-button>
-                    <el-button
-                      type="danger"
-                      size="small"
-                      @click="deleteBackup(row)"
-                    >
-                      删除
-                    </el-button>
-                  </template>
-                </el-table-column>
-              </el-table>
-            </div>
-          </div>
-        </el-tab-pane>
-
-        <!-- 日志设置 -->
-        <el-tab-pane
-          label="日志设置"
-          name="logs"
-        >
-          <div class="settings-content">
-            <h3>日志设置</h3>
-            <el-form
-              :model="logSettings"
-              label-width="120px"
-            >
-              <el-form-item label="日志级别">
-                <el-select
-                  v-model="logSettings.level"
-                  placeholder="请选择日志级别"
-                >
-                  <el-option
-                    label="DEBUG"
-                    value="debug"
-                  />
-                  <el-option
-                    label="INFO"
-                    value="info"
-                  />
-                  <el-option
-                    label="WARNING"
-                    value="warning"
-                  />
-                  <el-option
-                    label="ERROR"
-                    value="error"
-                  />
-                  <el-option
-                    label="CRITICAL"
-                    value="critical"
-                  />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="日志格式">
-                <el-select
-                  v-model="logSettings.format"
-                  placeholder="请选择日志格式"
-                >
-                  <el-option
-                    label="JSON"
-                    value="json"
-                  />
-                  <el-option
-                    label="文本"
-                    value="text"
-                  />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="日志保留天数">
-                <el-input-number
-                  v-model="logSettings.retentionDays"
-                  :min="1"
-                  :max="365"
-                />
-                <span style="margin-left: 10px">天</span>
-              </el-form-item>
-              <el-form-item label="文件大小限制">
-                <el-input-number
-                  v-model="logSettings.maxFileSize"
-                  :min="1"
-                  :max="1024"
-                />
-                <span style="margin-left: 10px">MB</span>
-              </el-form-item>
-              <el-form-item label="日志轮转">
-                <el-switch
-                  v-model="logSettings.rotation"
-                  active-text="启用"
-                  inactive-text="禁用"
-                />
-              </el-form-item>
-              <el-form-item label="压缩日志">
-                <el-switch
-                  v-model="logSettings.compression"
-                  active-text="启用"
-                  inactive-text="禁用"
-                />
-              </el-form-item>
-              <el-form-item>
-                <el-button
-                  type="primary"
-                  @click="saveLogSettings"
-                >
-                  保存设置
-                </el-button>
-                <el-button @click="viewLogs">
-                  查看日志
-                </el-button>
-                <el-button @click="clearLogs">
-                  清理日志
-                </el-button>
-                <el-button @click="resetLogSettings">
-                  重置
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </div>
-        </el-tab-pane>
-
         <!-- 通知设置 -->
         <el-tab-pane
           label="通知设置"
@@ -772,11 +390,16 @@ import { ref, reactive, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus } from "@element-plus/icons-vue";
 import { systemApi } from "@/api/system";
+import { getUserSettings, updateUserSettings } from "@/api/settings";
 
 // 响应式数据
-const activeTab = ref("basic");
+const activeTab = ref("report");
+
+// 报告设置（用户个人设置）
+const reportSettings = reactive({
+  report_auto_generate: "auto",
+});
 const uploadUrl = ref("/api/upload/logo");
-const backupHistory = ref([]);
 
 // 基础设置
 const basicSettings = reactive({
@@ -792,11 +415,8 @@ const basicSettings = reactive({
 // 安全设置
 const securitySettings = reactive({
   passwordPolicy: ["minLength", "numbers"],
-  passwordExpiry: 90,
   loginFailureLock: 5,
   sessionTimeout: 120,
-  twoFactorAuth: false,
-  ipWhitelist: "",
 });
 
 // 邮件设置
@@ -808,41 +428,6 @@ const emailSettings = reactive({
   fromName: "",
   username: "",
   password: "",
-});
-
-// 存储设置
-const storageSettings = reactive({
-  type: "local",
-  localPath: "/data/uploads",
-  maxFileSize: 100,
-  ossAccessKeyId: "",
-  ossAccessKeySecret: "",
-  ossEndpoint: "",
-  ossBucket: "",
-  s3AccessKeyId: "",
-  s3SecretAccessKey: "",
-  s3Region: "",
-  s3Bucket: "",
-});
-
-// 备份设置
-const backupSettings = reactive({
-  autoBackup: true,
-  frequency: "daily",
-  backupTime: "02:00",
-  retentionDays: 30,
-  backupPath: "/data/backups",
-  backupContent: ["database", "files"],
-});
-
-// 日志设置
-const logSettings = reactive({
-  level: "info",
-  format: "json",
-  retentionDays: 30,
-  maxFileSize: 100,
-  rotation: true,
-  compression: true,
 });
 
 // 通知设置
@@ -864,26 +449,6 @@ const timezones = [
 ];
 
 // 方法
-const getBackupStatusTag = (status) => {
-  const statusMap = {
-    completed: "success",
-    running: "warning",
-    failed: "danger",
-    pending: "info",
-  };
-  return statusMap[status] || "";
-};
-
-const getBackupStatusText = (status) => {
-  const statusMap = {
-    completed: "完成",
-    running: "进行中",
-    failed: "失败",
-    pending: "等待中",
-  };
-  return statusMap[status] || status;
-};
-
 const saveBasicSettings = async () => {
   try {
     await systemApi.updateBasicSettings(basicSettings);
@@ -917,11 +482,8 @@ const saveSecuritySettings = async () => {
 const resetSecuritySettings = () => {
   Object.assign(securitySettings, {
     passwordPolicy: ["minLength", "numbers"],
-    passwordExpiry: 90,
     loginFailureLock: 5,
     sessionTimeout: 120,
-    twoFactorAuth: false,
-    ipWhitelist: "",
   });
 };
 
@@ -952,153 +514,6 @@ const resetEmailSettings = () => {
     fromName: "",
     username: "",
     password: "",
-  });
-};
-
-const saveStorageSettings = async () => {
-  try {
-    await systemApi.updateStorageSettings(storageSettings);
-    ElMessage.success("存储设置保存成功");
-  } catch (error) {
-    ElMessage.error("保存失败");
-  }
-};
-
-const testStorageSettings = async () => {
-  try {
-    await systemApi.testStorageSettings(storageSettings);
-    ElMessage.success("存储连接测试成功");
-  } catch (error) {
-    ElMessage.error("存储连接测试失败");
-  }
-};
-
-const resetStorageSettings = () => {
-  Object.assign(storageSettings, {
-    type: "local",
-    localPath: "/data/uploads",
-    maxFileSize: 100,
-    ossAccessKeyId: "",
-    ossAccessKeySecret: "",
-    ossEndpoint: "",
-    ossBucket: "",
-    s3AccessKeyId: "",
-    s3SecretAccessKey: "",
-    s3Region: "",
-    s3Bucket: "",
-  });
-};
-
-const saveBackupSettings = async () => {
-  try {
-    await systemApi.updateBackupSettings(backupSettings);
-    ElMessage.success("备份设置保存成功");
-  } catch (error) {
-    ElMessage.error("保存失败");
-  }
-};
-
-const createBackup = async () => {
-  try {
-    await systemApi.createBackup();
-    ElMessage.success("备份任务已创建");
-    getBackupHistory();
-  } catch (error) {
-    ElMessage.error("创建备份失败");
-  }
-};
-
-const resetBackupSettings = () => {
-  Object.assign(backupSettings, {
-    autoBackup: true,
-    frequency: "daily",
-    backupTime: "02:00",
-    retentionDays: 30,
-    backupPath: "/data/backups",
-    backupContent: ["database", "files"],
-  });
-};
-
-const getBackupHistory = async () => {
-  try {
-    const response = await systemApi.getBackupHistory();
-    backupHistory.value = response.data;
-  } catch (error) {
-    console.error("获取备份历史失败:", error);
-  }
-};
-
-const downloadBackup = async (backup) => {
-  try {
-    const response = await systemApi.downloadBackup(backup.id);
-    const blob = new Blob([response.data]);
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = backup.filename;
-    link.click();
-    window.URL.revokeObjectURL(url);
-  } catch (error) {
-    ElMessage.error("下载失败");
-  }
-};
-
-const deleteBackup = async (backup) => {
-  try {
-    await ElMessageBox.confirm("确定要删除这个备份吗？", "提示", {
-      confirmButtonText: "确定",
-      cancelButtonText: "取消",
-      type: "warning",
-    });
-
-    await systemApi.deleteBackup(backup.id);
-    ElMessage.success("删除成功");
-    getBackupHistory();
-  } catch (error) {
-    if (error !== "cancel") {
-      ElMessage.error("删除失败");
-    }
-  }
-};
-
-const saveLogSettings = async () => {
-  try {
-    await systemApi.updateLogSettings(logSettings);
-    ElMessage.success("日志设置保存成功");
-  } catch (error) {
-    ElMessage.error("保存失败");
-  }
-};
-
-const viewLogs = () => {
-  ElMessage.info("日志查看功能开发中...");
-};
-
-const clearLogs = async () => {
-  try {
-    await ElMessageBox.confirm("确定要清理历史日志吗？", "提示", {
-      confirmButtonText: "确定",
-      cancelButtonText: "取消",
-      type: "warning",
-    });
-
-    await systemApi.clearLogs();
-    ElMessage.success("日志清理成功");
-  } catch (error) {
-    if (error !== "cancel") {
-      ElMessage.error("清理失败");
-    }
-  }
-};
-
-const resetLogSettings = () => {
-  Object.assign(logSettings, {
-    level: "info",
-    format: "json",
-    retentionDays: 30,
-    maxFileSize: 100,
-    rotation: true,
-    compression: true,
   });
 };
 
@@ -1150,35 +565,35 @@ const beforeLogoUpload = (file) => {
   return true;
 };
 
+const saveReportSettings = async () => {
+  try {
+    await updateUserSettings({
+      report_auto_generate: reportSettings.report_auto_generate,
+    });
+    ElMessage.success("报告设置已保存");
+  } catch (error) {
+    ElMessage.error("保存失败");
+  }
+};
+
 const loadSettings = async () => {
   try {
-    const [basic, security, email, storage, backup, log, notification] =
-      await Promise.all([
-        systemApi.getBasicSettings(),
-        systemApi.getSecuritySettings(),
-        systemApi.getEmailSettings(),
-        systemApi.getStorageSettings(),
-        systemApi.getBackupSettings(),
-        systemApi.getLogSettings(),
-        systemApi.getNotificationSettings(),
-      ]);
-
-    Object.assign(basicSettings, basic.data);
-    Object.assign(securitySettings, security.data);
-    Object.assign(emailSettings, email.data);
-    Object.assign(storageSettings, storage.data);
-    Object.assign(backupSettings, backup.data);
-    Object.assign(logSettings, log.data);
-    Object.assign(notificationSettings, notification.data);
+    const userRes = await getUserSettings();
+    if (userRes?.data && typeof userRes.data === "object") {
+      if (userRes.data.report_auto_generate !== undefined) {
+        reportSettings.report_auto_generate = userRes.data.report_auto_generate === "manual" ? "manual" : "auto";
+      }
+    }
   } catch (error) {
-    console.error("加载设置失败:", error);
+    console.error("加载用户设置失败:", error);
   }
+  // 以下模块暂无后端接口，仅使用本地默认值，避免请求 404
+  // 若后续接入 /api/system/settings/* 可再恢复请求
 };
 
 // 生命周期
 onMounted(() => {
   loadSettings();
-  getBackupHistory();
 });
 </script>
 
@@ -1205,15 +620,6 @@ onMounted(() => {
   color: #303133;
   border-bottom: 2px solid #409eff;
   padding-bottom: 10px;
-}
-
-.backup-history {
-  margin-top: 30px;
-}
-
-.backup-history h4 {
-  margin-bottom: 15px;
-  color: #303133;
 }
 
 .logo-uploader .logo {

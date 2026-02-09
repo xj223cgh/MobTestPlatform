@@ -46,9 +46,10 @@
           name="test_case"
         >
           <div class="table-section">
-            <el-table
-              v-loading="loading.testCase"
-              :data="reportList.testCase"
+            <div class="table-scroll-viewport">
+              <el-table
+                v-loading="loading.testCase"
+                :data="reportList.testCase"
               stripe
               border
               style="width: 100%"
@@ -110,21 +111,33 @@
               </el-table-column>
               <el-table-column
                 label="操作"
-                min-width="120"
+                width="150"
                 fixed="right"
                 align="center"
               >
                 <template #default="{ row }">
-                  <el-button
-                    type="primary"
-                    size="small"
-                    @click="handleViewReport(row)"
-                  >
-                    查看
-                  </el-button>
+                  <div class="operation-buttons">
+                    <el-button
+                      type="primary"
+                      size="small"
+                      class="op-btn"
+                      @click="handleViewReport(row)"
+                    >
+                      查看
+                    </el-button>
+                    <el-button
+                      type="danger"
+                      size="small"
+                      class="op-btn"
+                      @click="handleDeleteReport(row, 'test_case')"
+                    >
+                      删除
+                    </el-button>
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
+            </div>
           </div>
         </el-tab-pane>
 
@@ -134,9 +147,10 @@
           name="device_script"
         >
           <div class="table-section">
-            <el-table
-              v-loading="loading.deviceScript"
-              :data="reportList.deviceScript"
+            <div class="table-scroll-viewport">
+              <el-table
+                v-loading="loading.deviceScript"
+                :data="reportList.deviceScript"
               stripe
               border
               style="width: 100%"
@@ -208,21 +222,33 @@
               </el-table-column>
               <el-table-column
                 label="操作"
-                min-width="120"
+                width="150"
                 fixed="right"
                 align="center"
               >
                 <template #default="{ row }">
-                  <el-button
-                    type="primary"
-                    size="small"
-                    @click="handleViewReport(row)"
-                  >   
-                    查看
-                  </el-button>
+                  <div class="operation-buttons">
+                    <el-button
+                      type="primary"
+                      size="small"
+                      class="op-btn"
+                      @click="handleViewReport(row)"
+                    >
+                      查看
+                    </el-button>
+                    <el-button
+                      type="danger"
+                      size="small"
+                      class="op-btn"
+                      @click="handleDeleteReport(row, 'device_script')"
+                    >
+                      删除
+                    </el-button>
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
+            </div>
           </div>
         </el-tab-pane>
       </el-tabs>
@@ -307,7 +333,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search, Refresh, View, Download, Document } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
 import { getTestTaskList } from '@/api/testTask';
-import { getReportData } from '@/api/report';
+import { getReportData, deleteReport } from '@/api/report';
 
 // 路由相关
 const router = useRouter();
@@ -436,6 +462,28 @@ const handleViewReport = (row) => {
   router.push(`/report/${row.id}`);
 };
 
+// 删除报告
+const handleDeleteReport = async (row, tab) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除报告「${row.task_name || row.id}」吗？此操作不可恢复。`,
+      '确认删除',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    );
+    await deleteReport(row.id);
+    ElMessage.success('删除成功');
+    fetchReportList();
+  } catch (err) {
+    if (err !== 'cancel') {
+      ElMessage.error(err?.message || '删除失败');
+    }
+  }
+};
+
 // 查看设备执行输出
 const handleViewOutput = (row) => {
   currentOutputDetail.value = row;
@@ -492,11 +540,15 @@ onMounted(() => {
 <style lang="scss" scoped>
 .report-management {
   padding: 20px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: #f5f7fa;
-  min-height: 100vh;
 }
 
 .filter-section {
+  flex-shrink: 0;
   background: white;
   padding: 20px;
   border-radius: 8px;
@@ -505,11 +557,47 @@ onMounted(() => {
 }
 
 .report-tabs-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   margin-bottom: 70px;
 }
 
+.report-tabs-section :deep(.el-tabs) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.report-tabs-section :deep(.el-tabs__content) {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.report-tabs-section :deep(.el-tabs__panel) {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.report-tabs-section :deep(.el-tab-pane) {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .report-tabs {
-  margin-bottom: 20px;
+  margin-bottom: 0;
 
   :deep(.el-tabs__header) {
     margin-bottom: 0;
@@ -521,18 +609,57 @@ onMounted(() => {
 }
 
 .table-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   background: white;
   border-radius: 8px;
   overflow: hidden;
   margin-top: 16px;
-  margin-bottom: 70px;
+  margin-bottom: 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* 标签页表格不显示横向滚动条，仅垂直滚动；表体区域出现垂直滚动条 */
+.table-section .table-scroll-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.table-section .table-scroll-viewport :deep(.el-table__body-wrapper) {
+  overflow-x: hidden !important;
+}
+
+.table-section .table-scroll-viewport :deep(.el-table) {
+  min-width: 0 !important;
+}
+
+/* 操作列：与需求管理页面一致，紧凑按钮样式 */
+.operation-buttons {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: nowrap;
+  padding: 2px 0;
+}
+
+.operation-buttons :deep(.el-button.op-btn),
+.operation-buttons :deep(.el-button) {
+  flex: none;
+  min-width: 0;
+  padding: 2px 6px;
+  font-size: 12px;
+  margin: 0;
+  white-space: nowrap;
 }
 
 .pagination-container {
   position: fixed;
   bottom: 0;
-  left: 230px;
   right: 0;
   display: flex;
   justify-content: center;

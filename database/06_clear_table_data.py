@@ -39,6 +39,9 @@ def clear_table_data():
         with connection.cursor() as cursor:
             # 按照外键依赖关系倒序清空表数据
             tables = [
+                'reports',
+                'user_settings',
+                'system_settings',
                 'test_case_review_history',
                 'test_suite_review_history',
                 'test_case_review_details',

@@ -40,6 +40,12 @@ const routes = [
     meta: { title: "重置密码", requiresAuth: false },
   },
   {
+    path: "/mindmap-fullscreen",
+    name: "MindmapFullscreen",
+    component: () => import("@/views/testCase/MindmapFullscreen.vue"),
+    meta: { title: "脑图全屏", requiresAuth: true, hidden: true },
+  },
+  {
     path: "/",
     name: "Layout",
     component: () => import("@/components/layout/Layout.vue"),
@@ -138,6 +144,12 @@ const routes = [
         meta: { title: "报告详情", icon: "Odometer", hidden: true },
       },
       {
+        path: "report/record/:id",
+        name: "ReportDetailByRecord",
+        component: () => import("@/views/report/ReportDetail.vue"),
+        meta: { title: "报告详情", icon: "Odometer", hidden: true },
+      },
+      {
         path: "users",
         name: "Users",
         component: () => import("@/views/user/UserManagement.vue"),
@@ -155,6 +167,12 @@ const routes = [
         name: "Profile",
         component: () => import("@/views/profile/Profile.vue"),
         meta: { title: "个人中心", hidden: true },
+      },
+      {
+        path: "settings",
+        name: "Settings",
+        component: () => import("@/views/system/SystemSettings.vue"),
+        meta: { title: "系统设置", icon: "Setting", hidden: true },
       },
     ],
   },

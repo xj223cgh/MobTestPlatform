@@ -68,36 +68,20 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="项目">
+        <el-form-item label="负责人">
           <el-select
-            v-model="filterForm.project_id"
-            placeholder="全部项目"
+            v-model="filterForm.executor_id"
+            placeholder="全部负责人"
             clearable
-            style="width: 180px"
-            @change="handleProjectChange"
-          >
-            <el-option
-              v-for="project in projects"
-              :key="project.id"
-              :label="project.project_name"
-              :value="project.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="迭代">
-          <el-select
-            v-model="filterForm.iteration_id"
-            placeholder="全部迭代"
-            clearable
-            style="width: 180px"
-            :disabled="!filterForm.project_id"
+            filterable
+            style="width: 140px"
             @change="handleSearch"
           >
             <el-option
-              v-for="iteration in iterations"
-              :key="iteration.id"
-              :label="iteration.iteration_name"
-              :value="iteration.id"
+              v-for="u in userOptions"
+              :key="u.id"
+              :label="u.real_name"
+              :value="u.id"
             />
           </el-select>
         </el-form-item>
@@ -144,9 +128,10 @@
           name="test_case"
         >
           <div class="table-section">
-            <el-table
-              v-loading="loading.testCase"
-              :data="taskList.testCase"
+            <div class="table-scroll-viewport">
+              <el-table
+                v-loading="loading.testCase"
+                :data="taskList.testCase"
               stripe
               border
               style="width: 100%"
@@ -155,47 +140,14 @@
               <el-table-column
                 prop="task_name"
                 label="任务名称"
-                min-width="110"
+                min-width="150"
                 show-overflow-tooltip
                 align="center"
               />
               <el-table-column
-                prop="project_name"
-                label="项目"
-                width="170"
-                show-overflow-tooltip
-                align="center"
-              >
-                <template #default="{ row }">
-                  {{ row.project_name || "-" }}
-                </template>
-              </el-table-column>
-              <el-table-column
-                prop="iteration_name"
-                label="迭代"
-                width="140"
-                show-overflow-tooltip
-                align="center"
-              >
-                <template #default="{ row }">
-                  {{ row.iteration_name || "-" }}
-                </template>
-              </el-table-column>
-              <el-table-column
-                prop="version_requirement_name"
-                label="需求"
-                width="170"
-                show-overflow-tooltip
-                align="center"
-              >
-                <template #default="{ row }">
-                  {{ row.version_requirement_name || "-" }}
-                </template>
-              </el-table-column>
-              <el-table-column
                 prop="executor_name"
                 label="负责人"
-                width="140"
+                width="100"
                 show-overflow-tooltip
                 align="center"
               >
@@ -206,7 +158,7 @@
               <el-table-column
                 prop="priority"
                 label="优先级"
-                width="100"
+                width="75"
                 align="center"
               >
                 <template #default="{ row }">
@@ -221,7 +173,7 @@
               <el-table-column
                 prop="status"
                 label="状态"
-                width="100"
+                width="85"
                 align="center"
               >
                 <template #default="{ row }">
@@ -333,7 +285,7 @@
               </el-table-column>
               <el-table-column
                 label="操作"
-                width="200"
+                width="190"
                 fixed="right"
                 align="center"
               >
@@ -383,6 +335,17 @@
                     </el-icon>
                   </el-button>
                   <el-button
+                    v-if="row.status === 'completed'"
+                    size="small"
+                    circle
+                    title="生成报告"
+                    @click="handleGenerateReport(row)"
+                  >
+                    <el-icon color="#409eff">
+                      <Document />
+                    </el-icon>
+                  </el-button>
+                  <el-button
                     size="small"
                     circle
                     title="详情"
@@ -405,15 +368,14 @@
                 </template>
               </el-table-column>
             </el-table>
+            </div>
 
             <div class="pagination-container">
               <el-pagination
                 :current-page="pagination.testCase.page"
                 :page-size="pagination.testCase.size"
-                :page-sizes="[10, 20, 50, 100]"
                 :total="pagination.testCase.total"
-                layout="total, sizes, prev, pager, next, jumper"
-                @size-change="(size) => handleSizeChange(size, 'testCase')"
+                layout="total, prev, pager, next, jumper"
                 @current-change="(page) => handlePageChange(page, 'testCase')"
               />
             </div>
@@ -426,9 +388,10 @@
           name="device_script"
         >
           <div class="table-section">
-            <el-table
-              v-loading="loading.deviceScript"
-              :data="taskList.deviceScript"
+            <div class="table-scroll-viewport">
+              <el-table
+                v-loading="loading.deviceScript"
+                :data="taskList.deviceScript"
               stripe
               border
               style="width: 100%"
@@ -444,7 +407,7 @@
               <el-table-column
                 prop="executor_name"
                 label="负责人"
-                width="210"
+                width="180"
                 show-overflow-tooltip
                 align="center"
               >
@@ -485,7 +448,7 @@
               <el-table-column
                 prop="script_file"
                 label="脚本文件"
-                min-width="170"
+                min-width="150"
                 align="center"
               >
                 <template #default="{ row }">
@@ -508,7 +471,7 @@
               </el-table-column>
               <el-table-column
                 label="计划时间"
-                width="240"
+                width="220"
                 align="center"
               >
                 <template #default="{ row }">
@@ -576,6 +539,17 @@
                     </el-icon>
                   </el-button>
                   <el-button
+                    v-if="row.status === 'completed'"
+                    size="small"
+                    circle
+                    title="生成报告"
+                    @click="handleGenerateReport(row)"
+                  >
+                    <el-icon color="#409eff">
+                      <Document />
+                    </el-icon>
+                  </el-button>
+                  <el-button
                     size="small"
                     circle
                     title="详情"
@@ -598,15 +572,14 @@
                 </template>
               </el-table-column>
             </el-table>
+            </div>
 
             <div class="pagination-container">
               <el-pagination
                 :current-page="pagination.deviceScript.page"
                 :page-size="pagination.deviceScript.size"
-                :page-sizes="[10, 20, 50, 100]"
                 :total="pagination.deviceScript.total"
-                layout="total, sizes, prev, pager, next, jumper"
-                @size-change="(size) => handleSizeChange(size, 'deviceScript')"
+                layout="total, prev, pager, next, jumper"
                 @current-change="
                   (page) => handlePageChange(page, 'deviceScript')
                 "
@@ -638,11 +611,13 @@ import {
   VideoPause,
   Refresh,
   Download,
+  Document,
 } from "@element-plus/icons-vue";
 import testTaskApi from "@/api/testTask";
 import projectApi from "@/api/project";
-import { getIterations, getProjectIterations } from "@/api/iteration";
+import { getUserList } from "@/api/user";
 import deviceApi from "@/api/device";
+import { manualGenerateReport } from "@/api/report";
 import TaskDialog from "./components/TaskDialog.vue";
 
 const activeTab = ref("test_case");
@@ -654,8 +629,7 @@ const taskList = reactive({
   testCase: [],
   deviceScript: [],
 });
-const projects = ref([]);
-const iterations = ref([]);
+const userOptions = ref([]);
 const taskDialogRef = ref(null);
 const router = useRouter();
 const route = useRoute();
@@ -665,19 +639,18 @@ const filterForm = reactive({
   status: "",
   priority: "",
   task_type: "",
-  project_id: "",
-  iteration_id: "",
+  executor_id: "",
 });
 
 const pagination = reactive({
   testCase: {
     page: 1,
-    size: 20,
+    size: 10,
     total: 0,
   },
   deviceScript: {
     page: 1,
-    size: 20,
+    size: 10,
     total: 0,
   },
 });
@@ -795,28 +768,12 @@ const loadTasks = async () => {
   }
 };
 
-const loadProjects = async () => {
+const loadUsers = async () => {
   try {
-    const response = await projectApi.getProjects({ page: 1, size: 1000 });
-    projects.value = response.data?.items || response.data?.projects || [];
+    const response = await getUserList({ page: 1, size: 1000 });
+    userOptions.value = response.data?.items || response.data?.users || [];
   } catch (error) {
-    console.error("加载项目列表失败:", error);
-  }
-};
-
-const loadIterations = async () => {
-  if (!filterForm.project_id) {
-    iterations.value = [];
-    return;
-  }
-  try {
-    const response = await getProjectIterations(filterForm.project_id, {
-      page: 1,
-      size: 1000,
-    });
-    iterations.value = response.data?.items || response.data?.iterations || [];
-  } catch (error) {
-    console.error("加载迭代列表失败:", error);
+    console.error("加载用户列表失败:", error);
   }
 };
 
@@ -832,19 +789,11 @@ const handleReset = () => {
     status: "",
     priority: "",
     task_type: "",
-    project_id: "",
-    iteration_id: "",
+    executor_id: "",
   });
-  iterations.value = [];
   pagination.testCase.page = 1;
   pagination.deviceScript.page = 1;
   loadTasks();
-};
-
-const handleProjectChange = () => {
-  filterForm.iteration_id = "";
-  loadIterations();
-  handleSearch();
 };
 
 const handleCreate = () => {
@@ -998,6 +947,20 @@ const handleReExecute = async (row) => {
   }
 };
 
+const handleGenerateReport = async (row) => {
+  try {
+    const res = await manualGenerateReport(row.id);
+    if (res?.success && res?.data?.report_id) {
+      ElMessage.success("报告已生成");
+      router.push(`/report/record/${res.data.report_id}`);
+    } else {
+      ElMessage.error(res?.message || "生成报告失败");
+    }
+  } catch (e) {
+    ElMessage.error(e?.response?.data?.message || e?.message || "生成报告失败");
+  }
+};
+
 const handleView = (row) => {
   taskDialogRef.value?.open(row.id);
 };
@@ -1064,7 +1027,7 @@ const handleTabChange = () => {
 
 onMounted(() => {
   loadTasks();
-  loadProjects();
+  loadUsers();
   
   // 添加页面可见性监听，当页面重新可见时刷新数据
   document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -1093,33 +1056,111 @@ const handleVisibilityChange = () => {
 <style lang="scss" scoped>
 .test-task-management {
   padding: 20px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background-color: #f5f7fa;
-  min-height: 100vh;
 }
 
 .filter-section {
+  flex-shrink: 0;
   background: white;
   padding: 20px;
   border-radius: 8px;
   margin-bottom: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  min-width: 0;
+}
 
-  .filter-form {
-    margin: 0;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-  }
+.filter-section .filter-form {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  width: 100%;
+  min-width: 0;
+}
+
+.filter-section :deep(.el-form-item) {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+  margin-right: 0;
+}
+
+/* 任务标签页区域填满剩余高度 */
+.task-tabs-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.task-tabs-section :deep(.el-tabs) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.task-tabs-section :deep(.el-tabs__content) {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.task-tabs-section :deep(.el-tabs__panel) {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.task-tabs-section :deep(.el-tab-pane) {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .table-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   background: white;
   border-radius: 8px;
   overflow: hidden;
-  margin-bottom: 70px;
+  margin-bottom: 56px;
+}
 
+/* 表格视口填满高度，不出现横向滚动条，表格列自适应宽度 */
+.table-section .table-scroll-viewport {
+  max-height: none !important;
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.table-section .table-scroll-viewport :deep(.el-table) {
+  min-width: 0 !important;
+}
+
+.table-section .table-scroll-viewport :deep(.el-table__body-wrapper) {
+  overflow-x: hidden !important;
+}
+
+.table-section {
   :deep(.el-button.is-circle) {
-    padding: 14px;
+    padding: 12px;
     background-color: transparent !important;
     border: 1px solid #dcdfe6;
 
@@ -1128,12 +1169,12 @@ const handleVisibilityChange = () => {
     }
 
     .el-icon {
-      font-size: 18px;
+      font-size: 16px;
     }
   }
 
   :deep(.el-button + .el-button) {
-    margin-left: 12px;
+    margin-left: 10px;
   }
 
   .time-range {
@@ -1257,7 +1298,6 @@ const handleVisibilityChange = () => {
 .pagination-container {
   position: fixed;
   bottom: 0;
-  left: 230px;
   right: 0;
   display: flex;
   justify-content: center;

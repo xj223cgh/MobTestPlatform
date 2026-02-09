@@ -259,6 +259,7 @@ def create_tables():
                 project_id INT NULL COMMENT '所属项目ID',
                 iteration_id INT NULL COMMENT '所属迭代ID',
                 suite_id INT NULL COMMENT '关联的测试套件ID',
+                version_requirement_id INT NULL COMMENT '关联的版本需求ID',
                 documentation_url TEXT COMMENT '相关文档链接',
                 version_info VARCHAR(100) COMMENT '版本信息',
                 result TEXT NULL COMMENT '任务执行结果，JSON格式存储',
@@ -272,6 +273,7 @@ def create_tables():
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
                 FOREIGN KEY (iteration_id) REFERENCES iterations(id) ON DELETE SET NULL,
                 FOREIGN KEY (suite_id) REFERENCES test_suites(id) ON DELETE SET NULL,
+                FOREIGN KEY (version_requirement_id) REFERENCES version_requirements(id) ON DELETE SET NULL,
                 INDEX idx_task_name (task_name),
                 INDEX idx_status (status),
                 INDEX idx_creator_id (creator_id),
@@ -280,6 +282,7 @@ def create_tables():
                 INDEX idx_project_id (project_id),
                 INDEX idx_iteration_id (iteration_id),
                 INDEX idx_suite_id (suite_id),
+                INDEX idx_version_requirement_id (version_requirement_id),
                 INDEX idx_task_type (task_type)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='测试任务表'""")
             
@@ -291,14 +294,14 @@ def create_tables():
                 project_id INT NULL COMMENT '所属项目ID',
                 iteration_id INT NULL COMMENT '所属迭代ID',
                 status ENUM('pass', 'fail', 'blocked', 'not_applicable') DEFAULT 'not_applicable' COMMENT '执行状态',
-                executor_id INT NOT NULL COMMENT '执行者ID',
+                executor_id INT NULL COMMENT '执行人ID（允许为空）',
                 execution_time DATETIME NULL COMMENT '执行时间',
                 notes TEXT COMMENT '备注',
                 FOREIGN KEY (task_id) REFERENCES test_tasks(id) ON DELETE CASCADE,
                 FOREIGN KEY (case_id) REFERENCES test_cases(id) ON DELETE CASCADE,
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
                 FOREIGN KEY (iteration_id) REFERENCES iterations(id) ON DELETE SET NULL,
-                FOREIGN KEY (executor_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (executor_id) REFERENCES users(id) ON DELETE SET NULL,
                 INDEX idx_task_id (task_id),
                 INDEX idx_case_id (case_id),
                 INDEX idx_executor_id (executor_id),
@@ -329,9 +332,9 @@ def create_tables():
             cursor.execute("""CREATE TABLE IF NOT EXISTS task_case_relation (
                 task_id INT NOT NULL COMMENT '任务ID',
                 case_id INT NOT NULL COMMENT '用例ID',
+                PRIMARY KEY (task_id, case_id),
                 FOREIGN KEY (task_id) REFERENCES test_tasks(id) ON DELETE CASCADE,
                 FOREIGN KEY (case_id) REFERENCES test_cases(id) ON DELETE CASCADE,
-                UNIQUE KEY idx_task_case (task_id, case_id),
                 INDEX idx_case_id (case_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='任务用例关联表'""")
             
@@ -339,9 +342,9 @@ def create_tables():
             cursor.execute("""CREATE TABLE IF NOT EXISTS task_device_relation (
                 task_id INT NOT NULL COMMENT '任务ID',
                 device_id INT NOT NULL COMMENT '设备ID',
+                PRIMARY KEY (task_id, device_id),
                 FOREIGN KEY (task_id) REFERENCES test_tasks(id) ON DELETE CASCADE,
                 FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE,
-                UNIQUE KEY idx_task_device (task_id, device_id),
                 INDEX idx_device_id (device_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='任务设备关联表'""")
             
@@ -351,7 +354,7 @@ def create_tables():
                 suite_id INT NOT NULL COMMENT '关联用例集ID',
                 initiator_id INT COMMENT '发起人ID',
                 reviewer_id INT COMMENT '评审人ID',
-                status ENUM('pending', 'in_review', 'completed') DEFAULT 'pending' COMMENT '评审任务状态：pending-待处理, in_review-评审中, completed-已完成',
+                status ENUM('pending', 'in_review', 'completed', 'rejected') DEFAULT 'pending' COMMENT '评审任务状态：pending-待处理, in_review-评审中, completed-已完成, rejected-已拒绝',
                 start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '评审开始时间',
                 end_time TIMESTAMP NULL COMMENT '评审结束时间',
                 overall_comments TEXT COMMENT '整体评审意见',
@@ -432,6 +435,48 @@ def create_tables():
                 FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL,
                 FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用例评审历史记录模型'""")
+
+            # 创建system_settings表（系统级设置，全局生效）
+            cursor.execute("""CREATE TABLE IF NOT EXISTS system_settings (
+                id INT AUTO_INCREMENT PRIMARY KEY COMMENT '设置ID',
+                setting_key VARCHAR(100) NOT NULL UNIQUE COMMENT '设置键，如 auto_generate_report',
+                setting_value TEXT COMMENT '设置值，可为字符串或JSON',
+                description VARCHAR(255) DEFAULT NULL COMMENT '设置说明',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                INDEX idx_setting_key (setting_key)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统设置表'""")
+
+            # 创建user_settings表（用户个人设置，按用户隔离）
+            cursor.execute("""CREATE TABLE IF NOT EXISTS user_settings (
+                id INT AUTO_INCREMENT PRIMARY KEY COMMENT '设置ID',
+                user_id INT NOT NULL COMMENT '用户ID',
+                setting_key VARCHAR(100) NOT NULL COMMENT '设置键，如 auto_generate_report',
+                setting_value TEXT COMMENT '设置值，可为字符串或JSON',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                UNIQUE KEY uk_user_setting (user_id, setting_key),
+                INDEX idx_user_id (user_id),
+                INDEX idx_setting_key (setting_key)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户个人设置表'""")
+
+            # 创建reports表（报告落库，关联任务）
+            cursor.execute("""CREATE TABLE IF NOT EXISTS reports (
+                id INT AUTO_INCREMENT PRIMARY KEY COMMENT '报告ID',
+                task_id INT NOT NULL COMMENT '关联任务ID',
+                report_type ENUM('test_case', 'device_script') NOT NULL COMMENT '报告类型',
+                task_name VARCHAR(200) NOT NULL COMMENT '任务名称（冗余）',
+                project_id INT NULL COMMENT '项目ID（冗余）',
+                project_name VARCHAR(200) NULL COMMENT '项目名称（冗余）',
+                summary JSON COMMENT '报告摘要',
+                details JSON COMMENT '报告明细',
+                completed_at TIMESTAMP NULL COMMENT '任务完成时间',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '报告生成时间',
+                FOREIGN KEY (task_id) REFERENCES test_tasks(id) ON DELETE CASCADE,
+                INDEX idx_task_id (task_id),
+                INDEX idx_report_type (report_type),
+                INDEX idx_completed_at (completed_at),
+                INDEX idx_created_at (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='报告表'""")
             
             connection.commit()
             print("所有数据表创建成功！")

@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from datetime import datetime, timezone, timedelta
 
-from app.models.models import TestTask, db, TestSuite, TestCase, Device, TestCaseExecution, TEST_TASK_STATUS, TEST_EXECUTION_STATUS
+from app.models.models import TestTask, db, TestSuite, TestCase, Device, TestCaseExecution, UserSetting, TEST_TASK_STATUS, TEST_EXECUTION_STATUS
 from app.utils.helpers import (
     success_response, error_response, get_pagination_params, log_user_action,
     validate_json_data
@@ -23,6 +23,7 @@ def get_test_tasks():
     task_type = request.args.get('task_type', '').strip()
     project_id = request.args.get('project_id', '').strip()
     iteration_id = request.args.get('iteration_id', '').strip()
+    executor_id = request.args.get('executor_id', '').strip()
     
     # 构建查询
     query = TestTask.query
@@ -53,6 +54,10 @@ def get_test_tasks():
     # 迭代过滤
     if iteration_id:
         query = query.filter(TestTask.iteration_id == int(iteration_id))
+    
+    # 负责人过滤
+    if executor_id:
+        query = query.filter(TestTask.executor_id == int(executor_id))
     
     # 分页
     pagination = query.order_by(TestTask.created_at.desc()).paginate(
@@ -580,23 +585,36 @@ def resume_test_task(task_id):
 @bp.route('/<int:task_id>/complete', methods=['POST'])
 @login_required
 def complete_test_task(task_id):
-    """完成测试任务"""
+    """完成测试任务；若用户设置为自动生成报告则落库"""
     test_task = TestTask.query.get_or_404(task_id)
-    
+
     if test_task.status != 'running':
         return error_response(400, "只能完成运行中的测试任务")
-    
+
     try:
         test_task.status = 'completed'
         test_task.completed_time = datetime.now(timezone(timedelta(hours=8)))
+
+        # 用户设置：自动生成报告（默认自动）
+        auto_gen = True
+        setting = UserSetting.query.filter_by(
+            user_id=current_user.id,
+            setting_key='report_auto_generate'
+        ).first()
+        if setting and setting.setting_value == 'manual':
+            auto_gen = False
+        if auto_gen:
+            from app.routes.reports import create_report_for_task
+            create_report_for_task(test_task)
+
         db.session.commit()
-        
+
         log_user_action("完成测试任务", f"任务ID: {task_id}")
-        
+
         return success_response({
             'test_task': test_task.to_dict()
         }, "测试任务已完成")
-        
+
     except Exception as e:
         db.session.rollback()
         return error_response(500, "测试任务完成失败，请稍后重试")

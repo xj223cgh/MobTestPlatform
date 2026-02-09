@@ -39,6 +39,9 @@ def drop_tables():
         with connection.cursor() as cursor:
             # 按照外键依赖关系倒序删除表
             tables = [
+                'reports',
+                'user_settings',
+                'system_settings',
                 'test_case_review_history',
                 'test_suite_review_history',
                 'test_case_review_details',
