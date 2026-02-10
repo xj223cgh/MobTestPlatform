@@ -471,11 +471,14 @@ def create_tables():
                 details JSON COMMENT '报告明细',
                 completed_at TIMESTAMP NULL COMMENT '任务完成时间',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '报告生成时间',
+                creator_id INT NULL COMMENT '创建人ID',
                 FOREIGN KEY (task_id) REFERENCES test_tasks(id) ON DELETE CASCADE,
+                FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL,
                 INDEX idx_task_id (task_id),
                 INDEX idx_report_type (report_type),
                 INDEX idx_completed_at (completed_at),
-                INDEX idx_created_at (created_at)
+                INDEX idx_created_at (created_at),
+                INDEX idx_creator_id (creator_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='报告表'""")
             
             connection.commit()

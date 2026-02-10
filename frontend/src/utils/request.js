@@ -34,8 +34,9 @@ request.interceptors.response.use(
   (response) => {
     const res = response?.data || {};
 
-    // 如果响应中包含code字段且不为200，则认为是业务错误
-    if (res.code && res.code !== 200) {
+    // 如果响应中包含code字段且不为200或201，则认为是业务错误
+    // 201是创建资源成功的标准HTTP状态码
+    if (res.code && res.code !== 200 && res.code !== 201) {
       ElMessage.error(res.message || "操作失败");
       return Promise.reject(new Error(res.message || "操作失败"));
     }

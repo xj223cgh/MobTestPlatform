@@ -317,6 +317,7 @@
               :data="testCases"
               style="width: 100%"
               border
+              height="100%"
               :row-style="{ height: 'auto', textAlign: 'center' }"
               :cell-style="{
                 padding: '10px',
@@ -2761,6 +2762,8 @@ const handleNodeExpand = (data) => {
     // 存储到localStorage
     localStorage.setItem('testCaseExpandedKeys', JSON.stringify(expandedKeys.value));
   }
+  // 展开后滚动到当前节点
+  scrollToCurrentNode();
 };
 
 // 节点折叠事件处理
@@ -3038,6 +3041,15 @@ const handleNodeClick = (data) => {
   // 存储选中状态到localStorage
   localStorage.setItem('testCaseSelectedSuite', JSON.stringify(data));
   
+  // 确保树节点选中并滚动到视图中
+  nextTick(() => {
+    if (treeRef.value) {
+      treeRef.value.setCurrentKey(data.id);
+      // 滚动到当前选中节点
+      scrollToCurrentNode();
+    }
+  });
+  
   if (data.type === "suite") {
     // 只有用例集才能加载测试用例
     loadTestCases(data.id);
@@ -3050,6 +3062,36 @@ const handleNodeClick = (data) => {
     suiteReviewStatus.value = null;
     reviewButtonText.value = "发起评审";
   }
+};
+
+// 滚动到当前选中节点
+const scrollToCurrentNode = () => {
+  nextTick(() => {
+    const treeContainer = document.querySelector('.left-panel .tree-container');
+    const currentNode = document.querySelector('.el-tree-node.is-current');
+    
+    if (treeContainer && currentNode) {
+      // 获取容器和节点的位置信息
+      const containerRect = treeContainer.getBoundingClientRect();
+      const nodeRect = currentNode.getBoundingClientRect();
+      
+      // 计算节点在容器中的相对位置
+      const nodeOffsetTop = currentNode.offsetTop;
+      const nodeOffsetLeft = currentNode.offsetLeft;
+      
+      // 垂直滚动：将节点滚动到容器中间位置
+      const scrollTop = nodeOffsetTop - (containerRect.height / 2) + (nodeRect.height / 2);
+      treeContainer.scrollTop = Math.max(0, scrollTop);
+      
+      // 水平滚动：如果节点超出可视区域，则滚动到该节点
+      const scrollLeft = nodeOffsetLeft - 20; // 留一点边距
+      if (scrollLeft > 0) {
+        treeContainer.scrollLeft = scrollLeft;
+      } else {
+        treeContainer.scrollLeft = 0;
+      }
+    }
+  });
 };
 
 // 开始编辑节点名称
@@ -3254,10 +3296,11 @@ const loadTreeData = async () => {
             // 获取用例集评审状态
             getSuiteReviewStatusData(selectedData.id);
             
-            // 确保树形组件高亮显示当前节点
+            // 确保树形组件高亮显示当前节点并滚动到该节点
             await nextTick();
             if (treeRef.value) {
               treeRef.value.setCurrentKey(selectedData.id);
+              scrollToCurrentNode();
             }
           }
         } catch (error) {
@@ -3328,9 +3371,10 @@ const selectSuiteById = async (suiteId) => {
       // 加载该用例集的测试用例
       await loadTestCases(suiteId);
 
-      // 确保树形组件高亮显示当前节点
+      // 确保树形组件高亮显示当前节点并滚动到该节点
       if (treeRef.value) {
         treeRef.value.setCurrentKey(suiteId);
+        scrollToCurrentNode();
       }
     } else {
       ElMessage.warning("未找到指定的用例集");
@@ -5704,8 +5748,10 @@ const handleCurrentChange = (page) => {
 .test-case-management {
   padding: 0;
   background-color: white;
-  min-height: 100vh;
-  overflow-x: auto;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 进度条样式 */
@@ -5936,6 +5982,7 @@ const handleCurrentChange = (page) => {
   padding-bottom: 20px;
   border-bottom: 1px solid #e4e7ed;
   background: white;
+  flex-shrink: 0;
 
   .header-content {
     h1 {
@@ -5958,7 +6005,8 @@ const handleCurrentChange = (page) => {
   align-items: stretch;
   flex-wrap: nowrap;
   min-width: 900px;
-  height: calc(100vh - 100px);
+  flex: 1;
+  overflow: hidden;
   margin-bottom: 0;
 
   .left-panel {
@@ -6031,13 +6079,15 @@ const handleCurrentChange = (page) => {
         align-items: center;
         flex-shrink: 0;
         width: fit-content;
+        gap: 3px;
       }
 
       .header-actions .el-button {
-        padding: 2px;
-        min-width: 26px; /* 按钮大小 */
-        height: 26px; /* 按钮高度 */
-        font-size: 16px; /* 图标大小 */
+        padding: 1px;
+        margin: 0 !important;
+        min-width: 24px; /* 按钮大小 */
+        height: 24px; /* 按钮高度 */
+        font-size: 15px; /* 图标大小 */
         display: flex;
         justify-content: center;
         align-items: center;
@@ -6050,9 +6100,9 @@ const handleCurrentChange = (page) => {
       overflow-x: auto;
       overflow-y: auto;
       background-color: #ffffff;
-      width: fit-content;
-      min-width: 100%;
+      max-width: 320px;
       transition: all 0.3s ease;
+      scroll-behavior: smooth;
     }
 
     /* 确保树节点内容不被截断 */
@@ -6070,6 +6120,17 @@ const handleCurrentChange = (page) => {
       white-space: nowrap;
       height: 36px;
       line-height: 36px;
+    }
+
+    /* 选中节点高亮样式 */
+    :deep(.el-tree-node.is-current > .el-tree-node__content) {
+      background-color: #e6f4ff !important;
+      color: #1890ff;
+      font-weight: 600;
+    }
+
+    :deep(.el-tree-node.is-current > .el-tree-node__content .node-icon) {
+      color: #1890ff;
     }
 
     /* 增大展开收起图标 */
@@ -6177,7 +6238,7 @@ const handleCurrentChange = (page) => {
     .table-wrapper {
       flex: 1;
       overflow: auto;
-      margin-bottom: 15px;
+      margin-bottom: 0;
     }
 
     .table-wrapper :deep(.el-table) {

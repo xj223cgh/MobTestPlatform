@@ -6,6 +6,81 @@ import json
 
 bp = Blueprint('iterations', __name__)
 
+@bp.route('/', methods=['POST'])
+@login_required
+def create_iteration_new():
+    """创建迭代（通用路由）"""
+    try:
+        data = request.get_json()
+        
+        # 验证必要字段
+        if 'project_id' not in data:
+            return jsonify({'error': '缺少必要字段: project_id'}), 400
+        
+        project_id = data['project_id']
+        
+        # 检查用户是否有权限访问该项目
+        project_member = ProjectMember.query.filter_by(
+            project_id=project_id,
+            user_id=current_user.id
+        ).first()
+        
+        if not project_member or project_member.role not in ['owner', 'manager']:
+            return jsonify({'error': '无权在该项目中创建迭代'}), 403
+        
+        # 获取项目
+        project = Project.query.get(project_id)
+        if not project:
+            return jsonify({'error': '项目不存在'}), 404
+        
+        # 验证必要字段
+        required_fields = ['iteration_name', 'start_date', 'end_date', 'version']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({'error': f'缺少必要字段: {field}'}), 400
+        
+        # 验证日期格式
+        try:
+            start_date = datetime.strptime(data['start_date'], '%Y-%m-%d')
+            end_date = datetime.strptime(data['end_date'], '%Y-%m-%d')
+        except ValueError as e:
+            return jsonify({'error': f'日期格式错误，请使用YYYY-MM-DD格式: {str(e)}'}), 400
+        
+        # 验证日期逻辑
+        if start_date > end_date:
+            return jsonify({'error': '开始日期不能晚于结束日期'}), 400
+        
+        # 验证迭代日期是否在项目日期范围内（只在项目有日期限制时检查）
+        if project.start_date and project.end_date:
+            if start_date < project.start_date or end_date > project.end_date:
+                return jsonify({'error': f'迭代日期必须在项目日期范围内（{project.start_date.strftime("%Y-%m-%d")} 至 {project.end_date.strftime("%Y-%m-%d")}）'}), 400
+        
+        # 创建迭代
+        new_iteration = Iteration(
+            project_id=project_id,
+            iteration_name=data['iteration_name'],
+            start_date=start_date,
+            end_date=end_date,
+            version=data['version'],
+            goal=data.get('goal', ''),
+            description=data.get('description', '') or '',
+            status=data.get('status', 'planning'),
+            created_by=current_user.id,
+            updated_by=current_user.id
+        )
+        
+        db.session.add(new_iteration)
+        db.session.commit()
+        
+        return jsonify({
+            'code': 201,
+            'message': '迭代创建成功',
+            'data': new_iteration.to_dict()
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'创建迭代失败: {str(e)}'}), 500
+
 @bp.route('/projects/<int:project_id>/iterations', methods=['POST'])
 @login_required
 def create_iteration(project_id):

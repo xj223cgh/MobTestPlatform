@@ -975,9 +975,11 @@ class Report(db.Model):
     details = db.Column(db.JSON, comment='报告明细')
     completed_at = db.Column(db.DateTime(timezone=True), comment='任务完成时间')
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='报告生成时间')
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建人ID')
 
     task = db.relationship('TestTask', backref=db.backref('reports', lazy='dynamic'))
     project = db.relationship('Project', backref=db.backref('report_list', lazy='dynamic'))
+    creator = db.relationship('User', backref='created_reports', foreign_keys=[creator_id])
 
     def to_dict(self):
         return {
@@ -991,6 +993,10 @@ class Report(db.Model):
             'details': self.details,
             'completed_at': self.completed_at.isoformat() if self.completed_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
+            'creator_id': self.creator_id,
+            'creator_name': self.creator.real_name if self.creator else None,
+            'created_by': self.creator.real_name if self.creator else None,
+            'status': self.task.status if self.task else None,
         }
 
 

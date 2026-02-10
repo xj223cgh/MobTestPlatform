@@ -21,6 +21,7 @@
       <el-form
         :model="searchForm"
         inline
+        class="search-form"
       >
         <el-form-item label="用户名/姓名">
           <el-input
@@ -86,7 +87,7 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item>
+        <el-form-item class="search-buttons">
           <el-button
             type="primary"
             @click="handleSearch"
@@ -831,6 +832,10 @@ onMounted(() => {
 .search-section :deep(.el-form-item) {
   margin-bottom: 0;
   margin-right: 0;
+}
+
+.search-section :deep(.search-buttons) {
+  margin-left: auto;
 }
 
 .table-section {

@@ -214,12 +214,11 @@
         <el-form-item
           label="迭代目标"
           prop="goal"
-          required
         >
           <el-input
             v-model="iterationForm.goal"
             type="textarea"
-            placeholder="请输入迭代目标"
+            placeholder="请输入迭代目标（可选）"
             :rows="2"
           />
         </el-form-item>
@@ -243,7 +242,15 @@
             type="date"
             placeholder="选择开始日期"
             style="width: 100%"
+            :disabled-date="disabledStartDate"
+            :default-value="projectStartDate"
           />
+          <div
+            v-if="currentProjectDateRange"
+            class="date-range-hint"
+          >
+            提示：项目日期范围为 {{ currentProjectDateRange }}
+          </div>
         </el-form-item>
         <el-form-item
           label="结束日期"
@@ -255,6 +262,8 @@
             type="date"
             placeholder="选择结束日期"
             style="width: 100%"
+            :disabled-date="disabledEndDate"
+            :default-value="projectStartDate"
           />
         </el-form-item>
         <el-form-item
@@ -330,6 +339,7 @@ export default {
       // 项目相关
       projects: [],
       selectedProjectId: null,
+      currentProject: null, // 当前选中的项目完整信息
 
       // 迭代列表数据
       iterations: [],
@@ -366,7 +376,6 @@ export default {
           },
         ],
         goal: [
-          { required: true, message: "请输入迭代目标", trigger: "blur" },
           {
             min: 5,
             max: 200,
@@ -409,7 +418,84 @@ export default {
   mounted() {
     this.initProjects();
   },
+  computed: {
+    // 当前项目日期范围提示
+    currentProjectDateRange() {
+      if (!this.currentProject) return null;
+      
+      const startDate = this.currentProject.start_date;
+      const endDate = this.currentProject.end_date;
+      
+      if (!startDate || !endDate) return null;
+      
+      const formatDate = (dateStr) => {
+        if (!dateStr) return '';
+        return dateStr.split('T')[0];
+      };
+      
+      return `${formatDate(startDate)} 至 ${formatDate(endDate)}`;
+    },
+    
+    // 项目起始日期（用于日期选择器的默认显示位置）
+    projectStartDate() {
+      if (!this.currentProject || !this.currentProject.start_date) {
+        return null;
+      }
+      return new Date(this.currentProject.start_date);
+    },
+  },
+  
   methods: {
+    // 禁用开始日期（超出项目范围的日期）
+    disabledStartDate(time) {
+      if (!this.currentProject) return false;
+      
+      const projectStart = this.currentProject.start_date;
+      const projectEnd = this.currentProject.end_date;
+      
+      if (!projectStart || !projectEnd) return false;
+      
+      const startTime = new Date(projectStart).getTime();
+      const endTime = new Date(projectEnd).getTime();
+      const currentTime = time.getTime();
+      
+      return currentTime < startTime || currentTime > endTime;
+    },
+    
+    // 禁用结束日期（超出项目范围的日期，且不能早于开始日期）
+    disabledEndDate(time) {
+      if (!this.currentProject) return false;
+      
+      const projectStart = this.currentProject.start_date;
+      const projectEnd = this.currentProject.end_date;
+      
+      if (!projectStart || !projectEnd) {
+        // 如果项目没有日期限制，只限制不能早于迭代开始日期
+        if (this.iterationForm.start_date) {
+          const startTime = new Date(this.iterationForm.start_date).getTime();
+          return time.getTime() < startTime;
+        }
+        return false;
+      }
+      
+      const startTime = new Date(projectStart).getTime();
+      const endTime = new Date(projectEnd).getTime();
+      const currentTime = time.getTime();
+      
+      // 超出项目范围
+      if (currentTime < startTime || currentTime > endTime) {
+        return true;
+      }
+      
+      // 早于迭代开始日期
+      if (this.iterationForm.start_date) {
+        const iterStartTime = new Date(this.iterationForm.start_date).getTime();
+        return currentTime < iterStartTime;
+      }
+      
+      return false;
+    },
+    
     // 初始化项目列表
     async initProjects() {
       try {
@@ -461,16 +547,35 @@ export default {
     },
 
     // 处理项目变更
-    handleProjectChange() {
+    async handleProjectChange() {
       this.pageLoading = true;
+      await this.loadCurrentProjectInfo();
       this.loadIterations();
     },
 
+    // 加载当前项目信息
+    async loadCurrentProjectInfo() {
+      if (!this.selectedProjectId) {
+        this.currentProject = null;
+        return;
+      }
+      
+      // 从已加载的项目列表中查找
+      this.currentProject = this.projects.find(p => p.id === this.selectedProjectId);
+    },
+
     // 显示创建迭代对话框
-    showCreateIterationDialog() {
+    async showCreateIterationDialog() {
       this.iterationDialogTitle = "创建迭代";
+      await this.loadCurrentProjectInfo();
       this.resetIterationForm();
       this.iterationForm.project_id = this.selectedProjectId;
+      
+      // 如果项目有日期范围，将开始日期默认设置为项目起始日期
+      if (this.currentProject && this.currentProject.start_date) {
+        this.iterationForm.start_date = this.currentProject.start_date.split('T')[0];
+      }
+      
       this.iterationDialogVisible = true;
     },
 
@@ -1060,5 +1165,13 @@ export default {
   .card-actions {
     gap: 8px;
   }
+}
+
+/* 日期范围提示样式 */
+.date-range-hint {
+  margin-top: 5px;
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.5;
 }
 </style>

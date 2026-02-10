@@ -1,10 +1,18 @@
+"""
+测试报告：生成与落库逻辑
+
+- 自动生成：任务完成时（POST /test-tasks/<id>/complete），若用户未关闭「自动生成报告」，
+  则调用 create_report_for_task 生成报告并写入 reports 表。
+- 手动生成：POST /api/reports/generate/<task_id>，对已完成任务生成一条新报告并落库。
+- 报告数据：GET /api/reports/<task_id>/data 优先返回该任务已落库的最新报告；若无则实时计算不落库。
+"""
 from datetime import datetime
 
 from flask import Blueprint, request
 from flask_login import login_required, current_user
 from werkzeug.exceptions import NotFound
 
-from app.models.models import TestTask, db, TestCase, Report
+from app.models.models import TestTask, db, TestCase, Report, User
 from app.utils.helpers import (
     success_response, error_response, get_pagination_params, log_user_action,
 )
@@ -52,6 +60,7 @@ def create_report_for_task(test_task):
         summary=summary,
         details=details,
         completed_at=test_task.completed_time,
+        creator_id=test_task.creator_id,
     )
     db.session.add(report)
     db.session.flush()
@@ -65,8 +74,26 @@ def list_reports():
     try:
         page, per_page = get_pagination_params()
         query = Report.query.order_by(Report.created_at.desc())
+        
+        # 报告类型筛选
         if request.args.get('report_type'):
             query = query.filter_by(report_type=request.args['report_type'])
+        
+        # 任务名称搜索
+        search = request.args.get('search')
+        if search:
+            query = query.filter(Report.task_name.ilike(f'%{search}%'))
+        
+        # 任务状态筛选（需要关联TestTask表）
+        status = request.args.get('status')
+        if status:
+            query = query.join(TestTask, Report.task_id == TestTask.id).filter(TestTask.status == status)
+        
+        # 创建人筛选（需要关联User表）
+        creator = request.args.get('creator')
+        if creator:
+            query = query.join(User, Report.creator_id == User.id).filter(User.real_name.ilike(f'%{creator}%'))
+        
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         items = [r.to_dict() for r in pagination.items]
         return success_response({
@@ -138,29 +165,34 @@ def get_report_data(task_id):
 
 
 def _get_report_data_impl(task_id):
-    """获取报告数据"""
+    """获取报告数据：优先返回已落库报告，若无则实时生成（不落库）"""
     try:
-        # 获取测试任务
         test_task = TestTask.query.get_or_404(task_id)
-        
-        # 构建任务基本信息，兼容前端字段名
         task_info = test_task.to_dict()
-        # 前端期望 created_by、completed_at
         task_info['created_by'] = task_info.get('creator_name') or '-'
         task_info['completed_at'] = task_info.get('completed_time')
-        
-        # 根据任务类型生成不同的报告数据
+
+        # 优先使用已落库的报告（最新一条）
+        report = Report.query.filter_by(task_id=task_id).order_by(Report.created_at.desc()).first()
+        if report:
+            report_data = {
+                'summary': report.summary or {},
+                'details': report.details or [],
+                'task_info': task_info,
+                'from_storage': True,
+                'report_id': report.id,
+            }
+            return success_response(report_data)
+
+        # 无落库报告时实时生成（不写入数据库）
         if test_task.task_type == 'test_case':
             report_data = generate_test_case_report(test_task)
         elif test_task.task_type == 'device_script':
             report_data = generate_device_script_report(test_task)
         else:
-            report_data = {
-                'summary': {},
-                'details': []
-            }
-        
+            report_data = {'summary': {}, 'details': []}
         report_data['task_info'] = task_info
+        report_data['from_storage'] = False
         return success_response(report_data)
     except NotFound:
         raise
@@ -217,24 +249,27 @@ def generate_test_case_report(test_task):
         try:
             latest_execution = None
             if test_case.executions:
-                executions_with_time = [e for e in test_case.executions if e.created_at]
-                latest_execution = max(executions_with_time, key=lambda x: x.created_at) if executions_with_time else None
+                executions_with_time = [e for e in test_case.executions if getattr(e, 'execution_time', None) or getattr(e, 'created_at', None)]
+                latest_execution = max(
+                    executions_with_time,
+                    key=lambda x: x.execution_time or getattr(x, 'created_at', None) or datetime.min
+                ) if executions_with_time else None
             executed_by = None
             if latest_execution and latest_execution.executor:
                 executed_by = latest_execution.executor.username
             details.append({
                 'case_id': test_case.id,
-                'case_title': test_case.case_title or '',
+                'case_title': (getattr(test_case, 'case_name', None) or getattr(test_case, 'case_title', None)) or '',
                 'status': test_case.status or '',
-                'actual_result': latest_execution.actual_result if latest_execution else None,
+                'actual_result': getattr(latest_execution, 'actual_result', None) or (latest_execution.notes if latest_execution else None),
                 'executed_by': executed_by,
-                'executed_at': latest_execution.created_at if latest_execution else None,
-                'remarks': latest_execution.remarks if latest_execution else None
+                'executed_at': getattr(latest_execution, 'execution_time', None) or getattr(latest_execution, 'created_at', None) if latest_execution else None,
+                'remarks': getattr(latest_execution, 'remarks', None) or (latest_execution.notes if latest_execution else None)
             })
         except Exception:
             details.append({
                 'case_id': test_case.id,
-                'case_title': getattr(test_case, 'case_title', '') or '',
+                'case_title': (getattr(test_case, 'case_name', None) or getattr(test_case, 'case_title', None)) or '',
                 'status': getattr(test_case, 'status', '') or '',
                 'actual_result': None,
                 'executed_by': None,

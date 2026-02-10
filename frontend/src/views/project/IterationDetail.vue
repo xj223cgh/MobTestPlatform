@@ -538,14 +538,6 @@ export default {
       const colors = ["#909399", "#409eff", "#67c23a", "#f56c6c"];
 
       return {
-        title: {
-          text: "需求状态分布",
-          left: "center",
-          textStyle: {
-            fontSize: 16,
-            fontWeight: "normal",
-          },
-        },
         tooltip: {
           trigger: "axis",
           axisPointer: {

@@ -33,3 +33,20 @@ export function getDeviceStatusData() {
     method: "get",
   });
 }
+
+// 获取最近访问的项目
+export function getRecentProjects(params = {}) {
+  return request({
+    url: "/home/recent-projects",
+    method: "get",
+    params,
+  });
+}
+
+// 获取任务状态分布
+export function getTaskStatusDistribution() {
+  return request({
+    url: "/home/task-status-distribution",
+    method: "get",
+  });
+}

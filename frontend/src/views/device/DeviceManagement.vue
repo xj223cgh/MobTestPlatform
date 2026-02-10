@@ -8,6 +8,14 @@
           style="gap: 25px"
         >
           <el-button
+            v-if="selectionRows.length > 0"
+            type="danger"
+            :icon="Delete"
+            @click="handleBatchDelete"
+          >
+            删除选中 ({{ selectionRows.length }})
+          </el-button>
+          <el-button
             type="primary"
             :icon="Operation"
             @click="openTaskDialog"
@@ -46,17 +54,18 @@
         shadow="hover"
         class="device-card"
       >
-        <el-table
-          ref="tableRef"
-          v-loading="loading && !deviceList.length"
-          element-loading-text="加载中"
-          :data="deviceList"
-          style="width: 100%"
-          border
-          height="100%"
-          row-key="id"
-          @selection-change="onSelectionChange"
-        >
+        <div class="table-scroll-container">
+          <el-table
+            ref="tableRef"
+            v-loading="loading && !deviceList.length"
+            element-loading-text="加载中"
+            :data="deviceList"
+            style="width: 100%"
+            border
+            row-key="id"
+            height="100%"
+            @selection-change="onSelectionChange"
+          >
           <template #empty>
             <el-empty description="暂无设备连接" />
           </template>
@@ -65,7 +74,7 @@
             type="selection"
             :selectable="selectable"
             align="center"
-            width="65"
+            width="45"
           />
 
           <el-table-column
@@ -73,8 +82,7 @@
             sortable
             show-overflow-tooltip
             align="center"
-            min-width="160"
-            width="auto"
+            width="180"
           >
             <template #default="{ row }">
               <div class="device-serial-wrapper">
@@ -104,8 +112,7 @@
             sortable
             show-overflow-tooltip
             align="center"
-            min-width="170"
-            width="auto"
+            width="130"
           >
             <template #default="{ row }">
               <template v-if="editingDeviceId === row.id">
@@ -136,8 +143,7 @@
             align="center"
             sortable
             show-overflow-tooltip
-            min-width="110"
-            width="auto"
+            width="110"
           >
             <el-tag :type="getStatusTagType(row.status)">
               <span class="flex-none">{{
@@ -152,8 +158,7 @@
             align="center"
             sortable
             show-overflow-tooltip
-            min-width="120"
-            width="auto"
+            width="130"
           >
             <div
               style="
@@ -200,8 +205,7 @@
             align="center"
             sortable
             show-overflow-tooltip
-            min-width="110"
-            width="auto"
+            width="100"
           >
             <el-tag
               :type="row.battery && row.battery.isCharging ? 'success' : 'info'"
@@ -222,8 +226,7 @@
             align="center"
             sortable
             show-overflow-tooltip
-            min-width="180"
-            width="auto"
+            width="180"
           >
             <el-select
               v-model="row.owner_id"
@@ -246,8 +249,7 @@
             v-slot="{ row }"
             label="设备操作"
             align="center"
-            min-width="220"
-            width="auto"
+            width="230"
           >
             <div class="flex items-center justify-between w-full px-2">
               <div class="flex-1 flex justify-center">
@@ -331,6 +333,7 @@
             </template>
           </el-table-column>
         </el-table>
+        </div>
       </el-card>
     </div>
 
@@ -353,13 +356,14 @@ import {
   watch,
 } from "vue";
 import { useRoute } from "vue-router";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import {
   Refresh,
   Monitor,
   Download,
   WarningFilled,
   Operation,
+  Delete,
 } from "@element-plus/icons-vue";
 import deviceApi from "@/api/device";
 import userApi from "@/api/user";
@@ -691,14 +695,46 @@ const refreshDevices = () => {
   getDevices();
 };
 
-// 选择设备
+// 选择设备（允许在线和离线设备勾选，以支持批量删除）
 const selectable = (row) => {
-  return row.status === "online";
+  return row.status === "online" || row.status === "offline";
 };
 
 // 选择设备变化
 const onSelectionChange = (rows) => {
   selectionRows.value = rows;
+};
+
+// 批量删除设备
+const handleBatchDelete = async () => {
+  if (selectionRows.value.length === 0) {
+    ElMessage.warning('请先选择要删除的设备');
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectionRows.value.length} 台设备吗？`,
+      '批量删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
+
+    for (const device of selectionRows.value) {
+      await deviceApi.deleteDevice(device.id);
+    }
+
+    ElMessage.success('批量删除成功');
+    selectionRows.value = [];
+    await refreshDevices();
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('批量删除失败：' + (error.message || error));
+    }
+  }
 };
 
 // 获取MirrorAction引用
@@ -902,6 +938,19 @@ onUnmounted(() => {
     height: 100%;
     display: flex;
     flex-direction: column;
+
+    :deep(.el-card__body) {
+      flex: 1;
+      overflow: hidden;
+      padding: 0;
+    }
+  }
+
+  .table-scroll-container {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    padding: 20px;
   }
 }
 

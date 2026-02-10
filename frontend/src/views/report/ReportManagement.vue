@@ -5,6 +5,7 @@
       <el-form
         :model="filterForm"
         inline
+        class="filter-form"
       >
         <el-form-item label="任务名称">
           <el-input
@@ -17,7 +18,33 @@
           />
         </el-form-item>
 
-        <el-form-item>
+        <el-form-item label="任务状态">
+          <el-select
+            v-model="filterForm.status"
+            placeholder="请选择状态"
+            clearable
+            style="width: 150px"
+            @change="handleFilter"
+          >
+            <el-option label="待执行" value="pending" />
+            <el-option label="执行中" value="running" />
+            <el-option label="已完成" value="completed" />
+            <el-option label="已取消" value="cancelled" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="创建人">
+          <el-input
+            v-model="filterForm.creator"
+            placeholder="请输入创建人"
+            clearable
+            style="width: 150px"
+            @clear="handleFilter"
+            @keyup.enter="handleFilter"
+          />
+        </el-form-item>
+
+        <el-form-item class="filter-buttons">
           <el-button
             type="primary"
             @click="handleFilter"
@@ -332,8 +359,7 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search, Refresh, View, Download, Document } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
-import { getTestTaskList } from '@/api/testTask';
-import { getReportData, deleteReport } from '@/api/report';
+import { getReportList, getReportData, deleteReport } from '@/api/report';
 
 // 路由相关
 const router = useRouter();
@@ -349,7 +375,9 @@ const currentOutputDetail = ref(null);
 
 // 筛选表单
 const filterForm = reactive({
-  taskName: ''
+  taskName: '',
+  status: '',
+  creator: ''
 });
 
 // 分页
@@ -372,7 +400,7 @@ const reportList = reactive({
   deviceScript: []
 });
 
-// 获取报告列表（基于任务列表）
+// 获取报告列表（从 reports 表）
 const fetchReportList = async () => {
   // 加载测试用例报告
   loading.testCase = true;
@@ -380,14 +408,15 @@ const fetchReportList = async () => {
     const testCaseParams = {
       page: pagination.testCase.page,
       size: pagination.testCase.size,
+      report_type: 'test_case',
       search: filterForm.taskName,
-      task_type: 'test_case',
-      status: 'completed'
+      status: filterForm.status,
+      creator: filterForm.creator
     };
 
-    const testCaseResponse = await getTestTaskList(testCaseParams);
-    if (testCaseResponse.success) {
-      reportList.testCase = testCaseResponse.data.test_tasks || [];
+    const testCaseResponse = await getReportList(testCaseParams);
+    if (testCaseResponse.code === 200 || testCaseResponse.success) {
+      reportList.testCase = testCaseResponse.data.reports || [];
       pagination.testCase.total = testCaseResponse.data.pagination.total || 0;
     } else {
       ElMessage.error(testCaseResponse.message || '获取测试用例报告列表失败');
@@ -404,14 +433,15 @@ const fetchReportList = async () => {
     const deviceScriptParams = {
       page: pagination.deviceScript.page,
       size: pagination.deviceScript.size,
+      report_type: 'device_script',
       search: filterForm.taskName,
-      task_type: 'device_script',
-      status: 'completed'
+      status: filterForm.status,
+      creator: filterForm.creator
     };
 
-    const deviceScriptResponse = await getTestTaskList(deviceScriptParams);
-    if (deviceScriptResponse.success) {
-      reportList.deviceScript = deviceScriptResponse.data.test_tasks || [];
+    const deviceScriptResponse = await getReportList(deviceScriptParams);
+    if (deviceScriptResponse.code === 200 || deviceScriptResponse.success) {
+      reportList.deviceScript = deviceScriptResponse.data.reports || [];
       pagination.deviceScript.total = deviceScriptResponse.data.pagination.total || 0;
     } else {
       ElMessage.error(deviceScriptResponse.message || '获取设备脚本报告列表失败');
@@ -433,7 +463,9 @@ const handleFilter = () => {
 // 重置
 const handleReset = () => {
   Object.assign(filterForm, {
-    taskName: ''
+    taskName: '',
+    status: '',
+    creator: ''
   });
   pagination.testCase.page = 1;
   pagination.deviceScript.page = 1;
@@ -554,6 +586,21 @@ onMounted(() => {
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   margin-bottom: 20px;
+  
+  .filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  :deep(.el-form-item) {
+    margin-bottom: 0;
+  }
+  
+  :deep(.filter-buttons) {
+    margin-left: auto;
+  }
 }
 
 .report-tabs-section {

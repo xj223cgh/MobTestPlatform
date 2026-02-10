@@ -6,6 +6,9 @@
 
 import pymysql
 import json
+import uuid
+import hashlib
+import shutil
 from werkzeug.security import generate_password_hash
 import sys
 import os
@@ -165,6 +168,25 @@ def insert_test_data():
                 VALUES (%s, %s, %s)
             """, project_members_data)
             print("项目成员测试数据插入成功！")
+
+            # 4.5 插入设备数据（模拟数据，仅 Android，状态均为离线）
+            print("开始插入设备数据...")
+            devices_data = [
+                ('华为 P40', 'P40', 'android', '10', 'emulator-5554', 'offline', user_ids[0]),
+                ('小米 11', 'MI 11', 'android', '11', 'emulator-5556', 'offline', user_ids[1]),
+                ('OPPO Find X3', 'PEDM00', 'android', '12', 'emulator-5558', 'offline', user_ids[2]),
+                ('vivo X60', 'V2055A', 'android', '11', 'emulator-5560', 'offline', user_ids[3]),
+                ('三星 S21', 'SM-G9910', 'android', '12', 'emulator-5562', 'offline', user_ids[0]),
+                ('一加 9', 'LE2110', 'android', '11', 'emulator-5564', 'offline', user_ids[1]),
+                ('真我 GT', 'RMX2202', 'android', '11', 'emulator-5566', 'offline', user_ids[2]),
+                ('红米 K40', 'M2012K11AC', 'android', '11', 'emulator-5568', 'offline', user_ids[3]),
+                ('Pixel 5 模拟器', 'Pixel 5', 'android', '13', 'emulator-5570', 'offline', user_ids[1]),
+            ]
+            cursor.executemany("""
+                INSERT INTO devices (device_name, device_model, os_type, os_version, device_id, status, owner_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, devices_data)
+            print("设备测试数据插入成功！")
             
             # 5. 插入迭代数据
             print("开始插入迭代数据...")
@@ -322,13 +344,21 @@ def insert_test_data():
                 project_to_sub_folders.setdefault(proj_id, []).append(fid)
 
             # 7.3 每个子文件夹下 2 个测试集（type=suite）：功能测试→登录与权限、核心流程；专项测试→兼容性测试、性能测试
+            # 先查询迭代数据，用于关联测试集
+            cursor.execute("SELECT id, project_id FROM iterations ORDER BY project_id, id")
+            project_iterations_for_suite = {}
+            for iter_id, proj_id in cursor.fetchall():
+                project_iterations_for_suite.setdefault(proj_id, []).append(iter_id)
+            
             suite_rows = []  # (suite_id, project_id, version_requirement_id, category)
             folder_suite_categories = [
                 ['登录与权限', '核心流程'],   # 功能测试
                 ['兼容性测试', '性能测试'],   # 专项测试（移动端）
             ]
+            suite_counter = 0  # 用于循环分配迭代
             for project_id in project_ids:
                 req_ids = project_reqs.get(project_id, [])
+                iter_ids = project_iterations_for_suite.get(project_id, [])
                 sub_folders = project_to_sub_folders.get(project_id, [])
                 for folder_idx, folder_id in enumerate(sub_folders):
                     cats = folder_suite_categories[folder_idx % len(folder_suite_categories)]
@@ -336,12 +366,15 @@ def insert_test_data():
                         suite_name = f"{cat}用例集"
                         desc = f"项目{project_id} - {cat}，用例内容与用例集对应"
                         req_id = req_ids[(folder_idx * 2 + k) % len(req_ids)] if req_ids else None
+                        # 分配迭代ID
+                        iteration_id = iter_ids[suite_counter % len(iter_ids)] if iter_ids else None
                         cursor.execute("""
-                            INSERT INTO test_suites (suite_name, description, parent_id, `type`, creator_id, project_id, version_requirement_id, sort_order)
-                            VALUES (%s, %s, %s, 'suite', %s, %s, %s, %s)
-                        """, (suite_name, desc, folder_id, creator_id, project_id, req_id, k))
+                            INSERT INTO test_suites (suite_name, description, parent_id, `type`, creator_id, project_id, version_requirement_id, iteration_id, sort_order)
+                            VALUES (%s, %s, %s, 'suite', %s, %s, %s, %s, %s)
+                        """, (suite_name, desc, folder_id, creator_id, project_id, req_id, iteration_id, k))
                         suite_id = cursor.lastrowid
                         suite_rows.append((suite_id, project_id, req_id, cat))
+                        suite_counter += 1
             print("测试套件数据插入成功（含文件夹与测试集）！")
 
             # 8. 插入测试用例数据：按用例集类型（登录与权限/核心流程/兼容性测试/性能测试）生成对应数量与内容，每份用例集不少于 6 条
@@ -550,6 +583,135 @@ def insert_test_data():
                     SET tc.status = latest.status
                 """)
             print(f"用例执行记录插入成功，共 {len(executions_data)} 条！")
+
+            # 11.5 插入报告数据（为已完成任务生成报告，含创建人、时间等完整属性，基于真实执行记录）
+            print("开始插入报告数据...")
+            # 兼容旧表：若 reports 表无 creator_id 则添加
+            cursor.execute("""
+                SELECT COUNT(*) FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'reports' AND COLUMN_NAME = 'creator_id'
+            """)
+            if cursor.fetchone()[0] == 0:
+                cursor.execute("ALTER TABLE reports ADD COLUMN creator_id INT NULL COMMENT '创建人ID' AFTER created_at")
+                cursor.execute("ALTER TABLE reports ADD INDEX idx_creator_id (creator_id)")
+                cursor.execute("ALTER TABLE reports ADD CONSTRAINT fk_reports_creator FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL")
+            cursor.execute("SELECT id, project_name FROM projects")
+            project_id_to_name = {row[0]: row[1] for row in cursor.fetchall()}
+            cursor.execute("""
+                SELECT t.id, t.task_name, t.task_type, t.project_id, t.creator_id, t.completed_time
+                FROM test_tasks t
+                WHERE t.status = 'completed' AND t.task_type = 'test_case'
+            """)
+            completed_tasks = cursor.fetchall()
+            reports_data = []
+            for task_id, task_name, task_type, project_id, creator_id, completed_time in completed_tasks:
+                proj_name = project_id_to_name.get(project_id) if project_id else None
+                
+                # 从执行记录中生成真实的 summary 和 details
+                cursor.execute("""
+                    SELECT tc.id, tc.case_name, tce.status, u.real_name, tce.execution_time, tce.notes
+                    FROM test_case_executions tce
+                    INNER JOIN test_cases tc ON tce.case_id = tc.id
+                    LEFT JOIN users u ON tce.executor_id = u.id
+                    WHERE tce.task_id = %s
+                    ORDER BY tce.id
+                """, (task_id,))
+                exec_records = cursor.fetchall()
+                
+                # 统计 summary
+                total_cases = len(exec_records)
+                pass_count = sum(1 for r in exec_records if r[2] == 'pass')
+                fail_count = sum(1 for r in exec_records if r[2] == 'fail')
+                blocked_count = sum(1 for r in exec_records if r[2] == 'blocked')
+                not_applicable_count = sum(1 for r in exec_records if r[2] == 'not_applicable')
+                executed_cases = total_cases
+                pass_rate = round(pass_count / executed_cases * 100, 1) if executed_cases > 0 else 0
+                
+                summary = {
+                    'total_cases': total_cases,
+                    'executed_cases': executed_cases,
+                    'pass_count': pass_count,
+                    'fail_count': fail_count,
+                    'blocked_count': blocked_count,
+                    'not_applicable_count': not_applicable_count,
+                    'pass_rate': pass_rate
+                }
+                
+                # 构建 details
+                details = []
+                for case_id, case_name, status, executor_name, exec_time, notes in exec_records:
+                    details.append({
+                        'case_id': case_id,
+                        'case_title': case_name or '',
+                        'status': status or '',
+                        'actual_result': notes or None,
+                        'executed_by': executor_name or None,
+                        'executed_at': exec_time.isoformat() if exec_time else None,
+                        'remarks': notes or None
+                    })
+                
+                summary_json = json.dumps(summary, ensure_ascii=False)
+                details_json = json.dumps(details, ensure_ascii=False)
+                completed_str = completed_time.strftime('%Y-%m-%d %H:%M:%S') if completed_time and hasattr(completed_time, 'strftime') else (str(completed_time) if completed_time else None)
+                created_str = (completed_time or now).strftime('%Y-%m-%d %H:%M:%S') if (completed_time and hasattr(completed_time, 'strftime')) else now.strftime('%Y-%m-%d %H:%M:%S')
+                reports_data.append((
+                    task_id, task_type, task_name, project_id, proj_name,
+                    summary_json, details_json, completed_str, created_str, creator_id
+                ))
+            if reports_data:
+                cursor.executemany("""
+                    INSERT INTO reports (task_id, report_type, task_name, project_id, project_name, summary, details, completed_at, created_at, creator_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, reports_data)
+            print(f"报告数据插入成功，共 {len(reports_data)} 条，包含真实执行记录！")
+
+            # 12. 设备脚本任务：复制 get_device_info.py 到 storage/device_scripts/日期/uuid.py，并插入任务与任务-设备关联
+            print("开始插入设备脚本任务数据...")
+            backend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'backend')
+            script_src = os.path.join(backend_dir, 'get_device_info.py')
+            storage_base = os.path.join(backend_dir, 'storage', 'device_scripts')
+            date_str = now.strftime('%Y%m%d')
+            script_date_dir = os.path.join(storage_base, date_str)
+            os.makedirs(script_date_dir, exist_ok=True)
+            cursor.execute("SELECT id FROM devices ORDER BY id LIMIT 10")
+            device_ids = [row[0] for row in cursor.fetchall()]
+            cursor.execute("SELECT id, project_name FROM projects ORDER BY id LIMIT 3")
+            project_rows = cursor.fetchall()
+            script_tasks_data = []
+            task_device_script_relations = []
+            for i in range(5):
+                unique_name = f"{uuid.uuid4()}.py"
+                dest_path = os.path.join(script_date_dir, unique_name)
+                if os.path.exists(script_src):
+                    shutil.copy2(script_src, dest_path)
+                relative_path = f"{date_str}/{unique_name}"
+                with open(dest_path, 'rb') as f:
+                    file_hash = hashlib.md5(f.read()).hexdigest()
+                task_name = f"设备信息采集任务_{i+1}"
+                proj_id = project_rows[i % len(project_rows)][0] if project_rows else None
+                creator_id = user_ids[i % len(user_ids)]
+                command = f"python {relative_path} --device-id $DEVICE_ID --adb-path adb"
+                script_tasks_data.append((
+                    task_name, f"使用 get_device_info 脚本采集设备信息（任务{i+1}）", 'device_script', 'medium', 'pending',
+                    creator_id, None, proj_id, None, None, None,
+                    'get_device_info.py', relative_path, file_hash, command
+                ))
+            if script_tasks_data:
+                cursor.executemany("""
+                    INSERT INTO test_tasks (task_name, task_description, task_type, priority, status, creator_id, executor_id, project_id, iteration_id, suite_id, version_requirement_id, script_file, file_path, file_hash, command)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, script_tasks_data)
+                cursor.execute("SELECT id FROM test_tasks WHERE task_type = 'device_script' ORDER BY id DESC LIMIT %s", (len(script_tasks_data),))
+                script_task_ids = [row[0] for row in cursor.fetchall()]
+                for i in range(len(script_tasks_data)):
+                    task_id = script_task_ids[len(script_tasks_data) - 1 - i]
+                    if device_ids:
+                        task_device_script_relations.append((task_id, device_ids[i % len(device_ids)]))
+                if task_device_script_relations:
+                    cursor.executemany("""
+                        INSERT IGNORE INTO task_device_relation (task_id, device_id) VALUES (%s, %s)
+                    """, task_device_script_relations)
+            print(f"设备脚本任务插入成功，共 {len(script_tasks_data)} 条；任务-设备关联 {len(task_device_script_relations)} 条！")
 
             connection.commit()
             print("所有测试数据插入成功！")
