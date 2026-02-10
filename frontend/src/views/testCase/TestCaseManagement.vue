@@ -314,7 +314,7 @@
 
             <el-table
               ref="caseTableRef"
-              :data="testCases"
+              :data="filteredTestCases"
               style="width: 100%"
               border
               height="100%"
@@ -399,6 +399,44 @@
                 label="优先级"
                 width="100"
               >
+                <template #header>
+                  <el-popover
+                    placement="bottom"
+                    :width="90"
+                    trigger="click"
+                  >
+                    <template #reference>
+                      <div style="display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer;">
+                        <span>优先级</span>
+                        <el-icon style="color: #409eff;">
+                          <Filter />
+                        </el-icon>
+                      </div>
+                    </template>
+                      <div class="filter-panel">
+                        <el-checkbox
+                          v-model="priorityFilterAll"
+                          @change="handlePriorityAllChange"
+                          style="margin-bottom: 6px; font-weight: 500;"
+                        >
+                          全选
+                        </el-checkbox>
+                        <el-checkbox-group
+                          v-model="priorityFilterValues"
+                          @change="handlePriorityFilterChange"
+                        >
+                          <el-checkbox label="P0" style="display: block; margin: 4px 0;" />
+                          <el-checkbox label="P1" style="display: block; margin: 4px 0;" />
+                          <el-checkbox label="P2" style="display: block; margin: 4px 0;" />
+                          <el-checkbox label="P3" style="display: block; margin: 4px 0;" />
+                          <el-checkbox label="P4" style="display: block; margin: 4px 0;" />
+                        </el-checkbox-group>
+                        <div style="margin-top: 8px; text-align: right; border-top: 1px solid #e4e7ed; padding-top: 6px;">
+                          <el-button size="small" @click="handlePriorityReset">重置</el-button>
+                        </div>
+                      </div>
+                  </el-popover>
+                </template>
                 <template #default="{ row }">
                   <template
                     v-if="
@@ -627,6 +665,44 @@
                 label="状态"
                 width="150"
               >
+                <template #header>
+                  <el-popover
+                    placement="bottom"
+                    :width="90"
+                    trigger="click"
+                  >
+                    <template #reference>
+                      <div style="display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer;">
+                        <span>状态</span>
+                        <el-icon style="color: #409eff;">
+                          <Filter />
+                        </el-icon>
+                      </div>
+                    </template>
+                      <div class="filter-panel">
+                        <el-checkbox
+                          v-model="statusFilterAll"
+                          @change="handleStatusAllChange"
+                          style="margin-bottom: 6px; font-weight: 500;"
+                        >
+                          全选
+                        </el-checkbox>
+                        <el-checkbox-group
+                          v-model="statusFilterValues"
+                          @change="handleStatusFilterChange"
+                        >
+                          <el-checkbox label="" style="display: block; margin: 4px 0;">未执行</el-checkbox>
+                          <el-checkbox label="pass" style="display: block; margin: 4px 0;">通过</el-checkbox>
+                          <el-checkbox label="fail" style="display: block; margin: 4px 0;">失败</el-checkbox>
+                          <el-checkbox label="blocked" style="display: block; margin: 4px 0;">阻塞</el-checkbox>
+                          <el-checkbox label="not_applicable" style="display: block; margin: 4px 0;">不适用</el-checkbox>
+                        </el-checkbox-group>
+                        <div style="margin-top: 8px; text-align: right; border-top: 1px solid #e4e7ed; padding-top: 6px;">
+                          <el-button size="small" @click="handleStatusReset">重置</el-button>
+                        </div>
+                      </div>
+                  </el-popover>
+                </template>
                 <template #default="{ row }">
                   <div class="status-cell">
                     <el-select
@@ -2211,6 +2287,7 @@ import {
   Upload,
   DocumentCopy,
   FullScreen,
+  Filter,
 } from "@element-plus/icons-vue";
 import {
   getTestSuiteTree,
@@ -5428,6 +5505,7 @@ const statusOptions = [
   { label: "不适用", value: "not_applicable" },
 ];
 
+
 // 处理状态变化
 const handleStatusChange = async (row) => {
   try {
@@ -5437,6 +5515,86 @@ const handleStatusChange = async (row) => {
     console.error("更新状态失败:", error);
     ElMessage.error("状态更新失败");
   }
+};
+
+
+// 优先级筛选状态
+const priorityFilterAll = ref(false);
+const priorityFilterValues = ref([]);
+
+// 状态筛选状态
+const statusFilterAll = ref(false);
+const statusFilterValues = ref([]);
+
+// 过滤后的测试用例
+const filteredTestCases = computed(() => {
+  if (!testCases.value || testCases.value.length === 0) {
+    return [];
+  }
+  
+  let result = [...testCases.value];
+  
+  // 优先级筛选 - 如果有选中的筛选项，则进行筛选；没有选中则显示全部
+  if (priorityFilterValues.value.length > 0) {
+    result = result.filter(item => priorityFilterValues.value.includes(item.priority));
+  }
+  
+  // 状态筛选 - 如果有选中的筛选项，则进行筛选；没有选中则显示全部
+  if (statusFilterValues.value.length > 0) {
+    result = result.filter(item => statusFilterValues.value.includes(item.status || ''));
+  }
+  
+  return result;
+});
+
+// 优先级全选变化
+const handlePriorityAllChange = (checked) => {
+  if (checked) {
+    priorityFilterValues.value = ['P0', 'P1', 'P2', 'P3', 'P4'];
+  } else {
+    priorityFilterValues.value = [];
+  }
+};
+
+// 优先级筛选变化
+const handlePriorityFilterChange = (values) => {
+  // 检查是否全部选中
+  if (values.length === 5) {
+    priorityFilterAll.value = true;
+  } else {
+    priorityFilterAll.value = false;
+  }
+};
+
+// 优先级重置
+const handlePriorityReset = () => {
+  priorityFilterAll.value = true;
+  priorityFilterValues.value = ['P0', 'P1', 'P2', 'P3', 'P4'];
+};
+
+// 状态全选变化
+const handleStatusAllChange = (checked) => {
+  if (checked) {
+    statusFilterValues.value = ['', 'pass', 'fail', 'blocked', 'not_applicable'];
+  } else {
+    statusFilterValues.value = [];
+  }
+};
+
+// 状态筛选变化
+const handleStatusFilterChange = (values) => {
+  // 检查是否全部选中
+  if (values.length === 5) {
+    statusFilterAll.value = true;
+  } else {
+    statusFilterAll.value = false;
+  }
+};
+
+// 状态重置
+const handleStatusReset = () => {
+  statusFilterAll.value = true;
+  statusFilterValues.value = ['', 'pass', 'fail', 'blocked', 'not_applicable'];
 };
 
 const handleCellClick = () => {
@@ -6512,5 +6670,37 @@ const handleCurrentChange = (page) => {
 .el-tag {
   font-size: 11px;
   padding: 2px 8px;
+}
+
+/* 筛选面板样式 */
+.filter-panel {
+  padding: 8px;
+  
+  :deep(.el-checkbox) {
+    width: 100%;
+    margin-right: 0;
+    padding: 0;
+    height: auto;
+  }
+  
+  :deep(.el-checkbox__label) {
+    width: 100%;
+    font-size: 12px;
+    padding-left: 6px;
+  }
+  
+  :deep(.el-checkbox__input) {
+    line-height: 1;
+  }
+  
+  :deep(.el-checkbox-group) {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  :deep(.el-button) {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
 }
 </style>
