@@ -80,9 +80,8 @@
           <el-table-column
             label="设备序列号"
             sortable
-            show-overflow-tooltip
             align="center"
-            width="180"
+            width="170"
           >
             <template #default="{ row }">
               <div class="device-serial-wrapper">
@@ -92,7 +91,13 @@
                     :device="row"
                   />
                 </div>
-                <span class="device-id">{{ row.id }}</span>
+                <el-tooltip
+                  :content="row.id"
+                  placement="top"
+                  effect="dark"
+                >
+                  <span class="device-id">{{ row.id }}</span>
+                </el-tooltip>
                 <el-link
                   type="primary"
                   :underline="false"
@@ -158,7 +163,7 @@
             align="center"
             sortable
             show-overflow-tooltip
-            width="130"
+            width="105"
           >
             <div
               style="
@@ -205,7 +210,7 @@
             align="center"
             sortable
             show-overflow-tooltip
-            width="100"
+            width="105"
           >
             <el-tag
               :type="row.battery && row.battery.isCharging ? 'success' : 'info'"
@@ -226,14 +231,14 @@
             align="center"
             sortable
             show-overflow-tooltip
-            width="180"
+            width="160"
           >
             <el-select
               v-model="row.owner_id"
               placeholder="请选择负责人"
               clearable
               filterable
-              style="width: 160px"
+              style="width: 140px"
               @change="handleOwnerChange(row)"
             >
               <el-option
@@ -249,7 +254,7 @@
             v-slot="{ row }"
             label="设备操作"
             align="center"
-            width="230"
+            width="220"
           >
             <div class="flex items-center justify-between w-full px-2">
               <div class="flex-1 flex justify-center">
@@ -949,7 +954,8 @@ onUnmounted(() => {
   .table-scroll-container {
     width: 100%;
     height: 100%;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
     padding: 20px;
   }
 }
@@ -959,7 +965,7 @@ onUnmounted(() => {
     width: 100% !important;
 
     .el-table__body-wrapper {
-      overflow-x: auto;
+      overflow-x: hidden;
     }
 
     .el-table__row {

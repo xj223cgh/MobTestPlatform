@@ -137,19 +137,18 @@ def create_test_case():
         if not suite:
             return error_response(400, "指定的测试套件不存在")
     
-    # 验证用例编号格式
+    # 验证用例编号格式：xxx-xxx-xxx001～xxx-xxx-xxx999，主要识别后三位数字（001-999）
     case_number = data.get('case_number', '')
     if case_number:
         import re
-        # 放宽用例编号格式验证，允许纯数字格式，用于导入场景
-        if not re.match(r'^(?:.+-.+-.+)?\d{1,3}$', case_number):
-            return error_response(400, "用例编号格式不正确，应为：xxx-xxx-xxx001~xxx-xxx-xxx999 或纯数字")
-        # 验证数字部分在1-999之间
-        num_match = re.search(r'\d+$', case_number)
+        # 格式：三段前缀 + 后三位数字，或纯三位数字（导入用）
+        if not re.match(r'^.+-.+-.+\d{3}$', case_number) and not re.match(r'^\d{3}$', case_number):
+            return error_response(400, "用例编号格式不正确，应为：xxx-xxx-xxx001～xxx-xxx-xxx999")
+        num_match = re.search(r'\d{3}$', case_number)
         if num_match:
             num = int(num_match.group(0))
             if num < 1 or num > 999:
-                return error_response(400, "用例编号数字部分必须在001-999之间")
+                return error_response(400, "用例编号后三位数字必须在001-999之间")
     
     # 使用前端传递的项目相关信息，优先使用前端传递的值，否则从套件获取
     # 支持前端传递ID或名称，名称需要额外处理（当前版本暂不支持名称匹配，优先使用套件信息）
@@ -203,14 +202,14 @@ def update_test_case(case_id):
         case_number = data['case_number']
         if case_number:
             import re
+            # 格式：xxx-xxx-xxx001～xxx-xxx-xxx999，只识别后三位数字
             if not re.match(r'^.+-.+-.+\d{3}$', case_number):
-                return error_response(400, "用例编号格式不正确，应为：xxx-xxx-xxx001~xxx-xxx-xxx999")
-            # 验证数字部分在1-999之间
+                return error_response(400, "用例编号格式不正确，应为：xxx-xxx-xxx001～xxx-xxx-xxx999")
             num_match = re.search(r'\d{3}$', case_number)
             if num_match:
                 num = int(num_match.group(0))
                 if num < 1 or num > 999:
-                    return error_response(400, "用例编号数字部分必须在001-999之间")
+                    return error_response(400, "用例编号后三位数字必须在001-999之间")
         test_case.case_number = case_number
     
     if 'case_name' in data:

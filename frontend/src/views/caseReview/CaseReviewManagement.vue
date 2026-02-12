@@ -16,43 +16,55 @@
               <h3>待我评审的用例集</h3>
             </div>
 
-            <el-table
-              v-loading="loading.myTasks"
-              :data="myTasks"
-              style="width: 100%"
-              row-key="id"
-              header-align="center"
-              align="center"
-              @row-click="handleTaskClick"
-            >
-              <el-table-column
-                prop="project_name"
-                label="所属项目"
-                width="200"
+            <div class="review-table-wrapper">
+              <el-table
+                v-loading="loading.myTasks"
+                :data="myTasks"
+                class="review-list-table"
+                style="width: 100%; min-width: 1080px"
+                row-key="id"
                 header-align="center"
                 align="center"
-              />
-              <el-table-column
-                prop="iteration_name"
-                label="所属迭代"
-                width="180"
-                header-align="center"
-                align="center"
-              />
-              <el-table-column
-                prop="requirement_name"
-                label="关联需求"
-                width="200"
-                header-align="center"
-                align="center"
-              />
+                @row-click="handleTaskClick"
+              >
               <el-table-column
                 prop="suite_name"
                 label="用例集名称"
                 min-width="200"
                 header-align="center"
                 align="center"
-              />
+              >
+                <template #default="scope">
+                  <el-popover
+                    placement="top-start"
+                    trigger="hover"
+                    :show-after="200"
+                    width="280"
+                    popper-class="suite-info-popover"
+                  >
+                    <template #reference>
+                      <span
+                        class="suite-name-trigger"
+                        @click.stop="handleGoToSuite(scope.row)"
+                      >{{ scope.row.suite_name || '-' }}</span>
+                    </template>
+                    <div class="suite-info-tags">
+                      <div class="suite-info-tag">
+                        <span class="tag-label">所属项目：</span>
+                        <span class="tag-value">{{ scope.row.project_name || '-' }}</span>
+                      </div>
+                      <div class="suite-info-tag">
+                        <span class="tag-label">所属迭代：</span>
+                        <span class="tag-value">{{ scope.row.iteration_name || '-' }}</span>
+                      </div>
+                      <div class="suite-info-tag">
+                        <span class="tag-label">关联需求：</span>
+                        <span class="tag-value">{{ scope.row.requirement_name || '-' }}</span>
+                      </div>
+                    </div>
+                  </el-popover>
+                </template>
+              </el-table-column>
               <el-table-column
                 prop="initiator_name"
                 label="发起人"
@@ -109,7 +121,6 @@
               <el-table-column
                 label="操作"
                 width="160"
-                fixed="right"
                 header-align="center"
                 align="center"
               >
@@ -136,7 +147,8 @@
                   </el-button>
                 </template>
               </el-table-column>
-            </el-table>
+              </el-table>
+            </div>
           </div>
         </el-tab-pane>
 
@@ -150,43 +162,55 @@
               <h3>我发起的评审</h3>
             </div>
 
+            <div class="review-table-wrapper">
             <el-table
               v-loading="loading.myInitiated"
               :data="myInitiated"
-              style="width: 100%"
+              class="review-list-table"
+              style="width: 100%; min-width: 1080px"
               row-key="id"
               header-align="center"
               align="center"
               @row-click="handleTaskClick"
             >
               <el-table-column
-                prop="project_name"
-                label="所属项目"
-                width="200"
-                header-align="center"
-                align="center"
-              />
-              <el-table-column
-                prop="iteration_name"
-                label="所属迭代"
-                width="180"
-                header-align="center"
-                align="center"
-              />
-              <el-table-column
-                prop="requirement_name"
-                label="关联需求"
-                width="200"
-                header-align="center"
-                align="center"
-              />
-              <el-table-column
                 prop="suite_name"
                 label="用例集名称"
                 min-width="200"
                 header-align="center"
                 align="center"
-              />
+              >
+                <template #default="scope">
+                  <el-popover
+                    placement="top-start"
+                    trigger="hover"
+                    :show-after="200"
+                    width="280"
+                    popper-class="suite-info-popover"
+                  >
+                    <template #reference>
+                      <span
+                        class="suite-name-trigger"
+                        @click.stop="handleGoToSuite(scope.row)"
+                      >{{ scope.row.suite_name || '-' }}</span>
+                    </template>
+                    <div class="suite-info-tags">
+                      <div class="suite-info-tag">
+                        <span class="tag-label">所属项目：</span>
+                        <span class="tag-value">{{ scope.row.project_name || '-' }}</span>
+                      </div>
+                      <div class="suite-info-tag">
+                        <span class="tag-label">所属迭代：</span>
+                        <span class="tag-value">{{ scope.row.iteration_name || '-' }}</span>
+                      </div>
+                      <div class="suite-info-tag">
+                        <span class="tag-label">关联需求：</span>
+                        <span class="tag-value">{{ scope.row.requirement_name || '-' }}</span>
+                      </div>
+                    </div>
+                  </el-popover>
+                </template>
+              </el-table-column>
               <el-table-column
                 prop="reviewer_name"
                 label="评审人"
@@ -243,7 +267,6 @@
               <el-table-column
                 label="操作"
                 width="160"
-                fixed="right"
                 header-align="center"
                 align="center"
               >
@@ -257,7 +280,8 @@
                   </el-button>
                 </template>
               </el-table-column>
-            </el-table>
+              </el-table>
+            </div>
           </div>
         </el-tab-pane>
 
@@ -271,7 +295,7 @@
               <h3>用例集评审历史记录</h3>
             </div>
 
-            <!-- 用例集选择器 -->
+            <!-- 用例集选择器（与用例管理页样式统一） -->
             <div class="suite-selector">
               <el-form
                 :inline="true"
@@ -279,7 +303,6 @@
               >
                 <el-form-item label="目标用例集">
                   <div class="case-suite-selector">
-                    <!-- 显示当前选中的用例集路径 -->
                     <el-popover
                       :visible="suitePopoverVisible"
                       placement="bottom-start"
@@ -293,11 +316,12 @@
                           v-model="selectedSuitePath"
                           placeholder="点击选择所属用例集"
                           readonly
-                          style="width: 250px"
+                          style="width: 100%; min-width: 280px"
+                          clearable
                           @click="suitePopoverVisible = !suitePopoverVisible"
+                          @clear="handleClearSuiteSelection"
                         />
                       </template>
-                      <!-- 弹出的套件树 -->
                       <div
                         class="suite-tree-popover"
                         style="width: 100%; min-width: 300px; max-width: 400px"
@@ -307,46 +331,26 @@
                           :data="suiteTreeData"
                           :props="defaultProps"
                           node-key="id"
-                          style="
-                            max-height: 300px;
-                            overflow-y: auto;
-                            width: 100%;
-                            padding-right: 10px;
-                          "
-                          :expand-on-click-node="false"
+                          style="max-height: 300px; overflow-y: auto; width: 100%; padding-right: 10px;"
+                          :expand-on-click-node="true"
                           :filter-node-method="filterSuiteType"
-                          @node-click="handleSuiteSelect"
+                          @node-click="handleSuiteTreeNodeClick"
                         >
                           <template #default="{ node, data }">
                             <span
                               class="tree-node-content"
                               :class="{
                                 'current-node': node.key === selectedSuiteId,
-                                'disabled-folder': data.type === 'folder',
+                                'folder-node': data.type === 'folder',
                               }"
                             >
-                              <el-icon
-                                class="node-icon"
-                                @click.stop="
-                                  data.type === 'suite' &&
-                                    handleSuiteSelect(data)
-                                "
-                              >
-                                <!-- 这里使用el-icon，需要确保已导入相关图标 -->
-                                <span v-if="data.type === 'suite'">📄</span>
-                                <span v-else>📁</span>
+                              <el-icon class="node-icon">
+                                <Document v-if="data.type === 'suite'" />
+                                <Folder v-else />
                               </el-icon>
+                              <span class="node-label">{{ node.label }}</span>
                               <span
-                                class="node-label"
-                                @click.stop="
-                                  data.type === 'suite' &&
-                                    handleSuiteSelect(data)
-                                "
-                              >{{ node.label }}</span>
-                              <span
-                                v-if="
-                                  data.type === 'suite' && data.cases_count > 0
-                                "
+                                v-if="data.type === 'suite' && data.cases_count > 0"
                                 class="case-count"
                               >({{ data.cases_count }})</span>
                             </span>
@@ -370,14 +374,14 @@
               fit
             >
               <el-table-column
-                prop="created_at"
+                prop="end_time"
                 label="评审时间"
                 min-width="160"
                 header-align="center"
                 align="center"
               >
                 <template #default="scope">
-                  {{ formatDate(scope.row.created_at) }}
+                  {{ formatDate(scope.row.end_time || scope.row.created_at) }}
                 </template>
               </el-table-column>
               <el-table-column
@@ -461,7 +465,7 @@
     <el-dialog
       v-model="reviewDialogVisible"
       :title="reviewDialogTitle"
-      :width="'90%'"
+      :fullscreen="true"
       :before-close="handleDialogClose"
     >
       <div
@@ -500,7 +504,7 @@
             </el-descriptions-item>
             <el-descriptions-item
               label="状态"
-              :span="currentReviewTask?.version ? 1 : 2"
+              :span="1"
             >
               <el-tag
                 :type="
@@ -518,15 +522,85 @@
                 }}
               </el-tag>
             </el-descriptions-item>
+            <el-descriptions-item label="更新时间">
+              {{ formatDate(currentReviewTask?.updated_at) || "-" }}
+            </el-descriptions-item>
+
           </el-descriptions>
         </div>
 
         <!-- 用例评审列表 -->
-        <div class="dialog-section">
+        <div class="dialog-section case-list-section">
           <h4>用例评审列表</h4>
+          <p v-if="isReviewer && !currentReviewTask?.version" class="review-save-hint">
+            评审状态与意见会即时保存，可随时关闭页面，下次继续评审。
+          </p>
+          <!-- 筛选条件栏 -->
+          <div class="case-review-filter-bar">
+            <div class="filter-bar-left">
+              <el-input
+                v-model="caseReviewKeyword"
+                placeholder="关键字筛选（名称、步骤、意见等）"
+                clearable
+                style="width: 280px"
+              >
+                <template #prefix>
+                  <el-icon><Search /></el-icon>
+                </template>
+              </el-input>
+              <el-select
+                v-model="caseReviewPriorityFilter"
+                placeholder="优先级"
+                multiple
+                collapse-tags
+                collapse-tags-tooltip
+                clearable
+                style="width: 160px"
+              >
+                <el-option label="P0" value="P0" />
+                <el-option label="P1" value="P1" />
+                <el-option label="P2" value="P2" />
+                <el-option label="P3" value="P3" />
+                <el-option label="P4" value="P4" />
+              </el-select>
+              <el-select
+                v-model="caseReviewStatusFilter"
+                placeholder="评审状态"
+                multiple
+                collapse-tags
+                collapse-tags-tooltip
+                clearable
+                style="width: 180px"
+              >
+                <el-option label="待审核" value="pending" />
+                <el-option label="已通过" value="approved" />
+                <el-option label="已拒绝" value="rejected" />
+              </el-select>
+            </div>
+            <div class="filter-bar-right">
+              <el-button size="default" @click="resetCaseReviewFilter">重置条件</el-button>
+              <el-button
+                v-if="isReviewer"
+                type="success"
+                size="default"
+                @click="handleSetAllApproved"
+              >
+                全部通过
+              </el-button>
+              <el-button
+                v-if="isReviewer"
+                size="default"
+                @click="handleResetAllStatus"
+              >
+                重置状态
+              </el-button>
+              <span class="filter-result-tip">共 {{ filteredCaseReviews.length }} 条</span>
+            </div>
+          </div>
           <el-table
             v-loading="loading.caseReviews"
-            :data="caseReviews"
+            :data="filteredCaseReviews"
+            class="review-case-table"
             style="width: 100%"
             row-key="id"
             :row-style="{ height: 'auto' }"
@@ -538,7 +612,8 @@
           >
             <el-table-column
               label="用例编号"
-              min-width="130"
+              width="7%"
+              min-width="80"
             >
               <template #default="scope">
                 {{
@@ -550,7 +625,8 @@
             </el-table-column>
             <el-table-column
               label="用例名称"
-              min-width="140"
+              width="10%"
+              min-width="100"
             >
               <template #default="scope">
                 {{
@@ -560,7 +636,8 @@
             </el-table-column>
             <el-table-column
               label="优先级"
-              width="90"
+              width="5%"
+              min-width="70"
             >
               <template #default="scope">
                 <el-tag
@@ -582,7 +659,8 @@
 
             <el-table-column
               label="测试数据"
-              min-width="120"
+              width="9%"
+              min-width="90"
             >
               <template #default="scope">
                 <div class="text-with-newlines">
@@ -594,7 +672,8 @@
             </el-table-column>
             <el-table-column
               label="前置条件"
-              min-width="160"
+              width="10%"
+              min-width="90"
             >
               <template #default="scope">
                 <div class="text-with-newlines">
@@ -608,7 +687,8 @@
             </el-table-column>
             <el-table-column
               label="测试步骤"
-              min-width="170"
+              width="11%"
+              min-width="90"
             >
               <template #default="scope">
                 <div class="text-with-newlines">
@@ -618,7 +698,8 @@
             </el-table-column>
             <el-table-column
               label="预期结果"
-              min-width="160"
+              width="10%"
+              min-width="90"
             >
               <template #default="scope">
                 <div class="text-with-newlines">
@@ -632,7 +713,8 @@
             </el-table-column>
             <el-table-column
               label="实际结果"
-              min-width="160"
+              width="10%"
+              min-width="90"
             >
               <template #default="scope">
                 <div class="text-with-newlines">
@@ -647,7 +729,8 @@
             <el-table-column
               prop="review_status"
               label="评审状态"
-              width="100"
+              width="9%"
+              min-width="90"
             >
               <template #default="scope">
                 <!-- 如果是评审人，显示可编辑的单选按钮组 -->
@@ -655,16 +738,12 @@
                   v-if="isReviewer"
                   v-model="scope.row.review_status"
                   size="small"
+                  class="case-review-status-group"
+                  @change="handleReviewStatusChange(scope.row)"
                 >
-                  <el-radio-button label="pending">
-                    待审核
-                  </el-radio-button>
-                  <el-radio-button label="approved">
-                    已通过
-                  </el-radio-button>
-                  <el-radio-button label="rejected">
-                    已拒绝
-                  </el-radio-button>
+                  <el-radio-button label="pending" class="status-pending">待审核</el-radio-button>
+                  <el-radio-button label="approved" class="status-approved">已通过</el-radio-button>
+                  <el-radio-button label="rejected" class="status-rejected">已拒绝</el-radio-button>
                 </el-radio-group>
                 <!-- 如果是发起人或其他用户，显示只读的状态标签 -->
                 <el-tag
@@ -678,7 +757,8 @@
             <el-table-column
               prop="comments"
               label="评审意见"
-              min-width="200"
+              width="12%"
+              min-width="120"
             >
               <template #default="scope">
                 <!-- 如果是评审人，显示可编辑的输入框 -->
@@ -690,6 +770,7 @@
                   placeholder="请输入评审意见"
                   resize="none"
                   size="small"
+                  @blur="handleCommentsChange(scope.row)"
                 />
                 <!-- 如果是发起人或其他用户，显示只读的评审意见 -->
                 <div
@@ -703,11 +784,12 @@
             <el-table-column
               prop="updated_at"
               label="评审时间"
-              width="150"
+              width="7%"
+              min-width="120"
               :formatter="formatDate"
             >
               <template #default="scope">
-                {{ formatDate(scope.row.updated_at) || "-" }}
+                {{ formatDate(scope.row.updated_at || scope.row.created_at) || "-" }}
               </template>
             </el-table-column>
           </el-table>
@@ -810,6 +892,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import * as reviewApi from "@/api/reviewTask";
 import * as testSuiteApi from "@/api/testSuite";
 import { useUserStore } from "@/stores/user";
+import { Folder, Document, Search } from "@element-plus/icons-vue";
 
 // 状态管理
 const userStore = useUserStore();
@@ -846,6 +929,13 @@ const defaultProps = ref({
   children: "children",
 });
 const reviewHistory = ref([]);
+
+// 用例评审列表筛选条件（评审详情弹窗内）
+const caseReviewKeyword = ref("");
+const caseReviewPriorityFilter = ref([]);
+const caseReviewStatusFilter = ref([]);
+const caseReviewPriorityFilterAll = ref(true);
+const caseReviewStatusFilterAll = ref(true);
 
 // 计算属性
 const isReviewer = computed(() => {
@@ -896,6 +986,38 @@ const canCompleteReview = computed(() => {
 // 检查是否有被拒绝的用例
 const hasRejectedCases = computed(() => {
   return caseReviews.value.some((cr) => cr.review_status === "rejected");
+});
+
+// 用例评审列表筛选结果（关键字 + 优先级 + 评审状态）
+const filteredCaseReviews = computed(() => {
+  let list = caseReviews.value || [];
+  const kw = (caseReviewKeyword.value || "").trim().toLowerCase();
+  if (kw) {
+    list = list.filter((row) => {
+      const caseName = (row.case_name || row.test_case?.case_name || "").toLowerCase();
+      const comments = (row.comments || "").toLowerCase();
+      const steps = (row.steps || row.test_case?.steps || "").toLowerCase();
+      const preconditions = (row.preconditions || row.test_case?.preconditions || "").toLowerCase();
+      const expected = (row.expected_result || row.test_case?.expected_result || "").toLowerCase();
+      const actual = (row.actual_result || row.test_case?.actual_result || "").toLowerCase();
+      const testData = (row.test_data || row.test_case?.test_data || "").toLowerCase();
+      return [caseName, comments, steps, preconditions, expected, actual, testData].some(
+        (s) => s && s.includes(kw)
+      );
+    });
+  }
+  if (caseReviewPriorityFilter.value && caseReviewPriorityFilter.value.length > 0) {
+    list = list.filter((row) => {
+      const p = row.priority || row.test_case?.priority;
+      return p && caseReviewPriorityFilter.value.includes(p);
+    });
+  }
+  if (caseReviewStatusFilter.value && caseReviewStatusFilter.value.length > 0) {
+    list = list.filter((row) =>
+      row.review_status && caseReviewStatusFilter.value.includes(row.review_status)
+    );
+  }
+  return list;
 });
 
 // 方法
@@ -955,6 +1077,12 @@ const handleTaskClick = (row) => {
   getReviewTaskDetail(row.id);
 };
 
+// 点击用例集名称：跳转到用例管理页并定位到对应用例集
+const handleGoToSuite = (row) => {
+  if (!row?.suite_id) return;
+  router.push({ path: "/test-cases", query: { suite_id: row.suite_id } });
+};
+
 // 处理开始评审
 const handleReview = async (row) => {
   reviewDialogTitle.value = "开始评审";
@@ -1007,6 +1135,21 @@ const getAvailableSuites = async () => {
   } finally {
     loading.value.suites = false;
   }
+};
+
+// 清空目标用例集选择（评审历史）
+const handleClearSuiteSelection = () => {
+  selectedSuiteId.value = null;
+  selectedSuitePath.value = "";
+  reviewHistory.value = [];
+};
+
+// 树节点点击：文件夹仅展开/收起，用例集则选中
+const handleSuiteTreeNodeClick = (data) => {
+  if (data.type === "suite") {
+    handleSuiteSelect(data);
+  }
+  // 文件夹由 el-tree 的 expand-on-click-node 处理展开/收起，此处不处理
 };
 
 // 处理用例集选择
@@ -1388,12 +1531,104 @@ const handleRejectReview = async () => {
   }
 };
 
+// 重置用例评审列表筛选条件
+const resetCaseReviewFilter = () => {
+  caseReviewKeyword.value = "";
+  caseReviewPriorityFilter.value = [];
+  caseReviewStatusFilter.value = [];
+  caseReviewPriorityFilterAll.value = true;
+  caseReviewStatusFilterAll.value = true;
+};
+
+const handleCaseReviewPriorityAllChange = (val) => {
+  caseReviewPriorityFilter.value = val ? ["P0", "P1", "P2", "P3", "P4"] : [];
+};
+
+const handleCaseReviewPriorityFilterChange = () => {
+  caseReviewPriorityFilterAll.value =
+    caseReviewPriorityFilter.value.length === 5;
+};
+
+const handleCaseReviewPriorityReset = () => {
+  caseReviewPriorityFilter.value = [];
+  caseReviewPriorityFilterAll.value = true;
+};
+
+const handleCaseReviewStatusAllChange = (val) => {
+  caseReviewStatusFilter.value = val ? ["pending", "approved", "rejected"] : [];
+};
+
+const handleCaseReviewStatusFilterChange = () => {
+  caseReviewStatusFilterAll.value =
+    caseReviewStatusFilter.value.length === 3;
+};
+
+const handleCaseReviewStatusReset = () => {
+  caseReviewStatusFilter.value = [];
+  caseReviewStatusFilterAll.value = true;
+};
+
+// 全部通过：将所有用例评审状态设为已通过
+const handleSetAllApproved = async () => {
+  if (!currentReviewTask.value || !caseReviews.value.length) return;
+  await ElMessageBox.confirm("确定将所有用例设置为已通过？", "提示", {
+    confirmButtonText: "确定",
+    cancelButtonText: "取消",
+    type: "warning",
+  });
+  loading.value.updateReview = true;
+  try {
+    for (const row of caseReviews.value) {
+      await reviewApi.updateCaseReview(row.review_task_id, row.case_id, {
+        review_status: "approved",
+        comments: row.comments || "",
+      });
+      row.review_status = "approved";
+    }
+    ElMessage.success("已全部设置为通过");
+    if (activeTab.value === "my-tasks") getMyTasks();
+    else getMyInitiated();
+  } catch (e) {
+    ElMessage.error("操作失败");
+  } finally {
+    loading.value.updateReview = false;
+  }
+};
+
+// 重置状态：将所有用例评审状态设为待审核
+const handleResetAllStatus = async () => {
+  if (!currentReviewTask.value || !caseReviews.value.length) return;
+  await ElMessageBox.confirm("确定将所有用例重置为待审核？", "提示", {
+    confirmButtonText: "确定",
+    cancelButtonText: "取消",
+    type: "warning",
+  });
+  loading.value.updateReview = true;
+  try {
+    for (const row of caseReviews.value) {
+      await reviewApi.updateCaseReview(row.review_task_id, row.case_id, {
+        review_status: "pending",
+        comments: row.comments || "",
+      });
+      row.review_status = "pending";
+    }
+    ElMessage.success("已全部重置为待审核");
+    if (activeTab.value === "my-tasks") getMyTasks();
+    else getMyInitiated();
+  } catch (e) {
+    ElMessage.error("操作失败");
+  } finally {
+    loading.value.updateReview = false;
+  }
+};
+
 // 处理对话框关闭
 const handleDialogClose = () => {
   // 重置数据
   currentReviewTask.value = null;
   caseReviews.value = [];
   overallComments.value = "";
+  resetCaseReviewFilter();
   reviewDialogVisible.value = false;
 
   // 刷新对应的列表数据
@@ -1658,17 +1893,14 @@ onMounted(async () => {
   margin-left: 4px;
 }
 
-/* 禁用文件夹样式 */
-.disabled-folder {
+/* 文件夹节点：可点击展开/收起 */
+.folder-node {
   color: #909399;
-  cursor: not-allowed;
+  cursor: pointer;
 }
 
-.disabled-folder .node-label {
-  cursor: not-allowed;
-}
-
-.disabled-folder .node-icon {
+.folder-node .node-label,
+.folder-node .node-icon {
   cursor: pointer;
 }
 
@@ -1688,6 +1920,29 @@ onMounted(async () => {
   overflow: hidden;
 }
 
+/* 表格外层滚动容器：解决 flex 布局下横向滚动无法滚到头的问题 */
+.review-table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.review-list-table {
+  /* 表格不参与 flex 收缩，由 wrapper 负责横向滚动 */
+  flex: none;
+}
+
+/* 用例集名称列：悬浮触发样式 */
+.suite-name-trigger {
+  cursor: pointer;
+  color: #409eff;
+  text-decoration: none;
+  border-bottom: 1px dashed #409eff;
+}
+.suite-name-trigger:hover {
+  color: #66b1ff;
+}
+
 .section-header {
   margin-bottom: 15px;
 
@@ -1699,8 +1954,18 @@ onMounted(async () => {
 }
 
 .review-dialog-content {
-  max-height: 60vh;
+  max-height: calc(100vh - 120px);
   overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* 用例评审列表：百分比列宽铺满容器，不出现横向滚动 */
+.review-case-table {
+  table-layout: fixed;
+}
+.review-case-table :deep(.el-table__body),
+.review-case-table :deep(.el-table__header) {
+  width: 100% !important;
 }
 
 .text-with-newlines {
@@ -1745,6 +2010,150 @@ onMounted(async () => {
   text-align: right;
 }
 
+/* 用例评审列表区域：右侧留出间距，避免与垂直滚动条贴紧 */
+.case-list-section {
+  padding-right: 20px;
+}
+
+.review-save-hint {
+  margin: -4px 0 10px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+/* 用例评审列表筛选栏 */
+.case-review-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 14px;
+  column-gap: 16px;
+  margin-bottom: 14px;
+  padding: 10px 0 4px;
+}
+.filter-bar-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.filter-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+.filter-bar-right .el-button {
+  margin: 0;
+  min-width: 72px;
+}
+.filter-bar-right .filter-result-tip {
+  margin-left: 4px;
+  padding-left: 12px;
+  border-left: 1px solid #e4e7ed;
+}
+.filter-result-tip {
+  font-size: 13px;
+  color: #606266;
+  font-weight: 500;
+}
+
+/* 用例评审状态单选按钮：与页面 el-tag size="small" 风格统一 */
+.review-case-table :deep(.case-review-status-group) {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+.review-case-table :deep(.case-review-status-group .el-radio-button) {
+  margin-right: 0;
+}
+.review-case-table :deep(.case-review-status-group .el-radio-button__original) {
+  outline: none;
+}
+.review-case-table :deep(.case-review-status-group .el-radio-button__inner) {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+  border: 1px solid #e9e9eb;
+  border-left: 1px solid #e9e9eb;
+  box-shadow: none !important;
+  transition: all 0.2s;
+  outline: none;
+}
+.review-case-table :deep(.case-review-status-group .el-radio-button__inner::before) {
+  display: none;
+}
+.review-case-table :deep(.case-review-status-group .el-radio-button:focus-visible .el-radio-button__inner),
+.review-case-table :deep(.case-review-status-group .el-radio-button__original-radio:focus-visible + .el-radio-button__inner) {
+  box-shadow: none !important;
+  outline: none;
+  border-left-color: #e9e9eb;
+}
+/* 未选中：统一中性样式，不区分颜色 */
+.review-case-table :deep(.case-review-status-group .el-radio-button__inner) {
+  background-color: #f4f4f5;
+  border-color: #e9e9eb;
+  color: #606266;
+}
+.review-case-table :deep(.case-review-status-group .el-radio-button:not(.is-active):hover .el-radio-button__inner) {
+  background-color: #e9e9eb;
+  color: #303133;
+}
+/* 选中后按状态区分颜色（覆盖 Element 默认的左侧蓝色 box-shadow） */
+.review-case-table :deep(.status-pending.is-active .el-radio-button__inner) {
+  background-color: #909399;
+  border-color: #909399;
+  border-left-color: #909399;
+  box-shadow: none !important;
+  color: #fff;
+}
+.review-case-table :deep(.status-approved.is-active .el-radio-button__inner) {
+  background-color: #67c23a;
+  border-color: #67c23a;
+  border-left-color: #67c23a;
+  box-shadow: none !important;
+  color: #fff;
+}
+.review-case-table :deep(.status-rejected.is-active .el-radio-button__inner) {
+  background-color: #f56c6c;
+  border-color: #f56c6c;
+  border-left-color: #f56c6c;
+  box-shadow: none !important;
+  color: #fff;
+}
+.header-filter-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.header-filter-trigger .el-icon {
+  color: #409eff;
+}
+.filter-panel {
+  padding: 4px 0;
+}
+.filter-panel .el-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  margin-top: 6px;
+}
+.filter-panel .el-checkbox {
+  display: block;
+  margin: 4px 0;
+}
+.filter-panel-footer {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #e4e7ed;
+  text-align: right;
+}
+
 .read-only-comments {
   background-color: #f5f7fa;
   border: 1px solid #e4e7ed;
@@ -1755,5 +2164,33 @@ onMounted(async () => {
   word-break: break-word;
   line-height: 1.5;
   color: #303133;
+}
+</style>
+
+<style lang="scss">
+/* 用例集信息悬浮层（挂载到 body，故不使用 scoped） */
+.suite-info-popover {
+  .suite-info-tags {
+    padding: 4px 0;
+  }
+  .suite-info-tag {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+  .tag-label {
+    flex-shrink: 0;
+    color: #909399;
+    margin-right: 8px;
+  }
+  .tag-value {
+    color: #303133;
+    word-break: break-all;
+  }
 }
 </style>

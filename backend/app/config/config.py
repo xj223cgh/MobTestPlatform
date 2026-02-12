@@ -1,5 +1,11 @@
 import os
+from pathlib import Path
 from datetime import timedelta
+from dotenv import load_dotenv
+
+# 固定从 backend 目录加载 .env（config 在 backend/app/config/ 下，向上两级到 backend）
+_backend_dir = Path(__file__).resolve().parent.parent.parent
+load_dotenv(dotenv_path=_backend_dir / '.env')
 
 
 class Config:

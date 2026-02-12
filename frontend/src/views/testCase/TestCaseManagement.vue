@@ -169,6 +169,13 @@
                   @keyup.enter="saveEdit(data)"
                   @keyup.esc="cancelEdit"
                 />
+                <!-- 该用例集正在生成用例时显示加载图标 -->
+                <el-icon
+                  v-if="data.type === 'suite' && generatingSuiteId === data.id"
+                  class="tree-node-loading"
+                >
+                  <Loading />
+                </el-icon>
               </span>
             </template>
           </el-tree>
@@ -224,7 +231,7 @@
               >(用例数: {{ totalCases }}条)</span>
             </h3>
             <div
-              v-if="selectedSuite"
+              v-if="selectedSuite && selectedSuite.type === 'suite'"
               class="suite-info"
             >
               <div class="info-item">
@@ -293,25 +300,25 @@
           </div>
         </div>
 
-        <!-- 用例列表 -->
+        <!-- 缺省页面：未选择套件或选中为文件夹时显示 -->
         <div
-          v-if="viewMode === 'list'"
+          v-if="!selectedSuite || selectedSuite.type === 'folder'"
+          class="case-list-default"
+        >
+          <div class="default-placeholder">
+            <el-icon class="default-icon"><FolderOpened /></el-icon>
+            <p class="default-text">
+              {{ selectedSuite && selectedSuite.type === 'folder' ? '当前为文件夹，请选择具体用例集查看用例列表' : '请选择左侧的测试套件查看用例' }}
+            </p>
+          </div>
+        </div>
+
+        <!-- 用例列表：仅在选择用例集（非文件夹）时显示 -->
+        <div
+          v-else-if="viewMode === 'list' && selectedSuite && selectedSuite.type === 'suite'"
           class="case-list"
         >
           <div class="table-wrapper table-scroll-viewport">
-            <!-- AI生成中提示 -->
-            <div
-              v-if="isGeneratingCases"
-              class="ai-generating-tip"
-            >
-              <el-alert
-                title="AI正在生成测试用例..."
-                type="info"
-                description="测试用例正在生成中，请勿刷新页面。生成完成后将自动显示结果。"
-                :closable="false"
-              />
-            </div>
-
             <el-table
               ref="caseTableRef"
               :data="filteredTestCases"
@@ -739,13 +746,35 @@
                   </div>
                 </template>
               </el-table-column>
+              <!-- 空数据时：若该用例集正在生成则显示进度，否则显示暂无数据 -->
+              <template #empty>
+                <div
+                  v-if="isGeneratingCases && generatingSuiteId && selectedSuite && selectedSuite.id === generatingSuiteId"
+                  class="table-empty-generating"
+                >
+                  <el-icon class="empty-generating-icon"><Loading /></el-icon>
+                  <p class="empty-generating-text">正在生成测试用例</p>
+                  <el-progress
+                    :percentage="taskProgress"
+                    :stroke-width="6"
+                    style="width: 200px; margin: 0 auto;"
+                  />
+                </div>
+                <div
+                  v-else
+                  class="table-empty-default"
+                >
+                  <el-icon class="empty-default-icon"><Document /></el-icon>
+                  <p>暂无数据</p>
+                </div>
+              </template>
             </el-table>
           </div>
         </div>
 
-        <!-- 脑图视图 -->
+        <!-- 脑图视图：仅在选择用例集（非文件夹）时显示 -->
         <div
-          v-if="viewMode === 'mindmap'"
+          v-if="viewMode === 'mindmap' && selectedSuite && selectedSuite.type === 'suite'"
           class="mindmap-view-wrapper"
         >
           <el-tooltip
@@ -772,9 +801,9 @@
       </div>
     </div>
 
-    <!-- 分页（只在列表视图下显示） -->
+    <!-- 分页（只在列表视图且选择用例集时显示） -->
     <div
-      v-if="viewMode === 'list'"
+      v-if="viewMode === 'list' && selectedSuite && selectedSuite.type === 'suite'"
       class="pagination-container"
     >
       <el-pagination
@@ -1308,27 +1337,21 @@
         ref="autoCaseFormRef"
         :model="autoCaseForm"
         :rules="autoCaseFormRules"
-        label-width="100px"
+        label-width="120px"
       >
-        <el-form-item
-          label="用例集名称"
-          prop="suite_name"
-          required
-        >
-          <el-input
-            v-model="autoCaseForm.suite_name"
-            placeholder="请输入用例集名称"
-            clearable
-          />
+        <el-form-item label="生成方式" prop="generateMode">
+          <el-radio-group v-model="autoCaseForm.generateMode" @change="onAutoGenerateModeChange">
+            <el-radio value="new">生成到新用例集</el-radio>
+            <el-radio value="append">追加到已选用例集</el-radio>
+          </el-radio-group>
         </el-form-item>
 
         <el-form-item
-          label="所属文件夹"
-          prop="parent_id"
+          :label="autoCaseForm.generateMode === 'append' ? '选择所属用例集' : '所属文件夹'"
+          :prop="autoCaseForm.generateMode === 'append' ? 'append_suite_id' : 'parent_id'"
           required
         >
-          <div class="case-suite-selector">
-            <!-- 显示当前选中的用例文件夹路径 -->
+          <div class="case-suite-selector auto-case-suite-selector">
             <el-popover
               :visible="caseSuitePopoverVisible"
               placement="bottom-start"
@@ -1340,29 +1363,20 @@
               <template #reference>
                 <el-input
                   v-model="selectedCaseSuitePath"
-                  placeholder="点击选择所属文件夹"
+                  :placeholder="autoCaseForm.generateMode === 'append' ? '点击选择所属用例集' : '点击选择所属文件夹'"
                   readonly
-                  style="width: 100%; min-width: 568px"
+                  class="auto-case-suite-input"
                   clearable
                   @click="caseSuitePopoverVisible = !caseSuitePopoverVisible"
                 />
               </template>
-              <!-- 弹出的套件树 -->
-              <div
-                class="suite-tree-popover"
-                style="width: 100%; min-width: 540px"
-              >
+              <div class="suite-tree-popover">
                 <el-tree
-                  :current-node-key="autoCaseForm.parent_id"
-                  :data="getFolderTreeData()"
+                  :current-node-key="autoCaseForm.generateMode === 'append' ? autoCaseForm.append_suite_id : autoCaseForm.parent_id"
+                  :data="autoCaseForm.generateMode === 'append' ? getSuiteTreeData() : getFolderTreeData()"
                   :props="defaultProps"
                   node-key="id"
-                  style="
-                    max-height: 300px;
-                    overflow-y: auto;
-                    width: 100%;
-                    padding-right: 10px;
-                  "
+                  style="max-height: 300px; overflow-y: auto; width: 100%; padding-right: 10px;"
                   :expand-on-click-node="false"
                   @node-click="handleAutoCaseSuiteSelect"
                 >
@@ -1370,18 +1384,17 @@
                     <span
                       class="tree-node-content"
                       :class="{
-                        'current-node': node.key === autoCaseForm.parent_id,
+                        'current-node':
+                          (autoCaseForm.generateMode === 'append' && data.id === autoCaseForm.append_suite_id) ||
+                          (autoCaseForm.generateMode === 'new' && data.id === autoCaseForm.parent_id),
                       }"
                     >
-                      <el-icon
-                        class="node-icon"
-                        @click.stop="handleAutoCaseSuiteSelect(data)"
-                      >
-                        <Folder />
+                      <el-icon class="node-icon" @click.stop="handleAutoCaseSuiteSelect(data)">
+                        <Folder v-if="data.type === 'folder'" />
+                        <Document v-else />
                       </el-icon>
-                      <span @click.stop="handleAutoCaseSuiteSelect(data)">{{
-                        node.label
-                      }}</span>
+                      <span @click.stop="handleAutoCaseSuiteSelect(data)">{{ node.label }}</span>
+                      <span v-if="data.type === 'suite' && data.cases_count != null" class="case-count">({{ data.cases_count }})</span>
                     </span>
                   </template>
                 </el-tree>
@@ -1391,7 +1404,61 @@
         </el-form-item>
 
         <el-form-item
-          v-if="autoCaseForm.type === 'suite'"
+          v-if="autoCaseForm.generateMode === 'new'"
+          label="用例集名称"
+          prop="suite_name"
+          required
+        >
+          <div class="suite-name-container">
+            <!-- 左侧：已有用例集下拉列表（仅供查看） -->
+            <div class="existing-suites-selector">
+              <template v-if="autoCaseForm.parent_id">
+                <el-select
+                  :model-value="null"
+                  :placeholder="existingSuitesInFolder.length > 0 ? `查看已有用例集（${existingSuitesInFolder.length}个）` : '暂无用例集'"
+                  filterable
+                  class="view-only-select"
+                  popper-class="suite-view-popper"
+                >
+                  <template #prefix>
+                    <el-icon><InfoFilled /></el-icon>
+                  </template>
+                  <el-option
+                    v-for="suite in existingSuitesInFolder"
+                    :key="suite.id"
+                    :label="suite.suite_name"
+                    :value="suite.id"
+                    disabled
+                  />
+                  <template #empty>
+                    <div class="empty-suite-tip">
+                      <el-icon><FolderOpened /></el-icon>
+                      <span>当前文件夹下暂无用例集</span>
+                    </div>
+                  </template>
+                </el-select>
+                <div class="selector-hint">点击查看，避免重名</div>
+              </template>
+              <div v-else class="placeholder-tip">
+                <el-icon><InfoFilled /></el-icon>
+                <span>请先选择文件夹</span>
+              </div>
+            </div>
+            
+            <!-- 右侧：用例集名称输入框 -->
+            <div class="suite-name-input">
+              <el-input
+                v-model="autoCaseForm.suite_name"
+                placeholder="请输入用例集名称"
+                clearable
+                @blur="checkSuiteNameDuplicate"
+              />
+            </div>
+          </div>
+        </el-form-item>
+
+        <el-form-item
+          v-if="autoCaseForm.generateMode === 'new' && autoCaseForm.type === 'suite'"
           label="所属项目"
           prop="project_id"
         >
@@ -1404,7 +1471,10 @@
             @focus="loadProjects"
           >
             <template #empty>
-              <div v-if="projects.length === 0">
+              <div v-if="isLoadingProjects">
+                数据加载中...
+              </div>
+              <div v-else-if="projects.length === 0">
                 <span>暂无项目数据</span>
                 <el-button
                   type="text"
@@ -1427,7 +1497,7 @@
           </el-select>
         </el-form-item>
         <el-form-item
-          v-if="autoCaseForm.type === 'suite'"
+          v-if="autoCaseForm.generateMode === 'new' && autoCaseForm.type === 'suite'"
           label="所属迭代"
           prop="iteration_id"
         >
@@ -1437,6 +1507,7 @@
             :disabled="!autoCaseForm.project_id"
             filterable
             clearable
+            :loading="isLoadingIterations"
             @focus="
               autoCaseForm.project_id && loadIterations(autoCaseForm.project_id)
             "
@@ -1444,6 +1515,9 @@
             <template #empty>
               <div v-if="!autoCaseForm.project_id">
                 请先选择项目
+              </div>
+              <div v-else-if="isLoadingIterations">
+                数据加载中...
               </div>
               <div v-else-if="iterations.length === 0">
                 <span>暂无迭代数据</span>
@@ -1468,7 +1542,7 @@
           </el-select>
         </el-form-item>
         <el-form-item
-          v-if="autoCaseForm.type === 'suite'"
+          v-if="autoCaseForm.generateMode === 'new' && autoCaseForm.type === 'suite'"
           label="所属需求"
           prop="version_requirement_id"
         >
@@ -1478,6 +1552,7 @@
             :disabled="!autoCaseForm.iteration_id"
             filterable
             clearable
+            :loading="isLoadingRequirements"
             @focus="
               autoCaseForm.project_id &&
                 autoCaseForm.iteration_id &&
@@ -1490,6 +1565,9 @@
             <template #empty>
               <div v-if="!autoCaseForm.iteration_id">
                 请先选择迭代
+              </div>
+              <div v-else-if="isLoadingRequirements">
+                数据加载中...
               </div>
               <div v-else-if="requirements.length === 0">
                 <span>暂无需求数据</span>
@@ -1600,30 +1678,38 @@
         <template v-if="importExportForm.type === 'import'">
           <!-- 本地文件上传 -->
           <el-form-item label="本地文件">
-            <el-upload
-              ref="importUploadRef"
-              :auto-upload="false"
-              :headers="{ 'Content-Type': 'multipart/form-data' }"
-              accept=".xlsx, .xls"
-              :on-change="handleFileChange"
-              :file-list="fileList"
-              :on-remove="handleFileRemove"
-              :limit="1"
-              :on-exceed="handleFileExceed"
-              class="upload-with-clear"
-            >
-              <el-button type="primary">
-                选择文件
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <el-upload
+                ref="importUploadRef"
+                :auto-upload="false"
+                :headers="{ 'Content-Type': 'multipart/form-data' }"
+                accept=".xlsx, .xls"
+                :on-change="handleFileChange"
+                :file-list="fileList"
+                :on-remove="handleFileRemove"
+                :limit="1"
+                :on-exceed="handleFileExceed"
+                class="upload-with-clear"
+              >
+                <el-button type="primary">
+                  选择文件
+                </el-button>
+                <template #tip>
+                  <div class="el-upload__tip">
+                    支持上传.xlsx和.xls格式的文件，大小不超过10MB；可先下载模板填写后导入
+                  </div>
+                  <div class="form-help-text">
+                    导入规则：按表头名称匹配字段，匹配到的列会导入，缺失列使用默认值或空，Excel 中多余列会忽略。不要求与模板完全一致，表头名称一致即可。
+                  </div>
+                  <div class="form-help-text">
+                    注意：导入后需在用例管理中手动关联所属项目、迭代和需求
+                  </div>
+                </template>
+              </el-upload>
+              <el-button type="default" @click="downloadExcelTemplate">
+                下载模板
               </el-button>
-              <template #tip>
-                <div class="el-upload__tip">
-                  支持上传.xlsx和.xls格式的文件，大小不超过10MB
-                </div>
-                <div class="form-help-text">
-                  注意：导入的用例需要手动编辑以关联所属项目、迭代和需求
-                </div>
-              </template>
-            </el-upload>
+            </div>
           </el-form-item>
 
           <!-- 目标位置 -->
@@ -1699,6 +1785,22 @@
 
         <!-- 导出选项 -->
         <template v-else-if="importExportForm.type === 'export'">
+          <!-- 导出属性：多选，默认全选（默认导出当前用例集全部用例） -->
+          <el-form-item label="导出属性">
+            <div style="margin-bottom: 8px;">
+              <el-button link type="primary" @click="exportColumnKeys = EXPORT_COLUMN_OPTIONS.map(o => o.key)">全选</el-button>
+              <el-button link @click="exportColumnKeys = []">清空</el-button>
+            </div>
+            <el-checkbox-group v-model="exportColumnKeys" style="display: flex; flex-wrap: wrap; gap: 8px 16px;">
+              <el-checkbox
+                v-for="opt in EXPORT_COLUMN_OPTIONS"
+                :key="opt.key"
+                :label="opt.key"
+              >
+                {{ opt.key }}
+              </el-checkbox>
+            </el-checkbox-group>
+          </el-form-item>
           <!-- 导出的用例集 -->
           <el-form-item label="导出的用例集">
             <div class="case-suite-selector">
@@ -1895,8 +1997,8 @@
     <el-dialog
       v-model="reviewDialogVisible"
       :title="reviewDialogTitle"
-      width="90%"
-      :fullscreen="false"
+      :fullscreen="reviewDialogType === 'detail'"
+      :width="reviewDialogType === 'message' ? '500px' : undefined"
     >
       <!-- 提示消息类型 -->
       <div
@@ -1967,9 +2069,10 @@
                 currentReviewTask.case_reviews.length > 0
             "
             :data="currentReviewTask.case_reviews"
+            class="review-case-table"
             style="width: 100%"
             row-key="id"
-            max-height="400"
+            max-height="calc(100vh - 280px)"
             :row-style="{ height: 'auto' }"
             :cell-style="{
               'white-space': 'pre-wrap',
@@ -1979,7 +2082,8 @@
           >
             <el-table-column
               label="用例编号"
-              min-width="130"
+              width="7%"
+              min-width="80"
             >
               <template #default="scope">
                 {{
@@ -1991,7 +2095,8 @@
             </el-table-column>
             <el-table-column
               label="用例名称"
-              min-width="140"
+              width="10%"
+              min-width="100"
             >
               <template #default="scope">
                 {{
@@ -2001,7 +2106,8 @@
             </el-table-column>
             <el-table-column
               label="优先级"
-              width="90"
+              width="5%"
+              min-width="70"
             >
               <template #default="scope">
                 <el-tag
@@ -2022,7 +2128,8 @@
             </el-table-column>
             <el-table-column
               label="评审状态"
-              width="100"
+              width="9%"
+              min-width="90"
             >
               <template #default="scope">
                 <el-tag
@@ -2034,7 +2141,8 @@
             </el-table-column>
             <el-table-column
               label="测试数据"
-              min-width="150"
+              width="9%"
+              min-width="90"
             >
               <template #default="scope">
                 <div class="read-only-comments">
@@ -2044,7 +2152,8 @@
             </el-table-column>
             <el-table-column
               label="前置条件"
-              min-width="150"
+              width="10%"
+              min-width="90"
             >
               <template #default="scope">
                 <div class="read-only-comments">
@@ -2054,7 +2163,8 @@
             </el-table-column>
             <el-table-column
               label="测试步骤"
-              min-width="200"
+              width="11%"
+              min-width="90"
             >
               <template #default="scope">
                 <div class="read-only-comments">
@@ -2064,7 +2174,8 @@
             </el-table-column>
             <el-table-column
               label="预期结果"
-              min-width="150"
+              width="10%"
+              min-width="90"
             >
               <template #default="scope">
                 <div class="read-only-comments">
@@ -2074,7 +2185,8 @@
             </el-table-column>
             <el-table-column
               label="实际结果"
-              min-width="150"
+              width="10%"
+              min-width="90"
             >
               <template #default="scope">
                 <div class="read-only-comments">
@@ -2084,7 +2196,8 @@
             </el-table-column>
             <el-table-column
               label="评审意见"
-              min-width="200"
+              width="12%"
+              min-width="120"
             >
               <template #default="scope">
                 <div class="read-only-comments">
@@ -2094,10 +2207,11 @@
             </el-table-column>
             <el-table-column
               label="评审时间"
-              width="150"
+              width="7%"
+              min-width="120"
             >
               <template #default="scope">
-                {{ formatDate(scope.row.updated_at) || "-" }}
+                {{ formatDate(scope.row.updated_at || scope.row.created_at) || "-" }}
               </template>
             </el-table-column>
           </el-table>
@@ -2280,6 +2394,7 @@ import {
 } from "element-plus";
 import {
   Folder,
+  FolderOpened,
   Document,
   ArrowDown,
   ArrowUp,
@@ -2288,6 +2403,8 @@ import {
   DocumentCopy,
   FullScreen,
   Filter,
+  Loading,
+  InfoFilled,
 } from "@element-plus/icons-vue";
 import {
   getTestSuiteTree,
@@ -2300,9 +2417,6 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { useUserStore } from "@/stores/user";
 
-// AI服务导入
-import { generateTestCaseService } from "@/services/aiService";
-
 // API导入
 import {
   updateTestCase,
@@ -2311,6 +2425,24 @@ import {
   batchDeleteTestCases,
 } from "@/api/testCase";
 import { getTestSuiteDetail } from "@/api/testSuite";
+
+// 导出用例：可选属性列表（与用例列表一致，默认全选）
+const EXPORT_COLUMN_OPTIONS = [
+  { key: "用例编号", wch: 20 },
+  { key: "用例名称", wch: 30 },
+  { key: "用例描述", wch: 25 },
+  { key: "所属项目", wch: 20 },
+  { key: "所属迭代", wch: 20 },
+  { key: "关联需求", wch: 20 },
+  { key: "优先级", wch: 10 },
+  { key: "状态", wch: 15 },
+  { key: "前置条件", wch: 25 },
+  { key: "测试数据", wch: 25 },
+  { key: "操作步骤", wch: 40 },
+  { key: "预期结果", wch: 30 },
+  { key: "实际结果", wch: 30 },
+];
+
 import {
   getProjects,
   getProjectIterations,
@@ -2473,17 +2605,25 @@ const createCaseType = ref("manual");
 
 // 自动生成用例表单相关
 const autoCaseFormRef = ref(null);
-const generatedTestCases = ref([]);
 const isGeneratingCases = ref(false);
+const currentTaskId = ref(null);
+const generatingSuiteId = ref(null); // 正在生成用例的用例集ID，仅该用例集页面显示进度
+const taskProgress = ref(0);
+const taskMessage = ref("");
+let taskPollingTimer = null;
 
-const generatedCasesParams = ref({});
 const selectedProject = ref(null);
 const selectedIteration = ref(null);
 const selectedRequirement = ref(null);
 const isLoadingProjects = ref(false);
+const isLoadingIterations = ref(false);
+const isLoadingRequirements = ref(false);
+const existingSuitesInFolder = ref([]); // 当前文件夹下已有的用例集列表
 
 // 先定义 autoCaseForm
 const autoCaseForm = reactive({
+  generateMode: "new", // 'new' 生成到新用例集 | 'append' 追加到已选用例集
+  append_suite_id: null, // 追加模式时选中的用例集 ID
   suite_name: "",
   parent_id: null,
   type: "suite",
@@ -2500,6 +2640,18 @@ watch(createCaseType, (newType) => {
     loadProjects();
   }
 });
+
+// 切换生成方式时清空另一侧选择
+const onAutoGenerateModeChange = () => {
+  if (autoCaseForm.generateMode === "new") {
+    autoCaseForm.append_suite_id = null;
+  } else {
+    autoCaseForm.parent_id = null;
+    autoCaseForm.suite_name = "";
+    existingSuitesInFolder.value = [];
+  }
+  selectedCaseSuitePath.value = getSelectedCaseSuitePath();
+};
 
 // 监听项目变化，自动加载迭代数据
 watch(
@@ -2529,12 +2681,121 @@ watch(
   },
 );
 
+// 用例集名称重名校验
+const validateSuiteName = async (rule, value, callback) => {
+  if (!value) {
+    callback(new Error("请输入用例集名称"));
+    return;
+  }
+  
+  if (!autoCaseForm.parent_id) {
+    // 如果还没有选择文件夹，跳过重名检测
+    callback();
+    return;
+  }
+  
+  try {
+    // 获取当前文件夹下的所有子套件
+    const { getTestSuiteTree } = await import("@/api/testSuite");
+    const response = await getTestSuiteTree();
+    
+    // 查找当前选中的文件夹
+    const findChildren = (nodes, parentId) => {
+      for (const node of nodes) {
+        if (node.id === parentId) {
+          return node.children || [];
+        }
+        if (node.children && node.children.length > 0) {
+          const found = findChildren(node.children, parentId);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    const children = findChildren(response.data, autoCaseForm.parent_id);
+    if (children) {
+      // 检查是否有同名的用例集
+      const duplicate = children.find(
+        (child) => child.suite_name === value && child.type === 'suite'
+      );
+      
+      if (duplicate) {
+        callback(new Error("当前文件夹下已存在同名用例集，请修改名称"));
+        return;
+      }
+    }
+    
+    callback();
+  } catch (error) {
+    console.error("检查用例集名称失败:", error);
+    // 如果检查失败，不阻止提交
+    callback();
+  }
+};
+
+// 自动生成表单校验（按生成方式：新用例集 / 追加）
 const autoCaseFormRules = reactive({
-  suite_name: [
-    { required: true, message: "请输入用例集名称", trigger: "blur" },
-  ],
   parent_id: [
-    { required: true, message: "请选择所属文件夹", trigger: "change" },
+    {
+      validator: (rule, value, callback) => {
+        if (autoCaseForm.generateMode === "append") return callback();
+        if (!value) return callback(new Error("请选择所属文件夹"));
+        callback();
+      },
+      trigger: "change",
+    },
+  ],
+  suite_name: [
+    {
+      validator: (rule, value, callback) => {
+        if (autoCaseForm.generateMode === "append") return callback();
+        if (!value) return callback(new Error("请输入用例集名称"));
+        validateSuiteName(rule, value, callback);
+      },
+      trigger: "blur",
+    },
+  ],
+  append_suite_id: [
+    {
+      message: "请选择所属用例集",
+      validator: (rule, value, callback) => {
+        if (autoCaseForm.generateMode === "new") return callback();
+        if (!value) return callback(new Error("请选择所属用例集"));
+        callback();
+      },
+      trigger: "change",
+    },
+  ],
+  project_id: [
+    {
+      validator: (rule, value, callback) => {
+        if (autoCaseForm.generateMode === "append") return callback();
+        if (!value) return callback(new Error("请选择所属项目"));
+        callback();
+      },
+      trigger: "change",
+    },
+  ],
+  iteration_id: [
+    {
+      validator: (rule, value, callback) => {
+        if (autoCaseForm.generateMode === "append") return callback();
+        if (!value) return callback(new Error("请选择所属迭代"));
+        callback();
+      },
+      trigger: "change",
+    },
+  ],
+  version_requirement_id: [
+    {
+      validator: (rule, value, callback) => {
+        if (autoCaseForm.generateMode === "append") return callback();
+        if (!value) return callback(new Error("请选择所属需求"));
+        callback();
+      },
+      trigger: "change",
+    },
   ],
 });
 
@@ -2716,11 +2977,15 @@ const reviewDialogContent = ref("");
 const reviewDialogType = ref("detail"); // detail: 详情页面, message: 提示消息
 const currentReviewTask = ref(null);
 
-// 获取评审人列表
+// 获取评审人列表（排除当前用户，评审人不能为自己）
 const loadReviewers = async () => {
   try {
     const response = await getUserList();
-    reviewerOptions.value = response.data.users || [];
+    const users = response.data.users || [];
+    const currentUserId = userStore.userInfo?.id;
+    reviewerOptions.value = currentUserId
+      ? users.filter((u) => u.id !== currentUserId)
+      : users;
   } catch (error) {
     console.error("获取评审人列表失败:", error);
     ElMessage.error("获取评审人列表失败，请稍后重试");
@@ -2774,6 +3039,7 @@ const showInitiateReviewDialog = () => {
     reviewForm.suite_name = selectedSuite.value.suite_name;
     reviewSuitePath.value = getSuitePath(selectedSuite.value.id);
     reviewForm.reviewer_id = null;
+    loadReviewers(); // 刷新评审人列表（排除当前用户）
     initiateReviewVisible.value = true;
   }
 };
@@ -2797,7 +3063,8 @@ const handleInitiateReview = async () => {
     loadTreeData();
   } catch (error) {
     console.error("发起评审失败:", error);
-    ElMessage.error("发起评审失败，请稍后重试");
+    const msg = error.response?.data?.message || error.message || "发起评审失败，请稍后重试";
+    ElMessage.error(msg);
   }
 };
 
@@ -3499,6 +3766,7 @@ const loadIterations = async (projectId) => {
     return;
   }
 
+  isLoadingIterations.value = true;
   try {
     const response = await getProjectIterations(projectId);
     let allIterations = [];
@@ -3566,6 +3834,8 @@ const loadIterations = async (projectId) => {
     } else {
       iterations.value = [];
     }
+  } finally {
+    isLoadingIterations.value = false;
   }
 };
 
@@ -3576,6 +3846,7 @@ const loadRequirements = async (projectId, iterationId) => {
     return;
   }
 
+  isLoadingRequirements.value = true;
   try {
     const response = await getProjectVersionRequirements(projectId);
     let allRequirements = [];
@@ -3665,6 +3936,8 @@ const loadRequirements = async (projectId, iterationId) => {
     } else {
       requirements.value = [];
     }
+  } finally {
+    isLoadingRequirements.value = false;
   }
 };
 
@@ -3958,10 +4231,11 @@ const getSelectedParentPath = () => {
 
 // 获取选中的用例集路径
 const getSelectedCaseSuitePath = () => {
-  // 获取当前选中的ID，根据创建方式选择从哪个表单获取
   let selectedId;
   if (createCaseType.value === "manual" || isEditCase.value) {
     selectedId = caseForm.suite_id;
+  } else if (autoCaseForm.generateMode === "append") {
+    selectedId = autoCaseForm.append_suite_id;
   } else {
     selectedId = autoCaseForm.parent_id;
   }
@@ -4011,9 +4285,9 @@ watch(
   },
 );
 
-// 监听自动生成用例父ID变化，更新显示路径
+// 监听自动生成用例父ID或追加用例集ID变化，更新显示路径
 watch(
-  () => autoCaseForm.parent_id,
+  () => [autoCaseForm.parent_id, autoCaseForm.append_suite_id, autoCaseForm.generateMode],
   () => {
     selectedCaseSuitePath.value = getSelectedCaseSuitePath();
   },
@@ -4097,42 +4371,142 @@ const handleParentSuiteSelect = (data) => {
 
 // 处理用例集选择
 const handleCaseSuiteSelect = (data) => {
-  // 根据当前创建方式选择允许的节点类型和赋值字段
   if (createCaseType.value === "manual" || isEditCase.value) {
-    // 手动创建或编辑用例：只能选择用例集
     if (data.type === "suite") {
       caseForm.suite_id = data.id;
-      // 更新选中路径显示
       selectedCaseSuitePath.value = getSelectedCaseSuitePath();
-      // 选择后关闭弹出框
       caseSuitePopoverVisible.value = false;
     } else {
       ElMessage.warning("手动创建用例只能选择用例集");
     }
   } else {
-    // 自动生成用例：只能选择用例文件夹
-    if (data.type === "folder") {
-      autoCaseForm.parent_id = data.id;
-      // 更新选中路径显示
-      selectedCaseSuitePath.value = getSelectedCaseSuitePath();
-      // 选择后关闭弹出框
-      caseSuitePopoverVisible.value = false;
-      console.log("选择了文件夹:", data.suite_name, "ID:", data.id);
+    // 自动生成：追加模式选用例集，新建模式选文件夹
+    if (autoCaseForm.generateMode === "append") {
+      if (data.type === "suite") {
+        autoCaseForm.append_suite_id = data.id;
+        selectedCaseSuitePath.value = getSelectedCaseSuitePath();
+        caseSuitePopoverVisible.value = false;
+      } else {
+        ElMessage.warning("追加到已选用例集时，请选择用例集（非文件夹）");
+      }
     } else {
-      ElMessage.warning("自动生成用例只能选择文件夹");
+      if (data.type === "folder") {
+        autoCaseForm.parent_id = data.id;
+        selectedCaseSuitePath.value = getSelectedCaseSuitePath();
+        caseSuitePopoverVisible.value = false;
+        loadExistingSuitesInFolder(data.id);
+        if (autoCaseForm.suite_name) {
+          nextTick(() => autoCaseFormRef.value?.validateField("suite_name"));
+        }
+      } else {
+        ElMessage.warning("生成到新用例集时，请选择文件夹");
+      }
     }
   }
 };
 
-// 新增：处理自动生成用例的用例文件夹选择
+// 自动生成时点击树节点（委托给 handleCaseSuiteSelect，追加/新建逻辑已在内）
 const handleAutoCaseSuiteSelect = (data) => {
   handleCaseSuiteSelect(data);
 };
 
+// 加载当前文件夹下已有的用例集
+const loadExistingSuitesInFolder = async (folderId) => {
+  if (!folderId) {
+    existingSuitesInFolder.value = [];
+    return;
+  }
+  
+  try {
+    const { getTestSuiteTree } = await import("@/api/testSuite");
+    const response = await getTestSuiteTree();
+    
+    // 查找指定文件夹下的所有用例集
+    const findSuitesInFolder = (nodes, targetId) => {
+      for (const node of nodes) {
+        if (node.id === targetId) {
+          // 找到目标文件夹，返回其子节点中的用例集
+          return (node.children || []).filter(child => child.type === 'suite');
+        }
+        if (node.children && node.children.length > 0) {
+          const found = findSuitesInFolder(node.children, targetId);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    const suites = findSuitesInFolder(response.data, folderId);
+    existingSuitesInFolder.value = suites || [];
+    
+    console.log('[文件夹用例集] 加载成功，共', existingSuitesInFolder.value.length, '个用例集');
+  } catch (error) {
+    console.error('[文件夹用例集] 加载失败:', error);
+    existingSuitesInFolder.value = [];
+  }
+};
+
+// 检查用例集名称是否重复
+const checkSuiteNameDuplicate = async () => {
+  if (autoCaseFormRef.value) {
+    await autoCaseFormRef.value.validateField('suite_name');
+  }
+};
+
 // 新增：处理需求文档文件变化
 const handleRequirementFileChange = (file) => {
+  // 验证文件
+  if (!file || !file.raw) {
+    ElMessage.error("文件选择失败，请重试");
+    return;
+  }
+
+  // 验证文件大小（最大10MB）
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  if (file.raw.size > maxSize) {
+    ElMessage.error("文件大小不能超过 10MB");
+    requirementFileList.value = [];
+    autoCaseForm.file = null;
+    return;
+  }
+
+  // 验证文件大小不能为0
+  if (file.raw.size === 0) {
+    ElMessage.error("文件大小为0，请选择有效的文件");
+    requirementFileList.value = [];
+    autoCaseForm.file = null;
+    return;
+  }
+
+  // 验证文件类型
+  const fileName = file.name.toLowerCase();
+  const validExtensions = [".docx", ".pdf", ".txt"];
+  const isValidType = validExtensions.some((ext) => fileName.endsWith(ext));
+
+  if (!isValidType) {
+    ElMessage.error("只支持 .docx、.pdf 和 .txt 格式的文件");
+    requirementFileList.value = [];
+    autoCaseForm.file = null;
+    return;
+  }
+
+  // 特别提示：DOC格式不支持
+  if (fileName.endsWith(".doc") && !fileName.endsWith(".docx")) {
+    ElMessage.error("不支持旧版 .doc 格式，请使用 Word 另存为 .docx 格式");
+    requirementFileList.value = [];
+    autoCaseForm.file = null;
+    return;
+  }
+
+  console.log("需求文档选择成功:", {
+    name: file.name,
+    size: file.raw.size,
+    type: file.raw.type,
+  });
+
   autoCaseForm.file = file.raw;
   requirementFileList.value = [file];
+  ElMessage.success(`文件 ${file.name} 选择成功`);
 };
 
 // 新增：处理需求文档文件移除
@@ -4146,91 +4520,161 @@ const handleRequirementFileExceed = () => {
   ElMessage.warning("只能上传一个需求文档文件");
 };
 
-// 新增：生成用例按钮点击事件
+// 新增：生成用例按钮点击事件（支持生成到新用例集 / 追加到已选用例集）
 const handleGenerateCase = async () => {
-  console.log("[前端AI调用] 开始执行handleGenerateCase函数");
   try {
-    console.log("[前端AI调用] 开始验证表单数据");
     await autoCaseFormRef.value.validate();
-    console.log("[前端AI调用] 表单验证通过");
 
-    // 关闭对话框
+    const isAppend = autoCaseForm.generateMode === "append";
+    const { getTestSuiteDetail, createTestSuite } = await import("@/api/testSuite");
+    let targetSuiteId;
+    let suiteDetailRes;
+
+    if (isAppend) {
+      targetSuiteId = autoCaseForm.append_suite_id;
+      if (!targetSuiteId) {
+        ElMessage.warning("请选择所属用例集");
+        return;
+      }
+      suiteDetailRes = await getTestSuiteDetail(targetSuiteId);
+    } else {
+      const suiteName =
+        autoCaseForm.suite_name ||
+        `${selectedRequirement.value?.requirement_name || "AI生成用例集"}_${new Date().toLocaleDateString().replace(/\//g, "-")}`;
+      const newSuiteData = {
+        suite_name: suiteName,
+        type: "suite",
+        project_id: autoCaseForm.project_id,
+        parent_id: autoCaseForm.parent_id,
+        iteration_id: autoCaseForm.iteration_id,
+        version_requirement_id: autoCaseForm.version_requirement_id,
+        description: autoCaseForm.description || "AI自动生成的测试用例集",
+      };
+      const newSuiteResponse = await createTestSuite(newSuiteData);
+      targetSuiteId = newSuiteResponse.data.id;
+      suiteDetailRes = await getTestSuiteDetail(targetSuiteId);
+    }
+
     caseDialogVisible.value = false;
-    console.log("[前端AI调用] 用例生成页面已关闭");
-
-    // 设置生成状态
-    isGeneratingCases.value = true;
-
-    // 显示生成中提示
-    ElMessage.info("正在生成测试用例，请稍后查看用例集...");
-
-    // 准备生成参数
-    const generateParams = {
-      projectId: autoCaseForm.project_id,
-      iterationId: autoCaseForm.iteration_id,
-      requirementId: autoCaseForm.version_requirement_id,
-      projectName: selectedProject.value?.project_name || "",
-      iterationName: selectedIteration.value?.iteration_name || "",
-      requirementName: selectedRequirement.value?.requirement_name || "",
-      description: autoCaseForm.description,
-      file: autoCaseForm.file,
-      suite_name: autoCaseForm.suite_name || "", // 新增：用例集名称
-    };
-    console.log("[前端AI调用] 生成参数准备完成:", {
-      projectId: generateParams.projectId,
-      iterationId: generateParams.iterationId,
-      requirementId: generateParams.requirementId,
-      hasFile: !!generateParams.file,
-      hasDescription: !!generateParams.description,
-    });
-
-    // 调用AI生成服务
-    console.log("[前端AI调用] 开始调用AI生成服务");
-    const cases = await generateTestCaseService(generateParams);
-    console.log("[前端AI调用] AI生成服务返回结果，用例数量:", cases.length);
-    generatedTestCases.value = cases;
-
-    // 保存生成参数，用于保存用例时生成编号
-    generatedCasesParams.value = generateParams;
-    console.log("[前端AI调用] 生成参数已保存");
-
-    // 直接保存生成的用例
-    console.log("[前端AI调用] 开始直接保存生成的用例");
-    const { saveGeneratedCases } = await import("@/services/aiService");
-    const saveResult = await saveGeneratedCases(
-      generatedTestCases.value,
-      autoCaseForm.parent_id, // 用例集ID
-      generatedCasesParams.value, // 生成参数
-    );
-    console.log(
-      "[前端AI调用] 用例保存成功，保存数量:",
-      saveResult.savedCases.length,
-    );
-
-    // 刷新用例树
     await loadTreeData();
 
-    // 跳转到创建的用例集
-    const newSuiteId = saveResult.suiteId;
-    // 导入getTestSuiteDetail函数
-    const { getTestSuiteDetail } = await import("@/api/testSuite");
-    const suiteDetail = await getTestSuiteDetail(newSuiteId);
-    selectedSuite.value = suiteDetail.data;
-    await loadTestCases(newSuiteId);
+    selectedSuite.value = suiteDetailRes.data;
+    testCases.value = [];
 
-    // 显示成功消息
-    ElMessage.success(
-      `成功生成并保存 ${saveResult.savedCases.length} 条测试用例到用例集`,
-    );
-    console.log("[前端AI调用] handleGenerateCase函数执行成功");
+    let documentContent = "";
+    if (autoCaseForm.file) {
+      const { parseDocument } = await import("@/utils/documentParser");
+      documentContent = await parseDocument(autoCaseForm.file);
+    }
+
+    const suiteDetail = suiteDetailRes.data;
+    const { createGenerateCasesTask } = await import("@/api/aiTasks");
+    const taskResponse = await createGenerateCasesTask({
+      suite_id: targetSuiteId,
+      projectId: suiteDetail.project_id ?? autoCaseForm.project_id,
+      iterationId: suiteDetail.iteration_id ?? autoCaseForm.iteration_id,
+      requirementId: suiteDetail.version_requirement_id ?? autoCaseForm.version_requirement_id,
+      projectName: suiteDetail.project_name || selectedProject.value?.project_name || "",
+      iterationName: suiteDetail.iteration_name || selectedIteration.value?.iteration_name || "",
+      requirementName: suiteDetail.version_requirement_name || selectedRequirement.value?.requirement_name || "",
+      description: autoCaseForm.description,
+      documentContent,
+    });
+
+    const taskId = taskResponse.data.task_id;
+    isGeneratingCases.value = true;
+    currentTaskId.value = taskId;
+    generatingSuiteId.value = targetSuiteId;
+    taskProgress.value = 0;
+    taskMessage.value = isAppend ? "任务已创建，正在向已选用例集追加生成测试用例..." : "任务已创建，正在后台生成测试用例...";
+
+    ElMessage.success({
+      message: isAppend ? "追加任务已创建！可在该用例集页面查看生成进度，新用例将接续现有编号。" : "任务已创建成功！可在用例集页面查看生成进度及生成的测试用例。",
+      duration: 5000,
+      showClose: true,
+    });
+
+    startTaskPolling(taskId, targetSuiteId);
   } catch (error) {
-    console.error("[前端AI调用] handleGenerateCase函数执行失败:", error);
-    ElMessage.error(`生成或保存测试用例失败：${error.message}`);
-  } finally {
+    console.error("[前端AI调用] handleGenerateCase 失败:", error);
+    ElMessage.error(`创建用例集或启动生成任务失败：${error.message}`);
     isGeneratingCases.value = false;
-    console.log("[前端AI调用] 生成状态已重置");
+    generatingSuiteId.value = null;
   }
 };
+
+// 开始任务轮询
+const startTaskPolling = async (taskId, suiteId) => {
+  const { getTaskStatus } = await import("@/api/aiTasks");
+  
+  const pollTask = async () => {
+    try {
+      const response = await getTaskStatus(taskId);
+      const taskStatus = response.data;
+      
+      // 更新任务状态
+      taskProgress.value = taskStatus.progress || 0;
+      taskMessage.value = taskStatus.message || "正在生成中...";
+      
+      console.log("[任务轮询] 任务状态:", taskStatus.status, "进度:", taskProgress.value);
+      
+      if (taskStatus.status === "completed") {
+        // 任务完成
+        console.log("[任务轮询] 任务完成");
+        isGeneratingCases.value = false;
+        currentTaskId.value = null;
+        generatingSuiteId.value = null;
+        
+        // 停止轮询
+        if (taskPollingTimer) {
+          clearInterval(taskPollingTimer);
+          taskPollingTimer = null;
+        }
+        
+        // 刷新用例列表
+        await loadTestCases(suiteId);
+        
+        // 显示成功消息
+        const totalCases = taskStatus.result?.total_cases || 0;
+        ElMessage.success(`成功生成${totalCases}条测试用例`);
+        
+      } else if (taskStatus.status === "failed") {
+        // 任务失败
+        console.error("[任务轮询] 任务失败:", taskStatus.error);
+        isGeneratingCases.value = false;
+        currentTaskId.value = null;
+        generatingSuiteId.value = null;
+        
+        // 停止轮询
+        if (taskPollingTimer) {
+          clearInterval(taskPollingTimer);
+          taskPollingTimer = null;
+        }
+        
+        ElMessage.error(`生成测试用例失败: ${taskStatus.error || "未知错误"}`);
+      }
+      // pending 或 running 状态继续轮询
+      
+    } catch (error) {
+      console.error("[任务轮询] 查询任务状态失败:", error);
+      // 不停止轮询，继续尝试
+    }
+  };
+  
+  // 立即执行一次
+  await pollTask();
+  
+  // 每3秒轮询一次
+  taskPollingTimer = setInterval(pollTask, 3000);
+};
+
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  if (taskPollingTimer) {
+    clearInterval(taskPollingTimer);
+    taskPollingTimer = null;
+  }
+});
 
 // 获取优先级对应的标签类型
 const getPriorityType = (priority) => {
@@ -4280,6 +4724,8 @@ const handleAddCase = () => {
 
   // 新增：重置自动生成用例表单
   Object.assign(autoCaseForm, {
+    generateMode: "new",
+    append_suite_id: null,
     suite_name: "",
     parent_id: null,
     type: "suite",
@@ -4697,13 +5143,16 @@ const toggleLeftPanel = () => {
 const uploadRef = ref(null);
 const excelFile = ref(null);
 
-// 导出Excel
+// 导出Excel（默认导出当前用例集全部用例，支持勾选导出属性）
 const handleExportExcel = async () => {
   try {
-    // 如果是从导入导出对话框调用，使用选择的用例集ID
-    let suiteId = importExportForm.suite_id;
+    const selectedKeys = (exportColumnKeys.value || []).slice();
+    if (selectedKeys.length === 0) {
+      ElMessage.warning("请至少勾选一项导出属性");
+      return;
+    }
 
-    // 如果没有选择用例集ID（直接调用），使用当前选中的套件ID
+    let suiteId = importExportForm.suite_id;
     if (
       !suiteId &&
       selectedSuite.value &&
@@ -4717,75 +5166,65 @@ const handleExportExcel = async () => {
       return;
     }
 
-    // 准备导出数据
     ElMessage.info("正在准备导出数据，请稍候...");
 
-    // 加载所有测试用例数据
     const response = await getSuiteCases(suiteId, {
       page: 1,
-      page_size: 10000, // 足够大的值，确保获取所有数据
+      page_size: 10000,
     });
 
-    const cases = response.data.items;
+    const cases = response.data.items || [];
+
     if (cases.length === 0) {
       ElMessage.warning("该用例集下没有测试用例");
       return;
     }
 
-    // 获取测试套件详情，获取项目相关信息
     const suiteDetail = await getTestSuiteDetail(suiteId);
+    const statusLabelOf = (status) =>
+      statusOptions.find((o) => o.value === status)?.label || "未执行";
 
-    // 准备导出数据
-    const exportData = cases.map((caseItem) => {
-      // 将状态值转换为中文显示
-      const statusLabel =
-        statusOptions.find((option) => option.value === caseItem.status)
-          ?.label || "未执行";
-      return {
-        用例编号: caseItem.case_number || "",
-        用例名称: caseItem.case_name || "",
-        所属项目: suiteDetail.data.project_name || "",
-        所属迭代: suiteDetail.data.iteration_name || "",
-        关联需求: suiteDetail.data.version_requirement_name || "",
-        优先级: caseItem.priority || "",
-        状态: statusLabel,
-        前置条件: caseItem.preconditions || "",
-        测试数据: caseItem.test_data || "",
-        操作步骤: caseItem.steps || "",
-        预期结果: caseItem.expected_result || "",
-        实际结果: caseItem.actual_result || "",
-      };
+    const fullRow = (caseItem) => ({
+      用例编号: caseItem.case_number || "",
+      用例名称: caseItem.case_name || "",
+      用例描述: caseItem.case_description || "",
+      所属项目: suiteDetail.data.project_name || "",
+      所属迭代: suiteDetail.data.iteration_name || "",
+      关联需求: suiteDetail.data.version_requirement_name || "",
+      优先级: caseItem.priority || "",
+      状态: statusLabelOf(caseItem.status),
+      前置条件: caseItem.preconditions || "",
+      测试数据: caseItem.test_data || "",
+      操作步骤: caseItem.steps || "",
+      预期结果: caseItem.expected_result || "",
+      实际结果: caseItem.actual_result || "",
     });
 
-    // 创建工作簿和工作表
+    const exportData = cases.map((caseItem) => {
+      const row = fullRow(caseItem);
+      const picked = {};
+      selectedKeys.forEach((k) => {
+        if (Object.prototype.hasOwnProperty.call(row, k)) picked[k] = row[k];
+      });
+      return picked;
+    });
+
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "测试用例");
 
-    // 设置样式
-    ws["!cols"] = [
-      { wch: 20 }, // 用例编号
-      { wch: 30 }, // 用例名称
-      { wch: 20 }, // 所属项目
-      { wch: 20 }, // 所属迭代
-      { wch: 20 }, // 关联需求
-      { wch: 10 }, // 优先级
-      { wch: 15 }, // 状态
-      { wch: 25 }, // 前置条件
-      { wch: 25 }, // 测试数据
-      { wch: 40 }, // 操作步骤
-      { wch: 30 }, // 预期结果
-      { wch: 30 }, // 实际结果
-    ];
+    const colWidths = selectedKeys.map(
+      (k) => EXPORT_COLUMN_OPTIONS.find((o) => o.key === k)?.wch ?? 20,
+    );
+    ws["!cols"] = colWidths.map((wch) => ({ wch }));
 
-    // 生成Excel文件并下载
     const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     const blob = new Blob([excelBuffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
     saveAs(blob, `测试用例_${new Date().toISOString().slice(0, 10)}.xlsx`);
 
-    ElMessage.success("Excel导出成功");
+    ElMessage.success(`已导出 ${cases.length} 条用例`);
   } catch (error) {
     console.error("导出Excel失败:", error);
     ElMessage.error("导出Excel失败，请重试");
@@ -4800,48 +5239,38 @@ const handleImportExcel = () => {
   }
 };
 
-// 下载Excel模板
+// 下载Excel模板（表头与导出属性一致，便于填写后导入）
 const downloadExcelTemplate = () => {
   try {
-    // 准备模板数据
     const templateData = [
       {
         用例编号: "示例-需求-功能001",
-        用例名称: "示例用例",
+        用例名称: "示例用例名称",
+        用例描述: "用例描述（可选）",
+        所属项目: "",
+        所属迭代: "",
+        关联需求: "",
         优先级: "P1",
         状态: "",
         前置条件: "前置条件示例",
         测试数据: "测试数据示例",
-        操作步骤: "操作步骤示例\n步骤1\n步骤2\n步骤3",
+        操作步骤: "步骤1\n步骤2\n步骤3",
         预期结果: "预期结果示例",
         实际结果: "",
       },
     ];
 
-    // 创建工作簿和工作表
     const ws = XLSX.utils.json_to_sheet(templateData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "测试用例模板");
 
-    // 设置样式
-    ws["!cols"] = [
-      { wch: 20 }, // 用例编号
-      { wch: 30 }, // 用例名称
-      { wch: 10 }, // 优先级
-      { wch: 15 }, // 状态
-      { wch: 25 }, // 前置条件
-      { wch: 25 }, // 测试数据
-      { wch: 40 }, // 操作步骤
-      { wch: 30 }, // 预期结果
-      { wch: 30 }, // 实际结果
-    ];
+    ws["!cols"] = EXPORT_COLUMN_OPTIONS.map((o) => ({ wch: o.wch }));
 
-    // 生成Excel文件并下载
     const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     const blob = new Blob([excelBuffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
-    saveAs(blob, "测试用例模板.xlsx");
+    saveAs(blob, "测试用例导入模板.xlsx");
 
     ElMessage.success("模板下载成功");
   } catch (error) {
@@ -5081,11 +5510,27 @@ const importExportForm = reactive({
   suite_id: null,
   targetPath: "",
 });
+// 导出属性：选中的列 key 列表，默认全选（与用例列表属性一致）
+const exportColumnKeys = ref(EXPORT_COLUMN_OPTIONS.map((o) => o.key));
 
 // 显示导入导出对话框
 const showImportExportDialog = () => {
   importExportVisible.value = true;
+  // 导出时默认导出属性全选
+  if (importExportForm.type === "export") {
+    exportColumnKeys.value = EXPORT_COLUMN_OPTIONS.map((o) => o.key);
+  }
 };
+
+// 切换到导出时，默认导出属性全选
+watch(
+  () => importExportForm.type,
+  (t) => {
+    if (t === "export") {
+      exportColumnKeys.value = EXPORT_COLUMN_OPTIONS.map((o) => o.key);
+    }
+  },
+);
 
 // 处理文件选择变化
 const handleFileChange = (file, fileList) => {
@@ -5224,7 +5669,7 @@ const handleImportExportAction = async () => {
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
 
-          // 解析Excel数据
+          // 解析Excel数据（第一行为表头，按表头名称匹配字段；多余列忽略，缺失列取默认值）
           const excelData = XLSX.utils.sheet_to_json(worksheet);
 
           if (excelData.length === 0) {
@@ -5268,28 +5713,25 @@ const handleImportExportAction = async () => {
           let importedCount = 0;
           let errorCount = 0;
 
-          // 遍历处理每条数据
+          // 遍历处理每条数据（仅使用与表头名称匹配的字段，未出现的表头对应值为默认/空）
           for (const item of excelData) {
             try {
-              // 将中文状态转换为对应的状态值
               const statusValue =
                 statusOptions.find((option) => option.label === item["状态"])
                   ?.value || "";
 
-              // 构建完整的用例数据
               const caseData = {
-                case_number: item["用例编号"] || "",
-                case_name: item["用例名称"] || "",
-                case_description: item["用例描述"] || "", // 添加用例描述字段
-                priority: item["优先级"] || "P1",
+                case_number: item["用例编号"] ?? "",
+                case_name: item["用例名称"] ?? "",
+                case_description: item["用例描述"] ?? "",
+                priority: item["优先级"] ?? "P1",
                 status: statusValue,
-                preconditions: item["前置条件"] || "",
-                test_data: item["测试数据"] || "",
-                steps: item["操作步骤"] || "",
-                expected_result: item["预期结果"] || "",
-                actual_result: item["实际结果"] || "",
+                preconditions: item["前置条件"] ?? "",
+                test_data: item["测试数据"] ?? "",
+                steps: item["操作步骤"] ?? "",
+                expected_result: item["预期结果"] ?? "",
+                actual_result: item["实际结果"] ?? "",
                 suite_id: newSuiteId,
-                // 项目相关字段：暂时使用空值，后续可扩展为从名称映射到ID
                 project_id: null,
                 version_requirement_id: null,
                 iteration_id: null,
@@ -5784,6 +6226,22 @@ const handleCurrentChange = (page) => {
 </style>
 
 <style lang="scss" scoped>
+/* 评审详情弹窗内容：全屏时避免横向滚动 */
+.review-detail-content {
+  overflow-x: hidden;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+/* 用例评审列表：百分比列宽铺满容器，不出现横向滚动 */
+.review-case-table {
+  table-layout: fixed;
+}
+.review-case-table :deep(.el-table__body),
+.review-case-table :deep(.el-table__header) {
+  width: 100% !important;
+}
+
 /* 内联编辑输入框样式优化 */
 :deep(.el-table__cell) {
   position: relative;
@@ -6440,6 +6898,37 @@ const handleCurrentChange = (page) => {
   }
 }
 
+/* 表格空数据：AI 生成中 */
+.table-empty-generating {
+  padding: 40px 0;
+  text-align: center;
+  color: var(--el-text-color-secondary);
+}
+.table-empty-generating .empty-generating-icon {
+  font-size: 36px;
+  color: var(--el-color-primary);
+  margin-bottom: 12px;
+}
+.table-empty-generating .empty-generating-text {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+/* 表格空数据：默认暂无数据 */
+.table-empty-default {
+  padding: 40px 0;
+  text-align: center;
+  color: var(--el-text-color-secondary);
+}
+.table-empty-default .empty-default-icon {
+  font-size: 48px;
+  color: #c0c4cc;
+  margin-bottom: 12px;
+}
+.table-empty-default p {
+  margin: 0;
+  font-size: 14px;
+}
+
 /* 树形节点样式 */
 .tree-node-content {
   display: flex;
@@ -6449,6 +6938,12 @@ const handleCurrentChange = (page) => {
     margin-right: 5px;
     font-size: 16px;
     color: #606266;
+  }
+
+  .tree-node-loading {
+    margin-left: 6px;
+    font-size: 14px;
+    color: var(--el-color-primary);
   }
 
   .case-count {
@@ -6586,6 +7081,33 @@ const handleCurrentChange = (page) => {
   line-height: 1.5;
 }
 
+/* 右侧缺省页面：未选择套件或选中文件夹时显示 */
+.case-list-default {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+}
+
+.case-list-default .default-placeholder {
+  text-align: center;
+  color: #909399;
+}
+
+.case-list-default .default-icon {
+  font-size: 64px;
+  color: #c0c4cc;
+  margin-bottom: 16px;
+}
+
+.case-list-default .default-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 /* 脑图缺省页面样式 */
 .mindmap-view-wrapper {
   position: relative;
@@ -6702,5 +7224,126 @@ const handleCurrentChange = (page) => {
     padding: 4px 8px;
     font-size: 12px;
   }
+}
+
+/* 自动生成表单：所属文件夹/选择所属用例集 与表单项右对齐，不超出边界 */
+.auto-case-suite-selector {
+  width: 100%;
+  max-width: 100%;
+}
+.auto-case-suite-selector .auto-case-suite-input,
+.auto-case-suite-selector :deep(.el-input) {
+  width: 100% !important;
+  min-width: 0;
+}
+.auto-case-suite-selector .suite-tree-popover {
+  width: 100%;
+  min-width: 320px;
+  max-width: 540px;
+}
+
+/* 用例集名称输入容器 - 两列布局 */
+.suite-name-container {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 100%;
+}
+
+.existing-suites-selector {
+  flex: 0 0 200px;
+  min-width: 200px;
+}
+
+.existing-suites-selector .view-only-select {
+  width: 100%;
+}
+
+.selector-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.2;
+}
+
+/* 查看用例集下拉框样式 */
+.existing-suites-selector :deep(.el-select) {
+  width: 100%;
+}
+
+.existing-suites-selector :deep(.el-input__wrapper) {
+  background-color: #f5f7fa;
+  cursor: pointer;
+}
+
+.existing-suites-selector :deep(.el-input__wrapper):hover {
+  background-color: #ebeef5;
+}
+
+.existing-suites-selector :deep(.el-input__inner) {
+  cursor: pointer;
+  color: #606266;
+  font-size: 13px;
+}
+
+.existing-suites-selector :deep(.el-select__prefix) {
+  color: #409eff;
+}
+
+/* 下拉选项样式 */
+.suite-view-popper :deep(.el-select-dropdown__item.is-disabled) {
+  color: #606266;
+  cursor: default;
+  background-color: transparent;
+  padding-left: 20px;
+}
+
+.suite-view-popper :deep(.el-select-dropdown__item.is-disabled):hover {
+  background-color: #f5f7fa;
+}
+
+/* 空状态提示 */
+.empty-suite-tip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 10px;
+  color: #909399;
+  font-size: 13px;
+}
+
+.empty-suite-tip .el-icon {
+  font-size: 32px;
+  color: #c0c4cc;
+}
+
+/* 未选择文件夹时的占位提示 */
+.placeholder-tip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background-color: #f5f7fa;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  color: #909399;
+  font-size: 14px;
+  height: 32px;
+}
+
+.placeholder-tip .el-icon {
+  color: #c0c4cc;
+  font-size: 14px;
+}
+
+.suite-name-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.suite-name-input :deep(.el-input) {
+  width: 100%;
 }
 </style>

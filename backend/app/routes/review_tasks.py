@@ -30,6 +30,8 @@ def initiate_review(suite_id):
         # 验证评审人
         if not reviewer_id:
             return error_response(400, '评审人不能为空')
+        if reviewer_id == current_user.id:
+            return error_response(400, '评审人不能为自己')
         
         reviewer = User.query.get(reviewer_id)
         if not reviewer:
@@ -51,13 +53,16 @@ def initiate_review(suite_id):
         db.session.add(review_task)
         db.session.flush()  # 获取review_task.id
         
-        # 为每条用例创建评审详情记录
+        # 为每条用例创建评审详情记录（显式设置 created_at/updated_at 确保评审时间可显示）
+        now = datetime.now(LOCAL_TIMEZONE)
         for case in cases:
             case_review = TestCaseReviewDetail(
                 review_task_id=review_task.id,
                 case_id=case.id,
                 reviewer_id=reviewer_id,
-                review_status='pending'
+                review_status='pending',
+                created_at=now,
+                updated_at=now
             )
             db.session.add(case_review)
         
@@ -184,7 +189,8 @@ def complete_review(task_id):
             .filter_by(review_task_id=task_id)\
             .scalar() or 0
         
-        # 创建评审历史记录
+        # 创建评审历史记录（显式设置 created_at/end_time 确保评审时间正确写入）
+        now = datetime.now(LOCAL_TIMEZONE)
         review_history = TestSuiteReviewHistory(
             review_task_id=task_id,
             suite_id=review_task.suite_id,
@@ -192,9 +198,10 @@ def complete_review(task_id):
             reviewer_id=review_task.reviewer_id,
             status=review_task.status,
             start_time=review_task.start_time,
-            end_time=datetime.now(LOCAL_TIMEZONE),
+            end_time=now,
             overall_comments=overall_comments,
             history_type='complete',
+            created_at=now,
             created_by=current_user.id,
             version=max_version + 1
         )
@@ -228,17 +235,17 @@ def complete_review(task_id):
         
         # 3. 更新评审任务
         review_task.status = 'rejected' if has_rejected else 'completed'
-        review_task.end_time = datetime.now(LOCAL_TIMEZONE)
+        review_task.end_time = now
         review_task.overall_comments = overall_comments
-        review_task.updated_at = datetime.now(LOCAL_TIMEZONE)
+        review_task.updated_at = now
         
-        # 4. 更新每条用例的最终评审结果
+        # 4. 更新每条用例的最终评审结果，并写入用例评审的评审时间
         for case_review in case_reviews:
             case = case_review.test_case
             case.reviewer_id = case_review.reviewer_id
             case.review_comments = case_review.comments
-            case.last_reviewed_at = datetime.now(LOCAL_TIMEZONE)
-        
+            case.last_reviewed_at = now
+            case_review.updated_at = now  # 确保用例评审列表的“评审时间”有值
         db.session.commit()
         
         return success_response({
@@ -307,7 +314,7 @@ def get_my_review_tasks():
         for task in pagination.items:
             task_dict = task.to_dict()
             task_dict['suite_name'] = task.suite.suite_name
-            task_dict['initiator_name'] = task.initiator.real_name
+            task_dict['initiator_name'] = task.initiator.real_name if task.initiator else None
             # 添加项目、迭代和需求信息
             task_dict['project_name'] = task.suite.project.project_name if task.suite.project else None
             task_dict['iteration_name'] = task.suite.iteration.iteration_name if task.suite.iteration else None
@@ -362,7 +369,7 @@ def get_my_initiated_reviews():
         for task in pagination.items:
             task_dict = task.to_dict()
             task_dict['suite_name'] = task.suite.suite_name
-            task_dict['reviewer_name'] = task.reviewer.real_name
+            task_dict['reviewer_name'] = task.reviewer.real_name if task.reviewer else None
             # 添加项目、迭代和需求信息
             task_dict['project_name'] = task.suite.project.project_name if task.suite.project else None
             task_dict['iteration_name'] = task.suite.iteration.iteration_name if task.suite.iteration else None
@@ -481,7 +488,8 @@ def reject_review(task_id):
             .filter_by(review_task_id=task_id)\
             .scalar() or 0
         
-        # 创建评审历史记录
+        # 创建评审历史记录（显式设置 created_at/end_time 确保评审时间正确写入）
+        now = datetime.now(LOCAL_TIMEZONE)
         review_history = TestSuiteReviewHistory(
             review_task_id=task_id,
             suite_id=review_task.suite_id,
@@ -489,9 +497,10 @@ def reject_review(task_id):
             reviewer_id=review_task.reviewer_id,
             status=review_task.status,
             start_time=review_task.start_time,
-            end_time=datetime.now(LOCAL_TIMEZONE),
+            end_time=now,
             overall_comments=overall_comments,
             history_type='reject',
+            created_at=now,
             created_by=current_user.id,
             version=max_version + 1
         )
@@ -530,9 +539,9 @@ def reject_review(task_id):
         review_task.status = 'rejected'
         # 保留结束时间，因为评审已经结束
         if not review_task.end_time:
-            review_task.end_time = datetime.now(LOCAL_TIMEZONE)
+            review_task.end_time = now
         review_task.overall_comments = overall_comments
-        review_task.updated_at = datetime.now(LOCAL_TIMEZONE)
+        review_task.updated_at = now
         
         # 不需要更新用例集状态，评审状态由评审任务管理
         # 不需要重置用例的评审结果，只需要将评审任务状态改为待评审

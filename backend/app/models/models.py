@@ -546,7 +546,8 @@ class TestCaseReviewDetail(db.Model):
     __table_args__ = (db.UniqueConstraint('review_task_id', 'case_id', name='_review_task_case_uc'),)
     
     def to_dict(self):
-        """转换为字典"""
+        """转换为字典。评审时间用 updated_at，无则用 created_at，保证前端能显示"""
+        review_time = self.updated_at or self.created_at
         return {
             'id': self.id,
             'review_task_id': self.review_task_id,
@@ -556,7 +557,7 @@ class TestCaseReviewDetail(db.Model):
             'review_status': self.review_status,
             'comments': self.comments,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            'updated_at': review_time.isoformat() if review_time else None
         }
 
 

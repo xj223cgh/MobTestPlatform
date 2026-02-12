@@ -66,18 +66,69 @@ export const parsePdfFile = (file) => {
 export const parseDocxFile = (file) => {
   return new Promise(async (resolve, reject) => {
     try {
+      // 验证文件
+      if (!file) {
+        reject(new Error("文件对象为空"));
+        return;
+      }
+
+      // 验证文件大小
+      if (file.size === 0) {
+        reject(new Error("文件大小为0，请检查文件是否有效"));
+        return;
+      }
+
+      // 验证文件类型
+      const fileName = file.name.toLowerCase();
+      if (!fileName.endsWith(".docx")) {
+        reject(
+          new Error(
+            "文件格式不正确，请使用 .docx 格式（不支持旧版 .doc 格式）",
+          ),
+        );
+        return;
+      }
+
+      console.log(`开始解析DOCX文件: ${file.name}, 大小: ${file.size} 字节`);
+
       // 读取文件内容
       const arrayBuffer = await file.arrayBuffer();
+
+      // 再次验证 arrayBuffer
+      if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+        reject(new Error("文件内容读取失败，文件可能已损坏"));
+        return;
+      }
+
+      console.log(`文件读取成功，ArrayBuffer 大小: ${arrayBuffer.byteLength} 字节`);
 
       // 使用mammoth库解析DOCX（更可靠的DOCX解析方案）
       const result = await mammoth.extractRawText({
         arrayBuffer: arrayBuffer,
       });
 
+      if (!result || !result.value) {
+        reject(new Error("DOCX 文档内容为空"));
+        return;
+      }
+
+      console.log(`DOCX解析成功，提取文本长度: ${result.value.length} 字符`);
       resolve(result.value);
     } catch (error) {
       console.error("DOCX解析失败:", error);
-      reject(new Error(`DOCX解析失败: ${error.message}`));
+      
+      // 提供更友好的错误提示
+      let errorMessage = "DOCX解析失败";
+      
+      if (error.message.includes("zip") || error.message.includes("central directory")) {
+        errorMessage = "文件可能已损坏或不是有效的 DOCX 格式，请尝试：\n1. 确认文件是 .docx 格式（不是 .doc）\n2. 用 Word 重新打开并另存为新文件\n3. 关闭 Word 后再上传文件";
+      } else if (error.message.includes("arrayBuffer")) {
+        errorMessage = "文件读取失败，请重新选择文件";
+      } else {
+        errorMessage = `DOCX解析失败: ${error.message}`;
+      }
+      
+      reject(new Error(errorMessage));
     }
   });
 };

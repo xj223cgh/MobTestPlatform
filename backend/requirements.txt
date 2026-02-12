@@ -16,3 +16,5 @@ flask-marshmallow==0.15.0
 marshmallow-sqlalchemy==0.29.0
 APScheduler==3.10.4
 pytz==2023.3
+requests==2.31.0  # AI生成用例功能需要（用于调用OpenAI兼容接口）
+pypinyin==0.50.0  # 用例编号：无法翻译时用拼音缩写
