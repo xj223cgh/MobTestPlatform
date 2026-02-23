@@ -13,6 +13,12 @@ from multiprocessing import Process
 import time
 from pathlib import Path
 
+# Windows 控制台 UTF-8 输出，避免 emoji/中文 编码错误
+if sys.platform == 'win32' and hasattr(sys.stdout, 'buffer'):
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 
 def run_backend():
     """运行后端服务"""

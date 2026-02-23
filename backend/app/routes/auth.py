@@ -1,7 +1,9 @@
-from flask import Blueprint, request, session
+from datetime import timedelta
+
+from flask import Blueprint, request, session, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 
-from app.models.models import User, db
+from app.models.models import User, db, SystemSetting
 from app.utils.helpers import (
     success_response, error_response, log_user_action,
     validate_json_data, validate_phone, validate_username
@@ -56,9 +58,21 @@ def login():
     if not user.is_active:
         return error_response(401, "账户已被禁用，请联系管理员解除禁制")
     
-    # 创建会话
-    from flask_login import login_user
+    # 从系统设置读取会话超时时间（分钟），默认 24 小时
+    session_timeout_minutes = 24 * 60  # 1440
+    setting = SystemSetting.query.filter_by(setting_key="session_timeout_minutes").first()
+    if setting and setting.setting_value:
+        try:
+            v = int(setting.setting_value)
+            if 30 <= v <= 10080:  # 30 分钟 ~ 7 天
+                session_timeout_minutes = v
+        except (ValueError, TypeError):
+            pass
+    current_app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=session_timeout_minutes)
+    
+    # 创建会话（启用永久会话以使用上面配置的超时时间）
     login_user(user, remember=True)
+    session.permanent = True
     
     # 记录登录日志
     log_user_action("登录", f"IP: {request.remote_addr}")

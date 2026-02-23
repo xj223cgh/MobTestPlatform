@@ -19,7 +19,7 @@
           @click="handleBack"
         >
           <el-icon><ArrowLeft /></el-icon>
-          返回任务列表
+          返回列表
         </el-button>
       </div>
     </div>
@@ -467,6 +467,7 @@ import {
 } from "@element-plus/icons-vue";
 import testTaskApi from "@/api/testTask";
 import { updateTestCase } from "@/api/testCase";
+import { getUserSettings } from "@/api/settings";
 
 const route = useRoute();
 const router = useRouter();
@@ -810,17 +811,28 @@ const handleCompleteTask = async () => {
     });
 
     loading.completeTask = true;
-    // 调用API完成任务，更新任务状态
+    // 调用 API 完成任务；后端已根据用户「报告设置」在自动模式下生成报告，前端不再重复调用
     await testTaskApi.completeTestTask(taskId);
-    ElMessage.success("任务完成成功");
-    
+    try {
+      const userRes = await getUserSettings();
+      if (userRes?.data?.report_auto_generate === "auto") {
+        ElMessage.success("任务已完成，已自动生成报告");
+      } else {
+        ElMessage.success("任务完成成功");
+      }
+    } catch (_) {
+      ElMessage.success("任务完成成功");
+    }
+
+    // 延迟一段时间再跳转，方便用户看清提示
+    await new Promise((r) => setTimeout(r, 1800));
+
     // 等待API调用完全完成，然后再关闭标签页
-    // 使用更可靠的方式，先刷新当前任务状态，确保任务已完成
     await getTaskInfo();
-    
+
     // 关闭当前标签页
     window.close();
-    
+
     // 如果关闭失败（如从其他页面打开），则跳转回任务列表页面
     setTimeout(() => {
       router.push("/test-task");
@@ -893,17 +905,22 @@ onMounted(async () => {
 
 <style lang="scss" scoped>
 .test-case-execution {
-  min-height: 100vh;
-  background-color: #fff;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--el-bg-color, #fff);
 
   // 页面标题和按钮：与主内容统一为整体，用底边线划分
   .page-header-container {
+    flex-shrink: 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 14px 20px;
-    background-color: #fff;
-    border-bottom: 1px solid #e4e7ed;
+    background-color: var(--el-bg-color, #fff);
+    border-bottom: 1px solid var(--el-border-color-light, #e4e7ed);
 
     .title-section {
       flex: 1;
@@ -911,7 +928,7 @@ onMounted(async () => {
       h1 {
         font-size: 18px;
         font-weight: 600;
-        color: #303133;
+        color: var(--el-text-color-primary, #303133);
         margin: 0;
       }
     }
@@ -928,39 +945,45 @@ onMounted(async () => {
     }
   }
 
-  // 主内容区域：整体一块，用竖线划分左中右；整块可滚动，中间不单独出现滚动条
+  // 主内容区域：占满除标题外剩余高度，左/中/右同高；内容少时无整页滚动条，内容多时各自内部滚动
   .main-content {
+    flex: 1;
+    min-height: 0;
     display: flex;
     padding: 0;
     gap: 0;
     align-items: stretch;
-    background-color: #fff;
-    max-height: calc(100vh - 57px);
-    overflow-y: auto;
+    background-color: var(--el-bg-color, #fff);
+    overflow: hidden;
 
-    // 左侧用例目录：线条划分，适当缩小宽度
+    // 统一列高，保证左侧总高度与中间区域严格对齐（与 main-content 同高）
+    $content-height: 100%;
+
+    // 左侧用例目录（筛选区+用例列表）：总高度与中间区域一致
     .left-panel {
       width: 280px;
       min-width: 240px;
       max-width: 320px;
       flex-shrink: 0;
-      background: #fff;
+      height: $content-height;
+      max-height: $content-height;
+      background: var(--el-bg-color, #fff);
       display: flex;
       flex-direction: column;
       transition: width 0.3s ease;
-      min-height: calc(100vh - 57px);
-      border-right: 1px solid #e4e7ed;
+      min-height: 0;
+      border-right: 1px solid var(--el-border-color-light, #e4e7ed);
 
       &.collapsed {
         width: 52px;
         min-width: 52px;
         max-width: 52px;
-        min-height: calc(100vh - 57px);
+        min-height: 0;
       }
 
       .filter-section {
         padding: 10px 12px;
-        border-bottom: 1px solid #e4e7ed;
+        border-bottom: 1px solid var(--el-border-color-light, #e4e7ed);
         display: flex;
         flex-direction: column;
         gap: 8px;
@@ -992,7 +1015,7 @@ onMounted(async () => {
 
         .filter-stats {
           font-size: 12px;
-          color: #909399;
+          color: var(--el-text-color-secondary, #909399);
           padding: 4px 0 0;
           line-height: 1.4;
         }
@@ -1017,23 +1040,23 @@ onMounted(async () => {
         box-sizing: border-box;
         // 优化滚动条样式
         scrollbar-width: thin;
-        scrollbar-color: #c0c4cc #fafafa;
+        scrollbar-color: var(--el-text-color-placeholder, #c0c4cc) var(--el-fill-color-light, #fafafa);
 
         &::-webkit-scrollbar {
           width: 6px;
         }
 
         &::-webkit-scrollbar-track {
-          background: #fafafa;
+          background: var(--el-fill-color-light, #fafafa);
         }
 
         &::-webkit-scrollbar-thumb {
-          background-color: #c0c4cc;
+          background-color: var(--el-text-color-placeholder, #c0c4cc);
           border-radius: 3px;
         }
 
         &::-webkit-scrollbar-thumb:hover {
-          background-color: #909399;
+          background-color: var(--el-text-color-secondary, #909399);
         }
 
         :deep(.el-tree) {
@@ -1056,7 +1079,7 @@ onMounted(async () => {
         }
         :deep(.el-tree-node:focus > .el-tree-node__content),
         :deep(.el-tree-node.is-current > .el-tree-node__content) {
-          background-color: #ecf5ff;
+          background-color: var(--el-color-primary-light-9, #ecf5ff);
         }
         :deep(.el-tree-node__content::after),
         :deep(.el-tree-node__content::before) {
@@ -1103,14 +1126,15 @@ onMounted(async () => {
       }
     }
 
-    // 中间用例详情和执行区域：线条与左侧划分，无独立背景块；高度与左右统一，无内部滚动条
+    // 中间用例详情和执行区域：高度与左侧一致，内容少时占满一屏，内容多时内部滚动
     .middle-panel {
       flex: 1;
       min-width: 0;
-      min-height: calc(100vh - 57px);
-      background: #fff;
+      height: $content-height;
+      max-height: $content-height;
+      background: var(--el-bg-color, #fff);
       display: flex;
-      overflow: visible;
+      overflow: hidden;
 
       // 导航区域：与内容区同背景、无边界，视觉上为一体
       .nav-area {
@@ -1131,7 +1155,7 @@ onMounted(async () => {
         font-size: 16px;
         font-weight: 600;
         line-height: 1;
-        color: #606266;
+        color: var(--el-text-color-regular, #606266);
         background: transparent;
         border: none;
         border-radius: 0;
@@ -1141,13 +1165,13 @@ onMounted(async () => {
       }
 
       .nav-area :deep(.el-button.nav-button:hover:not(:disabled)) {
-        color: #409eff;
+        color: var(--el-color-primary);
         background: transparent;
         border: none;
       }
 
       .nav-area :deep(.el-button.nav-button:disabled) {
-        color: #c0c4cc;
+        color: var(--el-text-color-placeholder, #c0c4cc);
         background: transparent;
       }
 
@@ -1167,13 +1191,13 @@ onMounted(async () => {
           padding: 10px 2px;
           font-size: 16px;
           font-weight: 600;
-          color: #c0c4cc;
+          color: var(--el-text-color-placeholder, #c0c4cc);
           cursor: default;
           transform: scaleY(1.35) scaleX(0.78);
         }
       }
 
-      // 内容区域：高度与左/右统一；用例内容过多时卡片主体内部可滚动，保证完整显示
+      // 内容区域：与左侧等高；内容少时占满一屏，内容多时卡片主体内部滚动
       .content-area {
         flex: 1;
         min-height: 0;
@@ -1198,16 +1222,18 @@ onMounted(async () => {
 
           &__header {
             padding: 20px;
-            border-bottom: 1px solid #e4e7ed;
+            border-bottom: 1px solid var(--el-border-color-light, #e4e7ed);
             flex-shrink: 0;
           }
 
           &__body {
             flex: 1;
-            padding: 0;
             min-height: 0;
+            padding: 0;
             overflow-y: auto;
             overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
           }
         }
       }
@@ -1227,7 +1253,7 @@ onMounted(async () => {
           h3 {
             font-size: 18px;
             font-weight: 600;
-            color: #303133;
+            color: var(--el-text-color-primary, #303133);
             margin: 0;
           }
         }
@@ -1244,12 +1270,12 @@ onMounted(async () => {
 
             .meta-label {
               font-size: 15px;
-              color: #606266;
+              color: var(--el-text-color-regular, #606266);
             }
 
             .meta-value {
               font-size: 16px;
-              color: #303133;
+              color: var(--el-text-color-primary, #303133);
               font-weight: 600;
             }
 
@@ -1261,6 +1287,8 @@ onMounted(async () => {
       }
 
       .case-detail {
+        flex: 1;
+        min-height: 0;
         padding: 20px;
         display: flex;
         flex-direction: column;
@@ -1280,7 +1308,7 @@ onMounted(async () => {
 
           .case-detail-left {
             padding-right: 12px;
-            border-right: 1px solid #e4e7ed;
+            border-right: 1px solid var(--el-border-color-light, #e4e7ed);
           }
         }
 
@@ -1288,7 +1316,7 @@ onMounted(async () => {
         .case-detail-lower {
           flex: 0 0 auto;
           padding-top: 16px;
-          border-top: 1px solid #e4e7ed;
+          border-top: 1px solid var(--el-border-color-light, #e4e7ed);
         }
 
         .el-descriptions {
@@ -1307,17 +1335,17 @@ onMounted(async () => {
           &__item-content {
             font-size: 14px;
             line-height: 20px;
-            color: #606266;
+            color: var(--el-text-color-regular, #606266);
           }
         }
 
         .step-item {
           margin-bottom: 8px;
           padding-left: 10px;
-          border-left: 3px solid #ecf5ff;
+          border-left: 3px solid var(--el-color-primary-light-8, #ecf5ff);
 
           .step-content {
-            color: #606266;
+            color: var(--el-text-color-regular, #606266);
             line-height: 20px;
             font-size: 14px;
           }
@@ -1341,20 +1369,21 @@ onMounted(async () => {
         display: flex;
         align-items: center;
         justify-content: center;
-        height: 100%;
         flex: 1;
+        min-height: 0;
       }
     }
 
-    // 右侧执行统计：线条与中间划分，无独立背景块
+    // 右侧执行统计：与左、中同高
     .right-panel {
       width: 200px;
       flex-shrink: 0;
-      min-height: calc(100vh - 57px);
-      background: #fff;
+      height: $content-height;
+      max-height: $content-height;
+      background: var(--el-bg-color, #fff);
       display: flex;
       flex-direction: column;
-      border-left: 1px solid #e4e7ed;
+      border-left: 1px solid var(--el-border-color-light, #e4e7ed);
 
       .el-card {
         flex: 1;
@@ -1376,12 +1405,12 @@ onMounted(async () => {
           .total-number {
             font-size: 30px;
             font-weight: 700;
-            color: #303133;
+            color: var(--el-text-color-primary, #303133);
           }
 
           .total-label {
             font-size: 14px;
-            color: #909399;
+            color: var(--el-text-color-secondary, #909399);
             margin-top: 4px;
           }
         }
@@ -1398,7 +1427,7 @@ onMounted(async () => {
             flex-direction: column;
             align-items: center;
             padding: 10px;
-            background-color: #f5f7fa;
+            background-color: var(--el-fill-color-light, #f5f7fa);
             border-radius: 7px;
             transition: all 0.3s;
 
@@ -1410,12 +1439,12 @@ onMounted(async () => {
             .stat-number {
               font-size: 20px;
               font-weight: 600;
-              color: #303133;
+              color: var(--el-text-color-primary, #303133);
             }
 
             .stat-label {
               font-size: 12px;
-              color: #909399;
+              color: var(--el-text-color-secondary, #909399);
               margin-top: 3px;
               font-weight: 500;
             }
@@ -1469,12 +1498,12 @@ onMounted(async () => {
           flex-direction: column;
           align-items: center;
           font-size: 14px;
-          color: #606266;
+          color: var(--el-text-color-regular, #606266);
 
           span:first-child {
             font-size: 18px;
             font-weight: 600;
-            color: #303133;
+            color: var(--el-text-color-primary, #303133);
           }
         }
       }

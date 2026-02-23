@@ -6424,7 +6424,7 @@ const handleCurrentChange = (page) => {
   transform: translateX(-50%);
   font-size: 13px;
   font-weight: 500;
-  color: #303133;
+  color: var(--el-text-color-primary, #303133);
   white-space: nowrap;
   background-color: transparent;
   z-index: 10;
@@ -6437,7 +6437,7 @@ const handleCurrentChange = (page) => {
   height: 9px; /* 进度条高度 */
   border-radius: 6px;
   overflow: hidden;
-  background-color: #e4e7ed;
+  background-color: var(--el-border-color-lighter, #e4e7ed);
   transition: height 0.2s ease;
   position: relative;
   z-index: 1;
@@ -6454,7 +6454,7 @@ const handleCurrentChange = (page) => {
   top: 50%;
   transform: translateY(-50%);
   font-size: 11px;
-  color: #606266;
+  color: var(--el-text-color-regular, #606266);
   margin-left: 5px; /* 减小与进度条的间隔 */
   white-space: nowrap;
   pointer-events: auto;
@@ -6494,17 +6494,18 @@ const handleCurrentChange = (page) => {
   z-index: 2;
 }
 
-/* 水平分布的状态项 */
+/* 水平分布的状态项（图例） */
 :deep(.stat-item.horizontal) {
   margin: 0;
   padding: 2px 5px;
   border-radius: 3px;
-  background-color: #f5f7fa !important;
+  background-color: var(--el-fill-color-light, #f5f7fa) !important;
+  color: var(--el-text-color-primary, #303133);
   transition: all 0.2s ease;
 
   &:hover {
-    background-color: #ecf5ff !important;
-    color: #409eff;
+    background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
+    color: var(--el-color-primary);
   }
 }
 
@@ -6538,7 +6539,7 @@ const handleCurrentChange = (page) => {
   flex-wrap: wrap;
   gap: 15px;
   font-size: 12px;
-  color: #606266;
+  color: var(--el-text-color-regular, #606266);
   justify-content: flex-end;
 }
 
@@ -6554,12 +6555,13 @@ const handleCurrentChange = (page) => {
   box-shadow: none !important;
   font-size: 12px;
   line-height: 1;
+  color: var(--el-text-color-primary, #303133);
 
   &:hover {
     background-color: transparent !important;
     transform: none !important;
     box-shadow: none !important;
-    color: #409eff;
+    color: var(--el-color-primary);
   }
 }
 
@@ -6596,8 +6598,8 @@ const handleCurrentChange = (page) => {
   margin-bottom: 0;
   padding: 20px;
   padding-bottom: 20px;
-  border-bottom: 1px solid #e4e7ed;
-  background: white;
+  border-bottom: 1px solid var(--el-border-color-light, #e4e7ed);
+  background: var(--el-bg-color, white);
   flex-shrink: 0;
 
   .header-content {
@@ -6605,12 +6607,12 @@ const handleCurrentChange = (page) => {
       margin: 0 0 2px 0;
       font-size: 24px;
       font-weight: 600;
-      color: #303133;
+      color: var(--el-text-color-primary, #303133);
     }
     // 描述删掉了
     .description {
       margin: 0;
-      color: #909399;
+      color: var(--el-text-color-secondary, #909399);
       font-size: 14px;
     }
   }
@@ -6630,9 +6632,9 @@ const handleCurrentChange = (page) => {
     max-width: 70%;
     width: fit-content;
     height: 100%;
-    background: white;
+    background: var(--el-bg-color, white);
     box-shadow: none;
-    border-right: 1px solid #e4e7ed;
+    border-right: 1px solid var(--el-border-color-light, #e4e7ed);
     display: flex;
     flex-direction: column;
     transition: all 0.3s ease;
@@ -6664,11 +6666,11 @@ const handleCurrentChange = (page) => {
 
     .panel-header {
       padding: 12px 15px;
-      border-bottom: 1px solid #f0f2f5;
+      border-bottom: 1px solid var(--el-border-color-lighter, #f0f2f5);
       display: flex;
       align-items: center;
       gap: 8px;
-      background-color: white;
+      background-color: var(--el-bg-color, white);
       flex-shrink: 0;
 
       .el-input {
@@ -6715,7 +6717,7 @@ const handleCurrentChange = (page) => {
       padding: 15px 15px 15px 20px;
       overflow-x: auto;
       overflow-y: auto;
-      background-color: #ffffff;
+      background-color: var(--el-bg-color, #ffffff);
       max-width: 320px;
       transition: all 0.3s ease;
       scroll-behavior: smooth;
@@ -6740,13 +6742,13 @@ const handleCurrentChange = (page) => {
 
     /* 选中节点高亮样式 */
     :deep(.el-tree-node.is-current > .el-tree-node__content) {
-      background-color: #e6f4ff !important;
-      color: #1890ff;
+      background-color: var(--el-color-primary-light-9, #e6f4ff) !important;
+      color: var(--el-color-primary);
       font-weight: 600;
     }
 
     :deep(.el-tree-node.is-current > .el-tree-node__content .node-icon) {
-      color: #1890ff;
+      color: var(--el-color-primary);
     }
 
     /* 增大展开收起图标 */
@@ -6793,7 +6795,7 @@ const handleCurrentChange = (page) => {
     flex: 1;
     min-width: 400px;
     height: 100%;
-    background: white;
+    background: var(--el-bg-color, white);
     box-shadow: none;
     display: flex;
     flex-direction: column;
@@ -6802,11 +6804,12 @@ const handleCurrentChange = (page) => {
 
     .panel-header {
       padding: 15px;
-      border-bottom: 1px solid #e4e7ed;
+      border-bottom: 1px solid var(--el-border-color-light, #e4e7ed);
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       gap: 20px;
+      background-color: var(--el-bg-color, white);
 
       .header-content {
         flex: 1;
@@ -6816,6 +6819,7 @@ const handleCurrentChange = (page) => {
         margin: 0 0 10px 0;
         font-size: 16px;
         font-weight: 600;
+        color: var(--el-text-color-primary, #303133);
       }
 
       .suite-info {
@@ -6833,12 +6837,12 @@ const handleCurrentChange = (page) => {
       }
 
       .label {
-        color: #909399;
+        color: var(--el-text-color-secondary, #909399);
         font-weight: 400;
       }
 
       .value {
-        color: #303133;
+        color: var(--el-text-color-primary, #303133);
         font-weight: 500;
       }
     }
@@ -6921,7 +6925,7 @@ const handleCurrentChange = (page) => {
 }
 .table-empty-default .empty-default-icon {
   font-size: 48px;
-  color: #c0c4cc;
+  color: var(--el-text-color-placeholder, #c0c4cc);
   margin-bottom: 12px;
 }
 .table-empty-default p {
@@ -6937,7 +6941,7 @@ const handleCurrentChange = (page) => {
   .node-icon {
     margin-right: 5px;
     font-size: 16px;
-    color: #606266;
+    color: var(--el-text-color-regular, #606266);
   }
 
   .tree-node-loading {
@@ -6949,7 +6953,7 @@ const handleCurrentChange = (page) => {
   .case-count {
     margin-left: 5px;
     font-size: 12px;
-    color: #909399;
+    color: var(--el-text-color-secondary, #909399);
   }
 }
 
@@ -7008,7 +7012,7 @@ const handleCurrentChange = (page) => {
 .case-count-title {
   font-size: 14px;
   font-weight: normal;
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   margin-left: 8px;
 }
 
@@ -7020,9 +7024,9 @@ const handleCurrentChange = (page) => {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: white;
+  background: var(--el-bg-color, white);
   padding: 15px 20px;
-  border-top: 1px solid #e4e7ed;
+  border-top: 1px solid var(--el-border-color-light, #e4e7ed);
   box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.1);
   z-index: 100;
 }
@@ -7039,8 +7043,8 @@ const handleCurrentChange = (page) => {
 
 /* 选中节点样式 */
 .tree-node-content.current-node {
-  background-color: #ecf5ff;
-  color: #409eff;
+  background-color: var(--el-color-primary-light-9, #ecf5ff);
+  color: var(--el-color-primary);
   font-weight: bold;
   padding: 4px 8px;
   border-radius: 4px;
@@ -7048,13 +7052,13 @@ const handleCurrentChange = (page) => {
 }
 
 .tree-node-content.current-node .node-icon {
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 
 /* 右键菜单样式 */
 .context-menu {
-  background: white;
-  border: 1px solid #e4e7ed;
+  background: var(--el-bg-color, white);
+  border: 1px solid var(--el-border-color-light, #e4e7ed);
   border-radius: 4px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
   padding: 5px 0;
@@ -7068,7 +7072,7 @@ const handleCurrentChange = (page) => {
     font-size: 14px;
 
     &:hover {
-      background-color: #f5f7fa;
+      background-color: var(--el-fill-color-light, #f5f7fa);
     }
   }
 }
@@ -7077,7 +7081,7 @@ const handleCurrentChange = (page) => {
 .form-help-text {
   margin-top: 6px;
   font-size: 12px;
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   line-height: 1.5;
 }
 
@@ -7088,17 +7092,17 @@ const handleCurrentChange = (page) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fafafa;
+  background: var(--el-fill-color-light, #fafafa);
 }
 
 .case-list-default .default-placeholder {
   text-align: center;
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
 }
 
 .case-list-default .default-icon {
   font-size: 64px;
-  color: #c0c4cc;
+  color: var(--el-text-color-placeholder, #c0c4cc);
   margin-bottom: 16px;
 }
 
@@ -7106,6 +7110,7 @@ const handleCurrentChange = (page) => {
   margin: 0;
   font-size: 14px;
   line-height: 1.6;
+  color: var(--el-text-color-regular, #606266);
 }
 
 /* 脑图缺省页面样式 */
@@ -7129,7 +7134,7 @@ const handleCurrentChange = (page) => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-blank, #f5f7fa);
 }
 
 .mindmap-default-page {
@@ -7137,7 +7142,7 @@ const handleCurrentChange = (page) => {
   max-width: 600px;
   text-align: center;
   padding: 40px;
-  background-color: white;
+  background-color: var(--el-bg-color, white);
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
@@ -7263,7 +7268,7 @@ const handleCurrentChange = (page) => {
 .selector-hint {
   margin-top: 4px;
   font-size: 12px;
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   line-height: 1.2;
 }
 
@@ -7273,22 +7278,22 @@ const handleCurrentChange = (page) => {
 }
 
 .existing-suites-selector :deep(.el-input__wrapper) {
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light, #f5f7fa);
   cursor: pointer;
 }
 
 .existing-suites-selector :deep(.el-input__wrapper):hover {
-  background-color: #ebeef5;
+  background-color: var(--el-fill-color, #ebeef5);
 }
 
 .existing-suites-selector :deep(.el-input__inner) {
   cursor: pointer;
-  color: #606266;
+  color: var(--el-text-color-regular, #606266);
   font-size: 13px;
 }
 
 .existing-suites-selector :deep(.el-select__prefix) {
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 
 /* 下拉选项样式 */
@@ -7310,13 +7315,13 @@ const handleCurrentChange = (page) => {
   align-items: center;
   gap: 8px;
   padding: 20px 10px;
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   font-size: 13px;
 }
 
 .empty-suite-tip .el-icon {
   font-size: 32px;
-  color: #c0c4cc;
+  color: var(--el-text-color-placeholder, #c0c4cc);
 }
 
 /* 未选择文件夹时的占位提示 */
@@ -7325,16 +7330,16 @@ const handleCurrentChange = (page) => {
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  background-color: #f5f7fa;
-  border: 1px solid #dcdfe6;
+  background-color: var(--el-fill-color-light, #f5f7fa);
+  border: 1px solid var(--el-border-color, #dcdfe6);
   border-radius: 4px;
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   font-size: 14px;
   height: 32px;
 }
 
 .placeholder-tip .el-icon {
-  color: #c0c4cc;
+  color: var(--el-text-color-placeholder, #c0c4cc);
   font-size: 14px;
 }
 

@@ -459,7 +459,7 @@ def create_tables():
                 INDEX idx_setting_key (setting_key)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户个人设置表'""")
 
-            # 创建reports表（报告落库，关联任务）
+            # 创建reports表（报告落库，关联任务；创建人与负责人可为不同人）
             cursor.execute("""CREATE TABLE IF NOT EXISTS reports (
                 id INT AUTO_INCREMENT PRIMARY KEY COMMENT '报告ID',
                 task_id INT NOT NULL COMMENT '关联任务ID',
@@ -472,13 +472,16 @@ def create_tables():
                 completed_at TIMESTAMP NULL COMMENT '任务完成时间',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '报告生成时间',
                 creator_id INT NULL COMMENT '创建人ID',
+                assignee_id INT NULL COMMENT '负责人ID',
                 FOREIGN KEY (task_id) REFERENCES test_tasks(id) ON DELETE CASCADE,
                 FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL,
+                FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL,
                 INDEX idx_task_id (task_id),
                 INDEX idx_report_type (report_type),
                 INDEX idx_completed_at (completed_at),
                 INDEX idx_created_at (created_at),
-                INDEX idx_creator_id (creator_id)
+                INDEX idx_creator_id (creator_id),
+                INDEX idx_assignee_id (assignee_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='报告表'""")
             
             connection.commit()

@@ -2,8 +2,8 @@
   <div class="home">
     <div class="page-header">
       <div class="header-left">
-        <h1 class="title">移动测试平台</h1>
-        <p class="subtitle">专业的移动应用测试管理系统</p>
+        <h1 class="title">{{ systemSettingsStore.systemName || '移动测试平台' }}</h1>
+        <p class="subtitle">{{ systemSettingsStore.systemDescription || '专业的移动应用测试管理系统' }}</p>
       </div>
       <div class="actions">
         <el-button
@@ -272,6 +272,9 @@ import {
   getRecentProjects,
   getTaskStatusDistribution,
 } from "@/api/home";
+import { useSystemSettingsStore } from "@/stores/systemSettings";
+
+const systemSettingsStore = useSystemSettingsStore();
 
 // 注册 ECharts 组件
 use([
@@ -636,6 +639,7 @@ const getProjectStatusLabel = (status) => {
 
 // 组件挂载时获取数据
 onMounted(() => {
+  systemSettingsStore.load();
   refreshData();
 });
 </script>

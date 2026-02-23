@@ -249,13 +249,14 @@ body {
   padding-right: 24px;
 }
 
-// 卡片样式
+// 卡片样式（深色主题下由 html.dark 覆盖）
 .card {
-  background: #fff;
+  background: var(--el-bg-color, #fff);
   border-radius: $border-radius-base;
   box-shadow: $box-shadow-light;
   padding: 20px;
   margin-bottom: 20px;
+  border: 1px solid var(--el-border-color-lighter, $border-lighter);
 
   &.no-padding {
     padding: 0;
@@ -275,7 +276,7 @@ body {
 .page-container {
   padding: 20px;
   min-height: calc(100vh - 60px);
-  background: $background-color;
+  background: var(--el-bg-color-page, $background-color);
 }
 
 .page-header {
@@ -296,19 +297,19 @@ body {
   }
 }
 
-// 表格样式增强
+// 表格样式增强（深色下由 Element 变量控制）
 .el-table {
   .el-table__header-wrapper {
     th {
-      background-color: #fafafa;
-      color: $text-regular;
+      background-color: var(--el-fill-color-light, #fafafa);
+      color: var(--el-text-color-regular, $text-regular);
       font-weight: 600;
     }
   }
 
   .el-table__row {
     &:hover {
-      background-color: #f5f7fa;
+      background-color: var(--el-fill-color-lighter, #f5f7fa);
     }
   }
 }
@@ -386,5 +387,523 @@ body {
 
   .el-form-item {
     margin-bottom: 15px;
+  }
+}
+
+// 深色主题：与基础设置中的「深色主题」联动（html.dark 由 useSystemAppearance 控制）
+html.dark {
+  body,
+  #app {
+    background-color: var(--el-bg-color-page, #0d1117);
+  }
+
+  .layout {
+    background-color: var(--el-bg-color-page, #0d1117);
+  }
+
+  .sidebar {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-right-color: var(--el-border-color, #414243) !important;
+    border-bottom-color: var(--el-border-color, #414243) !important;
+
+    /* 深色模式下顶部不显示系统名称 */
+    .logo .sidebar-system-name {
+      display: none !important;
+    }
+
+    .logo h1 {
+      color: var(--el-text-color-primary, #e5eaf3) !important;
+    }
+
+    .el-menu-item.is-active {
+      background-color: var(--el-color-primary-light-9, rgba(64, 158, 255, 0.15)) !important;
+      color: var(--el-color-primary);
+    }
+  }
+
+  .main-container {
+    background-color: var(--el-bg-color-page, #0d1117);
+  }
+
+  .content {
+    background-color: var(--el-bg-color-page, #0d1117);
+  }
+
+  .header {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-bottom-color: var(--el-border-color, #414243) !important;
+  }
+
+  // Element 卡片、表格等
+  .el-card {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-color: var(--el-border-color, #414243) !important;
+  }
+
+  .el-table {
+    --el-table-bg-color: var(--el-bg-color, #1d1e1f) !important;
+    --el-table-tr-bg-color: var(--el-bg-color, #1d1e1f) !important;
+    --el-table-header-bg-color: var(--el-fill-color-light, #262727) !important;
+  }
+
+  .el-descriptions__body {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+  }
+
+  // 首页
+  .home {
+    background-color: var(--el-bg-color-page, #0d1117) !important;
+  }
+
+  .page-header .header-left .title,
+  .page-header .header-left .subtitle {
+    color: var(--el-text-color-primary, #e5eaf3) !important;
+  }
+
+  .stat-card {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-color: var(--el-border-color, #414243) !important;
+    .stat-content .stat-number,
+    .stat-content .stat-label,
+    .stat-content .stat-trend {
+      color: var(--el-text-color-regular, #cfd3dc) !important;
+    }
+  }
+
+  .chart-card,
+  .table-section,
+  .el-table .el-table__body-wrapper {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+  }
+
+  // 系统设置
+  .system-settings,
+  .settings-content {
+    background-color: transparent !important;
+  }
+
+  .settings-content h3 {
+    color: var(--el-text-color-primary, #e5eaf3) !important;
+    border-bottom-color: var(--el-border-color, #414243) !important;
+  }
+
+  // 通用页面容器、表单区
+  .page-header h2,
+  .filter-section,
+  .table-section,
+  .form-section {
+    color: var(--el-text-color-primary, #e5eaf3) !important;
+  }
+
+  .filter-section,
+  .table-section {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-color: var(--el-border-color, #414243) !important;
+  }
+
+  // 任务管理、用例执行等列表/详情
+  .task-list,
+  .case-list,
+  .execution-panel,
+  .detail-card {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-color: var(--el-border-color, #414243) !important;
+  }
+
+  // 用例执行页
+  .test-case-execution,
+  .test-case-execution .page-header-container,
+  .test-case-execution .main-content,
+  .test-case-execution .left-panel,
+  .test-case-execution .middle-panel,
+  .test-case-execution .right-panel,
+  .test-case-execution .filter-section,
+  .test-case-execution .execution-detail-card,
+  .test-case-execution .case-list,
+  .test-case-execution .content-area .el-card {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-color: var(--el-border-color, #414243) !important;
+  }
+
+  .test-case-execution .page-header-container h1,
+  .test-case-execution .title-section h1 {
+    color: var(--el-text-color-primary, #e5eaf3) !important;
+  }
+
+  // 报告、项目、设备等页面根背景
+  .report-detail,
+  .report-detail-page,
+  .project-detail,
+  .device-detail,
+  .iteration-detail {
+    background-color: var(--el-bg-color-page, #0d1117) !important;
+  }
+
+  // 报告详情页：顶部栏、内容区、加载/错误态
+  .report-detail-page .summary-bar,
+  .report-detail-page .report-content,
+  .report-detail-page .loading-container,
+  .report-detail-page .error-state,
+  .report-detail-page .empty-state {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-color: var(--el-border-color, #414243) !important;
+  }
+
+  .report-detail-page .summary-title,
+  .report-detail-page .section-title,
+  .report-detail-page .info-item .value,
+  .report-detail-page .stat-number {
+    color: var(--el-text-color-primary, #e5eaf3) !important;
+  }
+
+  .report-detail-page .info-item .label,
+  .report-detail-page .stat-label {
+    color: var(--el-text-color-regular, #cfd3dc) !important;
+  }
+
+  .report-detail-page .chart-card {
+    background-color: var(--el-fill-color-light, #262727) !important;
+  }
+
+  // 弹窗、抽屉内部
+  .el-dialog__body,
+  .el-drawer__body {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+  }
+
+  // 标签页、分页区
+  .el-tabs__header {
+    background-color: var(--el-fill-color-light, #262727) !important;
+    border-bottom-color: var(--el-border-color, #414243) !important;
+  }
+
+  .el-tabs__item,
+  .el-tabs__nav-wrap {
+    color: var(--el-text-color-regular, #cfd3dc) !important;
+  }
+
+  .el-tabs__item.is-active {
+    color: var(--el-color-primary) !important;
+  }
+
+  .el-tabs__content {
+    background-color: transparent !important;
+    color: var(--el-text-color-primary, #e5eaf3);
+  }
+
+  // 固定底部分页栏、分页组件容器
+  .fixed-pagination,
+  .pagination-container,
+  .pagination-section {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-color: var(--el-border-color, #414243) !important;
+    border-top-color: var(--el-border-color, #414243) !important;
+    color: var(--el-text-color-primary, #e5eaf3) !important;
+  }
+
+  .el-pagination .btn-prev,
+  .el-pagination .btn-next,
+  .el-pagination .el-pager li,
+  .el-pagination .el-pager .more,
+  .el-pagination span:not(.el-pagination__sizes) {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    color: var(--el-text-color-regular, #cfd3dc) !important;
+    border-color: var(--el-border-color, #414243) !important;
+  }
+
+  .el-pagination .el-pager li.is-active {
+    background-color: var(--el-color-primary) !important;
+    color: #fff !important;
+  }
+
+  .el-pagination__total,
+  .el-pagination__jump {
+    color: var(--el-text-color-regular, #cfd3dc) !important;
+  }
+
+  // 通用页面容器（带背景的根类）
+  .page-header-container,
+  .table-scroll-viewport {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-color: var(--el-border-color, #414243) !important;
+  }
+
+  // 通用 .card 类
+  .card {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-color: var(--el-border-color, #414243) !important;
+  }
+
+  .page-container {
+    background-color: var(--el-bg-color-page, #0d1117) !important;
+  }
+
+  // 个人中心
+  .profile-container,
+  .profile-header,
+  .profile-content {
+    background-color: var(--el-bg-color-page, #0d1117) !important;
+    border-color: var(--el-border-color, #414243) !important;
+  }
+
+  .profile-header {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+  }
+
+  .profile-content.card {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+  }
+
+  .section-title,
+  .info-section,
+  .password-section {
+    color: var(--el-text-color-primary, #e5eaf3) !important;
+    border-color: var(--el-border-color, #414243) !important;
+  }
+
+  // 报告管理、项目管理、需求管理、任务管理等页面根容器
+  .report-management,
+  .report-tabs-section,
+  .project-management,
+  .requirement-management,
+  .test-task-management,
+  .user-management,
+  .device-management,
+  .case-review-management,
+  .test-suite-management,
+  .iteration-management,
+  .test-case-management {
+    background-color: var(--el-bg-color-page, #0d1117) !important;
+  }
+
+  .search-section {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-color: var(--el-border-color, #414243) !important;
+    color: var(--el-text-color-primary, #e5eaf3) !important;
+  }
+
+  /* 项目管理、用例管理、用户管理、设备管理等页面顶部区块 */
+  .project-management .page-header,
+  .requirement-management .page-header,
+  .iteration-management .management-header,
+  .test-case-management .page-header,
+  .user-management .page-header,
+  .device-management .page-header {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-color: var(--el-border-color, #414243) !important;
+  }
+
+  .user-management .header-title,
+  .user-management .header-description,
+  .device-management .page-header h1,
+  .device-management .refresh-text {
+    color: var(--el-text-color-primary, #e5eaf3) !important;
+  }
+
+  .device-management .refresh-text {
+    color: var(--el-text-color-regular, #cfd3dc) !important;
+  }
+
+  .page-header .title,
+  .page-header .description,
+  .page-header h1,
+  .page-header h2,
+  .management-header h2 {
+    color: var(--el-text-color-primary, #e5eaf3) !important;
+  }
+
+  /* 迭代管理：迭代卡片、时间线、空状态 */
+  .iteration-card,
+  .iteration-timeline-item,
+  .card-section {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-color: var(--el-border-color, #414243) !important;
+  }
+
+  .iteration-card .card-main,
+  .iteration-card .card-meta {
+    border-right-color: var(--el-border-color, #414243) !important;
+  }
+
+  .iteration-title,
+  .meta-value,
+  .goal-value,
+  .desc-value {
+    color: var(--el-text-color-primary, #e5eaf3) !important;
+  }
+
+  .timeline-date,
+  .goal-label,
+  .desc-label,
+  .meta-label,
+  .progress-text {
+    color: var(--el-text-color-regular, #cfd3dc) !important;
+  }
+
+  .timeline-dot {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-color: var(--el-border-color, #414243) !important;
+  }
+
+  .timeline-vertical-line {
+    background: var(--el-border-color, #414243) !important;
+  }
+
+  .empty-state {
+    background-color: var(--el-fill-color-light, #262727) !important;
+    border-color: var(--el-border-color, #414243) !important;
+    color: var(--el-text-color-regular, #cfd3dc) !important;
+  }
+
+  /* 用例管理：树容器、占位区、右键菜单 */
+  .tree-container,
+  .case-list-default,
+  .context-menu {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-color: var(--el-border-color, #414243) !important;
+  }
+
+  .case-list-default .default-placeholder,
+  .case-list-default .default-text {
+    color: var(--el-text-color-regular, #cfd3dc) !important;
+  }
+
+  .case-list-default .default-icon {
+    color: var(--el-text-color-placeholder, #909399) !important;
+  }
+
+  .context-menu .menu-item:hover {
+    background-color: var(--el-fill-color-light, #262727) !important;
+  }
+
+  /* 用例管理：右侧面板、用例列表上方、脑图视图 */
+  .test-case-management .right-panel,
+  .test-case-management .right-panel .panel-header {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-color: var(--el-border-color, #414243) !important;
+  }
+
+  .test-case-management .right-panel h3,
+  .test-case-management .right-panel .panel-header .label,
+  .test-case-management .right-panel .panel-header .value {
+    color: var(--el-text-color-primary, #e5eaf3) !important;
+  }
+
+  .test-case-management .right-panel .panel-header .label {
+    color: var(--el-text-color-regular, #cfd3dc) !important;
+  }
+
+  /* 用例管理：进度条与图例文字 */
+  .test-case-management .progress-execution-info,
+  .test-case-management .progress-data-right {
+    color: var(--el-text-color-primary, #e5eaf3) !important;
+  }
+
+  .test-case-management .progress-bar {
+    background-color: var(--el-border-color, #414243) !important;
+  }
+
+  .test-case-management .progress-stats,
+  .test-case-management :deep(.stat-item) {
+    color: var(--el-text-color-regular, #cfd3dc) !important;
+  }
+
+  .test-case-management :deep(.stat-item.horizontal) {
+    background-color: var(--el-fill-color-light, #262727) !important;
+    color: var(--el-text-color-primary, #e5eaf3) !important;
+  }
+
+  .test-case-management :deep(.stat-item.horizontal:hover) {
+    background-color: var(--el-color-primary-light-9) !important;
+    color: var(--el-color-primary) !important;
+  }
+
+  .mindmap-view-wrapper,
+  .mindmap-view-wrapper .mindmap-view,
+  .mindmap-default-page {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+  }
+
+  /* 用例评审：卡片与区块 */
+  .case-review-management .review-card,
+  .case-review-management .review-card :deep(.el-card__body),
+  .case-review-management .review-section {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+  }
+
+  .case-review-management .review-section {
+    background-color: var(--el-fill-color-light, #262727) !important;
+  }
+
+  .case-review-management .section-header h3 {
+    color: var(--el-text-color-primary, #e5eaf3) !important;
+  }
+
+  /* 项目详情：信息卡片与统计 */
+  .project-detail .info-card,
+  .project-detail .info-section .el-card {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-color: var(--el-border-color, #414243) !important;
+  }
+
+  .project-detail .card-header,
+  .project-detail .stat-value,
+  .project-detail .description-content {
+    color: var(--el-text-color-primary, #e5eaf3) !important;
+  }
+
+  .project-detail .description-content {
+    background-color: var(--el-fill-color-light, #262727) !important;
+    border-color: var(--el-border-color, #414243) !important;
+  }
+
+  .project-detail .stat-item,
+  .project-detail .stat-item-with-chart {
+    background-color: var(--el-fill-color-light, #262727) !important;
+  }
+
+  .project-detail .stat-label {
+    color: var(--el-text-color-regular, #cfd3dc) !important;
+  }
+
+  // 顶部导航栏内文字、面包屑
+  .header .collapse-btn,
+  .header .breadcrumb .el-breadcrumb__item,
+  .header .breadcrumb .el-breadcrumb__inner {
+    color: var(--el-text-color-regular, #cfd3dc) !important;
+  }
+
+  .header .breadcrumb .el-breadcrumb__inner.is-link:hover {
+    color: var(--el-color-primary) !important;
+  }
+
+  // 系统设置页卡片与表单项
+  .system-settings .el-card {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-color: var(--el-border-color, #414243) !important;
+  }
+
+  // 输出/详情弹窗内部
+  .output-dialog,
+  .output-header,
+  .output-content,
+  .output-section,
+  .output-pre {
+    background-color: var(--el-bg-color, #1d1e1f) !important;
+    border-color: var(--el-border-color, #414243) !important;
+    color: var(--el-text-color-primary, #e5eaf3) !important;
+  }
+
+  // 滚动条深色
+  ::-webkit-scrollbar-track {
+    background: #1d1e1f;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #4c4d4f;
+
+    &:hover {
+      background: #6b6c6e;
+    }
   }
 }

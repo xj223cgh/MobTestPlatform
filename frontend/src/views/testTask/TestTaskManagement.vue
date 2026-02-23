@@ -140,14 +140,14 @@
               <el-table-column
                 prop="task_name"
                 label="任务名称"
-                min-width="150"
+                min-width="160"
                 show-overflow-tooltip
                 align="center"
               />
               <el-table-column
                 prop="executor_name"
                 label="负责人"
-                width="100"
+                width="120"
                 show-overflow-tooltip
                 align="center"
               >
@@ -158,7 +158,7 @@
               <el-table-column
                 prop="priority"
                 label="优先级"
-                width="75"
+                width="85"
                 align="center"
               >
                 <template #default="{ row }">
@@ -173,7 +173,7 @@
               <el-table-column
                 prop="status"
                 label="状态"
-                width="85"
+                width="95"
                 align="center"
               >
                 <template #default="{ row }">
@@ -285,7 +285,7 @@
               </el-table-column>
               <el-table-column
                 label="操作"
-                width="190"
+                width="180"
                 fixed="right"
                 align="center"
               >
@@ -335,7 +335,7 @@
                     </el-icon>
                   </el-button>
                   <el-button
-                    v-if="row.status === 'completed'"
+                    v-if="row.status === 'completed' && reportAutoGenerate !== 'auto'"
                     size="small"
                     circle
                     title="生成报告"
@@ -400,14 +400,14 @@
               <el-table-column
                 prop="task_name"
                 label="任务名称"
-                min-width="180"
+                min-width="220"
                 show-overflow-tooltip
                 align="center"
               />
               <el-table-column
                 prop="executor_name"
                 label="负责人"
-                width="180"
+                width="160"
                 show-overflow-tooltip
                 align="center"
               >
@@ -448,7 +448,7 @@
               <el-table-column
                 prop="script_file"
                 label="脚本文件"
-                min-width="150"
+                min-width="180"
                 align="center"
               >
                 <template #default="{ row }">
@@ -500,7 +500,7 @@
               </el-table-column>
               <el-table-column
                 label="操作"
-                width="230"
+                width="210"
                 fixed="right"
                 align="center"
               >
@@ -539,7 +539,7 @@
                     </el-icon>
                   </el-button>
                   <el-button
-                    v-if="row.status === 'completed'"
+                    v-if="row.status === 'completed' && reportAutoGenerate !== 'auto'"
                     size="small"
                     circle
                     title="生成报告"
@@ -618,9 +618,12 @@ import projectApi from "@/api/project";
 import { getUserList } from "@/api/user";
 import deviceApi from "@/api/device";
 import { manualGenerateReport } from "@/api/report";
+import { getUserSettings } from "@/api/settings";
 import TaskDialog from "./components/TaskDialog.vue";
 
 const activeTab = ref("test_case");
+/** 报告生成方式：auto 时任务列表不显示「生成报告」按钮 */
+const reportAutoGenerate = ref("manual");
 const loading = reactive({
   testCase: false,
   deviceScript: false,
@@ -724,48 +727,49 @@ const formatDateTime = (dateString) => {
 };
 
 const loadTasks = async () => {
-  // 加载测试用例任务
+  const testCaseParams = {
+    ...filterForm,
+    page: pagination.testCase.page,
+    size: pagination.testCase.size,
+    task_type: "test_case",
+  };
+  const deviceScriptParams = {
+    ...filterForm,
+    page: pagination.deviceScript.page,
+    size: pagination.deviceScript.size,
+    task_type: "device_script",
+  };
+
   loading.testCase = true;
-  try {
-    // 构建测试用例任务参数，确保 task_type 为 test_case，不被 filterForm 覆盖
-    const testCaseParams = {
-      ...filterForm,
-      page: pagination.testCase.page,
-      size: pagination.testCase.size,
-      task_type: "test_case", // 放在后面，确保覆盖 filterForm 中的 task_type
-    };
-
-    const testCaseResponse = await testTaskApi.getTestTaskList(testCaseParams);
-    taskList.testCase = testCaseResponse.data.test_tasks;
-    pagination.testCase.total = testCaseResponse.data.pagination.total;
-  } catch (error) {
-    console.error("加载测试用例任务列表失败:", error);
-    ElMessage.error("加载测试用例任务列表失败");
-  } finally {
-    loading.testCase = false;
-  }
-
-  // 加载设备脚本任务
   loading.deviceScript = true;
-  try {
-    // 构建设备脚本任务参数，确保 task_type 为 device_script，不被 filterForm 覆盖
-    const deviceScriptParams = {
-      ...filterForm,
-      page: pagination.deviceScript.page,
-      size: pagination.deviceScript.size,
-      task_type: "device_script", // 放在后面，确保覆盖 filterForm 中的 task_type
-    };
 
-    const deviceScriptResponse =
-      await testTaskApi.getTestTaskList(deviceScriptParams);
-    taskList.deviceScript = deviceScriptResponse.data.test_tasks;
-    pagination.deviceScript.total = deviceScriptResponse.data.pagination.total;
-  } catch (error) {
-    console.error("加载设备脚本任务列表失败:", error);
-    ElMessage.error("加载设备脚本任务列表失败");
-  } finally {
-    loading.deviceScript = false;
-  }
+  const loadTestCase = async () => {
+    try {
+      const res = await testTaskApi.getTestTaskList(testCaseParams);
+      taskList.testCase = res.data.test_tasks;
+      pagination.testCase.total = res.data.pagination.total;
+    } catch (error) {
+      console.error("加载测试用例任务列表失败:", error);
+      ElMessage.error("加载测试用例任务列表失败");
+    } finally {
+      loading.testCase = false;
+    }
+  };
+
+  const loadDeviceScript = async () => {
+    try {
+      const res = await testTaskApi.getTestTaskList(deviceScriptParams);
+      taskList.deviceScript = res.data.test_tasks;
+      pagination.deviceScript.total = res.data.pagination.total;
+    } catch (error) {
+      console.error("加载设备脚本任务列表失败:", error);
+      ElMessage.error("加载设备脚本任务列表失败");
+    } finally {
+      loading.deviceScript = false;
+    }
+  };
+
+  await Promise.all([loadTestCase(), loadDeviceScript()]);
 };
 
 const loadUsers = async () => {
@@ -1025,21 +1029,31 @@ const handleTabChange = () => {
   // 如果需要根据标签页动态加载，可以在这里调用loadTasks()
 };
 
+// 拉取报告设置（自动时隐藏「生成报告」按钮）
+const loadReportSetting = async () => {
+  try {
+    const res = await getUserSettings();
+    if (res?.data && res.data.report_auto_generate === "auto") reportAutoGenerate.value = "auto";
+    else reportAutoGenerate.value = "manual";
+  } catch (_) {
+    reportAutoGenerate.value = "manual";
+  }
+};
+
 onMounted(() => {
   loadTasks();
   loadUsers();
-  
-  // 添加页面可见性监听，当页面重新可见时刷新数据
+  loadReportSetting();
   document.addEventListener('visibilitychange', handleVisibilityChange);
 });
 
-// 监听路由变化，当导航到任务列表页面时自动刷新数据
+// 监听路由变化，当导航到任务列表页面时刷新任务列表并重新拉取报告设置
 watch(
   () => route.path,
   (newPath) => {
-    // 当用户导航到任务管理页面时，刷新任务列表
     if (newPath === "/test-task") {
       loadTasks();
+      loadReportSetting();
     }
   }
 );
@@ -1047,8 +1061,8 @@ watch(
 // 页面可见性变化处理
 const handleVisibilityChange = () => {
   if (document.visibilityState === 'visible') {
-    // 当页面重新可见时，刷新任务列表
     loadTasks();
+    loadReportSetting();
   }
 };
 </script>
@@ -1104,6 +1118,10 @@ const handleVisibilityChange = () => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+.task-tabs-section :deep(.el-tabs__header) {
+  padding-left: 16px;
 }
 
 .task-tabs-section :deep(.el-tabs__content) {

@@ -3,8 +3,9 @@ import { createPinia } from "pinia";
 import router from "./router";
 import App from "./App.vue";
 
-// Element Plus 样式
+// Element Plus 样式（含深色模式变量，通过 html.dark 切换）
 import "element-plus/dist/index.css";
+import "element-plus/theme-chalk/dark/css-vars.css";
 // Element Plus 图标
 import * as ElementPlusIconsVue from "@element-plus/icons-vue";
 

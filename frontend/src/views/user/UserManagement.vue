@@ -778,7 +778,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background-color: #f5f7fa;
+  background-color: var(--el-bg-color-page, #f5f7fa);
 }
 
 .page-header {
@@ -787,10 +787,11 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
-  background: white;
+  background: var(--el-bg-color, white);
   padding: 16px 20px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--el-border-color-lighter, transparent);
 
   .header-content {
     display: flex;
@@ -802,22 +803,23 @@ onMounted(() => {
     margin: 0;
     font-size: 24px;
     font-weight: 500;
-    color: #303133;
+    color: var(--el-text-color-primary, #303133);
   }
 
   .header-description {
-    color: #606266;
+    color: var(--el-text-color-regular, #606266);
     font-size: 14px;
   }
 }
 
 .search-section {
   flex-shrink: 0;
-  background: white;
+  background: var(--el-bg-color, white);
   padding: 16px 20px;
   border-radius: 8px;
   margin-bottom: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--el-border-color-lighter, transparent);
 }
 
 /* 去掉表单项默认下边距，使搜索区域上下空白与 padding 一致 */
@@ -843,10 +845,11 @@ onMounted(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: white;
+  background: var(--el-bg-color, white);
   border-radius: 8px;
   overflow: hidden;
   margin-bottom: 70px; /* 为固定的分页组件留出空间 */
+  border: 1px solid var(--el-border-color-lighter, transparent);
 }
 
 /* 用户列表固定在一屏内，仅表格区域垂直滚动 */
@@ -867,12 +870,13 @@ onMounted(() => {
   bottom: 0;
   right: 0;
   z-index: 100;
-  background: white;
+  background: var(--el-bg-color, white);
   padding: 15px 20px;
   box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.1);
   display: flex;
   justify-content: center;
   align-items: center;
+  border-top: 1px solid var(--el-border-color-light, #e4e7ed);
 }
 
 .fixed-pagination .pagination {

@@ -510,7 +510,10 @@ import {
 import { getUserList } from "@/api/user";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
+import { useSystemSettingsStore } from "@/stores/systemSettings";
 import dayjs from "dayjs";
+
+const systemSettingsStore = useSystemSettingsStore();
 
 // 响应式数据
 const loading = ref(false);
@@ -527,10 +530,10 @@ const priorityFilter = ref("");
 // 搜索表单
 const searchForm = reactive({});
 
-// 分页
+// 分页（每页条数使用系统设置，默认 10）
 const pagination = reactive({
   currentPage: 1,
-  pageSize: 10,
+  pageSize: systemSettingsStore.defaultPageSize || 10,
   total: 0,
 });
 
@@ -925,7 +928,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background-color: #f5f7fa;
+  background-color: var(--el-bg-color-page, #f5f7fa);
 }
 
 .page-header {
@@ -934,10 +937,11 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
-  background: white;
+  background: var(--el-bg-color, white);
   padding: 16px 20px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--el-border-color-lighter, transparent);
 
   .header-content {
     display: flex;
@@ -950,12 +954,12 @@ onMounted(() => {
     margin: 0;
     font-size: 24px;
     font-weight: 500;
-    color: #303133;
+    color: var(--el-text-color-primary, #303133);
   }
 
   .description {
     margin: 0;
-    color: #606266;
+    color: var(--el-text-color-regular, #606266);
     font-size: 14px;
   }
 }
@@ -967,11 +971,12 @@ onMounted(() => {
 
 .search-section {
   flex-shrink: 0;
-  background: white;
+  background: var(--el-bg-color, white);
   padding: 16px 20px;
   border-radius: 8px;
   margin-bottom: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--el-border-color-lighter, transparent);
 }
 
 /* 去掉表单项默认下边距，使搜索区域上下空白对称 */
@@ -997,10 +1002,11 @@ onMounted(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: white;
+  background: var(--el-bg-color, white);
   border-radius: 8px;
   overflow: hidden;
   margin-bottom: 70px; /* 为固定的分页组件留出空间 */
+  border: 1px solid var(--el-border-color-lighter, transparent);
 }
 
 /* 表格区域占满剩余高度，表头冻结、表体垂直滚动（由 Layout 全局样式配合） */
@@ -1021,12 +1027,13 @@ onMounted(() => {
   bottom: 0;
   right: 0;
   z-index: 100;
-  background: white;
+  background: var(--el-bg-color, white);
   padding: 15px 20px;
   box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.1);
   display: flex;
   justify-content: center;
   align-items: center;
+  border-top: 1px solid var(--el-border-color-light, #e4e7ed);
 }
 
 .fixed-pagination .pagination {

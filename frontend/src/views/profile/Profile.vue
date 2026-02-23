@@ -1,11 +1,5 @@
 <template>
   <div class="profile-container">
-    <div class="page-header">
-      <h1 class="title">
-        个人中心
-      </h1>
-    </div>
-
     <div class="profile-header">
       <div class="profile-avatar">
         <el-avatar
@@ -477,32 +471,23 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .profile-container {
-  padding: 20px;
-  max-width: 1200px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1280px;
   margin: 0 auto;
-  background-color: #fafafa;
+  padding: 24px 32px 32px;
+  background-color: var(--el-bg-color-page, #f5f7fa);
   min-height: calc(100vh - 64px); // 减去导航栏高度
 }
 
-.page-header {
-  margin-bottom: 24px;
-
-  .title {
-    font-size: 24px;
-    font-weight: 600;
-    color: #303133;
-    margin: 0;
-  }
-}
-
 .profile-header {
-  background: #ffffff;
-  border: 1px solid #ebeef5;
+  background: var(--el-bg-color, #ffffff);
+  border: 1px solid var(--el-border-color-lighter, #ebeef5);
   border-radius: 8px;
-  padding: 24px;
-  margin-bottom: 24px;
-  color: #303133;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  padding: 28px 32px;
+  margin-bottom: 20px;
+  color: var(--el-text-color-primary, #303133);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
   transition: all 0.3s ease;
 
   &:hover {
@@ -515,8 +500,8 @@ onMounted(() => {
     gap: 20px;
 
     .avatar-gradient {
-      background: #f0f2f5;
-      color: #606266;
+      background: var(--el-fill-color-light, #f0f2f5);
+      color: var(--el-text-color-regular, #606266);
       font-weight: 500;
     }
 
@@ -525,11 +510,12 @@ onMounted(() => {
         margin: 0 0 6px 0;
         font-size: 20px;
         font-weight: 600;
+        color: var(--el-text-color-primary, #303133);
       }
 
       .role-text {
         margin: 0;
-        color: #606266;
+        color: var(--el-text-color-regular, #606266);
         font-size: 14px;
       }
     }
@@ -537,8 +523,8 @@ onMounted(() => {
 }
 
 .card {
-  background: #fff;
-  border: 1px solid #ebeef5;
+  background: var(--el-bg-color, #fff);
+  border: 1px solid var(--el-border-color-lighter, #ebeef5);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   overflow: hidden;
@@ -550,14 +536,14 @@ onMounted(() => {
 }
 
 .profile-content {
-  margin-bottom: 30px;
+  margin-bottom: 32px;
 
   .profile-tabs {
     :deep(.el-tabs__header) {
       margin: 0;
-      background: #fafafa;
-      padding: 0 20px;
-      border-bottom: 1px solid #ebeef5;
+      background: var(--el-fill-color-light, #fafafa);
+      padding: 0 24px;
+      border-bottom: 1px solid var(--el-border-color-lighter, #ebeef5);
 
       .el-tabs__nav-wrap {
         padding: 0;
@@ -571,16 +557,16 @@ onMounted(() => {
         height: 56px;
         line-height: 56px;
         font-size: 14px;
-        color: #606266;
+        color: var(--el-text-color-regular, #606266);
         padding: 0 16px;
         transition: all 0.3s ease;
 
         &.is-active {
-          color: #1890ff;
+          color: var(--el-color-primary, #1890ff);
           font-weight: 500;
         }
         &:hover {
-          color: #1890ff;
+          color: var(--el-color-primary, #1890ff);
         }
       }
 
@@ -591,7 +577,7 @@ onMounted(() => {
     }
 
     :deep(.el-tabs__content) {
-      padding: 24px;
+      padding: 28px 32px 32px;
     }
   }
 }
@@ -600,9 +586,9 @@ onMounted(() => {
   margin: 0 0 20px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: var(--el-text-color-primary, #303133);
   padding-bottom: 10px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--el-border-color-lighter, #ebeef5);
 }
 
 .info-form,
@@ -614,7 +600,7 @@ onMounted(() => {
   :deep(.el-form-item__label) {
     font-size: 14px;
     font-weight: 500;
-    color: #606266;
+    color: var(--el-text-color-regular, #606266);
   }
 
   :deep(.el-input__wrapper) {
@@ -680,16 +666,25 @@ onMounted(() => {
 }
 
 // 响应式设计
-@media (max-width: 768px) {
+@media (max-width: 992px) {
   .profile-container {
-    padding: 16px;
-    background-color: #fff;
-    min-height: calc(100vh - 56px); // 调整为移动端导航栏高度
+    padding: 20px 24px 24px;
   }
 
-  .page-header .title {
-    font-size: 18px;
-    text-align: center;
+  .profile-header {
+    padding: 24px;
+  }
+
+  .profile-content .profile-tabs :deep(.el-tabs__content) {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .profile-container {
+    padding: 16px 20px 24px;
+    background-color: #f5f7fa;
+    min-height: calc(100vh - 56px); // 调整为移动端导航栏高度
   }
 
   .profile-header {
@@ -761,17 +756,21 @@ onMounted(() => {
 
 @media (max-width: 480px) {
   .profile-container {
-    padding: 12px;
+    padding: 12px 16px 20px;
   }
 
   .profile-header {
-    padding: 16px;
+    padding: 20px 16px;
   }
 
   .profile-content {
     .profile-tabs {
+      :deep(.el-tabs__header) {
+        padding: 0 16px;
+      }
+
       :deep(.el-tabs__content) {
-        padding: 12px;
+        padding: 20px 16px;
       }
     }
   }

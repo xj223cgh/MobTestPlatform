@@ -51,6 +51,8 @@ def create_report_for_task(test_task):
         return None
     summary = _make_serializable(report_data.get('summary') or {})
     details = _make_serializable(report_data.get('details') or [])
+    # 创建人与负责人可为不同人：负责人优先取任务执行人
+    assignee_id = test_task.executor_id if test_task.executor_id != test_task.creator_id else None
     report = Report(
         task_id=test_task.id,
         report_type=test_task.task_type,
@@ -61,6 +63,7 @@ def create_report_for_task(test_task):
         details=details,
         completed_at=test_task.completed_time,
         creator_id=test_task.creator_id,
+        assignee_id=assignee_id or test_task.executor_id,
     )
     db.session.add(report)
     db.session.flush()
@@ -116,7 +119,8 @@ def get_report_by_id(report_id):
         report = Report.query.get_or_404(report_id)
         task = report.task
         task_info = task.to_dict() if task else {}
-        task_info['created_by'] = task_info.get('creator_name') or '-'
+        task_info['created_by'] = (report.creator.real_name if report.creator else None) or task_info.get('creator_name') or '-'
+        task_info['assignee_name'] = report.assignee.real_name if report.assignee else '-'
         task_info['completed_at'] = task_info.get('completed_time')
         return success_response({
             'task_info': task_info,
@@ -126,6 +130,46 @@ def get_report_by_id(report_id):
     except NotFound:
         raise
     except Exception as e:
+        return error_response(500, str(e))
+
+
+@bp.route('/<int:report_id>', methods=['DELETE'])
+@login_required
+def delete_report(report_id):
+    """单个删除报告"""
+    try:
+        report = Report.query.get_or_404(report_id)
+        db.session.delete(report)
+        db.session.commit()
+        log_user_action("删除报告", f"报告ID: {report_id}")
+        return success_response(None, "删除成功")
+    except NotFound:
+        raise
+    except Exception as e:
+        db.session.rollback()
+        return error_response(500, str(e))
+
+
+@bp.route('/batch-delete', methods=['POST'])
+@login_required
+def batch_delete_reports():
+    """批量删除报告，请求体: { "ids": [1, 2, 3] }"""
+    try:
+        data = request.get_json() or {}
+        ids = data.get("ids") or []
+        if not ids:
+            return error_response(400, "请选择要删除的报告")
+        if not isinstance(ids, list):
+            ids = [ids]
+        ids = [int(x) for x in ids if x is not None]
+        if not ids:
+            return error_response(400, "请选择要删除的报告")
+        deleted = Report.query.filter(Report.id.in_(ids)).delete(synchronize_session=False)
+        db.session.commit()
+        log_user_action("批量删除报告", f"删除 {deleted} 条，IDs: {ids}")
+        return success_response({"deleted": deleted}, f"成功删除 {deleted} 条报告")
+    except Exception as e:
+        db.session.rollback()
         return error_response(500, str(e))
 
 

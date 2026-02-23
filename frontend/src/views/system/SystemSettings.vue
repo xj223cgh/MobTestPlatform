@@ -11,39 +11,6 @@
         v-model="activeTab"
         tab-position="left"
       >
-        <!-- 报告设置 -->
-        <el-tab-pane
-          label="报告设置"
-          name="report"
-        >
-          <div class="settings-content">
-            <h3>报告设置</h3>
-            <el-form
-              :model="reportSettings"
-              label-width="140px"
-            >
-              <el-form-item label="报告生成方式">
-                <el-radio-group v-model="reportSettings.report_auto_generate">
-                  <el-radio label="auto">
-                    自动：任务状态变为「已完成」时自动生成报告并落库
-                  </el-radio>
-                  <el-radio label="manual">
-                    手动：需在任务页对已完成任务点击「生成报告」按钮生成
-                  </el-radio>
-                </el-radio-group>
-              </el-form-item>
-              <el-form-item>
-                <el-button
-                  type="primary"
-                  @click="saveReportSettings"
-                >
-                  保存设置
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </div>
-        </el-tab-pane>
-
         <!-- 基础设置 -->
         <el-tab-pane
           label="基础设置"
@@ -76,53 +43,34 @@
                 />
               </el-form-item>
               <el-form-item label="系统Logo">
-                <el-upload
-                  class="logo-uploader"
-                  :action="uploadUrl"
-                  :show-file-list="false"
-                  :on-success="handleLogoSuccess"
-                  :before-upload="beforeLogoUpload"
-                >
-                  <img
-                    v-if="basicSettings.systemLogo"
-                    :src="basicSettings.systemLogo"
-                    class="logo"
+                <div class="logo-upload-row">
+                  <el-upload
+                    class="logo-uploader"
+                    :action="uploadUrl"
+                    :show-file-list="false"
+                    :on-success="handleLogoSuccess"
+                    :before-upload="beforeLogoUpload"
                   >
-                  <el-icon
-                    v-else
-                    class="logo-uploader-icon"
+                    <img
+                      v-if="basicSettings.systemLogo"
+                      :src="basicSettings.systemLogo"
+                      class="logo"
+                    >
+                    <el-icon
+                      v-else
+                      class="logo-uploader-icon"
+                    >
+                      <Plus />
+                    </el-icon>
+                  </el-upload>
+                  <el-button
+                    type="default"
+                    :disabled="!basicSettings.systemLogo"
+                    @click="resetLogoToDefault"
                   >
-                    <Plus />
-                  </el-icon>
-                </el-upload>
-              </el-form-item>
-              <el-form-item label="时区设置">
-                <el-select
-                  v-model="basicSettings.timezone"
-                  placeholder="请选择时区"
-                >
-                  <el-option
-                    v-for="tz in timezones"
-                    :key="tz.value"
-                    :label="tz.label"
-                    :value="tz.value"
-                  />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="语言设置">
-                <el-select
-                  v-model="basicSettings.language"
-                  placeholder="请选择语言"
-                >
-                  <el-option
-                    label="中文"
-                    value="zh-CN"
-                  />
-                  <el-option
-                    label="English"
-                    value="en-US"
-                  />
-                </el-select>
+                    重置
+                  </el-button>
+                </div>
               </el-form-item>
               <el-form-item label="主题设置">
                 <el-radio-group v-model="basicSettings.theme">
@@ -142,10 +90,55 @@
                   type="primary"
                   @click="saveBasicSettings"
                 >
-                  保存设置
+                  保存
                 </el-button>
                 <el-button @click="resetBasicSettings">
                   重置
+                </el-button>
+              </el-form-item>
+            </el-form>
+          </div>
+        </el-tab-pane>
+
+        <!-- 功能设置 -->
+        <el-tab-pane
+          label="功能设置"
+          name="feature"
+        >
+          <div class="settings-content">
+            <h3>功能设置</h3>
+            <el-form
+              :model="featureSettings"
+              label-width="140px"
+            >
+              <el-form-item label="报告生成方式">
+                <el-radio-group v-model="featureSettings.report_auto_generate">
+                  <el-tooltip content="任务状态变为「已完成」时自动生成报告并落库" placement="top">
+                    <el-radio label="auto">自动</el-radio>
+                  </el-tooltip>
+                  <el-tooltip content="需在任务页对已完成任务点击「生成报告」按钮生成" placement="top">
+                    <el-radio label="manual">手动</el-radio>
+                  </el-tooltip>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item label="默认每页条数">
+                <el-select
+                  v-model="featureSettings.defaultPageSize"
+                  placeholder="请选择"
+                  style="width: 120px"
+                >
+                  <el-option label="10 条/页" :value="10" />
+                  <el-option label="20 条/页" :value="20" />
+                  <el-option label="50 条/页" :value="50" />
+                  <el-option label="100 条/页" :value="100" />
+                </el-select>
+              </el-form-item>
+              <el-form-item>
+                <el-button
+                  type="primary"
+                  @click="saveFeatureSettings"
+                >
+                  保存
                 </el-button>
               </el-form-item>
             </el-form>
@@ -191,189 +184,23 @@
                 />
                 <span style="margin-left: 10px">次后锁定账户（0表示不锁定）</span>
               </el-form-item>
-              <el-form-item label="会话超时">
+              <el-form-item label="会话超时时间">
                 <el-input-number
                   v-model="securitySettings.sessionTimeout"
-                  :min="5"
-                  :max="1440"
+                  :min="30"
+                  :max="10080"
                   placeholder="分钟"
                 />
-                <span style="margin-left: 10px">分钟后自动登出</span>
+                <span style="margin-left: 10px">分钟后自动登出（默认 24 小时 = 1440 分钟）</span>
               </el-form-item>
               <el-form-item>
                 <el-button
                   type="primary"
                   @click="saveSecuritySettings"
                 >
-                  保存设置
+                  保存
                 </el-button>
                 <el-button @click="resetSecuritySettings">
-                  重置
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </div>
-        </el-tab-pane>
-
-        <!-- 邮件设置 -->
-        <el-tab-pane
-          label="邮件设置"
-          name="email"
-        >
-          <div class="settings-content">
-            <h3>邮件设置</h3>
-            <el-form
-              :model="emailSettings"
-              label-width="120px"
-            >
-              <el-form-item label="SMTP服务器">
-                <el-input
-                  v-model="emailSettings.smtpHost"
-                  placeholder="请输入SMTP服务器地址"
-                />
-              </el-form-item>
-              <el-form-item label="SMTP端口">
-                <el-input-number
-                  v-model="emailSettings.smtpPort"
-                  :min="1"
-                  :max="65535"
-                />
-              </el-form-item>
-              <el-form-item label="加密方式">
-                <el-select
-                  v-model="emailSettings.encryption"
-                  placeholder="请选择加密方式"
-                >
-                  <el-option
-                    label="无"
-                    value="none"
-                  />
-                  <el-option
-                    label="SSL"
-                    value="ssl"
-                  />
-                  <el-option
-                    label="TLS"
-                    value="tls"
-                  />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="发件人邮箱">
-                <el-input
-                  v-model="emailSettings.fromEmail"
-                  placeholder="请输入发件人邮箱"
-                />
-              </el-form-item>
-              <el-form-item label="发件人名称">
-                <el-input
-                  v-model="emailSettings.fromName"
-                  placeholder="请输入发件人名称"
-                />
-              </el-form-item>
-              <el-form-item label="用户名">
-                <el-input
-                  v-model="emailSettings.username"
-                  placeholder="请输入邮箱用户名"
-                />
-              </el-form-item>
-              <el-form-item label="密码">
-                <el-input
-                  v-model="emailSettings.password"
-                  type="password"
-                  placeholder="请输入邮箱密码"
-                  show-password
-                />
-              </el-form-item>
-              <el-form-item>
-                <el-button
-                  type="primary"
-                  @click="saveEmailSettings"
-                >
-                  保存设置
-                </el-button>
-                <el-button @click="testEmailSettings">
-                  测试邮件
-                </el-button>
-                <el-button @click="resetEmailSettings">
-                  重置
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </div>
-        </el-tab-pane>
-
-        <!-- 通知设置 -->
-        <el-tab-pane
-          label="通知设置"
-          name="notification"
-        >
-          <div class="settings-content">
-            <h3>通知设置</h3>
-            <el-form
-              :model="notificationSettings"
-              label-width="120px"
-            >
-              <el-form-item label="邮件通知">
-                <el-switch
-                  v-model="notificationSettings.email"
-                  active-text="启用"
-                  inactive-text="禁用"
-                />
-              </el-form-item>
-              <el-form-item label="短信通知">
-                <el-switch
-                  v-model="notificationSettings.sms"
-                  active-text="启用"
-                  inactive-text="禁用"
-                />
-              </el-form-item>
-              <el-form-item label="微信通知">
-                <el-switch
-                  v-model="notificationSettings.wechat"
-                  active-text="启用"
-                  inactive-text="禁用"
-                />
-              </el-form-item>
-              <el-form-item label="钉钉通知">
-                <el-switch
-                  v-model="notificationSettings.dingtalk"
-                  active-text="启用"
-                  inactive-text="禁用"
-                />
-              </el-form-item>
-              <el-form-item label="通知事件">
-                <el-checkbox-group v-model="notificationSettings.events">
-                  <el-checkbox label="task_start">
-                    任务开始
-                  </el-checkbox>
-                  <el-checkbox label="task_complete">
-                    任务完成
-                  </el-checkbox>
-                  <el-checkbox label="task_fail">
-                    任务失败
-                  </el-checkbox>
-                  <el-checkbox label="device_offline">
-                    设备离线
-                  </el-checkbox>
-                  <el-checkbox label="system_error">
-                    系统错误
-                  </el-checkbox>
-                  <el-checkbox label="security_alert">
-                    安全告警
-                  </el-checkbox>
-                </el-checkbox-group>
-              </el-form-item>
-              <el-form-item>
-                <el-button
-                  type="primary"
-                  @click="saveNotificationSettings"
-                >
-                  保存设置
-                </el-button>
-                <el-button @click="testNotification">
-                  测试通知
-                </el-button>
-                <el-button @click="resetNotificationSettings">
                   重置
                 </el-button>
               </el-form-item>
@@ -386,20 +213,23 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ref, reactive, onMounted, watch } from "vue";
+import { ElMessage } from "element-plus";
 import { Plus } from "@element-plus/icons-vue";
-import { systemApi } from "@/api/system";
-import { getUserSettings, updateUserSettings } from "@/api/settings";
+import { getUserSettings, updateUserSettings, getSystemSettings, updateSystemSettings } from "@/api/settings";
+import { useSystemSettingsStore } from "@/stores/systemSettings";
+
+const systemSettingsStore = useSystemSettingsStore();
 
 // 响应式数据
-const activeTab = ref("report");
+const activeTab = ref("basic");
 
-// 报告设置（用户个人设置）
-const reportSettings = reactive({
+// 功能设置：报告生成方式（用户设置）+ 默认每页条数（系统设置）
+const featureSettings = reactive({
   report_auto_generate: "auto",
+  defaultPageSize: 10,
 });
-const uploadUrl = ref("/api/upload/logo");
+const uploadUrl = ref("/api/files/upload/logo");
 
 // 基础设置
 const basicSettings = reactive({
@@ -407,54 +237,46 @@ const basicSettings = reactive({
   systemDescription: "专业的移动应用自动化测试平台",
   systemVersion: "1.0.0",
   systemLogo: "",
-  timezone: "Asia/Shanghai",
-  language: "zh-CN",
   theme: "light",
 });
 
-// 安全设置
+// 安全设置（会话超时默认 24 小时 = 1440 分钟）
 const securitySettings = reactive({
   passwordPolicy: ["minLength", "numbers"],
   loginFailureLock: 5,
-  sessionTimeout: 120,
+  sessionTimeout: 1440,
 });
 
-// 邮件设置
-const emailSettings = reactive({
-  smtpHost: "",
-  smtpPort: 587,
-  encryption: "tls",
-  fromEmail: "",
-  fromName: "",
-  username: "",
-  password: "",
-});
+// 主题、Logo 修改后立即应用为预览效果，仅点击「保存设置」后持久化
+watch(
+  () => basicSettings.theme,
+  (val) => {
+    if (val != null) systemSettingsStore.theme = val;
+  }
+);
 
-// 通知设置
-const notificationSettings = reactive({
-  email: true,
-  sms: false,
-  wechat: false,
-  dingtalk: false,
-  events: ["task_complete", "task_fail", "system_error"],
-});
+// 基础设置：与后端 /api/settings/system 的 key-value 映射
+const BASIC_KEYS = {
+  systemName: "system_name",
+  systemDescription: "system_description",
+  systemVersion: "system_version",
+  systemLogo: "system_logo",
+  theme: "theme",
+};
 
-// 时区选项
-const timezones = [
-  { label: "北京时间 (GMT+8)", value: "Asia/Shanghai" },
-  { label: "东京时间 (GMT+9)", value: "Asia/Tokyo" },
-  { label: "纽约时间 (GMT-5)", value: "America/New_York" },
-  { label: "伦敦时间 (GMT+0)", value: "Europe/London" },
-  { label: "巴黎时间 (GMT+1)", value: "Europe/Paris" },
-];
-
-// 方法
 const saveBasicSettings = async () => {
   try {
-    await systemApi.updateBasicSettings(basicSettings);
+    const payload = {};
+    for (const [frontKey, backKey] of Object.entries(BASIC_KEYS)) {
+      if (basicSettings[frontKey] !== undefined && basicSettings[frontKey] !== null) {
+        payload[backKey] = basicSettings[frontKey];
+      }
+    }
+    await updateSystemSettings(payload);
+    systemSettingsStore.setFromSettings(basicSettings);
     ElMessage.success("基础设置保存成功");
   } catch (error) {
-    ElMessage.error("保存失败");
+    ElMessage.error(error?.response?.data?.message || "保存失败");
   }
 };
 
@@ -464,18 +286,31 @@ const resetBasicSettings = () => {
     systemDescription: "专业的移动应用自动化测试平台",
     systemVersion: "1.0.0",
     systemLogo: "",
-    timezone: "Asia/Shanghai",
-    language: "zh-CN",
     theme: "light",
   });
 };
 
+// 安全设置与后端 key 映射
+const SECURITY_KEYS = {
+  sessionTimeout: "session_timeout_minutes",
+  passwordPolicy: "password_policy",
+  loginFailureLock: "login_failure_lock",
+};
+
 const saveSecuritySettings = async () => {
   try {
-    await systemApi.updateSecuritySettings(securitySettings);
+    const payload = {
+      [SECURITY_KEYS.sessionTimeout]: securitySettings.sessionTimeout,
+      [SECURITY_KEYS.loginFailureLock]: securitySettings.loginFailureLock,
+      [SECURITY_KEYS.passwordPolicy]:
+        Array.isArray(securitySettings.passwordPolicy)
+          ? JSON.stringify(securitySettings.passwordPolicy)
+          : securitySettings.passwordPolicy,
+    };
+    await updateSystemSettings(payload);
     ElMessage.success("安全设置保存成功");
   } catch (error) {
-    ElMessage.error("保存失败");
+    ElMessage.error(error?.response?.data?.message || "保存失败");
   }
 };
 
@@ -483,71 +318,24 @@ const resetSecuritySettings = () => {
   Object.assign(securitySettings, {
     passwordPolicy: ["minLength", "numbers"],
     loginFailureLock: 5,
-    sessionTimeout: 120,
-  });
-};
-
-const saveEmailSettings = async () => {
-  try {
-    await systemApi.updateEmailSettings(emailSettings);
-    ElMessage.success("邮件设置保存成功");
-  } catch (error) {
-    ElMessage.error("保存失败");
-  }
-};
-
-const testEmailSettings = async () => {
-  try {
-    await systemApi.testEmailSettings();
-    ElMessage.success("邮件测试成功");
-  } catch (error) {
-    ElMessage.error("邮件测试失败");
-  }
-};
-
-const resetEmailSettings = () => {
-  Object.assign(emailSettings, {
-    smtpHost: "",
-    smtpPort: 587,
-    encryption: "tls",
-    fromEmail: "",
-    fromName: "",
-    username: "",
-    password: "",
-  });
-};
-
-const saveNotificationSettings = async () => {
-  try {
-    await systemApi.updateNotificationSettings(notificationSettings);
-    ElMessage.success("通知设置保存成功");
-  } catch (error) {
-    ElMessage.error("保存失败");
-  }
-};
-
-const testNotification = async () => {
-  try {
-    await systemApi.testNotification();
-    ElMessage.success("通知测试成功");
-  } catch (error) {
-    ElMessage.error("通知测试失败");
-  }
-};
-
-const resetNotificationSettings = () => {
-  Object.assign(notificationSettings, {
-    email: true,
-    sms: false,
-    wechat: false,
-    dingtalk: false,
-    events: ["task_complete", "task_fail", "system_error"],
+    sessionTimeout: 1440,
   });
 };
 
 const handleLogoSuccess = (response) => {
-  basicSettings.systemLogo = response.data.url;
-  ElMessage.success("Logo上传成功");
+  const url = response?.data?.data?.url ?? response?.data?.url;
+  if (url) {
+    basicSettings.systemLogo = url;
+    systemSettingsStore.systemLogo = url; // 立即应用为预览（侧边栏、标签页图标）
+  }
+  ElMessage.success("Logo 已选择，请点击「保存设置」生效");
+};
+
+const resetLogoToDefault = () => {
+  if (!basicSettings.systemLogo) return;
+  basicSettings.systemLogo = "";
+  systemSettingsStore.systemLogo = ""; // 立即应用为预览
+  ElMessage.success("已重置为默认图标，请点击「保存设置」生效");
 };
 
 const beforeLogoUpload = (file) => {
@@ -565,14 +353,18 @@ const beforeLogoUpload = (file) => {
   return true;
 };
 
-const saveReportSettings = async () => {
+const saveFeatureSettings = async () => {
   try {
     await updateUserSettings({
-      report_auto_generate: reportSettings.report_auto_generate,
+      report_auto_generate: featureSettings.report_auto_generate,
     });
-    ElMessage.success("报告设置已保存");
+    await updateSystemSettings({
+      default_page_size: featureSettings.defaultPageSize,
+    });
+    systemSettingsStore.setFromSettings({ defaultPageSize: featureSettings.defaultPageSize });
+    ElMessage.success("功能设置已保存");
   } catch (error) {
-    ElMessage.error("保存失败");
+    ElMessage.error(error?.response?.data?.message || "保存失败");
   }
 };
 
@@ -581,14 +373,44 @@ const loadSettings = async () => {
     const userRes = await getUserSettings();
     if (userRes?.data && typeof userRes.data === "object") {
       if (userRes.data.report_auto_generate !== undefined) {
-        reportSettings.report_auto_generate = userRes.data.report_auto_generate === "manual" ? "manual" : "auto";
+        featureSettings.report_auto_generate = userRes.data.report_auto_generate === "manual" ? "manual" : "auto";
       }
     }
   } catch (error) {
     console.error("加载用户设置失败:", error);
   }
-  // 以下模块暂无后端接口，仅使用本地默认值，避免请求 404
-  // 若后续接入 /api/system/settings/* 可再恢复请求
+  try {
+    const sysRes = await getSystemSettings();
+    if (sysRes?.data && typeof sysRes.data === "object") {
+      const d = sysRes.data;
+      if (d.system_name !== undefined) basicSettings.systemName = d.system_name;
+      if (d.system_description !== undefined) basicSettings.systemDescription = d.system_description;
+      if (d.system_version !== undefined) basicSettings.systemVersion = d.system_version;
+      if (d.system_logo !== undefined) basicSettings.systemLogo = d.system_logo || "";
+      if (d.theme !== undefined) basicSettings.theme = d.theme;
+      if (d.default_page_size !== undefined && d.default_page_size !== null && d.default_page_size !== "") {
+        const v = Number(d.default_page_size);
+        if (!Number.isNaN(v) && v >= 5 && v <= 100) featureSettings.defaultPageSize = v;
+      }
+      // 安全设置
+      if (d.session_timeout_minutes !== undefined && d.session_timeout_minutes !== null && d.session_timeout_minutes !== "") {
+        const v = Number(d.session_timeout_minutes);
+        if (!Number.isNaN(v) && v >= 30 && v <= 10080) securitySettings.sessionTimeout = v;
+      }
+      if (d.login_failure_lock !== undefined && d.login_failure_lock !== null && d.login_failure_lock !== "") {
+        const v = Number(d.login_failure_lock);
+        if (!Number.isNaN(v) && v >= 0 && v <= 10) securitySettings.loginFailureLock = v;
+      }
+      if (d.password_policy !== undefined && d.password_policy) {
+        try {
+          const arr = typeof d.password_policy === "string" ? JSON.parse(d.password_policy) : d.password_policy;
+          if (Array.isArray(arr)) securitySettings.passwordPolicy = arr;
+        } catch (_) {}
+      }
+    }
+  } catch (error) {
+    console.error("加载系统设置失败:", error);
+  }
 };
 
 // 生命周期
@@ -600,6 +422,7 @@ onMounted(() => {
 <style scoped>
 .system-settings {
   padding: 20px;
+  background-color: var(--el-bg-color-page);
 }
 
 .page-header {
@@ -608,7 +431,7 @@ onMounted(() => {
 
 .page-header h2 {
   margin: 0;
-  color: #303133;
+  color: var(--el-text-color-primary, #303133);
 }
 
 .settings-content {
@@ -617,9 +440,15 @@ onMounted(() => {
 
 .settings-content h3 {
   margin-bottom: 20px;
-  color: #303133;
-  border-bottom: 2px solid #409eff;
+  color: var(--el-text-color-primary, #303133);
+  border-bottom: 2px solid var(--el-color-primary, #409eff);
   padding-bottom: 10px;
+}
+
+.logo-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .logo-uploader .logo {
@@ -631,7 +460,7 @@ onMounted(() => {
 }
 
 .logo-uploader :deep(.el-upload) {
-  border: 1px dashed #d9d9d9;
+  border: 1px dashed var(--el-border-color, #d9d9d9);
   border-radius: 6px;
   cursor: pointer;
   position: relative;
@@ -640,12 +469,12 @@ onMounted(() => {
 }
 
 .logo-uploader :deep(.el-upload:hover) {
-  border-color: #409eff;
+  border-color: var(--el-color-primary, #409eff);
 }
 
 .logo-uploader-icon {
   font-size: 28px;
-  color: #8c939d;
+  color: var(--el-text-color-placeholder, #8c939d);
   width: 100px;
   height: 100px;
   line-height: 100px;

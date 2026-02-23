@@ -1829,6 +1829,8 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background-color: var(--el-bg-color, #fff);
+  border-color: var(--el-border-color-light, #ebeef5);
 }
 
 .review-card :deep(.el-card__body) {
@@ -1888,14 +1890,14 @@ onMounted(async () => {
 }
 
 .case-count {
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   font-size: 12px;
   margin-left: 4px;
 }
 
 /* 文件夹节点：可点击展开/收起 */
 .folder-node {
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   cursor: pointer;
 }
 
@@ -1907,6 +1909,7 @@ onMounted(async () => {
 .review-tabs :deep(.el-tabs__header) {
   margin-bottom: 20px;
   flex-shrink: 0;
+  padding-left: 16px;
 }
 
 .review-section {
@@ -1914,7 +1917,7 @@ onMounted(async () => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: #fafafa;
+  background: var(--el-fill-color-light, #fafafa);
   padding: 20px;
   border-radius: 8px;
   overflow: hidden;
@@ -1935,12 +1938,12 @@ onMounted(async () => {
 /* 用例集名称列：悬浮触发样式 */
 .suite-name-trigger {
   cursor: pointer;
-  color: #409eff;
+  color: var(--el-color-primary);
   text-decoration: none;
-  border-bottom: 1px dashed #409eff;
+  border-bottom: 1px dashed var(--el-color-primary);
 }
 .suite-name-trigger:hover {
-  color: #66b1ff;
+  color: var(--el-color-primary-light-3);
 }
 
 .section-header {
@@ -1950,6 +1953,7 @@ onMounted(async () => {
     margin: 0;
     font-size: 16px;
     font-weight: 600;
+    color: var(--el-text-color-primary, #303133);
   }
 }
 

@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from datetime import datetime, timezone, timedelta
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.models.models import TestTask, db, TestSuite, TestCase, Device, TestCaseExecution, UserSetting, TEST_TASK_STATUS, TEST_EXECUTION_STATUS
 from app.utils.helpers import (
@@ -58,6 +59,18 @@ def get_test_tasks():
     # 负责人过滤
     if executor_id:
         query = query.filter(TestTask.executor_id == int(executor_id))
+    
+    # 预加载关联，避免 to_dict() 时 N+1 查询
+    query = query.options(
+        joinedload(TestTask.project),
+        joinedload(TestTask.iteration),
+        joinedload(TestTask.creator),
+        joinedload(TestTask.executor),
+        joinedload(TestTask.suite).selectinload(TestSuite.test_cases),
+        joinedload(TestTask.version_requirement),
+        selectinload(TestTask.devices),
+        selectinload(TestTask.test_cases),
+    )
     
     # 分页
     pagination = query.order_by(TestTask.created_at.desc()).paginate(

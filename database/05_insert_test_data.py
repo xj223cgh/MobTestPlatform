@@ -242,6 +242,15 @@ def insert_test_data():
             
             # 6. 插入版本需求测试数据
             print("开始插入版本需求数据...")
+            # 确保 version_requirements.priority 为 high/medium/low（若表为旧结构 P0-P4 会报 Data truncated）
+            try:
+                cursor.execute("""
+                    ALTER TABLE version_requirements
+                    MODIFY COLUMN priority ENUM('high', 'medium', 'low') DEFAULT 'medium' COMMENT '优先级'
+                """)
+                connection.commit()
+            except Exception:
+                pass  # 已是正确定义或表不存在时忽略
             # 获取所有迭代ID
             cursor.execute("SELECT id FROM iterations")
             iteration_ids = [row[0] for row in cursor.fetchall()]
@@ -584,86 +593,21 @@ def insert_test_data():
                 """)
             print(f"用例执行记录插入成功，共 {len(executions_data)} 条！")
 
-            # 11.5 插入报告数据（为已完成任务生成报告，含创建人、时间等完整属性，基于真实执行记录）
-            print("开始插入报告数据...")
-            # 兼容旧表：若 reports 表无 creator_id 则添加
+            # 11.5 报告表：仅清空并确保表结构（assignee_id），不插入造数，由用户在平台上手动创建报告
+            print("开始处理报告表...")
+            cursor.execute("TRUNCATE TABLE reports")
             cursor.execute("""
                 SELECT COUNT(*) FROM information_schema.COLUMNS
-                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'reports' AND COLUMN_NAME = 'creator_id'
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'reports' AND COLUMN_NAME = 'assignee_id'
             """)
             if cursor.fetchone()[0] == 0:
-                cursor.execute("ALTER TABLE reports ADD COLUMN creator_id INT NULL COMMENT '创建人ID' AFTER created_at")
-                cursor.execute("ALTER TABLE reports ADD INDEX idx_creator_id (creator_id)")
-                cursor.execute("ALTER TABLE reports ADD CONSTRAINT fk_reports_creator FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL")
-            cursor.execute("SELECT id, project_name FROM projects")
-            project_id_to_name = {row[0]: row[1] for row in cursor.fetchall()}
-            cursor.execute("""
-                SELECT t.id, t.task_name, t.task_type, t.project_id, t.creator_id, t.completed_time
-                FROM test_tasks t
-                WHERE t.status = 'completed' AND t.task_type = 'test_case'
-            """)
-            completed_tasks = cursor.fetchall()
-            reports_data = []
-            for task_id, task_name, task_type, project_id, creator_id, completed_time in completed_tasks:
-                proj_name = project_id_to_name.get(project_id) if project_id else None
-                
-                # 从执行记录中生成真实的 summary 和 details
-                cursor.execute("""
-                    SELECT tc.id, tc.case_name, tce.status, u.real_name, tce.execution_time, tce.notes
-                    FROM test_case_executions tce
-                    INNER JOIN test_cases tc ON tce.case_id = tc.id
-                    LEFT JOIN users u ON tce.executor_id = u.id
-                    WHERE tce.task_id = %s
-                    ORDER BY tce.id
-                """, (task_id,))
-                exec_records = cursor.fetchall()
-                
-                # 统计 summary
-                total_cases = len(exec_records)
-                pass_count = sum(1 for r in exec_records if r[2] == 'pass')
-                fail_count = sum(1 for r in exec_records if r[2] == 'fail')
-                blocked_count = sum(1 for r in exec_records if r[2] == 'blocked')
-                not_applicable_count = sum(1 for r in exec_records if r[2] == 'not_applicable')
-                executed_cases = total_cases
-                pass_rate = round(pass_count / executed_cases * 100, 1) if executed_cases > 0 else 0
-                
-                summary = {
-                    'total_cases': total_cases,
-                    'executed_cases': executed_cases,
-                    'pass_count': pass_count,
-                    'fail_count': fail_count,
-                    'blocked_count': blocked_count,
-                    'not_applicable_count': not_applicable_count,
-                    'pass_rate': pass_rate
-                }
-                
-                # 构建 details
-                details = []
-                for case_id, case_name, status, executor_name, exec_time, notes in exec_records:
-                    details.append({
-                        'case_id': case_id,
-                        'case_title': case_name or '',
-                        'status': status or '',
-                        'actual_result': notes or None,
-                        'executed_by': executor_name or None,
-                        'executed_at': exec_time.isoformat() if exec_time else None,
-                        'remarks': notes or None
-                    })
-                
-                summary_json = json.dumps(summary, ensure_ascii=False)
-                details_json = json.dumps(details, ensure_ascii=False)
-                completed_str = completed_time.strftime('%Y-%m-%d %H:%M:%S') if completed_time and hasattr(completed_time, 'strftime') else (str(completed_time) if completed_time else None)
-                created_str = (completed_time or now).strftime('%Y-%m-%d %H:%M:%S') if (completed_time and hasattr(completed_time, 'strftime')) else now.strftime('%Y-%m-%d %H:%M:%S')
-                reports_data.append((
-                    task_id, task_type, task_name, project_id, proj_name,
-                    summary_json, details_json, completed_str, created_str, creator_id
-                ))
-            if reports_data:
-                cursor.executemany("""
-                    INSERT INTO reports (task_id, report_type, task_name, project_id, project_name, summary, details, completed_at, created_at, creator_id)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, reports_data)
-            print(f"报告数据插入成功，共 {len(reports_data)} 条，包含真实执行记录！")
+                cursor.execute("ALTER TABLE reports ADD COLUMN assignee_id INT NULL COMMENT '负责人ID' AFTER creator_id")
+                cursor.execute("ALTER TABLE reports ADD INDEX idx_assignee_id (assignee_id)")
+                try:
+                    cursor.execute("ALTER TABLE reports ADD CONSTRAINT fk_reports_assignee FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL")
+                except Exception:
+                    pass
+            print("报告表已清空，未插入造数；请在平台上通过「完成任务」或「生成报告」手动创建报告。")
 
             # 12. 设备脚本任务：复制 get_device_info.py 到 storage/device_scripts/日期/uuid.py，并插入任务与任务-设备关联
             print("开始插入设备脚本任务数据...")
@@ -684,6 +628,10 @@ def insert_test_data():
                 dest_path = os.path.join(script_date_dir, unique_name)
                 if os.path.exists(script_src):
                     shutil.copy2(script_src, dest_path)
+                else:
+                    # 源脚本不存在时写入占位脚本，避免打开不存在的文件报错
+                    with open(dest_path, 'w', encoding='utf-8') as f:
+                        f.write('# device script placeholder for test data\nprint("get_device_info placeholder")\n')
                 relative_path = f"{date_str}/{unique_name}"
                 with open(dest_path, 'rb') as f:
                     file_hash = hashlib.md5(f.read()).hexdigest()
@@ -691,15 +639,19 @@ def insert_test_data():
                 proj_id = project_rows[i % len(project_rows)][0] if project_rows else None
                 creator_id = user_ids[i % len(user_ids)]
                 command = f"python {relative_path} --device-id $DEVICE_ID --adb-path adb"
+                # 计划时间：与用例执行任务一致，便于前端显示
+                scheduled_start = (now + timedelta(days=i, hours=i)).strftime(time_fmt)
+                scheduled_end = (now + timedelta(days=i, hours=i + 2)).strftime(time_fmt)
                 script_tasks_data.append((
                     task_name, f"使用 get_device_info 脚本采集设备信息（任务{i+1}）", 'device_script', 'medium', 'pending',
                     creator_id, None, proj_id, None, None, None,
+                    scheduled_start, scheduled_end,
                     'get_device_info.py', relative_path, file_hash, command
                 ))
             if script_tasks_data:
                 cursor.executemany("""
-                    INSERT INTO test_tasks (task_name, task_description, task_type, priority, status, creator_id, executor_id, project_id, iteration_id, suite_id, version_requirement_id, script_file, file_path, file_hash, command)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    INSERT INTO test_tasks (task_name, task_description, task_type, priority, status, creator_id, executor_id, project_id, iteration_id, suite_id, version_requirement_id, scheduled_time, scheduled_end_time, script_file, file_path, file_hash, command)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, script_tasks_data)
                 cursor.execute("SELECT id FROM test_tasks WHERE task_type = 'device_script' ORDER BY id DESC LIMIT %s", (len(script_tasks_data),))
                 script_task_ids = [row[0] for row in cursor.fetchall()]

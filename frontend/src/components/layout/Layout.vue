@@ -9,17 +9,26 @@
       :class="{ collapsed: isCollapsed }"
     >
       <div class="logo">
-        <h1
-          v-if="!isCollapsed"
-          style="color: white; margin: 0; font-size: 18px"
+        <img
+          v-if="logoDisplayUrl"
+          :src="logoDisplayUrl"
+          :class="{ 'logo-img-collapsed': isCollapsed }"
+          alt="Logo"
         >
-          MobTest
-        </h1>
+        <template v-if="!isCollapsed">
+          <h1
+            class="sidebar-system-name"
+            style="color: white; margin: 0; font-size: 18px"
+          >
+            {{ systemSettingsStore.systemName || 'MobTest' }}
+          </h1>
+        </template>
         <h1
-          v-else
+          v-else-if="!logoDisplayUrl"
+          class="sidebar-system-name"
           style="color: white; margin: 0; font-size: 14px"
         >
-          MT
+          {{ systemSettingsStore.shortTitle || 'MT' }}
         </h1>
       </div>
 
@@ -225,9 +234,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
+import { useSystemSettingsStore } from "@/stores/systemSettings";
+import { useSystemAppearance } from "@/composables/useSystemAppearance";
 import { ElMessageBox } from "element-plus";
 import {
   Expand,
@@ -242,9 +253,52 @@ import {
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
+const systemSettingsStore = useSystemSettingsStore();
+
+// 应用基础设置：主题（深/浅/跟随系统）、语言（html lang）
+useSystemAppearance(systemSettingsStore);
 
 // 侧边栏折叠状态
 const isCollapsed = ref(false);
+
+// 侧边栏 Logo：仅当已设置系统 Logo 时显示，未设置时不显示任何图片
+const logoDisplayUrl = computed(() => systemSettingsStore.systemLogo || "");
+
+// 浏览器标签页：动态标题（系统名 + 当前页）
+function setPageTitle() {
+  const name = systemSettingsStore.systemName || "移动测试平台";
+  const pageTitle = route.meta?.title;
+  document.title = pageTitle ? `${name} - ${pageTitle}` : name;
+}
+
+// 浏览器标签页：动态 Favicon（有系统 Logo 用系统 Logo，否则用 Vue 官方默认图标）
+function getDefaultFaviconHref() {
+  const base = (import.meta.env.BASE_URL || "/").replace(/\/?$/, "/");
+  return `${window.location.origin}${base}favicon.svg`;
+}
+function setFavicon() {
+  const logo = systemSettingsStore.systemLogo;
+  const hasLogo = logo && String(logo).trim() !== "";
+  const href = hasLogo ? logo : getDefaultFaviconHref();
+  let link = document.querySelector('link[rel="icon"]');
+  if (!link) {
+    link = document.createElement("link");
+    link.rel = "icon";
+    document.head.appendChild(link);
+  }
+  link.type = href.endsWith(".svg") ? "image/svg+xml" : "image/png";
+  link.href = href;
+}
+
+onMounted(() => {
+  systemSettingsStore.load();
+  setPageTitle();
+  setFavicon();
+});
+
+watch(route, setPageTitle);
+watch(() => systemSettingsStore.systemName, setPageTitle);
+watch(() => systemSettingsStore.systemLogo, setFavicon);
 
 // 菜单路由
 const menuRoutes = computed(() => {
@@ -376,13 +430,13 @@ const handleCommand = (command) => {
 .layout {
   display: flex;
   height: 100vh;
-  background: $background-color;
+  background: var(--el-bg-color-page, $background-color);
 }
 
 .sidebar {
   width: $sidebar-width;
-  background: #fff;
-  border-right: 1px solid $border-light;
+  background: var(--el-bg-color, #fff);
+  border-right: 1px solid var(--el-border-color-light, $border-light);
   transition: width 0.3s;
   overflow: hidden;
 
@@ -396,11 +450,20 @@ const handleCommand = (command) => {
     align-items: center;
     justify-content: center;
     padding: 0 20px;
-    border-bottom: 1px solid $border-light;
+    border-bottom: 1px solid var(--el-border-color-light, $border-light);
+    gap: 10px;
 
     img {
       height: 32px;
-      margin-right: 10px;
+      width: auto;
+      max-width: 120px;
+      object-fit: contain;
+      flex-shrink: 0;
+
+      &.logo-img-collapsed {
+        height: 28px;
+        margin: 0;
+      }
     }
 
     span {
@@ -425,9 +488,9 @@ const handleCommand = (command) => {
       line-height: 50px;
 
       &.is-active {
-        background-color: #ecf5ff;
-        border-right: 3px solid $primary-color;
-        color: $primary-color;
+        background-color: var(--el-color-primary-light-9, #ecf5ff);
+        border-right: 3px solid var(--el-color-primary, $primary-color);
+        color: var(--el-color-primary, $primary-color);
       }
     }
   }
@@ -438,12 +501,13 @@ const handleCommand = (command) => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--el-bg-color-page, transparent);
 }
 
 .header {
   height: $header-height;
-  background: #fff;
-  border-bottom: 1px solid $border-light;
+  background: var(--el-bg-color, #fff);
+  border-bottom: 1px solid var(--el-border-color-light, $border-light);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -456,10 +520,10 @@ const handleCommand = (command) => {
 
     .collapse-btn {
       font-size: 18px;
-      color: $text-regular;
+      color: var(--el-text-color-regular, $text-regular);
 
       &:hover {
-        color: $primary-color;
+        color: var(--el-color-primary, $primary-color);
       }
     }
 
@@ -504,10 +568,10 @@ const handleCommand = (command) => {
 
     .header-btn {
       font-size: 18px;
-      color: $text-regular;
+      color: var(--el-text-color-regular, $text-regular);
 
       &:hover {
-        color: $primary-color;
+        color: var(--el-color-primary, $primary-color);
       }
     }
 
@@ -523,17 +587,17 @@ const handleCommand = (command) => {
         transition: $transition;
 
         &:hover {
-          background: $background-light;
+          background: var(--el-fill-color-light, $background-light);
         }
 
         .username {
           font-size: 14px;
-          color: $text-regular;
+          color: var(--el-text-color-regular, $text-regular);
         }
 
         .arrow {
           font-size: 12px;
-          color: $text-secondary;
+          color: var(--el-text-color-secondary, $text-secondary);
         }
       }
     }
@@ -546,7 +610,7 @@ const handleCommand = (command) => {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  background: $background-color;
+  background: var(--el-bg-color-page, $background-color);
 
   /* 测试任务页：最外层不出现垂直滚动条，仅标签页内表格滚动 */
   &.content-no-outer-scroll {

@@ -754,6 +754,8 @@ export default {
 <style scoped>
 .iteration-management {
   padding: 20px;
+  background-color: var(--el-bg-color-page, transparent);
+  min-height: 100%;
 }
 
 .management-header {
@@ -766,6 +768,7 @@ export default {
 .management-header h2 {
   margin: 0;
   font-size: 20px;
+  color: var(--el-text-color-primary, #303133);
 }
 
 .header-actions {
@@ -798,7 +801,7 @@ export default {
 
 .timeline-date {
   font-size: 17px;
-  color: #606266;
+  color: var(--el-text-color-regular, #606266);
   font-weight: 600;
   white-space: nowrap;
   margin-bottom: 4px;
@@ -809,8 +812,8 @@ export default {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 3px solid #e4e7ed;
-  background: #fff;
+  border: 3px solid var(--el-border-color, #e4e7ed);
+  background: var(--el-bg-color, #fff);
   z-index: 1;
   transition: all 0.3s ease;
 }
@@ -837,7 +840,7 @@ export default {
 
 .timeline-vertical-line {
   width: 2px;
-  background: #e4e7ed;
+  background: var(--el-border-color, #e4e7ed);
   flex: 1;
   min-height: 40px;
   margin-top: 4px;
@@ -848,8 +851,8 @@ export default {
 }
 
 .iteration-card {
-  background: #fff;
-  border: 1px solid #e4e7ed;
+  background: var(--el-bg-color, #fff);
+  border: 1px solid var(--el-border-color, #e4e7ed);
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.08);
   display: flex;
@@ -895,7 +898,7 @@ export default {
   flex-direction: column;
   align-items: flex-start;
   text-align: left;
-  border-right: 1px solid #f0f0f0;
+  border-right: 1px solid var(--el-border-color-lighter, #f0f0f0);
   gap: 10px;
 }
 
@@ -911,7 +914,7 @@ export default {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #303133;
+  color: var(--el-text-color-primary, #303133);
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -930,7 +933,7 @@ export default {
 
 .iteration-goal i {
   margin-top: 2px;
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   font-size: 16px;
   flex-shrink: 0;
 }
@@ -943,13 +946,13 @@ export default {
 }
 
 .goal-label {
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   font-weight: 500;
   font-size: 12px;
 }
 
 .goal-value {
-  color: #606266;
+  color: var(--el-text-color-regular, #606266);
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -969,7 +972,7 @@ export default {
 
 .iteration-description i {
   margin-top: 2px;
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   font-size: 16px;
   flex-shrink: 0;
 }
@@ -982,13 +985,13 @@ export default {
 }
 
 .desc-label {
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   font-weight: 500;
   font-size: 12px;
 }
 
 .desc-value {
-  color: #606266;
+  color: var(--el-text-color-regular, #606266);
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1003,7 +1006,7 @@ export default {
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
-  border-right: 1px solid #f0f0f0;
+  border-right: 1px solid var(--el-border-color-lighter, #f0f0f0);
   padding-right: 8px;
 }
 
@@ -1031,7 +1034,7 @@ export default {
 
 .meta-label {
   font-size: 12px;
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   text-transform: uppercase;
   letter-spacing: 0.3px;
   font-weight: 500;
@@ -1039,7 +1042,7 @@ export default {
 
 .meta-value {
   font-size: 14px;
-  color: #303133;
+  color: var(--el-text-color-primary, #303133);
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1058,7 +1061,7 @@ export default {
 
 .progress-text {
   font-size: 13px;
-  color: #606266;
+  color: var(--el-text-color-regular, #606266);
   font-weight: 600;
   min-width: 35px;
   text-align: right;
@@ -1084,9 +1087,9 @@ export default {
 .empty-state {
   padding: 60px 0;
   text-align: center;
-  border: 1px dashed #e4e7ed;
+  border: 1px dashed var(--el-border-color, #e4e7ed);
   border-radius: 8px;
-  background-color: #fafafa;
+  background-color: var(--el-fill-color-light, #fafafa);
 }
 
 /* 响应式设计 */
@@ -1115,7 +1118,7 @@ export default {
   .card-section {
     width: auto;
     border-right: none;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--el-border-color-lighter, #f0f0f0);
     justify-content: center;
   }
 
@@ -1171,7 +1174,7 @@ export default {
 .date-range-hint {
   margin-top: 5px;
   font-size: 12px;
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   line-height: 1.5;
 }
 </style>

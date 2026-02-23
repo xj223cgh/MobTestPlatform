@@ -121,6 +121,10 @@
                 <span class="value">{{ currentReport.created_by }}</span>
               </div>
               <div class="info-item">
+                <span class="label">负责人：</span>
+                <span class="value">{{ currentReport.assignee_name || '-' }}</span>
+              </div>
+              <div class="info-item">
                 <span class="label">创建时间：</span>
                 <span class="value">{{ formatDateTime(currentReport.created_at) }}</span>
               </div>
@@ -1013,14 +1017,14 @@ watch(
 <style lang="scss" scoped>
 .report-detail-page {
   padding: 20px;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page, #f5f7fa);
   min-height: calc(100vh - 60px);
 }
 
 .page-header {
   margin-bottom: 20px;
   padding-bottom: 20px;
-  border-bottom: 1px solid #e4e7ed;
+  border-bottom: 1px solid var(--el-border-color-light, #e4e7ed);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1033,28 +1037,28 @@ watch(
 
   .page-title {
     margin: 0;
-    color: #303133;
+    color: var(--el-text-color-primary, #303133);
     font-size: 24px;
     font-weight: 600;
   }
 }
 
 .loading-container {
-  background: white;
+  background: var(--el-bg-color, white);
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
 }
 
 .error-state {
-  background: white;
+  background: var(--el-bg-color, white);
   padding: 50px;
   border-radius: 8px;
   text-align: center;
 }
 
 .report-content {
-  background: white;
+  background: var(--el-bg-color, white);
   padding: 24px;
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
@@ -1065,15 +1069,16 @@ watch(
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: white;
+  background: var(--el-bg-color, white);
   border-radius: 8px;
   margin-bottom: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--el-border-color-lighter, transparent);
 
   .summary-title {
     font-size: 18px;
     font-weight: 600;
-    color: #303133;
+    color: var(--el-text-color-primary, #303133);
   }
 
   .summary-actions {
@@ -1103,12 +1108,12 @@ watch(
 
   .label {
     font-weight: 500;
-    color: #606266;
+    color: var(--el-text-color-regular, #606266);
     min-width: 80px;
   }
 
   .value {
-    color: #303133;
+    color: var(--el-text-color-primary, #303133);
     word-break: break-word;
   }
 }
@@ -1117,6 +1122,7 @@ watch(
   margin: 0 0 16px 0;
   font-size: 15px;
   font-weight: 600;
+  color: var(--el-text-color-primary, #303133);
 }
 
 .stats-section {
@@ -1154,13 +1160,13 @@ watch(
 .stat-number {
   font-size: 24px;
   font-weight: 600;
-  color: #303133;
+  color: var(--el-text-color-primary, #303133);
   margin-bottom: 4px;
 }
 
 .stat-label {
   font-size: 13px;
-  color: #606266;
+  color: var(--el-text-color-regular, #606266);
 }
 
 .charts-section {
@@ -1168,7 +1174,7 @@ watch(
 }
 
 .chart-card {
-  background: #fafafa;
+  background: var(--el-fill-color-light, #fafafa);
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
@@ -1177,6 +1183,7 @@ watch(
     margin: 0 0 12px 0;
     font-size: 14px;
     font-weight: 600;
+    color: var(--el-text-color-primary, #303133);
   }
 }
 
@@ -1200,7 +1207,7 @@ watch(
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: white;
+  background: var(--el-bg-color, white);
   padding: 50px;
   border-radius: 8px;
 }

@@ -856,6 +856,7 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background-color: var(--el-bg-color-page, transparent);
 }
 
 .refresh-control {
@@ -865,7 +866,7 @@ onUnmounted(() => {
 
   .refresh-text {
     font-size: 14px;
-    color: #606266;
+    color: var(--el-text-color-regular, #606266);
     white-space: nowrap;
   }
 }
@@ -877,7 +878,7 @@ onUnmounted(() => {
   transition: background-color 0.2s;
 
   &:hover {
-    background-color: #f5f7fa;
+    background-color: var(--el-fill-color-light, #f5f7fa);
   }
 }
 
@@ -911,7 +912,8 @@ onUnmounted(() => {
 .page-header {
   margin-bottom: 20px;
   padding-bottom: 20px;
-  border-bottom: 1px solid #e4e7ed;
+  border-bottom: 1px solid var(--el-border-color-light, #e4e7ed);
+  background-color: var(--el-bg-color, transparent);
 
   .header-content {
     display: flex;
@@ -923,7 +925,7 @@ onUnmounted(() => {
       margin: 0;
       font-size: 24px;
       font-weight: 600;
-      color: #303133;
+      color: var(--el-text-color-primary, #303133);
     }
 
     .right-content {

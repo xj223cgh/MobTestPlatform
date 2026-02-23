@@ -47,8 +47,11 @@ class Config:
     # 文件存储配置
     STORAGE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../storage')
     SCRIPT_STORAGE_PATH = os.path.join(STORAGE_PATH, 'device_scripts')
+    LOGO_STORAGE_PATH = os.path.join(STORAGE_PATH, 'logos')  # 系统 Logo 存放目录
     MAX_SCRIPT_SIZE = 10 * 1024 * 1024  # 10MB
+    MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2MB
     ALLOWED_SCRIPT_EXTENSIONS = ['.sh', '.py']
+    ALLOWED_LOGO_EXTENSIONS = ['.jpg', '.jpeg', '.png']
     
     @staticmethod
     def init_app(app):

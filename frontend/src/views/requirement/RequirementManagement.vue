@@ -488,6 +488,7 @@ import {
   deleteVersionRequirement,
 } from "@/api/project";
 import { getUserList } from "@/api/user";
+import { useSystemSettingsStore } from "@/stores/systemSettings";
 import dayjs from "dayjs";
 
 // 加载状态
@@ -517,10 +518,11 @@ const assigneeOptions = ref([]);
 // 需求列表
 const requirementList = ref([]);
 
-// 分页信息
+// 分页信息（每页条数使用系统设置，默认 10）
+const systemSettingsStore = useSystemSettingsStore();
 const pagination = reactive({
   currentPage: 1,
-  pageSize: 10,
+  pageSize: systemSettingsStore.defaultPageSize || 10,
   total: 0,
 });
 

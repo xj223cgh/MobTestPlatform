@@ -56,6 +56,13 @@
             <el-icon><Refresh /></el-icon>
             重置
           </el-button>
+          <el-button
+            type="danger"
+            :disabled="!currentSelectedIds.length"
+            @click="handleBatchDelete(activeTab)"
+          >
+            批量删除
+          </el-button>
         </el-form-item>
       </el-form>
     </div>
@@ -77,14 +84,20 @@
               <el-table
                 v-loading="loading.testCase"
                 :data="reportList.testCase"
-              stripe
-              border
-              style="width: 100%"
-              fit
-            >
-              <el-table-column
-                prop="task_name"
-                label="任务名称"
+                stripe
+                border
+                style="width: 100%"
+                fit
+                @selection-change="(rows) => handleSelectionChange(rows, 'test_case')"
+              >
+                <el-table-column
+                  type="selection"
+                  width="48"
+                  align="center"
+                />
+                <el-table-column
+                  prop="task_name"
+                  label="任务名称"
                 min-width="180"
                 align="center"
               >
@@ -114,6 +127,16 @@
               >
                 <template #default="{ row }">
                   {{ row.created_by || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="assignee_name"
+                label="负责人"
+                min-width="100"
+                align="center"
+              >
+                <template #default="{ row }">
+                  {{ row.assignee_name || '-' }}
                 </template>
               </el-table-column>
               <el-table-column
@@ -178,23 +201,29 @@
               <el-table
                 v-loading="loading.deviceScript"
                 :data="reportList.deviceScript"
-              stripe
-              border
-              style="width: 100%"
-              fit
-            >
-              <el-table-column
-                prop="task_name"
-                label="任务名称"
-                min-width="180"
-                align="center"
+                stripe
+                border
+                style="width: 100%"
+                fit
+                @selection-change="(rows) => handleSelectionChange(rows, 'device_script')"
               >
-                <template #default="{ row }">
-                  <span>{{ row.task_name }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column
-                prop="script_file"
+                <el-table-column
+                  type="selection"
+                  width="48"
+                  align="center"
+                />
+                <el-table-column
+                  prop="task_name"
+                  label="任务名称"
+                  min-width="180"
+                  align="center"
+                >
+                  <template #default="{ row }">
+                    <span>{{ row.task_name }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  prop="script_file"
                 label="脚本文件"
                 min-width="140"
                 align="center"
@@ -225,6 +254,16 @@
               >
                 <template #default="{ row }">
                   {{ row.created_by || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="assignee_name"
+                label="负责人"
+                min-width="100"
+                align="center"
+              >
+                <template #default="{ row }">
+                  {{ row.assignee_name || '-' }}
                 </template>
               </el-table-column>
               <el-table-column
@@ -275,10 +314,10 @@
                 </template>
               </el-table-column>
             </el-table>
-            </div>
           </div>
-        </el-tab-pane>
-      </el-tabs>
+        </div>
+      </el-tab-pane>
+    </el-tabs>
     </div>
 
     <!-- 分页 -->
@@ -359,10 +398,12 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search, Refresh, View, Download, Document } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
-import { getReportList, getReportData, deleteReport } from '@/api/report';
+import { getReportList, getReportData, deleteReport, batchDeleteReports } from '@/api/report';
+import { useSystemSettingsStore } from '@/stores/systemSettings';
 
 // 路由相关
 const router = useRouter();
+const systemSettingsStore = useSystemSettingsStore();
 
 // 响应式数据
 const activeTab = ref('test_case');
@@ -380,16 +421,17 @@ const filterForm = reactive({
   creator: ''
 });
 
-// 分页
+// 分页（每页条数使用系统设置，默认 10）
+const defaultSize = systemSettingsStore.defaultPageSize || 10;
 const pagination = reactive({
   testCase: {
     page: 1,
-    size: 10,
+    size: defaultSize,
     total: 0
   },
   deviceScript: {
     page: 1,
-    size: 10,
+    size: defaultSize,
     total: 0
   }
 });
@@ -399,6 +441,15 @@ const reportList = reactive({
   testCase: [],
   deviceScript: []
 });
+
+// 批量删除：当前选中的报告 ID（按 tab 分）
+const selectedIds = reactive({
+  testCase: [],
+  deviceScript: []
+});
+
+// 当前 tab 下选中的 id 列表（用于顶部批量删除按钮）
+const currentSelectedIds = computed(() => selectedIds[activeTab.value] || []);
 
 // 获取报告列表（从 reports 表）
 const fetchReportList = async () => {
@@ -494,7 +545,12 @@ const handleViewReport = (row) => {
   router.push(`/report/${row.id}`);
 };
 
-// 删除报告
+// 表格多选变化
+const handleSelectionChange = (rows, tab) => {
+  selectedIds[tab] = (rows || []).map((r) => r.id);
+};
+
+// 单个删除报告
 const handleDeleteReport = async (row, tab) => {
   try {
     await ElMessageBox.confirm(
@@ -511,7 +567,33 @@ const handleDeleteReport = async (row, tab) => {
     fetchReportList();
   } catch (err) {
     if (err !== 'cancel') {
-      ElMessage.error(err?.message || '删除失败');
+      ElMessage.error(err?.response?.data?.message || err?.message || '删除失败');
+    }
+  }
+};
+
+// 批量删除报告
+const handleBatchDelete = async (tab) => {
+  const ids = selectedIds[tab] || [];
+  if (!ids.length) return;
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${ids.length} 条报告吗？此操作不可恢复。`,
+      '确认批量删除',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    );
+    const res = await batchDeleteReports(ids);
+    const msg = res?.data?.deleted != null ? `成功删除 ${res.data.deleted} 条报告` : '删除成功';
+    ElMessage.success(res?.message || msg);
+    selectedIds[tab] = [];
+    fetchReportList();
+  } catch (err) {
+    if (err !== 'cancel') {
+      ElMessage.error(err?.response?.data?.message || err?.message || '批量删除失败');
     }
   }
 };
@@ -576,16 +658,17 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page, #f5f7fa);
 }
 
 .filter-section {
   flex-shrink: 0;
-  background: white;
+  background: var(--el-bg-color, white);
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   margin-bottom: 20px;
+  border: 1px solid var(--el-border-color-lighter, transparent);
   
   .filter-form {
     display: flex;
@@ -648,6 +731,7 @@ onMounted(() => {
 
   :deep(.el-tabs__header) {
     margin-bottom: 0;
+    padding-left: 16px;
   }
 
   :deep(.el-tabs__content) {
@@ -660,12 +744,13 @@ onMounted(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: white;
+  background: var(--el-bg-color, white);
   border-radius: 8px;
   overflow: hidden;
   margin-top: 16px;
   margin-bottom: 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--el-border-color-lighter, transparent);
 }
 
 /* 标签页表格不显示横向滚动条，仅垂直滚动；表体区域出现垂直滚动条 */
@@ -748,12 +833,12 @@ onMounted(() => {
   margin: 0 0 10px 0;
   font-size: 14px;
   font-weight: 600;
-  color: #303133;
+  color: var(--el-text-color-primary, #303133);
 }
 
 .output-pre {
-  background: #f5f7fa;
-  border: 1px solid #e4e7ed;
+  background: var(--el-fill-color-light, #f5f7fa);
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
   border-radius: 4px;
   padding: 15px;
   margin: 0;
@@ -765,12 +850,13 @@ onMounted(() => {
   word-wrap: break-word;
   max-height: 400px;
   overflow-y: auto;
+  color: var(--el-text-color-primary, #303133);
 }
 
 .output-pre.error {
-  background: #fef0f0;
-  border-color: #fbc4ab;
-  color: #f56c6c;
+  background: var(--el-color-danger-light-9, #fef0f0);
+  border-color: var(--el-color-danger-light-5, #fbc4ab);
+  color: var(--el-color-danger, #f56c6c);
 }
 
 .info-item {
@@ -780,12 +866,12 @@ onMounted(() => {
 
   .label {
     font-weight: 500;
-    color: #606266;
+    color: var(--el-text-color-regular, #606266);
     min-width: 80px;
   }
 
   .value {
-    color: #303133;
+    color: var(--el-text-color-primary, #303133);
     word-break: break-word;
   }
 }

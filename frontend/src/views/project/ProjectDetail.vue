@@ -404,6 +404,7 @@ import { Edit, ArrowLeft } from "@element-plus/icons-vue";
 import { getProject, updateProject } from "@/api/project";
 import { getUserList } from "@/api/user";
 import { useUserStore } from "@/stores/user";
+import { useSystemSettingsStore } from "@/stores/systemSettings";
 import dayjs from "dayjs";
 import { use } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
@@ -442,6 +443,26 @@ const editingProjectId = ref(null);
 
 // 所有用户列表，用于选择项目成员
 const allUsers = ref([]);
+
+// 系统设置（用于图表图例深色模式文字颜色）
+const settingsStore = useSystemSettingsStore();
+
+/** 根据当前主题更新三个统计图的图例样式：正常/未选中时文字与图标颜色 */
+function applyLegendTheme() {
+  const isDark = settingsStore.theme === "dark";
+  const legendColor = isDark ? "#e5eaf3" : undefined;
+  const inactiveColor = isDark ? "#6b6c6e" : "#909399";
+  const textStyle = { fontSize: 11, color: legendColor };
+
+  const legend = {
+    ...caseExecutionChartOption.value.legend,
+    textStyle,
+    inactiveColor,
+  };
+  caseExecutionChartOption.value.legend = legend;
+  iterationChartOption.value.legend = { ...iterationChartOption.value.legend, textStyle, inactiveColor };
+  requirementChartOption.value.legend = { ...requirementChartOption.value.legend, textStyle, inactiveColor };
+}
 
 // 表单数据
 const projectForm = reactive({
@@ -562,7 +583,7 @@ const caseExecutionChartOption = ref({
     bottom: 0,
     left: "center",
     textStyle: {
-      fontSize: 10,
+      fontSize: 11,
     },
     itemGap: 10,
     padding: [10, 0, 0, 0],
@@ -571,8 +592,9 @@ const caseExecutionChartOption = ref({
     {
       name: "用例执行情况",
       type: "pie",
-      radius: "65%",
-      avoidLabelOverlap: false,
+      radius: "62%",
+      center: ["50%", "48%"],
+      avoidLabelOverlap: true,
       itemStyle: {
         borderRadius: 0,
         borderColor: "#fff",
@@ -582,17 +604,19 @@ const caseExecutionChartOption = ref({
         show: true,
         position: "outside",
         formatter: "{b}: {c} ({d}%)",
-        fontSize: 10,
+        fontSize: 11,
       },
       emphasis: {
         label: {
           show: true,
-          fontSize: "12",
+          fontSize: "13",
           fontWeight: "bold",
         },
       },
       labelLine: {
         show: true,
+        length: 8,
+        length2: 10,
       },
       data: [],
     },
@@ -613,7 +637,7 @@ const iterationChartOption = ref({
     bottom: 0,
     left: "center",
     textStyle: {
-      fontSize: 10,
+      fontSize: 11,
     },
     itemGap: 10,
     padding: [10, 0, 0, 0],
@@ -622,8 +646,9 @@ const iterationChartOption = ref({
     {
       name: "迭代统计",
       type: "pie",
-      radius: "65%",
-      avoidLabelOverlap: false,
+      radius: "62%",
+      center: ["50%", "48%"],
+      avoidLabelOverlap: true,
       itemStyle: {
         borderRadius: 0,
         borderColor: "#fff",
@@ -633,17 +658,19 @@ const iterationChartOption = ref({
         show: true,
         position: "outside",
         formatter: "{b}: {c} ({d}%)",
-        fontSize: 10,
+        fontSize: 11,
       },
       emphasis: {
         label: {
           show: true,
-          fontSize: "12",
+          fontSize: "13",
           fontWeight: "bold",
         },
       },
       labelLine: {
         show: true,
+        length: 8,
+        length2: 10,
       },
       data: [],
     },
@@ -665,7 +692,7 @@ const requirementChartOption = ref({
     bottom: 0,
     left: "center",
     textStyle: {
-      fontSize: 10,
+      fontSize: 11,
     },
     itemGap: 10,
     padding: [10, 0, 0, 0],
@@ -674,8 +701,9 @@ const requirementChartOption = ref({
     {
       name: "需求状态",
       type: "pie",
-      radius: "65%",
-      avoidLabelOverlap: false,
+      radius: "62%",
+      center: ["50%", "48%"],
+      avoidLabelOverlap: true,
       itemStyle: {
         borderRadius: 0,
         borderColor: "#fff",
@@ -685,17 +713,19 @@ const requirementChartOption = ref({
         show: true,
         position: "outside",
         formatter: "{b}: {c} ({d}%)",
-        fontSize: 10,
+        fontSize: 11,
       },
       emphasis: {
         label: {
           show: true,
-          fontSize: "12",
+          fontSize: "13",
           fontWeight: "bold",
         },
       },
       labelLine: {
         show: true,
+        length: 8,
+        length2: 10,
       },
       data: [],
     },
@@ -844,6 +874,8 @@ const updateCharts = () => {
       itemStyle: { color: "#ff6e6e" },
     },
   ];
+
+  applyLegendTheme();
 };
 
 // 获取项目详情
@@ -865,13 +897,21 @@ const fetchProjectDetail = async () => {
   }
 };
 
-// 监听projectDetail变化，更新图表
+// 监听 projectDetail 变化，更新图表
 watch(
   projectDetail,
   () => {
     updateCharts();
   },
   { deep: true },
+);
+
+// 监听主题切换，更新图例文字颜色
+watch(
+  () => settingsStore.theme,
+  () => {
+    applyLegendTheme();
+  },
 );
 
 // 返回列表
@@ -981,7 +1021,7 @@ onMounted(() => {
 .project-detail {
   padding: 20px;
   min-height: 100vh;
-  background-color: #f5f7fa;
+  background-color: var(--el-bg-color-page, #f5f7fa);
 }
 
 .header-actions {
@@ -1003,7 +1043,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   font-weight: 600;
-  color: #303133;
+  color: var(--el-text-color-primary, #303133);
   padding: 5px 0;
 }
 
@@ -1014,18 +1054,18 @@ onMounted(() => {
 
 .description-content {
   line-height: 1.6;
-  color: #606266;
+  color: var(--el-text-color-regular, #606266);
   max-height: 300px;
   overflow-y: auto;
   padding: 10px;
-  background-color: #fafafa;
+  background-color: var(--el-fill-color-light, #fafafa);
   border-radius: 4px;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--el-border-color-lighter, #ebeef5);
 }
 
 .description-count {
   font-size: 12px;
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   font-weight: normal;
   margin-left: 10px;
 }
@@ -1033,36 +1073,38 @@ onMounted(() => {
 .stat-item {
   text-align: center;
   padding: 20px;
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light, #f5f7fa);
   border-radius: 8px;
 
   .stat-label {
     font-size: 14px;
-    color: #606266;
+    color: var(--el-text-color-regular, #606266);
     margin-bottom: 8px;
   }
 
   .stat-value {
     font-size: 24px;
     font-weight: 500;
-    color: #303133;
+    color: var(--el-text-color-primary, #303133);
   }
 }
 
-/* 统计概览样式 */
+/* 统计概览样式：允许扇形图外侧标注完整显示 */
 .stats-overview {
   margin-bottom: 0;
+  overflow: visible;
 }
 
 /* 带图表的统计项样式 */
 .stat-item-with-chart {
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light, #f5f7fa);
   border-radius: 8px;
   padding: 10px 0px;
   height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
+  overflow: visible;
 }
 
 /* 统计项头部样式 */
@@ -1073,12 +1115,15 @@ onMounted(() => {
   padding: 0 10px;
 }
 
-/* 小图表容器样式 */
+/* 小图表容器样式：留出左右空间避免扇形图外侧数据标注被裁切 */
 .chart-container-small {
   height: 300px;
   width: 100%;
   min-width: 150px;
   margin-bottom: 15px;
+  overflow: visible;
+  padding: 0 8px;
+  box-sizing: border-box;
 }
 
 /* 项目链接样式 */
@@ -1087,11 +1132,11 @@ onMounted(() => {
   word-break: break-all;
   white-space: normal;
   line-height: 1.5;
-  color: #409eff;
+  color: var(--el-color-primary);
   text-decoration: none;
 
   &:hover {
-    color: #66b1ff;
+    color: var(--el-color-primary-light-3);
     text-decoration: underline;
   }
 }

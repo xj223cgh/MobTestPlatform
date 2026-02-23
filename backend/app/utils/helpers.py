@@ -3,7 +3,7 @@ import json
 from functools import wraps
 from flask import request, jsonify, session, abort
 from flask_login import current_user
-from app.models.models import User
+from app.models.models import User, SystemSetting
 
 
 def validate_phone(phone):
@@ -49,22 +49,29 @@ def error_response(code, message, data=None):
     return response
 
 
+def _get_default_page_size():
+    """从系统设置读取默认每页条数，默认 10"""
+    try:
+        s = SystemSetting.query.filter_by(setting_key='default_page_size').first()
+        if s and s.setting_value:
+            v = int(s.setting_value)
+            if 5 <= v <= 100:
+                return v
+    except (ValueError, TypeError):
+        pass
+    return 10
+
+
 def get_pagination_params():
     """获取分页参数"""
     page = request.args.get('page', 1, type=int)
-    # 同时支持size和page_size参数
-    # 确保两个参数都使用int类型
+    # 同时支持 size 和 page_size 参数；未传时使用系统设置「默认每页条数」，默认 10
     size_param = request.args.get('size', type=int)
     page_size_param = request.args.get('page_size', type=int)
-    # 使用第一个有效的参数，如果都无效则使用默认值20
-    size = size_param if size_param is not None else (page_size_param if page_size_param is not None else 20)
-    
-    # 限制每页最大数量
+    default_size = _get_default_page_size()
+    size = size_param if size_param is not None else (page_size_param if page_size_param is not None else default_size)
     size = min(size, 100)
-    
-    # 确保页码最小为1
     page = max(page, 1)
-    
     return page, size
 
 
