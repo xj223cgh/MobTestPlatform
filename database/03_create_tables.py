@@ -47,9 +47,11 @@ def create_tables():
                 department VARCHAR(100) DEFAULT '' COMMENT '所属部门',
                 password_hash VARCHAR(255) NOT NULL COMMENT '密码（哈希存储）',
                 role ENUM('super', 'manager', 'tester', 'admin') NOT NULL DEFAULT 'admin' COMMENT '角色类型',
+                is_active BOOLEAN DEFAULT TRUE COMMENT '是否激活',
+                failed_login_attempts INT DEFAULT 0 COMMENT '连续登录失败次数（用于安全设置中的登录失败锁定）',
+                locked_until DATETIME NULL COMMENT '账户锁定时长至该时间（登录失败超阈值时设置）',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-                is_active BOOLEAN DEFAULT TRUE COMMENT '是否激活',
                 INDEX idx_username (username),
                 INDEX idx_phone (phone),
                 INDEX idx_role (role)
@@ -144,7 +146,7 @@ def create_tables():
                 status ENUM('new', 'in_progress', 'completed', 'cancelled') DEFAULT 'new' COMMENT '需求状态',
                 project_id INT NOT NULL COMMENT '所属项目ID',
                 iteration_id INT COMMENT '所属迭代ID',
-                priority ENUM('high', 'medium', 'low') DEFAULT 'medium' COMMENT '优先级',
+                priority ENUM('P0', 'P1', 'P2', 'P3', 'P4') DEFAULT 'P1' COMMENT '优先级',
                 estimated_hours FLOAT COMMENT '预估工时',
                 actual_hours FLOAT COMMENT '实际工时',
                 created_by INT NOT NULL COMMENT '创建者ID',
@@ -240,11 +242,26 @@ def create_tables():
             
 
             
+            # 创建 task_folders 表（任务文件夹，按任务类型分开）
+            cursor.execute("""CREATE TABLE IF NOT EXISTS task_folders (
+                id INT AUTO_INCREMENT PRIMARY KEY COMMENT '文件夹ID',
+                name VARCHAR(100) NOT NULL COMMENT '文件夹名称',
+                parent_id INT NULL COMMENT '父文件夹ID，NULL表示根级',
+                task_type ENUM('test_case', 'device_script') NOT NULL COMMENT '任务类型',
+                sort_order INT DEFAULT 0 COMMENT '同级排序',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                FOREIGN KEY (parent_id) REFERENCES task_folders(id) ON DELETE CASCADE,
+                INDEX idx_task_type (task_type),
+                INDEX idx_parent_id (parent_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='任务文件夹表'""")
+
             # 创建test_tasks表
             cursor.execute("""CREATE TABLE IF NOT EXISTS test_tasks (
                 id INT AUTO_INCREMENT PRIMARY KEY COMMENT '任务编号',
                 task_name VARCHAR(200) NOT NULL COMMENT '任务名称',
                 task_description TEXT COMMENT '任务描述',
+                folder_id INT NULL COMMENT '所属任务文件夹ID',
                 task_type ENUM('test_case', 'device_script') DEFAULT 'test_case' COMMENT '任务类型',
                 priority ENUM('high', 'medium', 'low') DEFAULT 'medium' COMMENT '任务优先级',
                 status ENUM('pending', 'running', 'completed', 'paused') DEFAULT 'pending' COMMENT '任务状态',
@@ -259,6 +276,8 @@ def create_tables():
                 project_id INT NULL COMMENT '所属项目ID',
                 iteration_id INT NULL COMMENT '所属迭代ID',
                 suite_id INT NULL COMMENT '关联的测试套件ID',
+                suite_name_snapshot VARCHAR(200) NULL COMMENT '创建/更新任务时用例集名称快照（历史追溯）',
+                case_snapshot_at DATETIME NULL COMMENT '用例快照时间',
                 version_requirement_id INT NULL COMMENT '关联的版本需求ID',
                 documentation_url TEXT COMMENT '相关文档链接',
                 version_info VARCHAR(100) COMMENT '版本信息',
@@ -274,6 +293,7 @@ def create_tables():
                 FOREIGN KEY (iteration_id) REFERENCES iterations(id) ON DELETE SET NULL,
                 FOREIGN KEY (suite_id) REFERENCES test_suites(id) ON DELETE SET NULL,
                 FOREIGN KEY (version_requirement_id) REFERENCES version_requirements(id) ON DELETE SET NULL,
+                FOREIGN KEY (folder_id) REFERENCES task_folders(id) ON DELETE SET NULL,
                 INDEX idx_task_name (task_name),
                 INDEX idx_status (status),
                 INDEX idx_creator_id (creator_id),
@@ -283,8 +303,21 @@ def create_tables():
                 INDEX idx_iteration_id (iteration_id),
                 INDEX idx_suite_id (suite_id),
                 INDEX idx_version_requirement_id (version_requirement_id),
-                INDEX idx_task_type (task_type)
+                INDEX idx_task_type (task_type),
+                INDEX idx_folder_id (folder_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='测试任务表'""")
+
+            # 兼容已有库：若 test_tasks 已存在但无 folder_id 列，则追加（与任务文件夹功能合并到基础建表）
+            cursor.execute("SHOW TABLES LIKE 'test_tasks'")
+            if cursor.fetchone():
+                cursor.execute("SHOW COLUMNS FROM test_tasks LIKE 'folder_id'")
+                if cursor.fetchone() is None:
+                    cursor.execute("ALTER TABLE test_tasks ADD COLUMN folder_id INT NULL COMMENT '所属任务文件夹ID' AFTER task_description")
+                    cursor.execute("ALTER TABLE test_tasks ADD INDEX idx_folder_id (folder_id)")
+                    try:
+                        cursor.execute("ALTER TABLE test_tasks ADD CONSTRAINT fk_test_tasks_folder FOREIGN KEY (folder_id) REFERENCES task_folders(id) ON DELETE SET NULL")
+                    except Exception:
+                        pass
             
             # 创建test_case_executions表
             cursor.execute("""CREATE TABLE IF NOT EXISTS test_case_executions (
@@ -347,6 +380,26 @@ def create_tables():
                 FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE,
                 INDEX idx_device_id (device_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='任务设备关联表'""")
+            
+            # 创建task_case_snapshots表（任务关联用例快照，支持历史追溯）
+            cursor.execute("""CREATE TABLE IF NOT EXISTS task_case_snapshots (
+                task_id INT NOT NULL COMMENT '任务ID',
+                case_id INT NOT NULL COMMENT '用例ID',
+                case_number VARCHAR(50) NULL COMMENT '用例编号',
+                case_name VARCHAR(200) NULL COMMENT '用例名称',
+                priority ENUM('P0', 'P1', 'P2', 'P3', 'P4') DEFAULT 'P1' COMMENT '优先级',
+                test_data TEXT NULL COMMENT '测试数据',
+                preconditions TEXT COMMENT '前置条件',
+                steps TEXT COMMENT '测试步骤',
+                expected_result TEXT COMMENT '预期结果',
+                actual_result TEXT COMMENT '实际结果',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '快照创建时间',
+                PRIMARY KEY (task_id, case_id),
+                FOREIGN KEY (task_id) REFERENCES test_tasks(id) ON DELETE CASCADE,
+                FOREIGN KEY (case_id) REFERENCES test_cases(id) ON DELETE CASCADE,
+                INDEX idx_task_id (task_id),
+                INDEX idx_case_id (case_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='任务关联用例快照表（历史追溯）'""")
             
             # 创建test_suite_review_tasks表
             cursor.execute("""CREATE TABLE IF NOT EXISTS test_suite_review_tasks (
@@ -486,6 +539,23 @@ def create_tables():
             
             connection.commit()
             print("所有数据表创建成功！")
+
+            # 修复用例/需求/快照优先级：误存为任务优先级(high/medium/low)时改为 P1，避免 LookupError
+            try:
+                for table in ('task_case_snapshots', 'test_cases', 'version_requirements'):
+                    try:
+                        cursor.execute(f"""
+                            UPDATE {table} SET priority = 'P1'
+                            WHERE priority NOT IN ('P0','P1','P2','P3','P4')
+                        """)
+                        if cursor.rowcount and cursor.rowcount > 0:
+                            print(f"已修复 {table} 非法优先级 {cursor.rowcount} 条")
+                    except Exception as t:
+                        print(f"修复 {table} 跳过: {t}")
+                connection.commit()
+            except Exception as repair_e:
+                print(f"优先级修复跳过（可忽略）: {repair_e}")
+
             return True
             
     except Exception as e:

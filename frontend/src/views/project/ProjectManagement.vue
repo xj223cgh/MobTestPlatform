@@ -120,13 +120,16 @@
     <div class="table-section">
       <div class="table-scroll-viewport">
         <el-table
+          ref="projectTableRef"
           v-loading="loading"
           :data="projectList"
-        stripe
-        border
-        style="width: 100%"
-        fit
-      >
+          stripe
+          border
+          style="width: 100%"
+          fit
+          :row-class-name="getRowClassName"
+          row-key="id"
+        >
         <el-table-column
           prop="id"
           label="ID"
@@ -498,7 +501,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from "vue";
+import { ref, reactive, computed, onMounted, watch, nextTick } from "vue";
 import { ElMessage } from "element-plus";
 import { Plus, Search, Refresh } from "@element-plus/icons-vue";
 import {
@@ -508,7 +511,7 @@ import {
   deleteProject,
 } from "@/api/project";
 import { getUserList } from "@/api/user";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { useSystemSettingsStore } from "@/stores/systemSettings";
 import dayjs from "dayjs";
@@ -521,6 +524,16 @@ const projectList = ref([]);
 
 // 路由实例
 const router = useRouter();
+const route = useRoute();
+const projectTableRef = ref(null);
+const highlightId = computed(() => {
+  const id = route.query.highlight_id;
+  return id ? Number(id) : null;
+});
+const getRowClassName = ({ row }) => {
+  if (highlightId.value && row.id === highlightId.value) return "highlight-row";
+  return "";
+};
 
 // 搜索和筛选
 const searchQuery = ref("");
@@ -706,22 +719,39 @@ const projectRules = {
 const getProjectList = async () => {
   loading.value = true;
   try {
+    const needHighlight = highlightId.value != null;
     const params = {
-      page: pagination.currentPage,
-      size: pagination.pageSize,
+      page: needHighlight ? 1 : pagination.currentPage,
+      size: needHighlight ? 10000 : pagination.pageSize,
       search: searchQuery.value,
       status: statusFilter.value,
       priority: priorityFilter.value,
     };
 
     const response = await getProjects(params);
-    // 后端返回标准格式：{code: 200, message: 'success', data: {items: [...], total: 10}}
-    projectList.value = response.data?.items || [];
+    let items = response.data?.items || [];
+    const total = response.data?.total || 0;
     // 为每个项目添加_displayUserId字段，初始值为creator_id
-    projectList.value.forEach((project) => {
+    items.forEach((project) => {
       project._displayUserId = project.creator_id;
     });
-    pagination.total = response.data?.total || 0;
+
+    if (needHighlight && items.length > 0) {
+      const idx = items.findIndex((p) => p.id === highlightId.value);
+      if (idx >= 0) {
+        const pageSize = pagination.pageSize;
+        pagination.currentPage = Math.floor(idx / pageSize) + 1;
+        const start = (pagination.currentPage - 1) * pageSize;
+        projectList.value = items.slice(start, start + pageSize);
+      } else {
+        projectList.value = items.slice(0, pagination.pageSize);
+        pagination.currentPage = 1;
+      }
+      pagination.total = total;
+    } else {
+      projectList.value = items;
+      pagination.total = total;
+    }
   } catch (error) {
     console.error("获取项目列表失败:", error);
     ElMessage.error("获取项目列表失败");
@@ -877,7 +907,10 @@ const handleConfirmDelete = async () => {
     getProjectList(); // 重新获取项目列表
   } catch (error) {
     console.error("删除项目失败:", error);
-    ElMessage.error("项目删除失败");
+    // 400 等校验提示已由 request 拦截器统一展示，此处仅处理无 response 的情况
+    if (!error.response?.data?.message) {
+      ElMessage.error("项目删除失败");
+    }
   } finally {
     dialogLoading.value = false;
   }
@@ -914,6 +947,25 @@ const handleCreatorChange = (row) => {
   // 恢复_displayUserId为creator_id，而不是修改原始creator_id
   row._displayUserId = row.creator_id;
 };
+
+// 高亮行滚动到视口（仅当通过 highlight_id 跳转时）
+const scrollToHighlightRow = () => {
+  if (!highlightId.value || !projectList.value.length) return;
+  nextTick(() => {
+    setTimeout(() => {
+      const table = projectTableRef.value?.$el;
+      if (!table) return;
+      const row = table.querySelector("tr.highlight-row");
+      if (row) row.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 150);
+  });
+};
+
+watch(
+  () => [projectList.value.length, highlightId.value],
+  () => scrollToHighlightRow(),
+  { flush: "post" }
+);
 
 // 生命周期钩子 - 组件挂载时获取项目列表
 onMounted(() => {
@@ -1019,6 +1071,14 @@ onMounted(() => {
 
 .table-section .table-scroll-viewport :deep(.el-table__body-wrapper) {
   overflow-x: hidden !important;
+}
+
+/* 从用例管理等处跳转时的选中行高亮（直接显示，无边框） */
+.table-section :deep(tr.highlight-row > td) {
+  background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
+}
+.table-section :deep(tr.highlight-row:hover > td) {
+  background-color: var(--el-color-primary-light-8, #d9ecff) !important;
 }
 
 /* 固定分页组件样式 */

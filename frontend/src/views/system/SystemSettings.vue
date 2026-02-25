@@ -191,7 +191,7 @@
                   :max="10080"
                   placeholder="分钟"
                 />
-                <span style="margin-left: 10px">分钟后自动登出（默认 24 小时 = 1440 分钟）</span>
+                <span style="margin-left: 10px">分钟后自动登出（默认 24 小时 = 1440 分钟，对新登录生效）</span>
               </el-form-item>
               <el-form-item>
                 <el-button

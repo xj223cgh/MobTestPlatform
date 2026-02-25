@@ -247,37 +247,31 @@ def _get_report_data_impl(task_id):
 
 
 def generate_test_case_report(test_task):
-    """生成测试用例任务报告"""
-    # 获取关联的测试用例：优先从套件获取（与 to_dict 逻辑一致）
+    """生成测试用例任务报告：生成时写入一次性快照（用例集名+用例完整内容）以支持历史追溯"""
+    use_snapshots = getattr(test_task, 'case_snapshots', None) and len(test_task.case_snapshots) > 0
     try:
-        if test_task.suite_id and test_task.suite:
+        if use_snapshots:
+            test_cases = list(test_task.test_cases) if test_task.test_cases else []
+        elif test_task.suite_id and test_task.suite:
             test_cases = test_task.suite.test_cases if test_task.suite.test_cases else []
         else:
             test_cases = list(test_task.test_cases) if test_task.test_cases else []
     except Exception:
         test_cases = []
-    
-    # 初始化统计数据
-    stats = {
-        'pass': 0,
-        'fail': 0,
-        'blocked': 0,
-        'not_applicable': 0
-    }
-    
-    # 统计用例执行情况
-    for test_case in test_cases:
-        if test_case.status in stats:
-            stats[test_case.status] += 1
-    
-    # 计算总数和通过率
+    snapshot_map = {s.case_id: s for s in (test_task.case_snapshots or [])} if use_snapshots else {}
     total_cases = len(test_cases)
+
+    task_executions = {e.case_id: e for e in (test_task.case_executions or [])}
+    stats = {'pass': 0, 'fail': 0, 'blocked': 0, 'not_applicable': 0}
+    for e in (test_task.case_executions or []):
+        if e.status in stats:
+            stats[e.status] += 1
     executed_cases = sum(stats.values())
     pass_count = stats['pass']
-    pass_rate = round(pass_count / executed_cases * 100, 1) if executed_cases > 0 else 0
-    
-    # 构建报告摘要
+    pass_rate = round(pass_count / total_cases * 100, 1) if total_cases > 0 else 0
+    suite_name = test_task.suite_name_snapshot or (test_task.suite.suite_name if test_task.suite else None) or ""
     summary = {
+        'suite_name': suite_name,
         'total_cases': total_cases,
         'executed_cases': executed_cases,
         'pass_count': pass_count,
@@ -286,45 +280,39 @@ def generate_test_case_report(test_task):
         'not_applicable_count': stats['not_applicable'],
         'pass_rate': pass_rate
     }
-    
-    # 构建详细数据
+
     details = []
     for test_case in test_cases:
+        snap = snapshot_map.get(test_case.id)
+        exec_for_task = task_executions.get(test_case.id)
+        case_title = (snap.case_name if snap else None) or getattr(test_case, 'case_name', None) or getattr(test_case, 'case_title', None) or ''
+        case_number = snap.case_number if snap else getattr(test_case, 'case_number', None)
+        preconditions = snap.preconditions if snap else getattr(test_case, 'preconditions', None)
+        steps = snap.steps if snap else getattr(test_case, 'steps', None)
+        expected_result = snap.expected_result if snap else getattr(test_case, 'expected_result', None)
+        priority = snap.priority if snap else getattr(test_case, 'priority', None)
         try:
-            latest_execution = None
-            if test_case.executions:
-                executions_with_time = [e for e in test_case.executions if getattr(e, 'execution_time', None) or getattr(e, 'created_at', None)]
-                latest_execution = max(
-                    executions_with_time,
-                    key=lambda x: x.execution_time or getattr(x, 'created_at', None) or datetime.min
-                ) if executions_with_time else None
-            executed_by = None
-            if latest_execution and latest_execution.executor:
-                executed_by = latest_execution.executor.username
-            details.append({
-                'case_id': test_case.id,
-                'case_title': (getattr(test_case, 'case_name', None) or getattr(test_case, 'case_title', None)) or '',
-                'status': test_case.status or '',
-                'actual_result': getattr(latest_execution, 'actual_result', None) or (latest_execution.notes if latest_execution else None),
-                'executed_by': executed_by,
-                'executed_at': getattr(latest_execution, 'execution_time', None) or getattr(latest_execution, 'created_at', None) if latest_execution else None,
-                'remarks': getattr(latest_execution, 'remarks', None) or (latest_execution.notes if latest_execution else None)
-            })
+            executed_by = exec_for_task.executor.username if exec_for_task and exec_for_task.executor else None
+            actual_result = getattr(exec_for_task, 'actual_result', None) or (exec_for_task.notes if exec_for_task else None)
+            executed_at = getattr(exec_for_task, 'execution_time', None) or getattr(exec_for_task, 'created_at', None) if exec_for_task else None
+            remarks = getattr(exec_for_task, 'remarks', None) or (exec_for_task.notes if exec_for_task else None)
         except Exception:
-            details.append({
-                'case_id': test_case.id,
-                'case_title': (getattr(test_case, 'case_name', None) or getattr(test_case, 'case_title', None)) or '',
-                'status': getattr(test_case, 'status', '') or '',
-                'actual_result': None,
-                'executed_by': None,
-                'executed_at': None,
-                'remarks': None
-            })
-    
-    return {
-        'summary': summary,
-        'details': details
-    }
+            executed_by = actual_result = executed_at = remarks = None
+        details.append({
+            'case_id': test_case.id,
+            'case_number': case_number,
+            'case_title': case_title,
+            'priority': priority,
+            'preconditions': preconditions,
+            'steps': steps,
+            'expected_result': expected_result,
+            'status': (exec_for_task.status if exec_for_task else '') or '',
+            'actual_result': actual_result,
+            'executed_by': executed_by,
+            'executed_at': executed_at,
+            'remarks': remarks,
+        })
+    return {'summary': summary, 'details': details}
 
 
 def generate_device_script_report(test_task):

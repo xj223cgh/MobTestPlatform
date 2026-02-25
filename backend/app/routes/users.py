@@ -201,72 +201,107 @@ def update_user(user_id):
 @bp.route('/<int:user_id>', methods=['DELETE'])
 @login_required
 def delete_user(user_id):
-    """删除用户"""
+    """删除用户。如有关联引用则拒绝删除并返回引用信息。"""
     user = User.query.get_or_404(user_id)
-    
-    try:
-        # 导入所有需要的模型
-        from app.models.models import (
-            Project, ProjectMember, VersionRequirement, Iteration,
-            TestSuite, TestCase, TestTask, Tool, TestCaseExecution,
-            Device
-        )
-        
-        # 1. 将与该用户相关的所有项目成员记录的user_id设置为NULL
-        ProjectMember.query.filter_by(user_id=user_id).update({'user_id': None}, synchronize_session=False)
-        
-        # 2. 处理所有关联表，将外键设置为NULL
-        # 项目表
-        Project.query.filter_by(owner_id=user_id).update({'owner_id': None}, synchronize_session=False)
-        Project.query.filter_by(creator_id=user_id).update({'creator_id': None}, synchronize_session=False)
-        
-        # 版本需求表
-        VersionRequirement.query.filter_by(created_by=user_id).update({'created_by': None}, synchronize_session=False)
-        VersionRequirement.query.filter_by(assigned_to=user_id).update({'assigned_to': None}, synchronize_session=False)
-        
-        # 迭代表
-        Iteration.query.filter_by(created_by=user_id).update({'created_by': None}, synchronize_session=False)
-        Iteration.query.filter_by(updated_by=user_id).update({'updated_by': None}, synchronize_session=False)
-        
 
-        
-        # 测试套件表
-        TestSuite.query.filter_by(creator_id=user_id).update({'creator_id': None}, synchronize_session=False)
-        
-        # 测试用例表
-        TestCase.query.filter_by(creator_id=user_id).update({'creator_id': None}, synchronize_session=False)
-        TestCase.query.filter_by(assignee_id=user_id).update({'assignee_id': None}, synchronize_session=False)
-        TestCase.query.filter_by(reviewer_id=user_id).update({'reviewer_id': None}, synchronize_session=False)
-        
-        # 测试任务表
-        TestTask.query.filter_by(creator_id=user_id).update({'creator_id': None}, synchronize_session=False)
-        TestTask.query.filter_by(executor_id=user_id).update({'executor_id': None}, synchronize_session=False)
-        
-        # 工具表
-        Tool.query.filter_by(creator_id=user_id).update({'creator_id': None}, synchronize_session=False)
-        
-        # 测试用例执行表
-        TestCaseExecution.query.filter_by(executor_id=user_id).update({'executor_id': None}, synchronize_session=False)
-        
-        # 测试执行表已删除，无需处理
-        
-        # 设备表
-        Device.query.filter_by(owner_id=user_id).update({'owner_id': None}, synchronize_session=False)
-        
-        # 3. 然后删除用户
+    from app.models.models import (
+        Project, ProjectMember, VersionRequirement, Iteration,
+        TestSuite, TestCase, TestTask, Tool, TestCaseExecution,
+        Device, TestSuiteReviewTask, TestCaseReviewDetail,
+        TestSuiteReviewHistory, TestCaseReviewHistory,
+    )
+
+    refs = []
+    n = Project.query.filter_by(owner_id=user_id).count()
+    if n > 0:
+        refs.append(f"项目负责人({n})")
+    n = Project.query.filter_by(creator_id=user_id).count()
+    if n > 0:
+        refs.append(f"项目创建者({n})")
+    n = ProjectMember.query.filter_by(user_id=user_id).count()
+    if n > 0:
+        refs.append(f"项目成员({n})")
+    n = VersionRequirement.query.filter_by(created_by=user_id).count()
+    if n > 0:
+        refs.append(f"需求创建者({n})")
+    n = VersionRequirement.query.filter_by(assigned_to=user_id).count()
+    if n > 0:
+        refs.append(f"需求负责人({n})")
+    n = Iteration.query.filter_by(created_by=user_id).count()
+    if n > 0:
+        refs.append(f"迭代创建者({n})")
+    n = Iteration.query.filter_by(updated_by=user_id).count()
+    if n > 0:
+        refs.append(f"迭代更新者({n})")
+    n = TestSuite.query.filter_by(creator_id=user_id).count()
+    if n > 0:
+        refs.append(f"测试套件创建者({n})")
+    n = TestCase.query.filter_by(creator_id=user_id).count()
+    if n > 0:
+        refs.append(f"测试用例创建者({n})")
+    n = TestCase.query.filter_by(assignee_id=user_id).count()
+    if n > 0:
+        refs.append(f"测试用例负责人({n})")
+    n = TestCase.query.filter_by(reviewer_id=user_id).count()
+    if n > 0:
+        refs.append(f"测试用例审核人({n})")
+    n = TestTask.query.filter_by(creator_id=user_id).count()
+    if n > 0:
+        refs.append(f"测试任务创建者({n})")
+    n = TestTask.query.filter_by(executor_id=user_id).count()
+    if n > 0:
+        refs.append(f"测试任务执行人({n})")
+    n = Tool.query.filter_by(creator_id=user_id).count()
+    if n > 0:
+        refs.append(f"工具创建者({n})")
+    n = TestCaseExecution.query.filter_by(executor_id=user_id).count()
+    if n > 0:
+        refs.append(f"用例执行记录执行人({n})")
+    n = Device.query.filter_by(owner_id=user_id).count()
+    if n > 0:
+        refs.append(f"设备负责人({n})")
+    n = TestSuiteReviewTask.query.filter_by(initiator_id=user_id).count()
+    if n > 0:
+        refs.append(f"用例集评审发起人({n})")
+    n = TestSuiteReviewTask.query.filter_by(reviewer_id=user_id).count()
+    if n > 0:
+        refs.append(f"用例集评审人({n})")
+    n = TestCaseReviewDetail.query.filter_by(reviewer_id=user_id).count()
+    if n > 0:
+        refs.append(f"用例集评审详情评审人({n})")
+    n = TestSuiteReviewHistory.query.filter(
+        db.or_(
+            TestSuiteReviewHistory.initiator_id == user_id,
+            TestSuiteReviewHistory.reviewer_id == user_id,
+            TestSuiteReviewHistory.created_by == user_id,
+        )
+    ).count()
+    if n > 0:
+        refs.append(f"用例集评审历史({n})")
+    n = TestCaseReviewHistory.query.filter(
+        db.or_(
+            TestCaseReviewHistory.reviewer_id == user_id,
+            TestCaseReviewHistory.created_by == user_id,
+        )
+    ).count()
+    if n > 0:
+        refs.append(f"用例评审历史({n})")
+
+    if refs:
+        return error_response(
+            400,
+            "该用户存在关联数据，无法删除。当前引用：" + "、".join(refs) + "。请先解除或转移上述关联后再试。",
+        )
+
+    try:
         db.session.delete(user)
         db.session.commit()
-        
         log_user_action("删除用户", f"用户名: {user.username}")
-        
         return success_response(message="用户删除成功")
-        
     except Exception as e:
         import traceback
         db.session.rollback()
-        # 打印详细的错误信息到控制台
         print(f"删除用户失败，详细错误: {traceback.format_exc()}")
-        # 返回具体的错误信息
         return error_response(500, f"用户删除失败: {str(e)}")
 
 

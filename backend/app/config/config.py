@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
@@ -6,6 +7,25 @@ from dotenv import load_dotenv
 # 固定从 backend 目录加载 .env（config 在 backend/app/config/ 下，向上两级到 backend）
 _backend_dir = Path(__file__).resolve().parent.parent.parent
 load_dotenv(dotenv_path=_backend_dir / '.env')
+
+
+def _cors_origins():
+    """构建 CORS 允许的 origin 列表：本机 + 环境变量中的配置 + 内网网段（供同局域网他人访问）"""
+    base = [
+        "http://localhost:3000", "http://127.0.0.1:3000",
+        "http://localhost:5000", "http://127.0.0.1:5000",
+        "http://localhost:8080", "http://127.0.0.1:8080",
+        "http://localhost:8081", "http://127.0.0.1:8081",
+    ]
+    extra = os.environ.get("CORS_ORIGINS", "")
+    if extra:
+        base.extend(origin.strip() for origin in extra.split(",") if origin.strip())
+    # 内网网段：192.168.x.x、10.x.x.x（任意端口），便于同公司内网访问
+    base.extend([
+        re.compile(r"^http://192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$"),
+        re.compile(r"^http://10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$"),
+    ])
+    return base
 
 
 class Config:
@@ -33,8 +53,8 @@ class Config:
     SESSION_FILE_MODE = 0o600  # 设置文件权限
     PERMANENT_SESSION_LIFETIME = timedelta(hours=24)
     
-    # CORS配置
-    CORS_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5000", "http://127.0.0.1:5000", "http://localhost:8080", "http://127.0.0.1:8080", "http://localhost:8081", "http://127.0.0.1:8081"]
+    # CORS 配置（含本机 + .env 中的 CORS_ORIGINS + 内网 192.168.x.x / 10.x.x.x）
+    CORS_ORIGINS = _cors_origins()
     
     # 分页配置
     DEFAULT_PAGE_SIZE = 20

@@ -480,8 +480,13 @@ def execute_task(device_id):
                     f.write(file_content)
                     file_path = f.name
 
-            # 构建完整的命令
-            command_parts = [adb_path, '-s', device.device_id, 'install', '-r', file_path]
+            # 安装选项：覆盖安装(-r)、降级安装(-d)
+            install_flags = []
+            if data.get('install_replace', True):
+                install_flags.append('-r')
+            if data.get('install_downgrade', False):
+                install_flags.append('-d')
+            command_parts = [adb_path, '-s', device.device_id, 'install'] + install_flags + [file_path]
 
             # 执行安装命令
             result = subprocess.run(
@@ -756,10 +761,13 @@ def execute_batch_tasks():
                             f.write(file_data)
                             file_path = f.name
 
-                # 构建完整的命令
-                command_parts = [adb_path, '-s', str(device_id), 'install', '-r', file_path]
+                install_flags = []
+                if data.get('install_replace', True):
+                    install_flags.append('-r')
+                if data.get('install_downgrade', False):
+                    install_flags.append('-d')
+                command_parts = [adb_path, '-s', str(device_id), 'install'] + install_flags + [file_path]
 
-                # 执行安装命令
                 result = subprocess.run(
                     command_parts,
                     capture_output=True,
@@ -770,7 +778,6 @@ def execute_batch_tasks():
                     errors='ignore'
                 )
 
-                # 清理临时文件
                 if file_content and os.path.exists(file_path):
                     os.unlink(file_path)
 
@@ -935,17 +942,16 @@ def execute_batch_tasks():
     })
 
 
-def execute_batch_task_wrapper(device_ids, task_type, command, file_path, file_content=None, task_id=None):
+def execute_batch_task_wrapper(device_ids, task_type, command, file_path, file_content=None, task_id=None,
+                                install_replace=True, install_downgrade=False):
     """批量执行任务的包装函数，用于定时任务调用"""
     results = []
 
     for device_id in device_ids:
         try:
-            # 计算项目根目录路径
             project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
             if task_type == 'install' and (file_path or file_content):
-                # 安装 APK
                 adb_path = os.path.join(
                     project_root,
                     'escrcpy', 'electron', 'resources', 'extra', 'win', 'scrcpy', 'adb.exe'
@@ -954,18 +960,21 @@ def execute_batch_task_wrapper(device_ids, task_type, command, file_path, file_c
                 env = os.environ.copy()
                 env['ADB'] = adb_path
 
-                # 如果有文件内容，先保存到临时文件
                 if file_content:
                     import tempfile
                     import base64
-                    # 解码base64数据
                     if file_content.startswith('data:application/vnd.android.package-archive;base64,'):
                         file_data = base64.b64decode(file_content.split(',')[1])
                         with tempfile.NamedTemporaryFile(mode='wb', suffix='.apk', delete=False) as f:
                             f.write(file_data)
                             file_path = f.name
 
-                command_parts = [adb_path, '-s', str(device_id), 'install', '-r', file_path]
+                install_flags = []
+                if install_replace:
+                    install_flags.append('-r')
+                if install_downgrade:
+                    install_flags.append('-d')
+                command_parts = [adb_path, '-s', str(device_id), 'install'] + install_flags + [file_path]
 
                 result = subprocess.run(
                     command_parts,
@@ -977,7 +986,6 @@ def execute_batch_task_wrapper(device_ids, task_type, command, file_path, file_c
                     errors='ignore'
                 )
 
-                # 清理临时文件
                 if file_content and os.path.exists(file_path):
                     os.unlink(file_path)
 

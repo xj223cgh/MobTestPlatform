@@ -81,22 +81,14 @@ function buildMindMapData(suiteNameVal, casesList) {
     P3: "🔵P3",
     P4: "🟢P4",
   };
-  const statusIconMap = {
-    "": "⏳ 未执行",
-    pass: "✅通过",
-    fail: "❌失败",
-    blocked: "🚫阻塞",
-    not_applicable: "⚠️不适用",
-  };
+  // 用例库不展示执行状态，仅显示优先级与名称
   casesList.forEach((testCase) => {
     const priority = testCase.priority || "P3";
-    const status = testCase.status || "";
     const priorityIcon = priorityIconMap[priority] || `🔵 ${(priority || "").replace("P", "")}`;
-    const statusIcon = statusIconMap[status] || statusIconMap[""];
     const caseNameNode = {
       id: `case-name-${testCase.id}`,
       data: {
-        text: `${priorityIcon} ${testCase.case_name} ${statusIcon}`,
+        text: `${priorityIcon} ${testCase.case_name}`,
         type: "case-name",
       },
       children: [],
@@ -111,7 +103,6 @@ function buildMindMapData(suiteNameVal, casesList) {
       { key: "preconditions", label: "前置条件", value: testCase.preconditions || "-" },
       { key: "steps", label: "测试步骤", value: testCase.steps || "-" },
       { key: "expected_result", label: "预期结果", value: testCase.expected_result || "-" },
-      { key: "actual_result", label: "实际结果", value: testCase.actual_result || "-" },
     ];
     caseProperties.forEach((prop) => {
       caseIdNode.children.push({

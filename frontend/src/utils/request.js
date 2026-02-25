@@ -104,14 +104,18 @@ request.interceptors.response.use(
           break;
 
         case 403:
-          // 权限不足
-          ElMessage.error("权限不足，无法访问该资源");
-          router.push("/403");
+          // 权限不足：仅提示，不跳转，避免操作类接口（如创建需求）误跳 403 页
+          ElMessage.warning(data?.message || "权限不足，无法执行该操作");
           break;
 
         case 404:
           // 资源不存在
           ElMessage.error("请求的资源不存在");
+          break;
+
+        case 400:
+          // 业务校验/约束类提示（如删除关联校验），使用警告色而非红色
+          ElMessage.warning(data?.message || "请求无效");
           break;
 
         case 422:

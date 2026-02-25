@@ -3,49 +3,49 @@
     <div class="page-header">
       <div class="header-content">
         <h1>设备管理</h1>
-        <div
-          class="right-content flex items-center"
-          style="gap: 25px"
+        <p class="description">
+          管理已连接的测试设备
+        </p>
+      </div>
+      <div class="header-actions">
+        <el-button
+          v-if="selectionRows.length > 0"
+          type="danger"
+          :icon="Delete"
+          @click="handleBatchDelete"
         >
-          <el-button
-            v-if="selectionRows.length > 0"
-            type="danger"
-            :icon="Delete"
-            @click="handleBatchDelete"
-          >
-            删除选中 ({{ selectionRows.length }})
-          </el-button>
-          <el-button
-            type="primary"
-            :icon="Operation"
-            @click="openTaskDialog"
-          >
-            测试任务
-          </el-button>
-          <div class="refresh-control">
-            <span class="refresh-text">{{
-              autoRefreshEnabled ? "自动刷新" : "手动刷新"
-            }}</span>
-            <el-switch
-              v-model="autoRefreshEnabled"
-              @change="handleAutoRefreshChange"
-            />
-          </div>
-          <el-button
-            type="default"
-            :icon="loading ? '' : 'Refresh'"
-            :loading="loading"
-            placement="right"
-            circle
-            title="刷新设备"
-            @click="refreshDevices"
-          />
-          <WirelessGroup
-            ref="wirelessGroupRef"
-            v-bind="{ handleRefresh: refreshDevices }"
-            @auto-connected="onAutoConnected"
+          删除选中 ({{ selectionRows.length }})
+        </el-button>
+        <el-button
+          type="primary"
+          :icon="Operation"
+          @click="openTaskDialog"
+        >
+          测试任务
+        </el-button>
+        <div class="refresh-control">
+          <span class="refresh-text">{{
+            autoRefreshEnabled ? "自动刷新" : "手动刷新"
+          }}</span>
+          <el-switch
+            v-model="autoRefreshEnabled"
+            @change="handleAutoRefreshChange"
           />
         </div>
+        <el-button
+          type="default"
+          :icon="loading ? '' : 'Refresh'"
+          :loading="loading"
+          placement="right"
+          circle
+          title="刷新设备"
+          @click="refreshDevices"
+        />
+        <WirelessGroup
+          ref="wirelessGroupRef"
+          v-bind="{ handleRefresh: refreshDevices }"
+          @auto-connected="onAutoConnected"
+        />
       </div>
     </div>
 
@@ -81,7 +81,7 @@
             label="设备序列号"
             sortable
             align="center"
-            width="170"
+            min-width="170"
           >
             <template #default="{ row }">
               <div class="device-serial-wrapper">
@@ -117,7 +117,7 @@
             sortable
             show-overflow-tooltip
             align="center"
-            width="130"
+            min-width="130"
           >
             <template #default="{ row }">
               <template v-if="editingDeviceId === row.id">
@@ -148,7 +148,7 @@
             align="center"
             sortable
             show-overflow-tooltip
-            width="110"
+            min-width="110"
           >
             <el-tag :type="getStatusTagType(row.status)">
               <span class="flex-none">{{
@@ -163,7 +163,7 @@
             align="center"
             sortable
             show-overflow-tooltip
-            width="105"
+            min-width="105"
           >
             <div
               style="
@@ -210,7 +210,7 @@
             align="center"
             sortable
             show-overflow-tooltip
-            width="105"
+            min-width="105"
           >
             <el-tag
               :type="row.battery && row.battery.isCharging ? 'success' : 'info'"
@@ -231,7 +231,7 @@
             align="center"
             sortable
             show-overflow-tooltip
-            width="160"
+            min-width="160"
           >
             <el-select
               v-model="row.owner_id"
@@ -254,7 +254,7 @@
             v-slot="{ row }"
             label="设备操作"
             align="center"
-            width="220"
+            min-width="220"
           >
             <div class="flex items-center justify-between w-full px-2">
               <div class="flex-1 flex justify-center">
@@ -856,7 +856,8 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background-color: var(--el-bg-color-page, transparent);
+  overflow: hidden;
+  background-color: var(--el-bg-color-page, #f5f7fa);
 }
 
 .refresh-control {
@@ -910,30 +911,43 @@ onUnmounted(() => {
 }
 
 .page-header {
-  margin-bottom: 20px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--el-border-color-light, #e4e7ed);
-  background-color: var(--el-bg-color, transparent);
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  background: var(--el-bg-color, white);
+  padding: 16px 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--el-border-color-lighter, transparent);
 
   .header-content {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    width: 100%;
-
-    h1 {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 600;
-      color: var(--el-text-color-primary, #303133);
-    }
-
-    .right-content {
-      display: flex;
-      align-items: center;
-      space-x: 2;
-    }
+    gap: 12px;
+    min-width: 0;
   }
+
+  .header-content h1 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--el-text-color-primary, #303133);
+  }
+
+  .description {
+    margin: 0;
+    color: var(--el-text-color-regular, #606266);
+    font-size: 14px;
+  }
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .device-content {

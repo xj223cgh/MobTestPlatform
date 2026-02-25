@@ -1,6 +1,9 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-from app.models.models import db, Project, ProjectMember, Iteration, VersionRequirement
+from app.models.models import (
+    db, Project, ProjectMember, Iteration, VersionRequirement,
+    TestSuite, TestCase, TestTask, TestCaseExecution,
+)
 from datetime import datetime
 import json
 
@@ -19,16 +22,6 @@ def create_iteration_new():
         
         project_id = data['project_id']
         
-        # 检查用户是否有权限访问该项目
-        project_member = ProjectMember.query.filter_by(
-            project_id=project_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not project_member or project_member.role not in ['owner', 'manager']:
-            return jsonify({'error': '无权在该项目中创建迭代'}), 403
-        
-        # 获取项目
         project = Project.query.get(project_id)
         if not project:
             return jsonify({'error': '项目不存在'}), 404
@@ -84,18 +77,8 @@ def create_iteration_new():
 @bp.route('/projects/<int:project_id>/iterations', methods=['POST'])
 @login_required
 def create_iteration(project_id):
-    """创建迭代"""
+    """创建迭代（不做权限鉴别）"""
     try:
-        # 检查用户是否有权限访问该项目
-        project_member = ProjectMember.query.filter_by(
-            project_id=project_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not project_member or project_member.role not in ['owner', 'manager']:
-            return jsonify({'error': '无权在该项目中创建迭代'}), 403
-        
-        # 获取项目
         project = Project.query.get(project_id)
         if not project:
             return jsonify({'error': '项目不存在'}), 404
@@ -207,21 +190,10 @@ def get_iteration(iteration_id):
 def update_iteration(iteration_id):
     """更新迭代信息"""
     try:
-        # 获取迭代
         iteration = Iteration.query.get(iteration_id)
         if not iteration:
             return jsonify({'error': '迭代不存在'}), 404
         
-        # 检查用户是否有权限更新该迭代
-        project_member = ProjectMember.query.filter_by(
-            project_id=iteration.project_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not project_member or project_member.role not in ['owner', 'manager']:
-            return jsonify({'error': '无权更新该迭代'}), 403
-        
-        # 更新迭代信息
         data = request.get_json()
         if 'iteration_name' in data:
             iteration.iteration_name = data['iteration_name']
@@ -259,37 +231,48 @@ def update_iteration(iteration_id):
 @bp.route('/<int:iteration_id>', methods=['DELETE'])
 @login_required
 def delete_iteration(iteration_id):
-    """删除迭代"""
+    """删除迭代。仅校验关联引用，有关联则提示无法删除；不做权限鉴别。"""
+    iteration = Iteration.query.get(iteration_id)
+    if not iteration:
+        return jsonify({'code': 404, 'message': '迭代不存在'}), 404
+
+    # 先校验关联引用：有关联则直接返回 400，与项目删除逻辑一致
+    refs = []
+    n = VersionRequirement.query.filter_by(iteration_id=iteration_id).count()
+    if n > 0:
+        refs.append(f"版本需求({n})")
+    n = TestSuite.query.filter_by(iteration_id=iteration_id).count()
+    if n > 0:
+        refs.append(f"测试套件({n})")
+    n = TestCase.query.filter_by(iteration_id=iteration_id).count()
+    if n > 0:
+        refs.append(f"测试用例({n})")
+    n = TestTask.query.filter(
+        TestTask.iteration_id.isnot(None),
+        TestTask.iteration_id == iteration_id,
+    ).count()
+    if n > 0:
+        refs.append(f"测试任务({n})")
+    n = TestCaseExecution.query.filter(
+        TestCaseExecution.iteration_id.isnot(None),
+        TestCaseExecution.iteration_id == iteration_id,
+    ).count()
+    if n > 0:
+        refs.append(f"用例执行记录({n})")
+
+    if refs:
+        return jsonify({
+            'code': 400,
+            'message': '该迭代存在关联数据，无法删除。当前引用：' + '、'.join(refs) + '。请先解除或删除上述关联后再试。',
+        }), 400
+
     try:
-        # 获取迭代
-        iteration = Iteration.query.get(iteration_id)
-        if not iteration:
-            return jsonify({'error': '迭代不存在'}), 404
-        
-        # 检查用户是否有权限删除该迭代
-        project_member = ProjectMember.query.filter_by(
-            project_id=iteration.project_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not project_member or project_member.role not in ['owner', 'manager']:
-            return jsonify({'error': '无权删除该迭代'}), 403
-        
-        # 检查迭代是否有相关的测试任务
-        if iteration.test_tasks:
-            return jsonify({'error': '该迭代下存在测试任务，无法删除'}), 400
-        
-        # 删除迭代
         db.session.delete(iteration)
         db.session.commit()
-        
-        return jsonify({
-            'code': 200,
-            'message': '迭代删除成功'
-        }), 200
+        return jsonify({'code': 200, 'message': '迭代删除成功'}), 200
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': f'删除迭代失败: {str(e)}'}), 500
+        return jsonify({'code': 500, 'message': f'删除迭代失败: {str(e)}'}), 500
 
 @bp.route('/<int:iteration_id>/copy', methods=['POST'])
 @login_required
@@ -301,16 +284,6 @@ def copy_iteration(iteration_id):
         if not source_iteration:
             return jsonify({'error': '源迭代不存在'}), 404
         
-        # 检查用户是否有权限访问该项目
-        project_member = ProjectMember.query.filter_by(
-            project_id=source_iteration.project_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not project_member or project_member.role not in ['owner', 'manager']:
-            return jsonify({'error': '无权复制该迭代'}), 403
-        
-        # 获取项目
         project = Project.query.get(source_iteration.project_id)
         if not project:
             return jsonify({'error': '项目不存在'}), 404

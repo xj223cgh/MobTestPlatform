@@ -133,6 +133,42 @@ export function getTaskOptions() {
   });
 }
 
+// ---------- 任务文件夹（按任务类型分开） ----------
+// 获取任务文件夹树
+export function getTaskFolderTree(taskType) {
+  return request({
+    url: "/test-tasks/task-folders",
+    method: "get",
+    params: { task_type: taskType },
+  });
+}
+
+// 创建任务文件夹
+export function createTaskFolder(data) {
+  return request({
+    url: "/test-tasks/task-folders",
+    method: "post",
+    data,
+  });
+}
+
+// 更新任务文件夹
+export function updateTaskFolder(id, data) {
+  return request({
+    url: `/test-tasks/task-folders/${id}`,
+    method: "patch",
+    data,
+  });
+}
+
+// 删除任务文件夹
+export function deleteTaskFolder(id) {
+  return request({
+    url: `/test-tasks/task-folders/${id}`,
+    method: "delete",
+  });
+}
+
 export default {
   getTestTaskList,
   getTestTaskDetail,
@@ -150,4 +186,8 @@ export default {
   getTaskDevices,
   getTaskTestCases,
   getTaskOptions,
+  getTaskFolderTree,
+  createTaskFolder,
+  updateTaskFolder,
+  deleteTaskFolder,
 };

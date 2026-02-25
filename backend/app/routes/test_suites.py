@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-from app.models.models import db, TestSuite, User
+from app.models.models import db, TestSuite, User, TestCase, TestTask, TestSuiteReviewTask
 from app.utils.helpers import success_response, error_response, get_pagination_params
 
 # 创建Blueprint
@@ -319,13 +319,51 @@ def sync_reviewer_to_cases(suite_id):
         return error_response(500, f'同步评审人失败: {str(e)}')
 
 
+def _collect_suite_ids(suite_obj):
+    """收集该套件及其所有子孙套件的 id 列表（用于关联引用校验）"""
+    ids = [suite_obj.id]
+    for child in suite_obj.children:
+        ids.extend(_collect_suite_ids(child))
+    return ids
+
+
 @bp.route('/<int:suite_id>', methods=['DELETE'])
 @login_required
 def delete_test_suite(suite_id):
-    """删除测试套件，包括所有子套件和关联数据"""
+    """删除测试套件，包括所有子套件和关联数据。如有关联引用则拒绝删除并提示。"""
     try:
         from app.models.models import TestSuiteReviewHistory, TestCaseReviewHistory
-        
+
+        suite = TestSuite.query.get_or_404(suite_id)
+        suite_ids = _collect_suite_ids(suite)
+
+        # 关联引用校验：只要存在任一关联引用则禁止删除并提示
+        cases_count = TestCase.query.filter(TestCase.suite_id.in_(suite_ids)).count()
+        if cases_count > 0:
+            return error_response(
+                400,
+                "该用例集或其子套件下存在测试用例，无法直接删除。请先移走或删除用例后再试。",
+            )
+
+        tasks_count = TestTask.query.filter(
+            TestTask.suite_id.isnot(None),
+            TestTask.suite_id.in_(suite_ids),
+        ).count()
+        if tasks_count > 0:
+            return error_response(
+                400,
+                "有关联的测试任务引用该用例集，无法删除。请先在测试任务中解除关联后再试。",
+            )
+
+        review_count = TestSuiteReviewTask.query.filter(
+            TestSuiteReviewTask.suite_id.in_(suite_ids),
+        ).count()
+        if review_count > 0:
+            return error_response(
+                400,
+                "该用例集存在评审任务，无法删除。请先完成或关闭相关评审后再试。",
+            )
+
         # 递归删除函数
         def recursive_delete(suite_obj):
             # 1. 删除子套件（递归）
@@ -352,10 +390,7 @@ def delete_test_suite(suite_id):
             
             # 5. 删除套件本身
             db.session.delete(suite_obj)
-        
-        # 获取要删除的套件
-        suite = TestSuite.query.get_or_404(suite_id)
-        
+
         # 执行递归删除
         recursive_delete(suite)
         

@@ -236,68 +236,47 @@
             >
               <div class="info-item">
                 <span class="label">项目:</span>
-                <span class="value">{{
+                <span
+                  class="value link"
+                  :class="{ disabled: !selectedSuite.project_id }"
+                  @click="goToProject(selectedSuite)"
+                >{{
                   selectedSuite.project_name || "-"
                 }}</span>
               </div>
               <div class="info-item">
                 <span class="label">迭代:</span>
-                <span class="value">{{
+                <span
+                  class="value link"
+                  :class="{ disabled: !selectedSuite.iteration_id }"
+                  @click="goToIteration(selectedSuite)"
+                >{{
                   selectedSuite.iteration_name || "-"
                 }}</span>
               </div>
               <div class="info-item">
                 <span class="label">需求:</span>
-                <span class="value">{{
+                <span
+                  class="value link"
+                  :class="{ disabled: !selectedSuite.version_requirement_id }"
+                  @click="goToRequirement(selectedSuite)"
+                >{{
                   selectedSuite.version_requirement_name || "-"
                 }}</span>
               </div>
               <div class="info-item">
                 <span class="label">创建人:</span>
-                <span class="value">{{
+                <span
+                  class="value link"
+                  :class="{ disabled: !selectedSuite.creator_id }"
+                  @click="goToUser(selectedSuite)"
+                >{{
                   selectedSuite.creator_name || "-"
                 }}</span>
               </div>
             </div>
           </div>
 
-          <!-- 用例进度条 -->
-          <div
-            v-if="selectedSuite && selectedSuite.type === 'suite'"
-            class="case-progress-container"
-          >
-            <div class="progress-wrapper">
-              <!-- 进度条上方显示执行情况 -->
-              <div class="progress-execution-info">
-                用例执行进度：{{ executionRate }}%
-              </div>
-              <div class="progress-bar">
-                <div
-                  v-for="item in statusProgress"
-                  :key="item.status"
-                  class="progress-segment"
-                  :class="`status-${item.status}`"
-                  :style="{ width: `${item.percentage}%` }"
-                  :title="`${item.label}: ${item.count}条 (${item.percentage}%)`"
-                />
-              </div>
-              <!-- 进度数据显示在右侧末尾 -->
-              <div class="progress-data-right">
-                {{ notExecutedCount }}/{{ totalCases }}
-              </div>
-              <!-- 水平分布的属性标签 -->
-              <div class="progress-labels-horizontal">
-                <span
-                  v-for="item in positionedLabels"
-                  :key="item.status"
-                  class="stat-item horizontal"
-                  :class="`status-${item.status}`"
-                >
-                  {{ item.label }}: {{ item.count }} ({{ item.percentage }}%)
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
 
         <!-- 缺省页面：未选择套件或选中为文件夹时显示 -->
@@ -629,120 +608,6 @@
                     @dblclick="startCaseEdit(row, 'expected_result')"
                   >
                     {{ row.expected_result || "-" }}
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column
-                prop="actual_result"
-                label="实际结果"
-                min-width="130"
-                align="left"
-                header-align="left"
-                :cell-style="{ textAlign: 'left' }"
-              >
-                <template #default="{ row }">
-                  <template
-                    v-if="
-                      editingCaseId === row.id &&
-                        editingField === 'actual_result'
-                    "
-                  >
-                    <el-input
-                      v-model="editingValue"
-                      type="textarea"
-                      :rows="3"
-                      autofocus
-                      @blur="saveCaseEdit(row)"
-                      @keyup.enter.ctrl="saveCaseEdit(row)"
-                      @keyup.esc="cancelCaseEdit"
-                    />
-                  </template>
-                  <div
-                    v-else
-                    style="text-align: left"
-                    @dblclick="startCaseEdit(row, 'actual_result')"
-                  >
-                    {{ row.actual_result || "-" }}
-                  </div>
-                </template>
-              </el-table-column>
-
-              <el-table-column
-                prop="status"
-                label="状态"
-                width="150"
-              >
-                <template #header>
-                  <el-popover
-                    placement="bottom"
-                    :width="90"
-                    trigger="click"
-                  >
-                    <template #reference>
-                      <div style="display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer;">
-                        <span>状态</span>
-                        <el-icon style="color: #409eff;">
-                          <Filter />
-                        </el-icon>
-                      </div>
-                    </template>
-                      <div class="filter-panel">
-                        <el-checkbox
-                          v-model="statusFilterAll"
-                          @change="handleStatusAllChange"
-                          style="margin-bottom: 6px; font-weight: 500;"
-                        >
-                          全选
-                        </el-checkbox>
-                        <el-checkbox-group
-                          v-model="statusFilterValues"
-                          @change="handleStatusFilterChange"
-                        >
-                          <el-checkbox label="" style="display: block; margin: 4px 0;">未执行</el-checkbox>
-                          <el-checkbox label="pass" style="display: block; margin: 4px 0;">通过</el-checkbox>
-                          <el-checkbox label="fail" style="display: block; margin: 4px 0;">失败</el-checkbox>
-                          <el-checkbox label="blocked" style="display: block; margin: 4px 0;">阻塞</el-checkbox>
-                          <el-checkbox label="not_applicable" style="display: block; margin: 4px 0;">不适用</el-checkbox>
-                        </el-checkbox-group>
-                        <div style="margin-top: 8px; text-align: right; border-top: 1px solid #e4e7ed; padding-top: 6px;">
-                          <el-button size="small" @click="handleStatusReset">重置</el-button>
-                        </div>
-                      </div>
-                  </el-popover>
-                </template>
-                <template #default="{ row }">
-                  <div class="status-cell">
-                    <el-select
-                      v-model="row.status"
-                      size="small"
-                      style="width: 90%"
-                      :popper-class="'status-select-popper'"
-                      placeholder="未执行"
-                      @change="handleStatusChange(row)"
-                    >
-                      <template #prefix>
-                        <span
-                          class="status-color-indicator"
-                          :class="'status-' + (row.status || 'none')"
-                        />
-                      </template>
-                      <el-option
-                        v-for="option in statusOptions"
-                        :key="option.value"
-                        :label="option.label"
-                        :value="option.value"
-                      >
-                        <div class="status-option-content">
-                          <span
-                            class="status-color-indicator"
-                            :class="'status-' + (option.value || 'none')"
-                          />
-                          <span class="status-option-text">{{
-                            option.label
-                          }}</span>
-                        </div>
-                      </el-option>
-                    </el-select>
                   </div>
                 </template>
               </el-table-column>
@@ -1258,33 +1123,6 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="状态">
-          <el-select
-            v-model="caseForm.status"
-            placeholder="默认未执行"
-          >
-            <el-option
-              label="未执行"
-              value=""
-            />
-            <el-option
-              label="通过"
-              value="pass"
-            />
-            <el-option
-              label="失败"
-              value="fail"
-            />
-            <el-option
-              label="阻塞"
-              value="blocked"
-            />
-            <el-option
-              label="不适用"
-              value="not_applicable"
-            />
-          </el-select>
-        </el-form-item>
         <el-form-item label="测试数据">
           <el-input
             v-model="caseForm.test_data"
@@ -1317,15 +1155,6 @@
             type="textarea"
             :rows="2"
             placeholder="请输入预期结果"
-            clearable
-          />
-        </el-form-item>
-        <el-form-item label="实际结果">
-          <el-input
-            v-model="caseForm.actual_result"
-            type="textarea"
-            :rows="2"
-            placeholder="请输入实际结果"
             clearable
           />
         </el-form-item>
@@ -2184,17 +2013,6 @@
               </template>
             </el-table-column>
             <el-table-column
-              label="实际结果"
-              width="10%"
-              min-width="90"
-            >
-              <template #default="scope">
-                <div class="read-only-comments">
-                  {{ scope.row.test_case?.actual_result || "-" }}
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column
               label="评审意见"
               width="12%"
               min-width="120"
@@ -2302,23 +2120,16 @@
               // 遍历处理每条数据
               for (const item of excelData) {
                 try {
-                  // 将中文状态转换为对应的状态值
-                  const statusValue =
-                    statusOptions.find(
-                      (option) => option.label === item['状态'],
-                    )?.value || '';
-
-                  // 构建完整的用例数据
+                  // 用例库不维护执行状态，导入时状态留空；执行通过创建计划进行
                   const caseData = {
                     case_number: item['用例编号'] || '',
                     case_name: item['用例名称'] || '',
                     priority: item['优先级'] || 'P1',
-                    status: statusValue,
+                    status: '',
                     preconditions: item['前置条件'] || '',
                     test_data: item['测试数据'] || '',
                     steps: item['操作步骤'] || '',
                     expected_result: item['预期结果'] || '',
-                    actual_result: item['实际结果'] || '',
                     suite_id: importExportForm.parent_id,
                     project_id: suiteDetail.data.project_id,
                     version_requirement_id:
@@ -2435,12 +2246,10 @@ const EXPORT_COLUMN_OPTIONS = [
   { key: "所属迭代", wch: 20 },
   { key: "关联需求", wch: 20 },
   { key: "优先级", wch: 10 },
-  { key: "状态", wch: 15 },
   { key: "前置条件", wch: 25 },
   { key: "测试数据", wch: 25 },
   { key: "操作步骤", wch: 40 },
   { key: "预期结果", wch: 30 },
-  { key: "实际结果", wch: 30 },
 ];
 
 import {
@@ -2968,6 +2777,39 @@ const reviewerOptions = ref([]);
 const userStore = useUserStore();
 const router = useRouter();
 const route = useRoute();
+
+// 用例集信息跳转：项目/迭代/需求 -> 对应列表页并高亮该条；创建人 -> 用户管理
+const goToProject = (suite) => {
+  router.push({
+    name: "Projects",
+    query: suite?.project_id ? { highlight_id: String(suite.project_id) } : {},
+  });
+};
+const goToIteration = (suite) => {
+  const query = {};
+  if (suite?.project_id) query.project_id = String(suite.project_id);
+  if (suite?.iteration_id) query.highlight_id = String(suite.iteration_id);
+  router.push({ name: "Iterations", query });
+};
+const goToRequirement = (suite) => {
+  router.push({
+    name: "Requirements",
+    query: suite?.version_requirement_id
+      ? { highlight_id: String(suite.version_requirement_id) }
+      : {},
+  });
+};
+const goToUser = (suite) => {
+  if (suite?.creator_id) {
+    router.push({
+      name: "Users",
+      query: { user_id: suite.creator_id },
+    });
+  } else {
+    router.push({ name: "Users" });
+  }
+};
+
 const suiteReviewStatus = ref(null);
 const isLoadingReviewStatus = ref(false);
 const reviewButtonText = ref("发起评审");
@@ -3089,10 +2931,16 @@ const allowDrag = (node) => {
 
 // 允许放置
 const allowDrop = (draggingNode, dropNode, type) => {
-  // 限制5级深度
   if (type === "inner") {
+    // 限制5级深度
     const level = dropNode.level;
     if (level >= 5) {
+      return false;
+    }
+    // 禁止将「用例集」类型的套件拖入同为「用例集」类型的套件内部（仅文件夹可包含用例集）
+    const dragType = draggingNode?.data?.type;
+    const dropType = dropNode?.data?.type;
+    if (dragType === "suite" && dropType === "suite") {
       return false;
     }
   }
@@ -3732,7 +3580,7 @@ const selectSuiteById = async (suiteId) => {
 const loadProjects = async () => {
   try {
     isLoadingProjects.value = true;
-    const response = await getProjects();
+    const response = await getProjects({ page: 1, size: 10000 });
     // 检查API返回的数据结构
     console.log("Projects API response:", response);
     if (
@@ -4110,9 +3958,10 @@ const handleDeleteSuite = async () => {
         loadTreeData();
       } catch (error) {
         console.error("删除测试套件失败:", error);
-        // 根据后端返回的错误信息给出友好提示
-        const errorMsg = error.response?.data?.message || "删除测试套件失败";
-        ElMessage.error(errorMsg);
+        // 400 等错误已由 request 拦截器统一弹出 message，此处仅处理无 response 的情况（如网络错误）
+        if (!error.response?.data?.message) {
+          ElMessage.error("删除测试套件失败");
+        }
       } finally {
         closeContextMenu();
       }
@@ -5006,7 +4855,7 @@ const generateMindMapData = () => {
 
   // 遍历当前用例集中的全部用例
   casesForMindMap.forEach((testCase) => {
-    // 优先级和状态图标映射
+    // 优先级图标映射（用例库不展示执行状态）
     const priorityIconMap = {
       P0: "🔴P0",
       P1: "🔴P1",
@@ -5015,28 +4864,16 @@ const generateMindMapData = () => {
       P4: "🟢P4",
     };
 
-    const statusIconMap = {
-      "": "⏳ 未执行",
-      pass: "✅通过",
-      fail: "❌失败",
-      blocked: "🚫阻塞",
-      not_applicable: "⚠️不适用",
-    };
-
-    // 获取当前用例的优先级和状态
+    // 获取当前用例的优先级（用例库不展示执行状态，执行通过计划进行）
     const priority = testCase.priority || "P3";
-    const status = testCase.status || "";
-
-    // 获取优先级图标和状态图标
     const priorityIcon =
       priorityIconMap[priority] || `🔵 ${priority.replace("P", "")}`;
-    const statusIcon = statusIconMap[status] || statusIconMap[""];
 
-    // 用例名称作为同级子节点，添加优先级图标、优先级数字和用例状态图标、用例状态中文
+    // 用例名称作为同级子节点，仅显示优先级与名称
     const caseNameNode = {
       id: `case-name-${testCase.id}`,
       data: {
-        text: `${priorityIcon} ${testCase.case_name} ${statusIcon}`,
+        text: `${priorityIcon} ${testCase.case_name}`,
         type: "case-name",
       },
       children: [],
@@ -5052,7 +4889,7 @@ const generateMindMapData = () => {
       children: [],
     };
 
-    // 用例属性作为用例ID的子节点（顺序固定：测试数据、前置条件、测试步骤、预期结果、实际结果）
+    // 用例属性作为用例ID的子节点（用例库不包含实际结果，仅定义：测试数据、前置条件、步骤、预期结果）
     const caseProperties = [
       { key: "test_data", label: "测试数据", value: testCase.test_data || "-" },
       {
@@ -5065,11 +4902,6 @@ const generateMindMapData = () => {
         key: "expected_result",
         label: "预期结果",
         value: testCase.expected_result || "-",
-      },
-      {
-        key: "actual_result",
-        label: "实际结果",
-        value: testCase.actual_result || "-",
       },
     ];
 
@@ -5181,8 +5013,6 @@ const handleExportExcel = async () => {
     }
 
     const suiteDetail = await getTestSuiteDetail(suiteId);
-    const statusLabelOf = (status) =>
-      statusOptions.find((o) => o.value === status)?.label || "未执行";
 
     const fullRow = (caseItem) => ({
       用例编号: caseItem.case_number || "",
@@ -5192,12 +5022,10 @@ const handleExportExcel = async () => {
       所属迭代: suiteDetail.data.iteration_name || "",
       关联需求: suiteDetail.data.version_requirement_name || "",
       优先级: caseItem.priority || "",
-      状态: statusLabelOf(caseItem.status),
       前置条件: caseItem.preconditions || "",
       测试数据: caseItem.test_data || "",
       操作步骤: caseItem.steps || "",
       预期结果: caseItem.expected_result || "",
-      实际结果: caseItem.actual_result || "",
     });
 
     const exportData = cases.map((caseItem) => {
@@ -5251,12 +5079,10 @@ const downloadExcelTemplate = () => {
         所属迭代: "",
         关联需求: "",
         优先级: "P1",
-        状态: "",
         前置条件: "前置条件示例",
         测试数据: "测试数据示例",
         操作步骤: "步骤1\n步骤2\n步骤3",
         预期结果: "预期结果示例",
-        实际结果: "",
       },
     ];
 
@@ -5278,165 +5104,6 @@ const downloadExcelTemplate = () => {
     ElMessage.error("下载模板失败");
   }
 };
-
-// 计算无状态用例数量
-const notExecutedCount = computed(() => {
-  return allTestCases.value.filter(
-    (caseItem) =>
-      !caseItem.status || caseItem.status === "" || caseItem.status === "none",
-  ).length;
-});
-
-// 计算已执行用例数量
-const executedCount = computed(() => {
-  return allTestCases.value.filter(
-    (caseItem) =>
-      caseItem.status && caseItem.status !== "" && caseItem.status !== "none",
-  ).length;
-});
-
-// 计算执行率
-const executionRate = computed(() => {
-  if (totalCases.value === 0) return 0;
-  return Math.round((executedCount.value / totalCases.value) * 100);
-});
-
-// 状态进度计算
-const statusProgress = computed(() => {
-  // 统计各状态数量
-  const statusCount = {
-    pass: 0,
-    fail: 0,
-    blocked: 0,
-    not_applicable: 0,
-    none: 0,
-  };
-
-  // 统计测试用例状态
-  allTestCases.value.forEach((caseItem) => {
-    const status = caseItem.status === "" ? "none" : caseItem.status || "none";
-    statusCount[status]++;
-  });
-
-  // 计算百分比
-  const total = totalCases.value || 1; // 避免除以0
-  const progress = [
-    {
-      status: "pass",
-      label: "通过",
-      count: statusCount.pass,
-      percentage: Math.round((statusCount.pass / total) * 100),
-    },
-    {
-      status: "fail",
-      label: "失败",
-      count: statusCount.fail,
-      percentage: Math.round((statusCount.fail / total) * 100),
-    },
-    {
-      status: "blocked",
-      label: "阻塞",
-      count: statusCount.blocked,
-      percentage: Math.round((statusCount.blocked / total) * 100),
-    },
-    {
-      status: "not_applicable",
-      label: "不适用",
-      count: statusCount.not_applicable,
-      percentage: Math.round((statusCount.not_applicable / total) * 100),
-    },
-    {
-      status: "none",
-      label: "未执行",
-      count: statusCount.none,
-      percentage: Math.round((statusCount.none / total) * 100),
-    },
-  ];
-
-  // 过滤掉数量为0的状态
-  return progress.filter((item) => item.count > 0);
-});
-
-// 计算标签位置，确保不重叠
-const positionedLabels = computed(() => {
-  if (!statusProgress.value.length) return [];
-
-  const labels = [...statusProgress.value];
-  const positioned = [];
-  let currentPosition = 0;
-
-  // 先计算每个标签的初始位置
-  const initialPositions = labels.map((item, index) => {
-    const segmentStart = currentPosition;
-    const segmentEnd = segmentStart + item.percentage;
-    const middlePosition = segmentStart + item.percentage / 2;
-
-    // 更新当前位置
-    currentPosition = segmentEnd;
-
-    return {
-      ...item,
-      position: middlePosition,
-      originalPosition: middlePosition,
-    };
-  });
-
-  // 碰撞检测和位置调整
-  const labelWidth = 120; // 估算每个标签的宽度，单位：百分比
-  const minDistance = 2; // 标签之间的最小距离，单位：百分比
-
-  // 第一次调整：从左到右
-  for (let i = 1; i < initialPositions.length; i++) {
-    const prevLabel = initialPositions[i - 1];
-    const currentLabel = initialPositions[i];
-    const distance = currentLabel.position - prevLabel.position;
-
-    if (distance < labelWidth + minDistance) {
-      // 调整当前标签位置
-      currentLabel.position = prevLabel.position + labelWidth + minDistance;
-
-      // 确保不超过总宽度
-      if (currentLabel.position > 100) {
-        currentLabel.position = 100 - labelWidth / 2;
-      }
-    }
-  }
-
-  // 第二次调整：从右到左，确保不超过边界
-  for (let i = initialPositions.length - 2; i >= 0; i--) {
-    const nextLabel = initialPositions[i + 1];
-    const currentLabel = initialPositions[i];
-    const distance = nextLabel.position - currentLabel.position;
-
-    if (distance < labelWidth + minDistance) {
-      // 调整当前标签位置
-      currentLabel.position = nextLabel.position - (labelWidth + minDistance);
-
-      // 确保不小于0
-      if (currentLabel.position < 0) {
-        currentLabel.position = labelWidth / 2;
-      }
-    }
-  }
-
-  // 第三次调整：特殊处理短状态段
-  initialPositions.forEach((label, index) => {
-    const segmentStart = label.originalPosition - label.percentage / 2;
-    const segmentEnd = label.originalPosition + label.percentage / 2;
-
-    // 如果标签位置超出了对应状态段太多，则调整到状态段边缘
-    if (label.position < segmentStart - 5) {
-      label.position = segmentStart + minDistance;
-    } else if (label.position > segmentEnd + 5) {
-      label.position = segmentEnd - minDistance;
-    }
-
-    // 确保最终位置在合理范围内
-    label.position = Math.max(0, Math.min(100, label.position));
-  });
-
-  return initialPositions;
-});
 
 // 导入/导出用例对话框相关
 const importExportVisible = ref(false);
@@ -5716,21 +5383,17 @@ const handleImportExportAction = async () => {
           // 遍历处理每条数据（仅使用与表头名称匹配的字段，未出现的表头对应值为默认/空）
           for (const item of excelData) {
             try {
-              const statusValue =
-                statusOptions.find((option) => option.label === item["状态"])
-                  ?.value || "";
-
+              // 用例库不维护执行状态，导入时状态留空
               const caseData = {
                 case_number: item["用例编号"] ?? "",
                 case_name: item["用例名称"] ?? "",
                 case_description: item["用例描述"] ?? "",
                 priority: item["优先级"] ?? "P1",
-                status: statusValue,
+                status: "",
                 preconditions: item["前置条件"] ?? "",
                 test_data: item["测试数据"] ?? "",
                 steps: item["操作步骤"] ?? "",
                 expected_result: item["预期结果"] ?? "",
-                actual_result: item["实际结果"] ?? "",
                 suite_id: newSuiteId,
                 project_id: null,
                 version_requirement_id: null,
@@ -5938,35 +5601,9 @@ const cancelCaseEdit = () => {
   }
 };
 
-// 状态选项
-const statusOptions = [
-  { label: "未执行", value: "" },
-  { label: "通过", value: "pass" },
-  { label: "失败", value: "fail" },
-  { label: "阻塞", value: "blocked" },
-  { label: "不适用", value: "not_applicable" },
-];
-
-
-// 处理状态变化
-const handleStatusChange = async (row) => {
-  try {
-    await updateTestCase(row.id, { status: row.status });
-    ElMessage.success("状态更新成功");
-  } catch (error) {
-    console.error("更新状态失败:", error);
-    ElMessage.error("状态更新失败");
-  }
-};
-
-
 // 优先级筛选状态
 const priorityFilterAll = ref(false);
 const priorityFilterValues = ref([]);
-
-// 状态筛选状态
-const statusFilterAll = ref(false);
-const statusFilterValues = ref([]);
 
 // 过滤后的测试用例
 const filteredTestCases = computed(() => {
@@ -5979,11 +5616,6 @@ const filteredTestCases = computed(() => {
   // 优先级筛选 - 如果有选中的筛选项，则进行筛选；没有选中则显示全部
   if (priorityFilterValues.value.length > 0) {
     result = result.filter(item => priorityFilterValues.value.includes(item.priority));
-  }
-  
-  // 状态筛选 - 如果有选中的筛选项，则进行筛选；没有选中则显示全部
-  if (statusFilterValues.value.length > 0) {
-    result = result.filter(item => statusFilterValues.value.includes(item.status || ''));
   }
   
   return result;
@@ -6012,31 +5644,6 @@ const handlePriorityFilterChange = (values) => {
 const handlePriorityReset = () => {
   priorityFilterAll.value = true;
   priorityFilterValues.value = ['P0', 'P1', 'P2', 'P3', 'P4'];
-};
-
-// 状态全选变化
-const handleStatusAllChange = (checked) => {
-  if (checked) {
-    statusFilterValues.value = ['', 'pass', 'fail', 'blocked', 'not_applicable'];
-  } else {
-    statusFilterValues.value = [];
-  }
-};
-
-// 状态筛选变化
-const handleStatusFilterChange = (values) => {
-  // 检查是否全部选中
-  if (values.length === 5) {
-    statusFilterAll.value = true;
-  } else {
-    statusFilterAll.value = false;
-  }
-};
-
-// 状态重置
-const handleStatusReset = () => {
-  statusFilterAll.value = true;
-  statusFilterValues.value = ['', 'pass', 'fail', 'blocked', 'not_applicable'];
 };
 
 const handleCellClick = () => {
@@ -6845,6 +6452,19 @@ const handleCurrentChange = (page) => {
         color: var(--el-text-color-primary, #303133);
         font-weight: 500;
       }
+
+      .value.link {
+        cursor: pointer;
+        color: var(--el-color-primary, #409eff);
+        text-decoration: none;
+        &:hover:not(.disabled) {
+          text-decoration: underline;
+        }
+        &.disabled {
+          cursor: default;
+          color: var(--el-text-color-secondary, #909399);
+        }
+      }
     }
 
     .case-list {
@@ -6887,12 +6507,6 @@ const handleCurrentChange = (page) => {
     /* 预期结果列 */
     .table-wrapper :deep(.el-table__header-wrapper th[aria-label="预期结果"]),
     .table-wrapper :deep(.el-table__body-wrapper td:nth-child(10)) {
-      text-align: left !important;
-    }
-
-    /* 实际结果列 */
-    .table-wrapper :deep(.el-table__header-wrapper th[aria-label="实际结果"]),
-    .table-wrapper :deep(.el-table__body-wrapper td:nth-child(11)) {
       text-align: left !important;
     }
 

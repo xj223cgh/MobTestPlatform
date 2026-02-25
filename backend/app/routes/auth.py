@@ -13,6 +13,38 @@ from app.utils.auth import PermissionManager, rate_limiter
 
 bp = Blueprint('auth', __name__)
 
+# 安全设置中的 key
+SECURITY_KEYS = {
+    "password_policy": "password_policy",
+    "login_failure_lock": "login_failure_lock",
+    "session_timeout_minutes": "session_timeout_minutes",
+}
+
+
+def _get_password_policy():
+    """从系统设置读取密码策略（JSON 数组），如 ["minLength","uppercase","numbers"]"""
+    setting = SystemSetting.query.filter_by(setting_key=SECURITY_KEYS["password_policy"]).first()
+    if not setting or not setting.setting_value:
+        return []
+    try:
+        import json
+        v = json.loads(setting.setting_value)
+        return v if isinstance(v, list) else []
+    except (ValueError, TypeError):
+        return []
+
+
+def _get_login_failure_lock_threshold():
+    """从系统设置读取登录失败锁定次数，0 表示不锁定。"""
+    setting = SystemSetting.query.filter_by(setting_key=SECURITY_KEYS["login_failure_lock"]).first()
+    if not setting or setting.setting_value is None or str(setting.setting_value).strip() == "":
+        return 0
+    try:
+        v = int(setting.setting_value)
+        return v if 0 <= v <= 10 else 0
+    except (ValueError, TypeError):
+        return 0
+
 
 @bp.route('/login', methods=['POST', 'GET'])
 @rate_limiter.rate_limit(limit=5, window=60)  # 1分钟内最多5次登录尝试
@@ -43,17 +75,55 @@ def login():
         return error_response(400, "用户名和密码不能为空")
     
     # 查找用户
-    # 先检查用户是否存在
     user = User.query.filter(
         (User.username == username) | (User.phone == username)
     ).first()
     
     if not user:
-        return error_response(401, "用户名不存在")
+        return error_response(401, "用户名或密码错误")
     
-    # 用户存在，检查密码
+    # 登录失败锁定：检查是否在锁定期内
+    from datetime import datetime as dt, timedelta as td
+    from app.models.models import LOCAL_TIMEZONE
+    lock_threshold = _get_login_failure_lock_threshold()
+    now = dt.now(LOCAL_TIMEZONE)
+    if lock_threshold > 0 and getattr(user, "locked_until", None):
+        locked_until = user.locked_until
+        if locked_until:
+            # 统一转为带时区的比较
+            lock_time = locked_until if locked_until.tzinfo else locked_until.replace(tzinfo=LOCAL_TIMEZONE)
+            if lock_time > now:
+                return error_response(401, "账户已锁定，请稍后再试或联系管理员")
+            # 已过锁定期，清空锁定状态
+            user.failed_login_attempts = 0
+            user.locked_until = None
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
+    # 检查密码
     if not user.check_password(password):
-        return error_response(401, "密码错误")
+        if lock_threshold > 0:
+            user.failed_login_attempts = getattr(user, "failed_login_attempts", 0) + 1
+            if user.failed_login_attempts >= lock_threshold:
+                user.locked_until = now + td(minutes=30)
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+            if user.failed_login_attempts >= lock_threshold:
+                return error_response(401, "登录失败次数过多，账户已锁定30分钟，请稍后再试")
+        return error_response(401, "用户名或密码错误")
+
+    # 登录成功：清空失败次数与锁定状态
+    if lock_threshold > 0 and (getattr(user, "failed_login_attempts", 0) or getattr(user, "locked_until", None)):
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
     
     if not user.is_active:
         return error_response(401, "账户已被禁用，请联系管理员解除禁制")
@@ -134,9 +204,14 @@ def register():
     
     if not validate_phone(phone):
         return error_response(400, "手机号格式不正确")
-    
-    if len(password) < 6:
-        return error_response(400, "密码长度不能少于6位")
+
+    # 按系统安全设置中的密码策略校验
+    policy = _get_password_policy()
+    valid, msg = PasswordManager.validate_password_with_policy(
+        password, policy, min_length_default=6
+    )
+    if not valid:
+        return error_response(400, msg)
     
     if not real_name:
         return error_response(400, "真实姓名不能为空")
@@ -195,9 +270,14 @@ def change_password():
     
     if not old_password or not new_password:
         return error_response(400, "原密码和新密码不能为空")
-    
-    if len(new_password) < 6:
-        return error_response(400, "新密码长度不能少于6位")
+
+    # 按系统安全设置中的密码策略校验新密码
+    policy = _get_password_policy()
+    valid, msg = PasswordManager.validate_password_with_policy(
+        new_password, policy, min_length_default=6
+    )
+    if not valid:
+        return error_response(400, msg)
     
     # 验证原密码
     if not current_user.check_password(old_password):
@@ -267,9 +347,12 @@ def reset_password():
     user_id = PasswordManager.verify_reset_token(token)
     if not user_id:
         return error_response(400, "无效或过期的重置令牌")
-    
-    # 验证密码强度
-    is_valid, message = PasswordManager.validate_password(password)
+
+    # 按系统安全设置中的密码策略校验
+    policy = _get_password_policy()
+    is_valid, message = PasswordManager.validate_password_with_policy(
+        password, policy, min_length_default=6
+    )
     if not is_valid:
         return error_response(400, message)
     

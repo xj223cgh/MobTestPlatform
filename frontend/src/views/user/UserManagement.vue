@@ -107,13 +107,16 @@
     <div class="table-section">
       <div class="table-scroll-viewport">
         <el-table
+          ref="userTableRef"
           v-loading="loading"
           :data="userList"
-        stripe
-        border
-        style="width: 100%"
-        fit
-      >
+          stripe
+          border
+          style="width: 100%"
+          fit
+          :row-class-name="getRowClassName"
+          row-key="id"
+        >
         <el-table-column
           prop="id"
           label="ID"
@@ -401,7 +404,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from "vue";
+import { ref, reactive, onMounted, computed, watch, nextTick } from "vue";
+import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus, Search, Refresh } from "@element-plus/icons-vue";
 import {
@@ -421,6 +425,17 @@ const dialogVisible = ref(false);
 const isEdit = ref(false);
 const dialogTitle = ref("");
 const userFormRef = ref();
+
+// 路由：从用例集信息（创建人）跳转时高亮指定行
+const route = useRoute();
+const highlightId = computed(() => {
+  const id = route.query?.user_id;
+  return id ? Number(id) : null;
+});
+const getRowClassName = ({ row }) => {
+  if (highlightId.value && row.id === highlightId.value) return "highlight-row";
+  return "";
+};
 
 // 用户store
 const userStore = useUserStore();
@@ -483,6 +498,7 @@ const userRules = {
 
 // 用户列表
 const userList = ref([]);
+const userTableRef = ref(null);
 
 // 分页
 const pagination = reactive({
@@ -495,42 +511,41 @@ const pagination = reactive({
 const fetchUserList = async () => {
   try {
     loading.value = true;
-    // 构建请求参数，处理各筛选条件
+    const needHighlight = highlightId.value != null;
     const params = {
-      page: pagination.page,
-      size: pagination.size,
+      page: needHighlight ? 1 : pagination.page,
+      size: needHighlight ? 10000 : pagination.size,
     };
 
-    // 构建搜索参数 - 后端API使用统一的search参数
-    // 只有当username或phone有值时才添加search参数
     let searchValue = "";
-    if (searchForm.username) {
-      searchValue = searchForm.username;
-    } else if (searchForm.phone) {
-      searchValue = searchForm.phone;
-    }
-
-    // 只有当searchValue有值时才添加到请求参数中
-    if (searchValue) {
-      params.search = searchValue;
-    }
-
-    // 只有当role有值时才添加role参数
-    if (searchForm.role) {
-      params.role = searchForm.role;
-    }
-
-    // 只有当status有明确值（'true'或'false'）时才添加is_active参数
-    // 当status被清除（空字符串）时，不添加该参数，实现数据重置
+    if (searchForm.username) searchValue = searchForm.username;
+    else if (searchForm.phone) searchValue = searchForm.phone;
+    if (searchValue) params.search = searchValue;
+    if (searchForm.role) params.role = searchForm.role;
     if (searchForm.status === "true" || searchForm.status === "false") {
       params.is_active = searchForm.status === "true";
     }
 
-    console.log("API请求参数:", params);
     const response = await getUserList(params);
-    // 使用后端实际返回的数据结构
-    userList.value = response.data.users || [];
-    pagination.total = response.data.pagination.total || 0;
+    let items = response.data.users || [];
+    const total = response.data.pagination?.total ?? 0;
+
+    if (needHighlight && items.length > 0) {
+      const idx = items.findIndex((u) => u.id === highlightId.value);
+      if (idx >= 0) {
+        const pageSize = pagination.size;
+        pagination.page = Math.floor(idx / pageSize) + 1;
+        const start = (pagination.page - 1) * pageSize;
+        userList.value = items.slice(start, start + pageSize);
+      } else {
+        userList.value = items.slice(0, pagination.size);
+        pagination.page = 1;
+      }
+      pagination.total = total;
+    } else {
+      userList.value = items;
+      pagination.total = total;
+    }
   } catch (error) {
     ElMessage.error("获取用户列表失败");
     console.error("获取用户列表错误:", error);
@@ -608,10 +623,16 @@ const handleDelete = (row) => {
         ElMessage.success("删除成功");
         fetchUserList();
       } else {
-        ElMessage.error(response.message || "删除失败");
+        // 有后端返回的提示时不再重复「删除失败」
+        if (!response.message) {
+          ElMessage.error("删除失败");
+        }
       }
     } catch (error) {
-      ElMessage.error("删除失败");
+      // 校验类（如 400 关联引用）已由拦截器提示，不再重复「删除失败」
+      if (!error.response?.data?.message) {
+        ElMessage.error("删除失败");
+      }
     }
   });
 };
@@ -765,6 +786,25 @@ const formatDateTime = (dateTime) => {
   return dateTime ? dayjs(dateTime).format("YYYY-MM-DD HH:mm:ss") : "-";
 };
 
+// 高亮行滚动到视口（仅当通过 user_id 跳转时）
+const scrollToHighlightRow = () => {
+  if (!highlightId.value || !userList.value.length) return;
+  nextTick(() => {
+    setTimeout(() => {
+      const table = userTableRef.value?.$el;
+      if (!table) return;
+      const row = table.querySelector("tr.highlight-row");
+      if (row) row.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 150);
+  });
+};
+
+watch(
+  () => [userList.value.length, highlightId.value],
+  () => scrollToHighlightRow(),
+  { flush: "post" }
+);
+
 // 页面加载
 onMounted(() => {
   fetchUserList();
@@ -862,6 +902,14 @@ onMounted(() => {
 
 .table-section .table-scroll-viewport :deep(.el-table__body-wrapper) {
   overflow-x: hidden !important;
+}
+
+/* 从用例集信息（创建人）跳转时的选中行高亮（直接显示，无边框） */
+.table-section :deep(tr.highlight-row > td) {
+  background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
+}
+.table-section :deep(tr.highlight-row:hover > td) {
+  background-color: var(--el-color-primary-light-8, #d9ecff) !important;
 }
 
 /* 固定分页组件样式 */

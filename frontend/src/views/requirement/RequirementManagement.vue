@@ -102,12 +102,15 @@
     <div class="table-section">
       <div class="table-scroll-viewport">
         <el-table
+        ref="requirementTableRef"
         v-loading="loading"
         :data="requirementList"
         stripe
         border
         style="width: 100%"
         fit
+        :row-class-name="getRowClassName"
+        row-key="id"
       >
         <el-table-column
           prop="id"
@@ -475,7 +478,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from "vue";
+import { ref, reactive, onMounted, computed, watch, nextTick } from "vue";
+import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { formatDateTime } from "@/utils/helpers";
 import { Plus, Search, Refresh, Edit, Delete } from "@element-plus/icons-vue";
@@ -490,6 +494,18 @@ import {
 import { getUserList } from "@/api/user";
 import { useSystemSettingsStore } from "@/stores/systemSettings";
 import dayjs from "dayjs";
+
+const route = useRoute();
+
+// 从用例集信息跳转时高亮指定行（仅此时有值）
+const highlightId = computed(() => {
+  const id = route.query?.highlight_id;
+  return id ? Number(id) : null;
+});
+const getRowClassName = ({ row }) => {
+  if (highlightId.value && row.id === highlightId.value) return "highlight-row";
+  return "";
+};
 
 // 加载状态
 const loading = ref(false);
@@ -517,6 +533,7 @@ const assigneeOptions = ref([]);
 
 // 需求列表
 const requirementList = ref([]);
+const requirementTableRef = ref(null);
 
 // 分页信息（每页条数使用系统设置，默认 10）
 const systemSettingsStore = useSystemSettingsStore();
@@ -627,6 +644,15 @@ const getRequirementList = async () => {
 
       pagination.total = allItems.length || 0;
 
+      // 若有 highlight_id（从用例集信息跳转），跳到该需求所在页
+      const hid = route.query?.highlight_id;
+      if (hid) {
+        const idx = allItems.findIndex((i) => i.id === Number(hid));
+        if (idx >= 0)
+          pagination.currentPage =
+            Math.floor(idx / pagination.pageSize) + 1;
+      }
+
       // 3. 前端分页处理
       const startIndex = (pagination.currentPage - 1) * pagination.pageSize;
       const endIndex = startIndex + pagination.pageSize;
@@ -664,25 +690,20 @@ const getStatusText = (status) => {
   return statusMap[status] || status;
 };
 
-// 优先级类型映射
+// 优先级类型映射（P0-P4）
 const getPriorityType = (priority) => {
   const priorityMap = {
-    high: "danger",
-    medium: "warning",
-    low: "success",
+    P0: "danger",
+    P1: "danger",
+    P2: "warning",
+    P3: "success",
+    P4: "info",
   };
   return priorityMap[priority] || "info";
 };
 
-// 优先级文本映射
-const getPriorityText = (priority) => {
-  const priorityMap = {
-    high: "高",
-    medium: "中",
-    low: "低",
-  };
-  return priorityMap[priority] || priority;
-};
+// 优先级直接显示 P0-P4
+const getPriorityText = (priority) => priority || "P1";
 
 // 环境类型映射
 const getEnvironmentType = (environment) => {
@@ -725,7 +746,7 @@ const handleTimeRangeChange = async () => {
   // 当时间范围变化时，只重新获取项目选项，不影响其他筛选
   try {
     // 1. 获取所有项目（不分页）
-    const projectsResponse = await getProjects({ page: 1, size: 1000 }); // 获取足够多的项目
+    const projectsResponse = await getProjects({ page: 1, size: 10000 }); // 下拉用全量项目
     let allProjects = projectsResponse.data?.items || [];
 
     // 2. 根据时间范围筛选项目
@@ -1029,7 +1050,7 @@ const updateUserOptions = async () => {
 const getOptionData = async () => {
   try {
     // 1. 获取所有项目（不分页）
-    const projectsResponse = await getProjects({ page: 1, size: 1000 }); // 获取足够多的项目
+    const projectsResponse = await getProjects({ page: 1, size: 10000 }); // 下拉用全量项目
     let allProjects = projectsResponse.data?.items || [];
 
     // 2. 根据时间范围筛选项目
@@ -1338,7 +1359,10 @@ const handleDeleteRequirement = (row) => {
         getRequirementList();
       } catch (error) {
         console.error("删除需求失败:", error);
-        ElMessage.error("删除需求失败");
+        // 400 等校验提示已由 request 拦截器统一展示，此处仅处理无 response 的情况
+        if (!error.response?.data?.message) {
+          ElMessage.error("删除需求失败");
+        }
       }
     })
     .catch(() => {
@@ -1347,6 +1371,25 @@ const handleDeleteRequirement = (row) => {
 };
 
 // 页面加载时：需求列表立即请求，选项数据并行加载，避免列表等待下拉数据
+// 高亮行滚动到视口（仅当通过 highlight_id 跳转时）
+const scrollToHighlightRow = () => {
+  if (!highlightId.value || !requirementList.value.length) return;
+  nextTick(() => {
+    setTimeout(() => {
+      const table = requirementTableRef.value?.$el;
+      if (!table) return;
+      const row = table.querySelector("tr.highlight-row");
+      if (row) row.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 150);
+  });
+};
+
+watch(
+  () => [requirementList.value.length, highlightId.value],
+  () => scrollToHighlightRow(),
+  { flush: "post" }
+);
+
 onMounted(() => {
   getRequirementList();
   getOptionData();
@@ -1433,6 +1476,14 @@ onMounted(() => {
 
 .table-section .table-scroll-viewport :deep(.el-table) {
   min-width: 0 !important;
+}
+
+/* 从用例集信息跳转时的选中行高亮（直接显示，无边框） */
+.table-section :deep(tr.highlight-row > td) {
+  background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
+}
+.table-section :deep(tr.highlight-row:hover > td) {
+  background-color: var(--el-color-primary-light-8, #d9ecff) !important;
 }
 
 .table-section .table-scroll-viewport :deep(.el-table__body-wrapper) {

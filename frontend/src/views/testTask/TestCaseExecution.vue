@@ -466,7 +466,6 @@ import {
   ArrowRight
 } from "@element-plus/icons-vue";
 import testTaskApi from "@/api/testTask";
-import { updateTestCase } from "@/api/testCase";
 import { getUserSettings } from "@/api/settings";
 
 const route = useRoute();
@@ -513,13 +512,17 @@ const toggleCaseTree = () => {
   }
 };
 
-// 实际结果：失焦时保存
+// 实际结果：失焦时保存（写入任务执行记录，不更新用例库）
 const saveActualResult = async () => {
-  if (!selectedCase.value) return;
-
+  if (!selectedCase.value || !taskId) return;
+  const caseId = selectedCase.value.case_id ?? selectedCase.value.id;
+  const status = selectedCase.value.status && ["pass","fail","blocked","not_applicable"].includes(selectedCase.value.status)
+    ? selectedCase.value.status
+    : "not_applicable";
   try {
-    await updateTestCase(selectedCase.value.id, {
-      actual_result: executionForm.actual_result,
+    await testTaskApi.updateCaseExecution(taskId, caseId, {
+      status,
+      notes: executionForm.actual_result,
     });
     selectedCase.value.actual_result = executionForm.actual_result;
     ElMessage.success("保存成功");
@@ -771,28 +774,27 @@ const getStatusText = (status) => {
   return textMap[status] ?? "未执行";
 };
 
-// 更新用例状态
+// 更新用例状态（写入任务执行记录 TestCaseExecution，不更新用例库）
 const updateCaseStatus = async (status) => {
-  if (!selectedCase.value) {
+  if (!selectedCase.value || !taskId) {
     ElMessage.warning("请先选择一个测试用例");
     return;
   }
-
+  const caseId = selectedCase.value.case_id ?? selectedCase.value.id;
   loading.updateStatus = true;
   try {
-    await updateTestCase(selectedCase.value.id, {
-      status: status,
-      actual_result: executionForm.actual_result,
+    await testTaskApi.updateCaseExecution(taskId, caseId, {
+      status,
+      notes: executionForm.actual_result,
     });
-
-    // 更新本地数据
     selectedCase.value.status = status;
     selectedCase.value.actual_result = executionForm.actual_result;
-
-    // 重新构建树以更新统计信息
     buildTestCaseTree();
-
     ElMessage.success("用例状态更新成功");
+    // 非重置状态时自动跳到下一条用例
+    if (status !== "" && hasNextCase.value) {
+      nextCase();
+    }
   } catch (error) {
     console.error("更新用例状态失败:", error);
     ElMessage.error("更新用例状态失败");

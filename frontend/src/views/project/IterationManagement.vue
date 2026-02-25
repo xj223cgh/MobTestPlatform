@@ -55,7 +55,7 @@
         <!-- 右侧迭代卡片 -->
         <div
           class="iteration-card"
-          :class="`status-${iteration.status}`"
+          :class="[`status-${iteration.status}`, { 'highlight-card': highlightId && iteration.id === highlightId }]"
         >
           <!-- 卡片头部 - 左侧区域 -->
           <div class="card-section card-main">
@@ -341,6 +341,9 @@ export default {
       selectedProjectId: null,
       currentProject: null, // 当前选中的项目完整信息
 
+      // 从用例集信息跳转时高亮指定行（仅此时有值）
+      highlightId: null,
+
       // 迭代列表数据
       iterations: [],
       iterationsData: [],
@@ -499,11 +502,25 @@ export default {
     // 初始化项目列表
     async initProjects() {
       try {
-        const response = await getProjects();
+        const response = await getProjects({ page: 1, size: 10000 });
         this.projects = response.data?.items || [];
+        const q = this.$route?.query || {};
+        this.highlightId = q.highlight_id ? Number(q.highlight_id) : null;
         if (this.projects.length > 0) {
-          this.selectedProjectId = this.projects[0].id;
+          if (q.project_id) {
+            const pid = Number(q.project_id);
+            const found = this.projects.find((p) => p.id === pid);
+            this.selectedProjectId = found ? found.id : this.projects[0].id;
+          } else {
+            this.selectedProjectId = this.projects[0].id;
+          }
           await this.loadIterations();
+          if (this.highlightId) {
+            this.$nextTick(() => {
+              const el = this.$el?.querySelector(".highlight-card");
+              if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            });
+          }
         } else {
           this.pageLoading = false;
         }
@@ -679,7 +696,10 @@ export default {
       } catch (error) {
         if (error !== "cancel") {
           console.error("删除迭代失败:", error);
-          ElMessage.error("删除失败: " + (error?.message || "未知错误"));
+          // 400 校验等已由 request 拦截器统一展示，此处仅处理无 response 的情况
+          if (!error.response?.data?.message) {
+            ElMessage.error("删除失败，请稍后重试");
+          }
         }
       }
     },
@@ -882,6 +902,13 @@ export default {
 
 .iteration-card.status-cancelled {
   border-left: 4px solid #f56c6c;
+}
+
+/* 从用例集信息跳转时的选中卡片高亮（仅在有 highlight_id 时显示） */
+.iteration-card.highlight-card {
+  background-color: var(--el-color-primary-light-9, #ecf5ff);
+  border-color: var(--el-color-primary-light-5, #b3d8ff);
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
 }
 
 /* 卡片三区域布局 */

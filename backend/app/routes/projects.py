@@ -1,5 +1,8 @@
 from flask import Blueprint, request, jsonify
-from app.models.models import db, Project, ProjectMember, User, VersionRequirement, Iteration
+from app.models.models import (
+    db, Project, ProjectMember, User, VersionRequirement, Iteration,
+    TestSuite, TestCase, TestTask, TestCaseExecution, Report,
+)
 from flask_login import login_required, current_user
 from datetime import datetime
 import json
@@ -104,9 +107,9 @@ def create_project():
 def get_projects():
     """获取所有项目列表，支持分页和搜索筛选"""
     try:
-        # 获取查询参数
+        # 获取查询参数（size 上限 10000，保证下拉等场景可一次拉全量）
         page = request.args.get('page', 1, type=int)
-        size = request.args.get('size', 10, type=int)
+        size = min(request.args.get('size', 10, type=int), 10000)
         search = request.args.get('search', '', type=str)
         status = request.args.get('status', '', type=str)
         priority = request.args.get('priority', '', type=str)
@@ -126,6 +129,9 @@ def get_projects():
         # 应用优先级筛选
         if priority:
             query = query.filter(Project.priority == priority)
+        
+        # 默认排序：最近更新在前，符合用户「最近在用的项目」习惯
+        query = query.order_by(Project.updated_at.desc(), Project.id.desc())
         
         # 执行分页查询
         pagination = query.paginate(page=page, per_page=size, error_out=False)
@@ -274,21 +280,61 @@ def update_project(project_id):
         db.session.rollback()
         return jsonify({'code': 500, 'message': f'更新项目失败: {str(e)}'}), 500
 
+
+@bp.route('/<int:project_id>', methods=['DELETE'])
+@login_required
+def delete_project(project_id):
+    """删除项目。如有关联引用则拒绝删除并返回引用信息。"""
+    project = Project.query.get(project_id)
+    if not project:
+        return jsonify({'code': 404, 'message': '项目不存在'}), 404
+
+    refs = []
+    n = ProjectMember.query.filter_by(project_id=project_id).count()
+    if n > 0:
+        refs.append(f"项目成员({n})")
+    n = Iteration.query.filter_by(project_id=project_id).count()
+    if n > 0:
+        refs.append(f"迭代({n})")
+    n = VersionRequirement.query.filter_by(project_id=project_id).count()
+    if n > 0:
+        refs.append(f"版本需求({n})")
+    n = TestSuite.query.filter_by(project_id=project_id).count()
+    if n > 0:
+        refs.append(f"测试套件({n})")
+    n = TestCase.query.filter_by(project_id=project_id).count()
+    if n > 0:
+        refs.append(f"测试用例({n})")
+    n = TestTask.query.filter(TestTask.project_id.isnot(None), TestTask.project_id == project_id).count()
+    if n > 0:
+        refs.append(f"测试任务({n})")
+    n = TestCaseExecution.query.filter(TestCaseExecution.project_id.isnot(None), TestCaseExecution.project_id == project_id).count()
+    if n > 0:
+        refs.append(f"用例执行记录({n})")
+    n = Report.query.filter(Report.project_id.isnot(None), Report.project_id == project_id).count()
+    if n > 0:
+        refs.append(f"测试报告({n})")
+
+    if refs:
+        return jsonify({
+            'code': 400,
+            'message': '该项目存在关联数据，无法删除。当前引用：' + '、'.join(refs) + '。请先解除或删除上述关联后再试。',
+        }), 400
+
+    try:
+        db.session.delete(project)
+        db.session.commit()
+        return jsonify({'code': 200, 'message': '项目删除成功'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'code': 500, 'message': f'删除项目失败: {str(e)}'}), 500
+
+
 @bp.route('/<int:project_id>/members', methods=['GET'])
 @login_required
 def get_project_members(project_id):
-    """获取项目成员列表"""
+    """获取项目成员列表（不做权限鉴别）"""
     try:
-        # 检查用户是否有权限访问该项目
-        project_member = ProjectMember.query.filter_by(
-            project_id=project_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not project_member:
-            return jsonify({'error': '无权访问该项目'}), 403
-        
-        # 获取项目成员
         members = ProjectMember.query.filter_by(project_id=project_id).all()
         
         # 转换为字典列表
@@ -310,18 +356,8 @@ def get_project_members(project_id):
 @bp.route('/<int:project_id>/members', methods=['POST'])
 @login_required
 def add_project_member(project_id):
-    """添加项目成员"""
+    """添加项目成员（不做权限鉴别）"""
     try:
-        # 检查用户是否有权限添加成员
-        project_member = ProjectMember.query.filter_by(
-            project_id=project_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not project_member or project_member.role not in ['owner', 'manager']:
-            return jsonify({'error': '无权添加项目成员'}), 403
-        
-        # 获取项目
         project = Project.query.get(project_id)
         if not project:
             return jsonify({'error': '项目不存在'}), 404
@@ -403,8 +439,18 @@ def get_project_version_requirements(project_id):
     try:
         # 不需要检查用户是否有权限访问该项目，所有用户都可以查看
         
-        # 获取项目的版本需求
-        requirements = VersionRequirement.query.filter_by(project_id=project_id).all()
+        # 获取项目的版本需求：先按优先级 P0→P4，再按最近更新
+        requirements = (
+            VersionRequirement.query.filter_by(project_id=project_id)
+            .order_by(
+                db.case((VersionRequirement.priority == 'P0', 0), (VersionRequirement.priority == 'P1', 1),
+                        (VersionRequirement.priority == 'P2', 2), (VersionRequirement.priority == 'P3', 3),
+                        (VersionRequirement.priority == 'P4', 4), else_=5),
+                VersionRequirement.updated_at.desc(),
+                VersionRequirement.id.desc()
+            )
+            .all()
+        )
         
         # 转换为字典列表
         requirement_list = [req.to_dict() for req in requirements]
@@ -425,8 +471,18 @@ def get_project_version_requirements(project_id):
 def get_all_version_requirements():
     """获取所有版本需求列表"""
     try:
-        # 获取所有版本需求，不限制项目
-        requirements = VersionRequirement.query.all()
+        # 获取所有版本需求：先按优先级 P0→P4，再按最近更新
+        requirements = (
+            VersionRequirement.query
+            .order_by(
+                db.case((VersionRequirement.priority == 'P0', 0), (VersionRequirement.priority == 'P1', 1),
+                        (VersionRequirement.priority == 'P2', 2), (VersionRequirement.priority == 'P3', 3),
+                        (VersionRequirement.priority == 'P4', 4), else_=5),
+                VersionRequirement.updated_at.desc(),
+                VersionRequirement.id.desc()
+            )
+            .all()
+        )
         
         # 转换为字典列表
         requirement_list = [req.to_dict() for req in requirements]
@@ -445,18 +501,8 @@ def get_all_version_requirements():
 @bp.route('/<int:project_id>/version-requirements', methods=['POST'])
 @login_required
 def create_project_version_requirement(project_id):
-    """创建版本需求"""
+    """创建版本需求（不做权限鉴别）"""
     try:
-        # 检查用户是否有权限创建需求
-        project_member = ProjectMember.query.filter_by(
-            project_id=project_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not project_member or project_member.role not in ['owner', 'manager']:
-            return jsonify({'code': 403, 'message': '无权创建版本需求'}), 403
-        
-        # 获取请求数据
         data = request.get_json()
         
         # 验证必要字段
@@ -472,7 +518,7 @@ def create_project_version_requirement(project_id):
             status=data.get('status', 'new'),
             project_id=project_id,
             iteration_id=data.get('iteration_id'),
-            priority=data.get('priority', 'P1'),
+            priority=data.get('priority') or 'P1',
             environment=data.get('environment', 'test'),
             estimated_hours=data.get('estimated_hours'),
             actual_hours=data.get('actual_hours'),
@@ -503,18 +549,8 @@ def create_project_version_requirement(project_id):
 @bp.route('/<int:project_id>/version-requirements/<int:requirement_id>', methods=['PUT'])
 @login_required
 def update_project_version_requirement(project_id, requirement_id):
-    """更新版本需求"""
+    """更新版本需求（不做权限鉴别）"""
     try:
-        # 检查用户是否有权限更新需求
-        project_member = ProjectMember.query.filter_by(
-            project_id=project_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not project_member or project_member.role not in ['owner', 'manager']:
-            return jsonify({'code': 403, 'message': '无权更新版本需求'}), 403
-        
-        # 获取需求
         requirement = VersionRequirement.query.filter_by(
             id=requirement_id,
             project_id=project_id
@@ -535,7 +571,7 @@ def update_project_version_requirement(project_id, requirement_id):
         if 'iteration_id' in data:
             requirement.iteration_id = data['iteration_id']
         if 'priority' in data:
-            requirement.priority = data['priority']
+            requirement.priority = data['priority'] if data['priority'] in ('P0', 'P1', 'P2', 'P3', 'P4') else requirement.priority
         if 'environment' in data:
             requirement.environment = data['environment']
         if 'estimated_hours' in data:
@@ -570,30 +606,38 @@ def update_project_version_requirement(project_id, requirement_id):
 @bp.route('/<int:project_id>/version-requirements/<int:requirement_id>', methods=['DELETE'])
 @login_required
 def delete_project_version_requirement(project_id, requirement_id):
-    """删除版本需求"""
+    """删除版本需求。仅校验关联引用，有关联则提示无法删除；不做权限鉴别。"""
+    requirement_to_delete = VersionRequirement.query.filter_by(
+        id=requirement_id,
+        project_id=project_id
+    ).first()
+
+    if not requirement_to_delete:
+        return jsonify({'code': 404, 'message': '版本需求不存在或不属于该项目'}), 404
+
+    refs = []
+    n = TestSuite.query.filter_by(version_requirement_id=requirement_id).count()
+    if n > 0:
+        refs.append(f"测试套件({n})")
+    n = TestCase.query.filter_by(version_requirement_id=requirement_id).count()
+    if n > 0:
+        refs.append(f"测试用例({n})")
+    n = TestTask.query.filter(
+        TestTask.version_requirement_id.isnot(None),
+        TestTask.version_requirement_id == requirement_id,
+    ).count()
+    if n > 0:
+        refs.append(f"测试任务({n})")
+
+    if refs:
+        return jsonify({
+            'code': 400,
+            'message': '该需求存在关联数据，无法删除。当前引用：' + '、'.join(refs) + '。请先解除或删除上述关联后再试。',
+        }), 400
+
     try:
-        # 检查用户是否有权限删除需求
-        project_member = ProjectMember.query.filter_by(
-            project_id=project_id,
-            user_id=current_user.id
-        ).first()
-        
-        if not project_member or project_member.role not in ['owner', 'manager']:
-            return jsonify({'code': 403, 'message': '无权删除版本需求'}), 403
-        
-        # 获取要删除的需求
-        requirement_to_delete = VersionRequirement.query.filter_by(
-            id=requirement_id,
-            project_id=project_id
-        ).first()
-        
-        if not requirement_to_delete:
-            return jsonify({'code': 404, 'message': '版本需求不存在或不属于该项目'}), 404
-        
-        # 删除需求
         db.session.delete(requirement_to_delete)
         db.session.commit()
-        
         return jsonify({'code': 200, 'message': '版本需求删除成功'}), 200
     except Exception as e:
         db.session.rollback()

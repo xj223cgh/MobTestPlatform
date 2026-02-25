@@ -50,12 +50,13 @@ def insert_test_data():
             # 清空所有表数据（含 reports：造数后报告为空；自动生成仅在「任务状态变更为已完成」且用户设置「自动生成报告」时触发）
             tables = [
                 'reports', 'user_settings', 'system_settings',
-                'version_requirements', 'test_cases', 'test_tasks', 
-                'iterations', 'project_members', 'projects', 
+                'version_requirements', 'test_cases', 'test_tasks',
+                'task_folders',
+                'iterations', 'project_members', 'projects',
                 'devices', 'test_suites', 'test_case_review_details',
                 'test_case_review_history', 'test_suite_review_history',
-                'test_suite_review_tasks', 'task_case_relation',
-                'task_device_relation', 'test_case_executions',
+                'test_suite_review_tasks', 'task_case_snapshots',
+                'task_case_relation', 'task_device_relation', 'test_case_executions',
                 'users'
             ]
             
@@ -483,7 +484,27 @@ def insert_test_data():
             """, cases_data)
             print("测试用例数据插入成功！")
 
-            # 9. 插入用例执行类型测试任务（完整数据：项目/迭代/需求/用例集关联及可读描述）
+            # 8.5 插入任务文件夹（按任务类型分开，用于测试任务页左侧目录）
+            print("开始插入任务文件夹数据...")
+            folder_data = [
+                ('回归测试', None, 'test_case', 0),
+                ('冒烟测试', None, 'test_case', 1),
+                ('专项测试', None, 'test_case', 2),
+                ('设备巡检', None, 'device_script', 0),
+                ('性能采集', None, 'device_script', 1),
+                ('兼容性脚本', None, 'device_script', 2),
+            ]
+            cursor.executemany("""
+                INSERT INTO task_folders (name, parent_id, task_type, sort_order)
+                VALUES (%s, %s, %s, %s)
+            """, folder_data)
+            cursor.execute("SELECT id FROM task_folders WHERE task_type = 'test_case' ORDER BY sort_order, id")
+            folder_ids_test_case = [row[0] for row in cursor.fetchall()]
+            cursor.execute("SELECT id FROM task_folders WHERE task_type = 'device_script' ORDER BY sort_order, id")
+            folder_ids_device_script = [row[0] for row in cursor.fetchall()]
+            print("任务文件夹数据插入成功！")
+
+            # 9. 插入用例执行类型测试任务（完整数据：项目/迭代/需求/用例集关联及可读描述，含 folder_id）
             print("开始插入测试任务数据...")
             cursor.execute("SELECT id, project_id FROM iterations ORDER BY project_id, id")
             project_iterations = {}
@@ -529,15 +550,16 @@ def insert_test_data():
                 elif status == 'running':
                     started_time = (now - timedelta(hours=1)).strftime(time_fmt)
 
+                folder_id = folder_ids_test_case[idx % (len(folder_ids_test_case) + 1)] if (idx % (len(folder_ids_test_case) + 1) < len(folder_ids_test_case)) else None
                 tasks_data.append((
-                    task_name, description, 'test_case', priorities[idx % 3], status,
+                    task_name, description, folder_id, 'test_case', priorities[idx % 3], status,
                     creator_id, executor_id, project_id, iteration_id, suite_id, req_id,
                     scheduled_start, scheduled_end, started_time, completed_time
                 ))
 
             cursor.executemany("""
-                INSERT INTO test_tasks (task_name, task_description, task_type, priority, status, creator_id, executor_id, project_id, iteration_id, suite_id, version_requirement_id, scheduled_time, scheduled_end_time, started_time, completed_time)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO test_tasks (task_name, task_description, folder_id, task_type, priority, status, creator_id, executor_id, project_id, iteration_id, suite_id, version_requirement_id, scheduled_time, scheduled_end_time, started_time, completed_time)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, tasks_data)
             print("测试任务数据插入成功！")
 
@@ -642,16 +664,17 @@ def insert_test_data():
                 # 计划时间：与用例执行任务一致，便于前端显示
                 scheduled_start = (now + timedelta(days=i, hours=i)).strftime(time_fmt)
                 scheduled_end = (now + timedelta(days=i, hours=i + 2)).strftime(time_fmt)
+                folder_id = folder_ids_device_script[i % (len(folder_ids_device_script) + 1)] if (i % (len(folder_ids_device_script) + 1) < len(folder_ids_device_script)) else None
                 script_tasks_data.append((
-                    task_name, f"使用 get_device_info 脚本采集设备信息（任务{i+1}）", 'device_script', 'medium', 'pending',
+                    task_name, f"使用 get_device_info 脚本采集设备信息（任务{i+1}）", folder_id, 'device_script', 'medium', 'pending',
                     creator_id, None, proj_id, None, None, None,
                     scheduled_start, scheduled_end,
                     'get_device_info.py', relative_path, file_hash, command
                 ))
             if script_tasks_data:
                 cursor.executemany("""
-                    INSERT INTO test_tasks (task_name, task_description, task_type, priority, status, creator_id, executor_id, project_id, iteration_id, suite_id, version_requirement_id, scheduled_time, scheduled_end_time, script_file, file_path, file_hash, command)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    INSERT INTO test_tasks (task_name, task_description, folder_id, task_type, priority, status, creator_id, executor_id, project_id, iteration_id, suite_id, version_requirement_id, scheduled_time, scheduled_end_time, script_file, file_path, file_hash, command)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, script_tasks_data)
                 cursor.execute("SELECT id FROM test_tasks WHERE task_type = 'device_script' ORDER BY id DESC LIMIT %s", (len(script_tasks_data),))
                 script_task_ids = [row[0] for row in cursor.fetchall()]

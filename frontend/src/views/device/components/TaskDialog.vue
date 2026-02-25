@@ -135,6 +135,33 @@
         </el-form-item>
 
         <el-form-item
+          v-if="scriptForm.taskType === 'install'"
+          label="安装选项"
+        >
+          <el-checkbox
+            :model-value="scriptForm.installDefault"
+            :disabled="scriptForm.installReplace || scriptForm.installDowngrade"
+            @update:model-value="(v) => { scriptForm.installDefault = v; if (v) scriptForm.installReplace = scriptForm.installDowngrade = false; }"
+          >
+            默认（无参）
+          </el-checkbox>
+          <el-checkbox
+            v-model="scriptForm.installReplace"
+            :disabled="scriptForm.installDefault"
+            @change="(v) => { if (v) scriptForm.installDefault = false; }"
+          >
+            覆盖安装 (-r)
+          </el-checkbox>
+          <el-checkbox
+            v-model="scriptForm.installDowngrade"
+            :disabled="scriptForm.installDefault"
+            @change="(v) => { if (v) scriptForm.installDefault = false; }"
+          >
+            降级安装 (-d)
+          </el-checkbox>
+        </el-form-item>
+
+        <el-form-item
           label="执行设备"
           prop="deviceIds"
         >
@@ -393,6 +420,9 @@ const scriptForm = reactive({
   taskDescription: "",
   priority: "medium",
   documentationUrl: "",
+  installDefault: false,
+  installReplace: true,
+  installDowngrade: false,
 });
 
 const scriptRules = {
@@ -441,6 +471,9 @@ const handleScriptTaskTypeChange = () => {
   scriptForm.fileContent = "";
   scriptForm.command = "";
   scriptForm.scriptType = "";
+  scriptForm.installDefault = false;
+  scriptForm.installReplace = true;
+  scriptForm.installDowngrade = false;
 };
 
 const handleExecutionModeChange = () => {
@@ -590,8 +623,11 @@ const handleSubmitScript = async () => {
           requestData.file_path = fileData.file_path;
           requestData.script_file = fileData.filename;
         } else {
-          // 对于立即执行且未上传文件的情况，继续使用file_content
           requestData.file_content = scriptForm.fileContent;
+        }
+        if (actualTaskType === "install") {
+          requestData.install_replace = scriptForm.installReplace;
+          requestData.install_downgrade = scriptForm.installDowngrade;
         }
 
         const response = await deviceApi.executeDeviceTask(
@@ -616,8 +652,11 @@ const handleSubmitScript = async () => {
           requestData.file_path = fileData.file_path;
           requestData.script_file = fileData.filename;
         } else {
-          // 对于立即执行且未上传文件的情况，继续使用file_content
           requestData.file_content = scriptForm.fileContent;
+        }
+        if (actualTaskType === "install") {
+          requestData.install_replace = scriptForm.installReplace;
+          requestData.install_downgrade = scriptForm.installDowngrade;
         }
 
         const response = await deviceApi.executeBatchTasks(requestData);
@@ -628,24 +667,25 @@ const handleSubmitScript = async () => {
         resultVisible.value = true;
       }
     } else {
-      // 构建定时任务请求数据
       const requestData = {
         device_ids: scriptForm.deviceIds,
         task_type: actualTaskType,
         command: scriptForm.command,
         scheduled_time: scriptForm.scheduledTime,
-        // 定时执行相关参数
         task_name: scriptForm.taskName,
         task_description: scriptForm.taskDescription,
         priority: scriptForm.priority,
         documentation_url: scriptForm.documentationUrl,
       };
 
-      // 定时任务必须上传文件
       if (fileData) {
         requestData.file_path = fileData.file_path;
         requestData.script_file = fileData.filename;
         requestData.file_hash = fileData.file_hash;
+      }
+      if (actualTaskType === "install") {
+        requestData.install_replace = scriptForm.installReplace;
+        requestData.install_downgrade = scriptForm.installDowngrade;
       }
 
       await deviceApi.scheduleBatchTasks(requestData);
@@ -684,11 +724,13 @@ const handleClosed = () => {
     deviceIds: [],
     executionMode: "immediate",
     scheduledTime: "",
-    // 定时执行相关参数
     taskName: "",
     taskDescription: "",
     priority: "medium",
     documentationUrl: "",
+    installDefault: false,
+    installReplace: true,
+    installDowngrade: false,
   });
 };
 
@@ -762,4 +804,5 @@ defineExpose({
   white-space: pre-wrap;
   word-wrap: break-word;
 }
+
 </style>

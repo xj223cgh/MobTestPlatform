@@ -97,6 +97,30 @@
             </el-select>
           </el-form-item>
         </el-col>
+        <el-col :span="8">
+          <el-form-item
+            label="任务创建位置"
+            prop="folder_id"
+          >
+            <el-select
+              v-model="form.folder_id"
+              placeholder="不指定则归入未归类"
+              clearable
+              style="width: 100%"
+            >
+              <el-option
+                label="不指定"
+                :value="null"
+              />
+              <el-option
+                v-for="item in folderOptions"
+                :key="item.id"
+                :label="item.label"
+                :value="item.id"
+              />
+            </el-select>
+          </el-form-item>
+        </el-col>
       </el-row>
 
       <el-row :gutter="20">
@@ -230,89 +254,110 @@
         />
       </el-form-item>
 
-      <!-- 关联用例集 - 仅测试用例任务显示 -->
+      <!-- 关联用例集 - 仅测试用例任务显示；编辑时不可修改/删除（创建时固定） -->
       <el-form-item
         v-if="form.task_type === 'test_case'"
         label="关联用例集"
         prop="test_cases"
       >
         <div class="suite-selector-wrapper">
-          <template v-if="taskDetail?.suite_id">
-            <div class="suite-link-wrapper">
-              <a
-                class="suite-link"
-                @click="handleSuiteClick(taskDetail.suite_id)"
-              >
-                <el-icon><Link /></el-icon>
-                <span>{{ taskDetail.suite_name || "查看用例集" }}</span>
-              </a>
-              <el-icon
-                class="clear-icon"
-                :size="14"
-                @click.stop="handleDeleteSuite"
-              >
-                <CircleClose />
-              </el-icon>
-            </div>
-          </template>
-          <template v-else>
-            <el-popover
-              :visible="suitePopoverVisible"
-              placement="bottom-start"
-              trigger="manual"
-              width="auto"
-              teleport="body"
-              @clickoutside="suitePopoverVisible = false"
-            >
-              <template #reference>
-                <el-input
-                  v-model="selectedSuiteName"
-                  placeholder="点击选择用例集"
-                  readonly
-                  @click="handleSuiteInputClick"
-                />
-              </template>
-              <div
-                class="suite-tree-popover"
-                style="width: 100%; min-width: 400px; max-width: 600px"
-              >
-                <el-tree
-                  ref="suiteTreeRef"
-                  :data="suiteTree"
-                  :props="{ label: 'suite_name', children: 'children' }"
-                  node-key="id"
-                  :current-node-key="form.test_cases"
-                  :expand-on-click-node="false"
-                  :filter-node-method="filterSuiteType"
-                  style="
-                    max-height: 300px;
-                    overflow-y: auto;
-                    width: 100%;
-                    padding-right: 10px;
-                  "
-                  @node-click="handleSuiteSelect"
+          <!-- 编辑模式：只读展示，不可选择/删除 -->
+          <template v-if="isEdit">
+            <template v-if="taskDetail?.suite_id">
+              <div class="suite-link-wrapper suite-readonly">
+                <a
+                  class="suite-link"
+                  @click="handleSuiteClick"
                 >
-                  <template #default="{ node, data }">
-                    <span class="tree-node-content">
-                      <el-icon
-                        class="node-icon"
-                        :class="{ 'folder-icon': data.type === 'folder' }"
-                      >
-                        <Folder v-if="data.type === 'folder'" />
-                        <Document v-else />
-                      </el-icon>
-                      <span class="node-label">{{ node.label }}</span>
-                      <span
-                        v-if="data.type === 'suite' && data.cases_count > 0"
-                        class="case-count"
-                      >
-                        ({{ data.cases_count }})
-                      </span>
-                    </span>
-                  </template>
-                </el-tree>
+                  <el-icon><Link /></el-icon>
+                  <span>{{ selectedSuiteName || taskDetail.suite_name || "查看用例执行（快照）" }}</span>
+                </a>
               </div>
-            </el-popover>
+              <div class="suite-hint">
+                关联用例集在创建任务时已固定，不可修改或删除
+              </div>
+            </template>
+            <span v-else class="no-suite">未关联用例集（仅创建时可设置）</span>
+          </template>
+          <!-- 新建模式：可选择用例集 -->
+          <template v-else>
+            <template v-if="taskDetail?.suite_id">
+              <div class="suite-link-wrapper">
+                <a
+                  class="suite-link"
+                  @click="handleSuiteClick"
+                >
+                  <el-icon><Link /></el-icon>
+                  <span>{{ selectedSuiteName || taskDetail.suite_name || "查看用例执行（快照）" }}</span>
+                </a>
+                <el-icon
+                  class="clear-icon"
+                  :size="14"
+                  @click.stop="handleDeleteSuite"
+                >
+                  <CircleClose />
+                </el-icon>
+              </div>
+            </template>
+            <template v-else>
+              <el-popover
+                :visible="suitePopoverVisible"
+                placement="bottom-start"
+                trigger="manual"
+                width="auto"
+                teleport="body"
+                @clickoutside="suitePopoverVisible = false"
+              >
+                <template #reference>
+                  <el-input
+                    v-model="selectedSuiteName"
+                    placeholder="点击选择用例集"
+                    readonly
+                    @click="handleSuiteInputClick"
+                  />
+                </template>
+                <div
+                  class="suite-tree-popover"
+                  style="width: 100%; min-width: 400px; max-width: 600px"
+                >
+                  <el-tree
+                    ref="suiteTreeRef"
+                    :data="suiteTree"
+                    :props="{ label: 'suite_name', children: 'children' }"
+                    node-key="id"
+                    :current-node-key="form.test_cases"
+                    :expand-on-click-node="false"
+                    :filter-node-method="filterSuiteType"
+                    style="
+                      max-height: 300px;
+                      overflow-y: auto;
+                      width: 100%;
+                      padding-right: 10px;
+                    "
+                    @node-click="handleSuiteSelect"
+                  >
+                    <template #default="{ node, data }">
+                      <span class="tree-node-content">
+                        <el-icon
+                          class="node-icon"
+                          :class="{ 'folder-icon': data.type === 'folder' }"
+                        >
+                          <Folder v-if="data.type === 'folder'" />
+                          <Document v-else />
+                        </el-icon>
+                        <span class="node-label">{{ node.label }}</span>
+                        <span
+                          v-if="data.type === 'suite' && data.cases_count > 0"
+                          class="case-count"
+                        >
+                          ({{ data.cases_count }})
+                        </span>
+                      </span>
+                    </template>
+                  </el-tree>
+                </div>
+              </el-popover>
+            </template>
           </template>
         </div>
       </el-form-item>
@@ -557,11 +602,13 @@ const suiteTree = ref([]);
 const suitePopoverVisible = ref(false);
 const selectedSuiteName = ref("");
 const users = ref([]);
+const folderOptions = ref([]);
 
 const form = reactive({
   task_name: "",
   task_description: "",
   task_type: "test_case",
+  folder_id: null,
   project_id: "",
   version_requirement_id: "",
   iteration_id: "",
@@ -679,7 +726,7 @@ const formatDate = (dateString) => {
 
 const loadProjects = async () => {
   try {
-    const response = await projectApi.getProjects({ page: 1, size: 1000 });
+    const response = await projectApi.getProjects({ page: 1, size: 10000 });
     projects.value = response.data?.items || response.data?.projects || [];
   } catch (error) {
     console.error("加载项目列表失败:", error);
@@ -792,28 +839,53 @@ const findSuiteById = (suites, id) => {
   return null;
 };
 
+/** 在树中根据 suiteId 查找并返回从根到该节点的路径字符串（如 "文件夹1 / 文件夹2 / 用例集名"） */
+const findSuitePathInTree = (nodes, suiteId, parentPath = []) => {
+  if (!nodes || !Array.isArray(nodes)) return null;
+  for (const n of nodes) {
+    const name = n.suite_name ?? n.label ?? "";
+    const currentPath = [...parentPath, name];
+    if (n.id === suiteId) return currentPath.join(" / ");
+    if (n.children?.length) {
+      const found = findSuitePathInTree(n.children, suiteId, currentPath);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+
 const handleSuiteSelect = async (data, node) => {
   if (data.type !== "suite") {
     node.expanded = !node.expanded;
     return;
   }
 
-  try {
-    form.test_cases = data.id;
-    selectedSuiteName.value = data.suite_name;
-    suitePopoverVisible.value = false;
+  form.test_cases = data.id;
+  // 显示用例集存放路径：从根到当前节点的名称用 " / " 拼接
+  const pathParts = [];
+  let p = node;
+  while (p) {
+    pathParts.unshift(p.label);
+    p = p.parent;
+  }
+  selectedSuiteName.value = pathParts.length ? pathParts.join(" / ") : data.suite_name;
+  suitePopoverVisible.value = false;
 
-    await testTaskApi.updateTestTask(taskId.value, { suite_id: data.id });
-
-    ElMessage.success("关联用例集成功");
-
-    await loadTaskDetail();
-  } catch (error) {
-    console.error("关联用例集失败:", error);
-    ElMessage.error(
-      "关联用例集失败：" +
-        (error.response?.data?.message || error.message || "未知错误"),
-    );
+  // 编辑已有任务时通过接口更新关联；新建任务时仅更新表单，提交时一并带上 suite_id
+  if (taskId.value) {
+    try {
+      await testTaskApi.updateTestTask(taskId.value, { suite_id: data.id });
+      ElMessage.success("关联用例集成功");
+      await loadTaskDetail();
+    } catch (error) {
+      console.error("关联用例集失败:", error);
+      ElMessage.error(
+        "关联用例集失败：" +
+          (error.response?.data?.message || error.message || "未知错误"),
+      );
+    }
+  } else {
+    ElMessage.success("已选择用例集，保存任务后将生效");
   }
 };
 
@@ -825,30 +897,32 @@ const handleSuiteInputClick = () => {
 };
 
 const handleDeleteSuite = async () => {
-  try {
-    await testTaskApi.updateTestTask(taskId.value, { suite_id: null });
+  form.test_cases = "";
+  selectedSuiteName.value = "";
 
-    form.test_cases = "";
-    selectedSuiteName.value = "";
-
-    ElMessage.success("已删除关联的用例集");
-
-    await loadTaskDetail();
-  } catch (error) {
-    console.error("删除用例集失败:", error);
-    ElMessage.error(
-      "删除用例集失败：" +
-        (error.response?.data?.message || error.message || "未知错误"),
-    );
+  if (taskId.value) {
+    try {
+      await testTaskApi.updateTestTask(taskId.value, { suite_id: null });
+      ElMessage.success("已删除关联的用例集");
+      await loadTaskDetail();
+    } catch (error) {
+      console.error("删除用例集失败:", error);
+      ElMessage.error(
+        "删除用例集失败：" +
+          (error.response?.data?.message || error.message || "未知错误"),
+      );
+    }
+  } else {
+    ElMessage.success("已取消选择用例集");
   }
 };
 
-const handleSuiteClick = (suiteId) => {
+// 点击关联用例集：复用列表页「执行」逻辑，在新标签页打开用例执行页（展示快照数据）
+const handleSuiteClick = () => {
+  if (!taskId.value) return;
   handleClose();
-  router.push({
-    path: "/test-cases",
-    query: { suite_id: suiteId },
-  });
+  const url = `${window.location.origin}/test-tasks/${taskId.value}/execute`;
+  window.open(url, "_blank");
 };
 
 const loadTaskDetail = async () => {
@@ -870,6 +944,7 @@ const loadTaskDetail = async () => {
       task_name: taskDetail.value.task_name,
       task_description: taskDetail.value.task_description,
       task_type: taskDetail.value.task_type,
+      folder_id: taskDetail.value.folder_id ?? null,
       project_id: taskDetail.value.project_id,
       version_requirement_id: taskDetail.value.version_requirement_id,
       iteration_id: taskDetail.value.iteration_id,
@@ -887,13 +962,15 @@ const loadTaskDetail = async () => {
     });
 
     if (taskDetail.value.suite_id) {
-      const selectedSuite = findSuiteById(
+      if (suiteTree.value.length === 0) {
+        await loadSuites();
+      }
+      const path = findSuitePathInTree(
         suiteTree.value,
         taskDetail.value.suite_id,
       );
-      if (selectedSuite) {
-        selectedSuiteName.value = selectedSuite.suite_name;
-      }
+      selectedSuiteName.value =
+        path || taskDetail.value.suite_name || "";
     }
 
     await loadProjects();
@@ -902,6 +979,7 @@ const loadTaskDetail = async () => {
     await loadIterations();
     await loadSuites();
     await loadDevices();
+    await loadFolderOptions(taskDetail.value.task_type);
   } catch (error) {
     console.error("加载任务详情失败:", error);
     ElMessage.error("加载任务详情失败");
@@ -923,6 +1001,37 @@ const handleTaskTypeChange = () => {
   if (form.task_type === "device_script") {
     form.test_cases = "";
     selectedSuiteName.value = "";
+  }
+  loadFolderOptions(form.task_type);
+};
+
+function flattenFolderTree(nodes, depth = 0) {
+  const list = [];
+  if (!nodes || !nodes.length) return list;
+  const indent = "　".repeat(depth);
+  for (const n of nodes) {
+    if (n.id && n.id !== "__all__") {
+      list.push({ id: n.id, label: indent + (n.name || "未命名") });
+    }
+    if (n.children?.length) {
+      list.push(...flattenFolderTree(n.children, depth + 1));
+    }
+  }
+  return list;
+}
+
+const loadFolderOptions = async (taskType) => {
+  if (!taskType) {
+    folderOptions.value = [];
+    return;
+  }
+  try {
+    const res = await testTaskApi.getTaskFolderTree(taskType);
+    const roots = res.data?.folders ?? [];
+    folderOptions.value = flattenFolderTree(roots);
+  } catch (e) {
+    console.error("加载任务目录失败", e);
+    folderOptions.value = [];
   }
 };
 
@@ -964,6 +1073,9 @@ const handleSubmit = async () => {
     }
     if (!submitData.test_cases || submitData.test_cases === "") {
       delete submitData.test_cases;
+    }
+    if (submitData.folder_id == null || submitData.folder_id === "") {
+      delete submitData.folder_id;
     }
     if (!submitData.command || submitData.command === "") {
       delete submitData.command;
@@ -1058,6 +1170,11 @@ const handleUpdate = async () => {
       documentation_url: form.documentation_url,
       executor_id: form.executor_id,
     };
+    if (form.folder_id != null && form.folder_id !== "") {
+      updateData.folder_id = form.folder_id;
+    } else {
+      updateData.folder_id = null;
+    }
 
     // 处理可选字段，只有非空时才添加到updateData
     if (form.project_id && form.project_id !== "") {
@@ -1086,8 +1203,8 @@ const handleUpdate = async () => {
 
     // 根据任务类型添加不同的字段
     if (form.task_type === "test_case") {
-      // 只有当 test_cases 有值时才发送
-      if (form.test_cases && form.test_cases !== "") {
+      // 仅新建时提交用例集；编辑时关联用例集不可修改，不传 suite_id
+      if (!isEdit.value && form.test_cases && form.test_cases !== "") {
         updateData.suite_id = form.test_cases;
       }
 
@@ -1156,6 +1273,7 @@ const handleClosed = () => {
     task_name: "",
     task_description: "",
     task_type: "test_case",
+    folder_id: null,
     project_id: "",
     version_requirement_id: "",
     iteration_id: "",
@@ -1163,7 +1281,6 @@ const handleClosed = () => {
     documentation_url: "",
     scheduled_time: "",
     test_cases: "",
-    // 设备脚本任务专用字段
     script_file: "",
     file_path: "",
     file_hash: "",
@@ -1184,7 +1301,7 @@ const handleClosed = () => {
   emit("refresh");
 };
 
-const open = (id = null) => {
+const open = (id = null, options = {}) => {
   visible.value = true;
 
   if (id) {
@@ -1193,6 +1310,15 @@ const open = (id = null) => {
     loadTaskDetail();
   } else {
     isEdit.value = false;
+    if (options.folder_id != null && options.folder_id !== "") {
+      form.folder_id = options.folder_id;
+    } else {
+      form.folder_id = null;
+    }
+    if (options.task_type) {
+      form.task_type = options.task_type;
+    }
+    loadFolderOptions(form.task_type);
     loadProjects();
     loadUsers();
     loadSuites();
@@ -1283,6 +1409,16 @@ defineExpose({
   position: relative;
   display: inline-flex;
   align-items: center;
+}
+
+.suite-link-wrapper.suite-readonly {
+  margin-right: 0;
+}
+
+.suite-hint {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 6px;
 }
 
 .clear-icon {

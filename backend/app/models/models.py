@@ -5,12 +5,29 @@ LOCAL_TIMEZONE = timezone(timedelta(hours=8))
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy.types import TypeDecorator
 
 db = SQLAlchemy()
 
 # 定义枚举类型的常量
 TEST_CASE_STATUS = ('', 'pass', 'fail', 'blocked', 'not_applicable')
 TEST_CASE_PRIORITY = ('P0', 'P1', 'P2', 'P3', 'P4')
+
+
+class CasePriorityType(TypeDecorator):
+    """用例优先级类型：DB 中若误存为任务优先级(high/medium/low)等，读时归一为 P1，避免 LookupError"""
+    impl = db.String(10)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        return value if value in TEST_CASE_PRIORITY else 'P1'
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return value if value in TEST_CASE_PRIORITY else 'P1'
 TEST_SUITE_STATUS = ('active', 'inactive')
 TEST_SUITE_TYPE = ('folder', 'suite')  # folder: 用例文件夹, suite: 用例集
 TEST_SUITE_REVIEW_STATUS = ('not_submitted', 'pending', 'approved', 'rejected')  # 评审状态：未提交、待审核、已通过、已拒绝
@@ -40,6 +57,8 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(255), nullable=False, comment='密码（哈希存储）')
     role = db.Column(db.Enum('super', 'manager', 'tester', 'admin'), nullable=False, default='admin', comment='角色类型')
     is_active = db.Column(db.Boolean, default=True, comment='是否激活')
+    failed_login_attempts = db.Column(db.Integer, default=0, comment='连续登录失败次数（用于安全设置中的登录失败锁定）')
+    locked_until = db.Column(db.DateTime(timezone=True), nullable=True, comment='账户锁定时长至该时间（登录失败超阈值时设置）')
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
@@ -237,7 +256,7 @@ class VersionRequirement(db.Model):
     status = db.Column(db.Enum(*VERSION_REQUIREMENT_STATUS), default='new', comment='需求状态')
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, comment='所属项目ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
-    priority = db.Column(db.Enum(*PROJECT_PRIORITY), default='medium', comment='优先级')
+    priority = db.Column(CasePriorityType(), default='P1', comment='优先级 P0-P4')
     environment = db.Column(db.Enum(*PROJECT_ENVIRONMENT), default='test', comment='需求环境')
     estimated_hours = db.Column(db.Float, comment='预估工时')
     actual_hours = db.Column(db.Float, comment='实际工时')
@@ -628,7 +647,7 @@ class TestCaseReviewHistory(db.Model):
     # 用例属性快照
     case_number = db.Column(db.String(50), nullable=True, comment='用例编号')
     case_name = db.Column(db.String(200), nullable=True, comment='用例名称')
-    priority = db.Column(db.Enum(*TEST_CASE_PRIORITY), default='P1', comment='优先级')
+    priority = db.Column(CasePriorityType(), default='P1', comment='优先级')
     test_data = db.Column(db.Text, nullable=True, comment='测试数据')
     preconditions = db.Column(db.Text, comment='前置条件')
     steps = db.Column(db.Text, comment='测试步骤')
@@ -675,7 +694,7 @@ class TestCase(db.Model):
     case_number = db.Column(db.String(50), nullable=True, comment='测试用例编号')
     case_name = db.Column(db.String(200), nullable=False, comment='用例名称')
     case_description = db.Column(db.Text, comment='用例描述')
-    priority = db.Column(db.Enum(*TEST_CASE_PRIORITY), default='P1', comment='优先级')
+    priority = db.Column(CasePriorityType(), default='P1', comment='优先级')
     status = db.Column(db.Enum(*TEST_CASE_STATUS), default='', comment='状态')
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, comment='创建者ID')
     suite_id = db.Column(db.Integer, db.ForeignKey('test_suites.id'), nullable=False, comment='所属套件ID（用于模块树）')
@@ -745,6 +764,43 @@ class TestCase(db.Model):
         }
 
 
+# 任务关联用例快照表（历史追溯：创建/更新任务时保存当时用例内容与用例集名称）
+class TaskCaseSnapshot(db.Model):
+    """任务用例快照模型"""
+    __tablename__ = 'task_case_snapshots'
+
+    task_id = db.Column(db.Integer, db.ForeignKey('test_tasks.id', ondelete='CASCADE'), primary_key=True, comment='任务ID')
+    case_id = db.Column(db.Integer, db.ForeignKey('test_cases.id', ondelete='CASCADE'), primary_key=True, comment='用例ID')
+    case_number = db.Column(db.String(50), nullable=True, comment='用例编号')
+    case_name = db.Column(db.String(200), nullable=True, comment='用例名称')
+    priority = db.Column(CasePriorityType(), default='P1', comment='优先级')
+    test_data = db.Column(db.Text, nullable=True, comment='测试数据')
+    preconditions = db.Column(db.Text, comment='前置条件')
+    steps = db.Column(db.Text, comment='测试步骤')
+    expected_result = db.Column(db.Text, comment='预期结果')
+    actual_result = db.Column(db.Text, comment='实际结果')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='快照创建时间')
+
+    task = db.relationship('TestTask', backref='case_snapshots')
+    test_case = db.relationship('TestCase', backref='task_snapshots')
+
+    def to_dict(self):
+        """转为与用例展示兼容的字典（含 case_id 便于关联执行状态）"""
+        return {
+            'id': self.case_id,
+            'case_id': self.case_id,
+            'case_number': self.case_number,
+            'case_name': self.case_name,
+            'priority': self.priority,
+            'test_data': self.test_data,
+            'preconditions': self.preconditions,
+            'steps': self.steps,
+            'expected_result': self.expected_result,
+            'actual_result': self.actual_result,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 # 测试任务和测试用例的关联表
 task_case_relation = db.Table('task_case_relation',
     db.Column('task_id', db.Integer, db.ForeignKey('test_tasks.id'), primary_key=True),
@@ -806,13 +862,46 @@ class TestCaseExecution(db.Model):
         }
 
 
+# 任务类型枚举（与 TestTask.task_type 一致，用于任务文件夹归属）
+TASK_FOLDER_TASK_TYPES = ('test_case', 'device_script')
+
+
+class TaskFolder(db.Model):
+    """任务文件夹模型（按任务类型分开存储，仅文件夹类型）"""
+    __tablename__ = 'task_folders'
+
+    id = db.Column(db.Integer, primary_key=True, comment='文件夹ID')
+    name = db.Column(db.String(100), nullable=False, comment='文件夹名称')
+    parent_id = db.Column(db.Integer, db.ForeignKey('task_folders.id', ondelete='CASCADE'), nullable=True, comment='父文件夹ID，NULL 表示根级')
+    task_type = db.Column(db.Enum(*TASK_FOLDER_TASK_TYPES), nullable=False, comment='任务类型：test_case / device_script，不同类型目录独立')
+    sort_order = db.Column(db.Integer, default=0, comment='同级排序')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
+
+    parent = db.relationship('TaskFolder', remote_side=[id], backref=db.backref('children', lazy='dynamic'))
+    test_tasks = db.relationship('TestTask', backref='folder', foreign_keys='TestTask.folder_id', lazy='dynamic')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'parent_id': self.parent_id,
+            'task_type': self.task_type,
+            'sort_order': self.sort_order,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 class TestTask(db.Model):
     """测试任务模型"""
     __tablename__ = 'test_tasks'
-    
+
     id = db.Column(db.Integer, primary_key=True, comment='任务编号')
     task_name = db.Column(db.String(200), nullable=False, comment='任务名称')
     task_description = db.Column(db.Text, comment='任务描述')
+    # 所属任务文件夹（按任务类型分组的目录，可选）
+    folder_id = db.Column(db.Integer, db.ForeignKey('task_folders.id', ondelete='SET NULL'), nullable=True, comment='所属任务文件夹ID')
     # 添加项目和迭代关联
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=True, comment='所属项目ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
@@ -822,6 +911,8 @@ class TestTask(db.Model):
     executor_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='执行者ID')
     # 添加与测试套件的关联
     suite_id = db.Column(db.Integer, db.ForeignKey('test_suites.id'), nullable=True, comment='关联的测试套件ID')
+    suite_name_snapshot = db.Column(db.String(200), nullable=True, comment='创建/更新任务时用例集名称快照（历史追溯）')
+    case_snapshot_at = db.Column(db.DateTime(timezone=True), nullable=True, comment='用例快照时间')
     # 添加版本需求关联
     version_requirement_id = db.Column(db.Integer, db.ForeignKey('version_requirements.id'), nullable=True, comment='关联的版本需求ID')
     # 添加任务相关信息
@@ -859,15 +950,23 @@ class TestTask(db.Model):
     executor = db.relationship('User', foreign_keys=[executor_id])
     # 与版本需求的多对一关系
     version_requirement = db.relationship('VersionRequirement', backref='test_tasks')
-    
+    # 与任务文件夹的多对一关系（backref 在 TaskFolder 已定义）
+
     def to_dict(self):
         """转换为字典"""
         # 构建基础返回字典
+        folder_id = getattr(self, 'folder_id', None)
+        try:
+            folder_name = self.folder.name if self.folder else None
+        except Exception:
+            folder_name = None
         result = {
             'id': self.id,
             'task_name': self.task_name,
             'task_description': self.task_description,
             'task_type': self.task_type,
+            'folder_id': folder_id,
+            'folder_name': folder_name,
             'project_id': self.project_id,
             'project_name': self.project.project_name if self.project else None,
             'iteration_id': self.iteration_id,
@@ -879,7 +978,7 @@ class TestTask(db.Model):
             'executor_id': self.executor_id,
             'executor_name': self.executor.real_name if self.executor else None,
             'suite_id': self.suite_id,
-            'suite_name': self.suite.suite_name if self.suite else None,
+            'suite_name': self.suite_name_snapshot if self.suite_name_snapshot else (self.suite.suite_name if self.suite else None),
             'version_requirement_id': self.version_requirement_id,
             'version_requirement_name': self.version_requirement.requirement_name if self.version_requirement else None,
             'documentation_url': self.documentation_url,
@@ -900,65 +999,54 @@ class TestTask(db.Model):
             'result': self.result
         }
         
-        # 只有非设备脚本任务才显示用例相关信息
+        # 只有非设备脚本任务才显示用例相关与统计信息；整段用 try 包裹，避免单条任务异常导致整列表 500
         if self.task_type != 'device_script':
-            # 获取关联的测试用例 - 当关联了用例集时，动态获取用例集中的所有用例
             try:
+                use_snapshots = self.case_snapshots and len(self.case_snapshots) > 0
                 if self.suite_id and self.suite:
-                    # 如果关联了用例集，动态获取用例集中的所有用例
                     test_cases = self.suite.test_cases if self.suite else []
                 else:
-                    # 否则使用任务直接关联的用例
-                    test_cases = self.test_cases if self.test_cases else []
-            except:
-                test_cases = []
-            
-            # 直接从测试用例表中统计各状态的数量，不需要TestCaseExecution表
-            stats = {
-                'pass': 0,
-                'fail': 0,
-                'blocked': 0,
-                'not_applicable': 0
-            }
-            
-            for test_case in test_cases:
-                if test_case.status in stats:
-                    stats[test_case.status] += 1
-                
-            pass_count = stats['pass']
-            fail_count = stats['fail']
-            blocked_count = stats['blocked']
-            not_applicable_count = stats['not_applicable']
-            
-            # 计算总数和通过率
-            total_cases = len(test_cases)
+                    test_cases = list(self.test_cases) if self.test_cases else []
+                if use_snapshots and self.test_cases:
+                    test_cases = list(self.test_cases)
+                total_cases = len(test_cases)
 
+                stats = {'pass': 0, 'fail': 0, 'blocked': 0, 'not_applicable': 0}
+                for execution in (self.case_executions or []):
+                    if getattr(execution, 'status', None) in stats:
+                        stats[execution.status] += 1
+                pass_count = stats['pass']
+                fail_count = stats['fail']
+                blocked_count = stats['blocked']
+                not_applicable_count = stats['not_applicable']
+                total_executed = sum(stats.values())
+                not_executed = max(0, total_cases - total_executed)
+                pass_rate = (pass_count / total_cases * 100) if total_cases > 0 else 0
 
-
-            total_executed = sum(stats.values())
-            not_executed = total_cases - total_executed
-
-            
-            # 计算通过率
-            pass_rate = (pass_count / total_executed * 100) if total_executed > 0 else 0
-            
-            # 添加用例相关信息
-            result.update({
-                'test_cases': [case.id for case in self.test_cases] if self.test_cases else [],
-                'test_case_count': len(self.test_cases) if self.test_cases else 0,
-                # 统计信息
-                'statistics': {
-                    'pass_count': pass_count,
-                    'fail_count': fail_count,
-                    'blocked_count': blocked_count,
-                    'not_applicable_count': not_applicable_count,
-                    'total_executed': total_executed,
-                    'total_cases': total_cases,
-                    'not_executed': not_executed,
-                    'pass_rate': round(pass_rate, 2)
-                }
-            })
-        
+                case_count = len(self.case_snapshots) if use_snapshots else (len(self.test_cases) if self.test_cases else 0)
+                case_ids = [s.case_id for s in self.case_snapshots] if use_snapshots else ([c.id for c in self.test_cases] if self.test_cases else [])
+                result.update({
+                    'test_cases': case_ids,
+                    'test_case_count': case_count,
+                    'statistics': {
+                        'pass_count': pass_count,
+                        'fail_count': fail_count,
+                        'blocked_count': blocked_count,
+                        'not_applicable_count': not_applicable_count,
+                        'total_executed': total_executed,
+                        'total_cases': total_cases,
+                        'not_executed': not_executed,
+                        'pass_rate': round(pass_rate, 2)
+                    }
+                })
+            except Exception:
+                result.setdefault('test_cases', [])
+                result.setdefault('test_case_count', 0)
+                result.setdefault('statistics', {
+                    'pass_count': 0, 'fail_count': 0, 'blocked_count': 0,
+                    'not_applicable_count': 0, 'total_executed': 0, 'total_cases': 0,
+                    'not_executed': 0, 'pass_rate': 0
+                })
         return result
 
 

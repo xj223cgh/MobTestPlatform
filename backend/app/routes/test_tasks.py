@@ -2,8 +2,12 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.exc import OperationalError
 
-from app.models.models import TestTask, db, TestSuite, TestCase, Device, TestCaseExecution, UserSetting, TEST_TASK_STATUS, TEST_EXECUTION_STATUS
+from app.models.models import (
+    TestTask, db, TestSuite, TestCase, Device, TestCaseExecution, UserSetting,
+    TaskCaseSnapshot, TaskFolder, TEST_TASK_STATUS, TEST_EXECUTION_STATUS
+)
 from app.utils.helpers import (
     success_response, error_response, get_pagination_params, log_user_action,
     validate_json_data
@@ -12,6 +16,191 @@ from app.utils.helpers import (
 # 创建Blueprint
 bp = Blueprint('test_tasks', __name__, url_prefix='/api/test-tasks')
 
+# 本地时区（与 models 一致）
+_LOCAL_TZ = timezone(timedelta(hours=8))
+
+
+def _save_task_case_snapshots(test_task, suite, test_cases):
+    """为测试任务写入用例集名称与用例内容快照，用于历史追溯。"""
+    now = datetime.now(_LOCAL_TZ)
+    test_task.suite_name_snapshot = suite.suite_name if suite else None
+    test_task.case_snapshot_at = now
+    # 删除该任务已有快照
+    TaskCaseSnapshot.query.filter_by(task_id=test_task.id).delete()
+    for case in test_cases:
+        snap = TaskCaseSnapshot(
+            task_id=test_task.id,
+            case_id=case.id,
+            case_number=case.case_number,
+            case_name=case.case_name,
+            priority=case.priority,
+            test_data=case.test_data,
+            preconditions=case.preconditions,
+            steps=case.steps,
+            expected_result=case.expected_result,
+            actual_result=case.actual_result,
+        )
+        db.session.add(snap)
+
+
+# ---------- 任务文件夹（按任务类型分开的目录） ----------
+
+TASK_FOLDER_MAX_DEPTH = 3  # 任务目录最多 3 层
+
+def _get_folder_depth(folder_id, task_type):
+    """计算文件夹深度，根级为 1，子级依次为 2、3。"""
+    if folder_id is None:
+        return 0
+    f = TaskFolder.query.filter_by(id=folder_id, task_type=task_type).first()
+    if not f:
+        return 0
+    depth = 1
+    while f.parent_id:
+        depth += 1
+        f = TaskFolder.query.filter_by(id=f.parent_id, task_type=task_type).first()
+        if not f:
+            break
+    return depth
+
+def _is_descendant_of(folder_id, ancestor_id, task_type):
+    """判断 folder_id 是否为 ancestor_id 的子孙（含子节点），用于防止移动成环。"""
+    if not folder_id or not ancestor_id or folder_id == ancestor_id:
+        return folder_id == ancestor_id
+    f = TaskFolder.query.filter_by(id=folder_id, task_type=task_type).first()
+    while f and f.parent_id:
+        if f.parent_id == ancestor_id:
+            return True
+        f = TaskFolder.query.filter_by(id=f.parent_id, task_type=task_type).first()
+    return False
+
+def _apply_folder_order(folder):
+    """将当前文件夹视为“拖到 sort_order 位置”，同层兄弟按新顺序重排并提交。
+    避免仅按 (sort_order, id) 重排时，拖到某条“上方”导致 sort_order 相同、id 导致顺序还原。"""
+    siblings = TaskFolder.query.filter_by(
+        task_type=folder.task_type, parent_id=folder.parent_id
+    ).all()
+    if not siblings:
+        return
+    # 按当前 (sort_order, id) 得到顺序，再从中移除被移动项，插入到目标下标
+    ordered = sorted(siblings, key=lambda f: (f.sort_order, f.id))
+    ordered = [f for f in ordered if f.id != folder.id]
+    idx = max(0, min(folder.sort_order, len(ordered)))
+    ordered.insert(idx, folder)
+    for i, f in enumerate(ordered):
+        f.sort_order = i
+    db.session.commit()
+
+
+def _task_folder_tree(folders):
+    """将扁平文件夹列表转为树形，children 按 sort_order 排序，节点带 depth（1-based）。"""
+    by_id = {f.id: {**f.to_dict(), 'children': []} for f in folders}
+    roots = []
+    for f in folders:
+        node = by_id[f.id]
+        if f.parent_id is None:
+            roots.append(node)
+        else:
+            parent = by_id.get(f.parent_id)
+            if parent:
+                parent['children'].append(node)
+            else:
+                roots.append(node)
+    def set_depth(nodes, d):
+        for n in nodes:
+            n['depth'] = d
+            set_depth(n.get('children') or [], d + 1)
+    set_depth(roots, 1)
+    for node in roots:
+        node['children'].sort(key=lambda x: (x.get('sort_order', 0), x['id']))
+    roots.sort(key=lambda x: (x.get('sort_order', 0), x['id']))
+    return roots
+
+
+@bp.route('/task-folders', methods=['GET'])
+@login_required
+def get_task_folders():
+    """获取任务文件夹树，按任务类型过滤"""
+    task_type = request.args.get('task_type', '').strip()
+    if task_type not in ('test_case', 'device_script'):
+        return error_response(400, '请指定 task_type: test_case 或 device_script')
+    folders = TaskFolder.query.filter_by(task_type=task_type).order_by(TaskFolder.sort_order, TaskFolder.id).all()
+    tree = _task_folder_tree(folders)
+    return success_response({'folders': tree})
+
+
+@bp.route('/task-folders', methods=['POST'])
+@login_required
+@validate_json_data(['name', 'task_type'])
+def create_task_folder():
+    """创建任务文件夹"""
+    data = request.get_json()
+    name = (data.get('name') or '').strip()
+    if not name:
+        return error_response(400, '文件夹名称不能为空')
+    task_type = data.get('task_type')
+    if task_type not in ('test_case', 'device_script'):
+        return error_response(400, 'task_type 必须为 test_case 或 device_script')
+    parent_id = data.get('parent_id')
+    if parent_id is not None:
+        parent = TaskFolder.query.filter_by(id=parent_id, task_type=task_type).first()
+        if not parent:
+            return error_response(400, '父文件夹不存在或类型不匹配')
+        parent_depth = _get_folder_depth(parent_id, task_type)
+        if parent_depth >= TASK_FOLDER_MAX_DEPTH:
+            return error_response(400, f'任务目录最多 {TASK_FOLDER_MAX_DEPTH} 层，该位置已达最大层级')
+    sort_order = data.get('sort_order', 0)
+    folder = TaskFolder(name=name, parent_id=parent_id, task_type=task_type, sort_order=sort_order)
+    db.session.add(folder)
+    db.session.commit()
+    log_user_action("创建任务文件夹", f"名称: {name}, 类型: {task_type}")
+    return success_response({'folder': folder.to_dict()}, '创建成功')
+
+
+@bp.route('/task-folders/<int:folder_id>', methods=['PATCH'])
+@login_required
+def update_task_folder(folder_id):
+    """更新任务文件夹（重命名、移动、排序）"""
+    folder = TaskFolder.query.get_or_404(folder_id)
+    data = request.get_json() or {}
+    if 'name' in data:
+        name = (data.get('name') or '').strip()
+        if name:
+            folder.name = name
+    if 'parent_id' in data:
+        new_parent_id = data['parent_id'] if data['parent_id'] else None
+        if new_parent_id is not None:
+            if new_parent_id == folder_id:
+                return error_response(400, '不能将文件夹移动到自身下')
+            if _is_descendant_of(new_parent_id, folder_id, folder.task_type):
+                return error_response(400, '不能将文件夹移动到其子级下')
+            parent_depth = _get_folder_depth(new_parent_id, folder.task_type)
+            if parent_depth >= TASK_FOLDER_MAX_DEPTH:
+                return error_response(400, f'任务目录最多 {TASK_FOLDER_MAX_DEPTH} 层，该位置已达最大层级')
+        folder.parent_id = new_parent_id
+    if 'sort_order' in data:
+        folder.sort_order = data['sort_order']
+    order_updated = 'parent_id' in data or 'sort_order' in data
+    if order_updated:
+        _apply_folder_order(folder)
+    else:
+        db.session.commit()
+    return success_response({'folder': folder.to_dict()}, '更新成功')
+
+
+@bp.route('/task-folders/<int:folder_id>', methods=['DELETE'])
+@login_required
+def delete_task_folder(folder_id):
+    """删除任务文件夹（子文件夹由 DB 外键 CASCADE 递归删除，该文件夹下任务 folder_id 置空）"""
+    folder = TaskFolder.query.get_or_404(folder_id)
+    TestTask.query.filter_by(folder_id=folder_id).update({'folder_id': None})
+    db.session.commit()
+    db.session.delete(folder)
+    db.session.commit()
+    log_user_action("删除任务文件夹", f"ID: {folder_id}, 名称: {folder.name}")
+    return success_response(message='删除成功')
+
+
+# ---------- 测试任务列表与详情 ----------
 
 @bp.route('', methods=['GET'])
 @login_required
@@ -25,10 +214,22 @@ def get_test_tasks():
     project_id = request.args.get('project_id', '').strip()
     iteration_id = request.args.get('iteration_id', '').strip()
     executor_id = request.args.get('executor_id', '').strip()
-    
+    folder_id = request.args.get('folder_id', '').strip()  # 可选，任务文件夹ID；空或未传则不过滤
+
     # 构建查询
     query = TestTask.query
-    
+
+    # 文件夹过滤（传 "null" 或 0 表示未归类，传正整数表示该文件夹下）
+    if folder_id not in ('', None):
+        if folder_id == 'null' or folder_id == '0':
+            query = query.filter(TestTask.folder_id.is_(None))
+        else:
+            try:
+                fid = int(folder_id)
+                query = query.filter(TestTask.folder_id == fid)
+            except ValueError:
+                pass
+
     # 搜索过滤
     if search:
         query = query.filter(
@@ -60,7 +261,7 @@ def get_test_tasks():
     if executor_id:
         query = query.filter(TestTask.executor_id == int(executor_id))
     
-    # 预加载关联，避免 to_dict() 时 N+1 查询
+    # 预加载关联，避免 to_dict() 时 N+1 查询（含 case_snapshots、case_executions 用于统计）
     query = query.options(
         joinedload(TestTask.project),
         joinedload(TestTask.iteration),
@@ -68,16 +269,46 @@ def get_test_tasks():
         joinedload(TestTask.executor),
         joinedload(TestTask.suite).selectinload(TestSuite.test_cases),
         joinedload(TestTask.version_requirement),
+        joinedload(TestTask.folder),
         selectinload(TestTask.devices),
         selectinload(TestTask.test_cases),
+        selectinload(TestTask.case_snapshots),
+        selectinload(TestTask.case_executions),
     )
     
-    # 分页
-    pagination = query.order_by(TestTask.created_at.desc()).paginate(
-        page=page, per_page=size, error_out=False
-    )
-    
-    test_tasks = [test_task.to_dict() for test_task in pagination.items]
+    try:
+        pagination = query.order_by(TestTask.created_at.desc()).paginate(
+            page=page, per_page=size, error_out=False
+        )
+        test_tasks = []
+        for test_task in pagination.items:
+            try:
+                test_tasks.append(test_task.to_dict())
+            except Exception as e:
+                # 单条 to_dict 失败不拖垮整列表，记录并跳过或返回最小结构
+                try:
+                    test_tasks.append({
+                        'id': test_task.id,
+                        'task_name': getattr(test_task, 'task_name', ''),
+                        'task_type': getattr(test_task, 'task_type', 'test_case'),
+                        'status': getattr(test_task, 'status', 'pending'),
+                        'priority': getattr(test_task, 'priority', 'medium'),
+                        'folder_id': getattr(test_task, 'folder_id', None),
+                        'folder_name': None,
+                        'statistics': {'pass_rate': 0, 'total_cases': 0, 'not_executed': 0},
+                    })
+                except Exception:
+                    pass
+    except OperationalError as e:
+        err_msg = str(e.orig) if getattr(e, 'orig', None) else str(e)
+        if 'folder_id' in err_msg or 'Unknown column' in err_msg or 'task_folders' in err_msg:
+            return error_response(
+                500,
+                "数据库表结构缺少任务文件夹相关字段。请执行 database/03_create_tables.py 同步表结构后重试。"
+            )
+        return error_response(500, f"数据库错误: {err_msg}")
+    except Exception as e:
+        return error_response(500, f"获取任务列表失败: {type(e).__name__} - {str(e)}")
     
     return success_response({
         'test_tasks': test_tasks,
@@ -94,7 +325,9 @@ def get_test_tasks():
 @login_required
 def get_test_task(task_id):
     """获取测试任务详情"""
-    test_task = TestTask.query.get_or_404(task_id)
+    test_task = TestTask.query.options(
+        selectinload(TestTask.case_snapshots),
+    ).get_or_404(task_id)
     return success_response({
         'test_task': test_task.to_dict()
     })
@@ -122,9 +355,20 @@ def create_test_task():
             return error_response(400, "指定的测试套件不存在")
 
     
+    folder_id = data.get('folder_id')
+    if folder_id is not None and folder_id != '':
+        folder = TaskFolder.query.get(folder_id)
+        if folder and folder.task_type == data.get('task_type', 'test_case'):
+            pass  # 使用该 folder_id
+        else:
+            folder_id = None
+    else:
+        folder_id = None
+
     test_task = TestTask(
         task_name=data['task_name'],
         task_description=data.get('task_description', ''),
+        folder_id=folder_id,
         priority=data.get('priority', 'medium'),
         status=data.get('status', 'pending'),
         task_type=data.get('task_type', 'test_case'),
@@ -169,26 +413,29 @@ def create_test_task():
             suite = TestSuite.query.get(data['suite_id'])
             if suite:
                 test_cases = suite.test_cases
-    
                 test_task.test_cases = test_cases
             else:
                 test_task.test_cases = []
+            suite_for_snapshot = suite if suite else None
+            cases_for_snapshot = list(test_task.test_cases) if test_task.test_cases else []
         else:
-            # 其他任务类型不关联测试用例
             test_task.test_cases = []
-        
+            suite_for_snapshot = None
+            cases_for_snapshot = []
+
         # 处理设备关联（仅设备脚本任务）
         if task_type == 'device_script':
             if data.get('devices'):
                 devices = Device.query.filter(Device.device_id.in_(data['devices'])).all()
                 test_task.devices = devices
             else:
-                # 如果没有提供设备列表，清空设备关联
                 test_task.devices = []
-        # 其他任务类型不关联设备，不需要显式设置为空列表
-        
 
         db.session.add(test_task)
+        db.session.flush()
+        # 测试用例任务：写入用例集名称与用例内容快照，支持历史追溯
+        if task_type == 'test_case' and (suite_for_snapshot or cases_for_snapshot):
+            _save_task_case_snapshots(test_task, suite_for_snapshot, cases_for_snapshot)
         db.session.commit()
 
         
@@ -245,7 +492,10 @@ def update_test_task(task_id):
         test_task.task_type = data['task_type']
     
     # 更新任务相关信息
-    if 'suite_id' in data:
+    # 关联用例集在创建任务时固定，更新任务时不允许修改/删除
+    if 'suite_id' in data and test_task.task_type == 'test_case':
+        pass  # 忽略 suite_id 更新，保持创建时的关联
+    elif 'suite_id' in data:
         suite_id = data['suite_id']
         if suite_id is not None and suite_id != '':
             suite = TestSuite.query.get(suite_id)
@@ -287,7 +537,14 @@ def update_test_task(task_id):
     
     if 'executor_id' in data:
         test_task.executor_id = data['executor_id']
-    
+
+    if 'folder_id' in data:
+        fid = data['folder_id']
+        if fid and TaskFolder.query.get(fid) and TaskFolder.query.get(fid).task_type == test_task.task_type:
+            test_task.folder_id = fid
+        else:
+            test_task.folder_id = None
+
     # 设备脚本任务专用字段更新
     if 'script_file' in data:
         test_task.script_file = data['script_file']
@@ -304,42 +561,50 @@ def update_test_task(task_id):
     # 根据任务类型处理关联
     current_task_type = test_task.task_type
     new_task_type = data.get('task_type', current_task_type)
-    
-    # 处理测试用例关联（仅测试用例任务）
-    # 注意：前端传递的 test_cases 字段是套件ID，不是测试用例ID列表
-    # 如果需要关联测试用例，应该通过 suite_id 来获取套件中的测试用例
+
+    # 处理测试用例关联（仅测试用例任务）；已存在的测试用例任务不修改关联与快照
     if new_task_type == 'test_case':
-        if data.get('suite_id'):
-            # 如果指定了测试套件，获取该套件中的所有测试用例
+        if test_task.id and test_task.task_type == 'test_case':
+            # 更新时保持原有 suite_id 与 test_cases，不根据 data 变更
+            suite_for_snapshot = None
+            cases_for_snapshot = []
+        elif data.get('suite_id'):
             suite = TestSuite.query.get(data['suite_id'])
             if suite:
                 test_task.test_cases = suite.test_cases
             else:
                 test_task.test_cases = []
+            suite_for_snapshot = suite if suite else None
+            cases_for_snapshot = list(test_task.test_cases) if test_task.test_cases else []
         else:
-            # 如果没有指定套件，清空测试用例关联
             test_task.test_cases = []
-    elif new_task_type != 'test_case':
-        # 如果任务类型不是测试用例任务，清空测试用例关联
+            suite_for_snapshot = None
+            cases_for_snapshot = []
+    else:
         test_task.test_cases = []
-    
+        suite_for_snapshot = None
+        cases_for_snapshot = []
+
     # 处理设备关联（仅设备脚本任务）
     if new_task_type == 'device_script':
         if 'devices' in data:
             devices = Device.query.filter(Device.device_id.in_(data['devices'])).all()
             test_task.devices = devices
         else:
-            # 如果没有提供设备列表，清空设备关联
             test_task.devices = []
     elif new_task_type != 'device_script':
-        # 如果任务类型不是设备脚本任务，清空设备关联
         test_task.devices = []
-    
-    # 如果任务类型改变，更新任务类型
+
     if new_task_type != current_task_type:
         test_task.task_type = new_task_type
-    
+
     try:
+        # 快照仅在创建任务时写入，更新任务时不覆盖，避免冗余并保持“创建时状态”的历史语义
+        # 若任务类型改为非测试用例任务，则清除快照
+        if new_task_type != 'test_case':
+            TaskCaseSnapshot.query.filter_by(task_id=test_task.id).delete()
+            test_task.suite_name_snapshot = None
+            test_task.case_snapshot_at = None
         db.session.commit()
         
         log_user_action("更新测试任务", f"任务ID: {task_id}")
@@ -403,8 +668,9 @@ def update_case_execution(task_id, case_id):
         test_case = TestCase.query.get_or_404(case_id)
         
         data = request.get_json()
-        
-        # 验证状态值
+        if not data:
+            return error_response(400, '请求体不能为空')
+        # status 必填（创建/更新执行记录用）；notes 可选
         if 'status' not in data or data['status'] not in TEST_EXECUTION_STATUS:
             return error_response(400, '无效的执行状态')
         
@@ -413,7 +679,6 @@ def update_case_execution(task_id, case_id):
             task_id=task_id,
             case_id=case_id
         ).first()
-        
         if not execution:
             execution = TestCaseExecution(
                 task_id=task_id,
@@ -422,15 +687,11 @@ def update_case_execution(task_id, case_id):
             )
             db.session.add(execution)
         
-        # 更新执行状态
+        # 更新执行状态（仅写任务执行记录 TestCaseExecution，不更新用例库 TestCase）
         execution.status = data['status']
         if 'notes' in data:
             execution.notes = data['notes']
         execution.execution_time = datetime.now(timezone(timedelta(hours=8)))
-        
-        # 更新测试用例的最后执行时间
-        test_case.executed_at = datetime.now(timezone(timedelta(hours=8)))
-        
         db.session.commit()
         
         return success_response(execution.to_dict())
@@ -442,38 +703,23 @@ def update_case_execution(task_id, case_id):
 @bp.route('/<int:task_id>/statistics', methods=['GET'])
 @login_required
 def get_task_statistics(task_id):
-    """获取测试任务的统计信息"""
+    """获取测试任务的统计信息（按本任务的执行记录 TestCaseExecution 统计通过率）"""
     try:
         task = TestTask.query.get_or_404(task_id)
-        
-        # 获取关联的测试用例 - 当关联了用例集时，动态获取用例集中的所有用例
-        test_cases = []
-        if task.suite_id and task.suite:
-            # 如果关联了用例集，动态获取用例集中的所有用例
-            test_cases = task.suite.test_cases if task.suite else []
+        if task.case_snapshots and len(task.case_snapshots) > 0:
+            total_cases = len(task.test_cases) if task.test_cases else 0
+        elif task.suite_id and task.suite:
+            total_cases = len(task.suite.test_cases) if task.suite else 0
         else:
-            # 否则使用任务直接关联的用例
-            test_cases = task.test_cases if task.test_cases else []
-        
-        # 直接从测试用例表中统计各状态的数量，不需要TestCaseExecution表
-        stats = {
-            'pass': 0,
-            'fail': 0,
-            'blocked': 0,
-            'not_applicable': 0
-        }
-        
-        for test_case in test_cases:
-            if test_case.status in stats:
-                stats[test_case.status] += 1
-        
-        # 计算总数和通过率
+            total_cases = len(task.test_cases) if task.test_cases else 0
+        executions = TestCaseExecution.query.filter_by(task_id=task_id).all()
+        stats = {'pass': 0, 'fail': 0, 'blocked': 0, 'not_applicable': 0}
+        for e in executions:
+            if e.status in stats:
+                stats[e.status] += 1
         total_executed = sum(stats.values())
-        pass_rate = (stats['pass'] / total_executed * 100) if total_executed > 0 else 0
-        
-        total_cases = len(test_cases)
+        pass_rate = (stats['pass'] / total_cases * 100) if total_cases > 0 else 0
         not_executed = total_cases - total_executed
-        
         return success_response({
             'statistics': {
                 'pass_count': stats['pass'],
@@ -679,11 +925,34 @@ def get_task_devices(task_id):
 @bp.route('/<int:task_id>/test-cases', methods=['GET'])
 @login_required
 def get_task_test_cases(task_id):
-    """获取测试任务关联的测试用例列表"""
+    """获取测试任务关联的测试用例列表（有快照时返回快照内容；状态按本任务执行记录）"""
     try:
-        task = TestTask.query.get_or_404(task_id)
-        test_cases = [case.to_dict() for case in task.test_cases]
-        
+        task = TestTask.query.options(
+            selectinload(TestTask.case_snapshots),
+            selectinload(TestTask.test_cases),
+            selectinload(TestTask.case_executions),
+        ).get_or_404(task_id)
+        if task.case_snapshots and len(task.case_snapshots) > 0:
+            # 状态只按本任务的执行记录（TestCaseExecution），不用用例库/用例表当前状态
+            execution_status_by_case = {e.case_id: e.status for e in (task.case_executions or [])}
+            suite_name = task.suite_name_snapshot or (task.suite.suite_name if task.suite else None) or ""
+            test_cases = []
+            for s in task.case_snapshots:
+                d = s.to_dict()
+                d['status'] = execution_status_by_case.get(s.case_id, '')
+                d['suite_id'] = task.suite_id
+                d['suite_name'] = suite_name
+                test_cases.append(d)
+        else:
+            # 无快照时仍用关联用例；状态按本任务执行记录，避免用用例表 status
+            execution_status_by_case = {
+                e.case_id: e.status for e in TestCaseExecution.query.filter_by(task_id=task_id).all()
+            }
+            test_cases = []
+            for case in (task.test_cases or []):
+                d = case.to_dict()
+                d['status'] = execution_status_by_case.get(case.id, '')
+                test_cases.append(d)
         return success_response({
             'test_cases': test_cases,
             'total': len(test_cases)

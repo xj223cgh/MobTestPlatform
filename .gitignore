@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+.env
+.venv
+venv/
+ENV/
+
+# Flask
+flask_session/
+instance/
+
+# 设备脚本按日期存储的目录（运行时生成）
+backend/storage/device_scripts/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# 前端（若需可合并 frontend/.gitignore）
+node_modules/
