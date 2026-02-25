@@ -41,7 +41,7 @@
               size="large"
             >
               <el-row :gutter="20">
-                <el-col :span="12">
+                <el-col :xs="24" :sm="24" :md="12">
                   <el-form-item
                     label="用户名"
                     prop="username"
@@ -52,7 +52,7 @@
                     />
                   </el-form-item>
                 </el-col>
-                <el-col :span="12">
+                <el-col :xs="24" :sm="24" :md="12">
                   <el-form-item
                     label="真实姓名"
                     prop="real_name"
@@ -66,7 +66,7 @@
               </el-row>
 
               <el-row :gutter="20">
-                <el-col :span="12">
+                <el-col :xs="24" :sm="24" :md="12">
                   <el-form-item
                     label="性别"
                     prop="gender"
@@ -84,7 +84,7 @@
                     </el-radio-group>
                   </el-form-item>
                 </el-col>
-                <el-col :span="12">
+                <el-col :xs="24" :sm="24" :md="12">
                   <el-form-item
                     label="手机号"
                     prop="phone"
@@ -98,7 +98,7 @@
               </el-row>
 
               <el-row>
-                <el-col :span="24">
+                <el-col :xs="24" :sm="24" :md="24">
                   <el-form-item
                     label="部门"
                     prop="department"
@@ -112,7 +112,7 @@
               </el-row>
 
               <el-row :gutter="20">
-                <el-col :span="12">
+                <el-col :xs="24" :sm="24" :md="12">
                   <el-form-item label="角色">
                     <el-input
                       :value="getRoleText(userInfo.role)"
@@ -120,7 +120,7 @@
                     />
                   </el-form-item>
                 </el-col>
-                <el-col :span="12">
+                <el-col :xs="24" :sm="24" :md="12">
                   <el-form-item label="创建时间">
                     <el-input
                       :value="formatDate(userInfo.created_at)"
@@ -478,9 +478,12 @@ onMounted(() => {
   padding: 24px 32px 32px;
   background-color: var(--el-bg-color-page, #f5f7fa);
   min-height: calc(100vh - 64px); // 减去导航栏高度
+  overflow-x: hidden;
 }
 
 .profile-header {
+  width: 100%;
+  min-width: 0;
   background: var(--el-bg-color, #ffffff);
   border: 1px solid var(--el-border-color-lighter, #ebeef5);
   border-radius: 8px;
@@ -529,6 +532,8 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   overflow: hidden;
   transition: all 0.3s ease;
+  width: 100%;
+  min-width: 0;
 
   &:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -537,11 +542,13 @@ onMounted(() => {
 
 .profile-content {
   margin-bottom: 32px;
+  width: 100%;
+  min-width: 0;
 
   .profile-tabs {
     :deep(.el-tabs__header) {
       margin: 0;
-      background: var(--el-fill-color-light, #fafafa);
+      background: var(--el-bg-color, #fff);
       padding: 0 24px;
       border-bottom: 1px solid var(--el-border-color-lighter, #ebeef5);
 
@@ -578,6 +585,8 @@ onMounted(() => {
 
     :deep(.el-tabs__content) {
       padding: 28px 32px 32px;
+      background: var(--el-bg-color, #fff);
+      min-height: 200px;
     }
   }
 }

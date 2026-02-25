@@ -1,94 +1,180 @@
 <template>
   <div class="help-center">
-    <!-- 页面标题 -->
+    <!-- 顶部区域：与其他功能页保持一致的容器样式 -->
     <div class="page-header">
-      <h2>帮助中心</h2>
-      <el-input
-        v-model="searchKeyword"
-        placeholder="搜索帮助文档..."
-        prefix-icon="Search"
-        class="search-input"
-        @input="handleSearch"
-      />
-    </div>
-
-    <!-- 帮助分类 -->
-    <div class="help-categories">
-      <el-card
-        v-for="category in categories"
-        :key="category.id"
-        class="category-card"
-      >
-        <div
-          class="category-header"
-          @click="toggleCategory(category.id)"
-        >
-          <el-icon class="category-icon">
-            <component :is="category.icon" />
-          </el-icon>
-          <h3>{{ category.name }}</h3>
-          <el-icon
-            class="expand-icon"
-            :class="{ expanded: expandedCategories.includes(category.id) }"
+      <div class="header-content">
+        <h1>帮助中心</h1>
+       
+      </div>
+      <div class="header-actions">
+        <div class="search-area">
+          <el-input
+            v-model="searchKeyword"
+            placeholder="搜索帮助文档..."
+            prefix-icon="Search"
+            class="search-input"
+            clearable
+            @keyup.enter="handleSearch"
+          />
+          <el-button
+            type="primary"
+            @click="handleSearch"
           >
-            <ArrowDown />
-          </el-icon>
+            搜索
+          </el-button>
+          <el-button @click="handleReset">
+            重置
+          </el-button>
         </div>
-
-        <div
-          v-show="expandedCategories.includes(category.id)"
-          class="category-content"
-        >
-          <div class="help-items">
-            <div
-              v-for="item in category.items"
-              :key="item.id"
-              class="help-item"
-              @click="viewHelpItem(item)"
-            >
-              <h4>{{ item.title }}</h4>
-              <p>{{ item.description }}</p>
-              <div class="item-meta">
-                <span class="category-tag">{{ item.category }}</span>
-                <span class="update-time">{{ item.updateTime }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </el-card>
+      </div>
     </div>
 
-    <!-- 快速入门 -->
-    <el-card class="quick-start">
+    <!-- 视频教程 -->
+    <el-card class="video-tutorials">
       <template #header>
         <div class="card-header">
-          <h3>快速入门</h3>
+          <h3>视频教程</h3>
+          <el-button
+            type="text"
+            @click="viewAllVideos"
+          >
+            查看全部
+          </el-button>
         </div>
       </template>
 
-      <div class="quick-start-content">
+      <div class="video-grid">
         <div
-          v-for="(step, index) in quickStartSteps"
-          :key="index"
-          class="step-item"
+          v-for="video in filteredVideoList"
+          :key="video.id"
+          class="video-item"
+          @click="playVideo(video)"
         >
-          <div class="step-number">
-            {{ index + 1 }}
-          </div>
-          <div class="step-content">
-            <h4>{{ step.title }}</h4>
-            <p>{{ step.description }}</p>
-            <el-button
-              type="primary"
-              size="small"
-              @click="viewStepDetail(step)"
+          <div class="video-thumbnail">
+            <img
+              v-if="video.thumbnail"
+              :src="video.thumbnail"
+              :alt="video.title"
             >
-              查看详情
-            </el-button>
+            <div
+              v-else
+              class="video-thumbnail-placeholder"
+            >
+              <el-icon class="placeholder-icon"><VideoPlay /></el-icon>
+              <span class="placeholder-text">视频教程</span>
+            </div>
+            <div class="play-button">
+              <el-icon><VideoPlay /></el-icon>
+            </div>
+            <span class="video-duration">{{ video.duration }}</span>
+            <span
+              v-if="video.tag"
+              class="video-tag"
+            >{{ video.tag }}</span>
+          </div>
+          <div class="video-info">
+            <h4>{{ video.title }}</h4>
+            <p>{{ video.description }}</p>
+            <div class="video-meta">
+              <span>{{ video.views }} 次观看</span>
+              <span>{{ video.uploadTime }}</span>
+            </div>
           </div>
         </div>
       </div>
     </el-card>
+
+    <!-- 帮助分类：左右两列，展开互不影响 -->
+    <div class="help-categories">
+      <div class="help-categories-column">
+        <el-card
+          v-for="category in filteredLeftCategories"
+          :key="category.id"
+          class="category-card"
+        >
+          <div
+            class="category-header"
+            @click="toggleCategory(category.id)"
+          >
+            <el-icon class="category-icon">
+              <component :is="category.icon" />
+            </el-icon>
+            <h3>{{ category.name }}</h3>
+            <el-icon
+              class="expand-icon"
+              :class="{ expanded: expandedCategories.includes(category.id) }"
+            >
+              <ArrowDown />
+            </el-icon>
+          </div>
+
+          <div
+            v-show="expandedCategories.includes(category.id)"
+            class="category-content"
+          >
+            <div class="help-items">
+              <div
+                v-for="item in category.items"
+                :key="item.id"
+                class="help-item"
+                @click="viewHelpItem(item)"
+              >
+                <h4>{{ item.title }}</h4>
+                <p>{{ item.description }}</p>
+                <div class="item-meta">
+                  <span class="category-tag">{{ item.category }}</span>
+                  <span class="update-time">{{ item.updateTime }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </el-card>
+      </div>
+      <div class="help-categories-column">
+        <el-card
+          v-for="category in filteredRightCategories"
+          :key="category.id"
+          class="category-card"
+        >
+          <div
+            class="category-header"
+            @click="toggleCategory(category.id)"
+          >
+            <el-icon class="category-icon">
+              <component :is="category.icon" />
+            </el-icon>
+            <h3>{{ category.name }}</h3>
+            <el-icon
+              class="expand-icon"
+              :class="{ expanded: expandedCategories.includes(category.id) }"
+            >
+              <ArrowDown />
+            </el-icon>
+          </div>
+
+          <div
+            v-show="expandedCategories.includes(category.id)"
+            class="category-content"
+          >
+            <div class="help-items">
+              <div
+                v-for="item in category.items"
+                :key="item.id"
+                class="help-item"
+                @click="viewHelpItem(item)"
+              >
+                <h4>{{ item.title }}</h4>
+                <p>{{ item.description }}</p>
+                <div class="item-meta">
+                  <span class="category-tag">{{ item.category }}</span>
+                  <span class="update-time">{{ item.updateTime }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </el-card>
+      </div>
+    </div>
 
     <!-- 常见问题 -->
     <el-card class="faq">
@@ -107,7 +193,7 @@
       <div class="faq-content">
         <el-collapse v-model="activeFAQ">
           <el-collapse-item
-            v-for="faq in faqList"
+            v-for="faq in filteredFaqList"
             :key="faq.id"
             :title="faq.question"
             :name="faq.id"
@@ -138,101 +224,21 @@
       </div>
     </el-card>
 
-    <!-- 视频教程 -->
-    <el-card class="video-tutorials">
+    <!-- 开发者联系 -->
+    <el-card class="developer-contact">
       <template #header>
         <div class="card-header">
-          <h3>视频教程</h3>
-          <el-button
-            type="text"
-            @click="viewAllVideos"
-          >
-            查看全部
-          </el-button>
+          <h3>开发者联系</h3>
         </div>
       </template>
 
-      <div class="video-grid">
-        <div
-          v-for="video in videoList"
-          :key="video.id"
-          class="video-item"
-          @click="playVideo(video)"
-        >
-          <div class="video-thumbnail">
-            <img
-              :src="video.thumbnail"
-              :alt="video.title"
-            >
-            <div class="play-button">
-              <el-icon><VideoPlay /></el-icon>
-            </div>
-            <span class="video-duration">{{ video.duration }}</span>
-          </div>
-          <div class="video-info">
-            <h4>{{ video.title }}</h4>
-            <p>{{ video.description }}</p>
-            <div class="video-meta">
-              <span>{{ video.views }} 次观看</span>
-              <span>{{ video.uploadTime }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </el-card>
-
-    <!-- 联系支持 -->
-    <el-card class="contact-support">
-      <template #header>
-        <div class="card-header">
-          <h3>联系支持</h3>
-        </div>
-      </template>
-
-      <div class="support-options">
-        <div
-          class="support-option"
-          @click="openTicketDialog"
-        >
-          <el-icon class="support-icon">
-            <Tickets />
-          </el-icon>
-          <h4>提交工单</h4>
-          <p>创建技术支持工单，获得专业帮助</p>
-        </div>
-
-        <div
-          class="support-option"
-          @click="openChatDialog"
-        >
-          <el-icon class="support-icon">
-            <ChatDotRound />
-          </el-icon>
-          <h4>在线客服</h4>
-          <p>与客服人员实时交流</p>
-        </div>
-
-        <div
-          class="support-option"
-          @click="callSupport"
-        >
-          <el-icon class="support-icon">
-            <Phone />
-          </el-icon>
-          <h4>电话支持</h4>
-          <p>工作日 9:00-18:00</p>
-        </div>
-
-        <div
-          class="support-option"
-          @click="sendEmail"
-        >
-          <el-icon class="support-icon">
-            <Message />
-          </el-icon>
-          <h4>邮件支持</h4>
-          <p>support@example.com</p>
-        </div>
+      <div class="developer-contact-content">
+        <p class="developer-desc">
+          本平台由企业内部人员开发与持续维护。如在使用过程中遇到问题或有宝贵建议，请通过公司内部渠道联系
+          <a href="mailto:s_chenguohui@wps.cn" class="developer-link" style="color:#409EFF; " target="_blank">
+            @陈国慧（s_chenguohui@wps.cn）
+          </a>
+        </p>
       </div>
     </el-card>
 
@@ -266,14 +272,6 @@
             <el-icon><Close /></el-icon>
             没帮助
           </el-button>
-          <el-button @click="shareHelpItem">
-            <el-icon><Share /></el-icon>
-            分享
-          </el-button>
-          <el-button @click="printHelpItem">
-            <el-icon><Printer /></el-icon>
-            打印
-          </el-button>
         </div>
       </div>
     </el-dialog>
@@ -301,361 +299,482 @@
         </div>
       </div>
     </el-dialog>
-
-    <!-- 工单提交对话框 -->
-    <el-dialog
-      v-model="ticketDialogVisible"
-      title="提交技术支持工单"
-      width="60%"
-      class="ticket-dialog"
-    >
-      <el-form
-        :model="ticketForm"
-        label-width="100px"
-      >
-        <el-form-item
-          label="问题类型"
-          required
-        >
-          <el-select
-            v-model="ticketForm.type"
-            placeholder="请选择问题类型"
-          >
-            <el-option
-              label="功能问题"
-              value="feature"
-            />
-            <el-option
-              label="技术问题"
-              value="technical"
-            />
-            <el-option
-              label="账户问题"
-              value="account"
-            />
-            <el-option
-              label="其他问题"
-              value="other"
-            />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item
-          label="问题标题"
-          required
-        >
-          <el-input
-            v-model="ticketForm.title"
-            placeholder="请输入问题标题"
-          />
-        </el-form-item>
-
-        <el-form-item
-          label="问题描述"
-          required
-        >
-          <el-input
-            v-model="ticketForm.description"
-            type="textarea"
-            :rows="4"
-            placeholder="请详细描述您遇到的问题"
-          />
-        </el-form-item>
-
-        <el-form-item label="附件">
-          <el-upload
-            :action="uploadUrl"
-            :file-list="ticketForm.attachments"
-            :on-success="handleUploadSuccess"
-            :on-remove="handleUploadRemove"
-            multiple
-          >
-            <el-button>选择文件</el-button>
-            <template #tip>
-              <div class="el-upload__tip">
-                支持上传图片、文档等文件，单个文件不超过10MB
-              </div>
-            </template>
-          </el-upload>
-        </el-form-item>
-
-        <el-form-item label="联系方式">
-          <el-input
-            v-model="ticketForm.contact"
-            placeholder="邮箱或电话"
-          />
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <el-button @click="ticketDialogVisible = false">
-          取消
-        </el-button>
-        <el-button
-          type="primary"
-          @click="submitTicket"
-        >
-          提交
-        </el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   Search,
   ArrowDown,
   VideoPlay,
-  Tickets,
   ChatDotRound,
-  Phone,
-  Message,
   Star,
   Close,
-  Share,
-  Printer,
   Document,
   Setting,
   Monitor,
-  DataAnalysis,
   User,
-  Lock,
+  Briefcase,
+  Calendar,
+  List,
+  Odometer,
 } from "@element-plus/icons-vue";
 
 // 响应式数据
 const searchKeyword = ref("");
-const expandedCategories = ref(["getting-started"]);
+/** 实际参与过滤的关键字（点击搜索后生效） */
+const appliedSearchKeyword = ref("");
+const expandedCategories = ref([]);
 const activeFAQ = ref([]);
 const helpDetailVisible = ref(false);
 const videoDialogVisible = ref(false);
-const ticketDialogVisible = ref(false);
 const currentHelpItem = ref(null);
 const currentVideo = ref(null);
-const uploadUrl = ref("/api/upload/help");
 
-// 帮助分类
+// 帮助分类（按用户流程排序：规划阶段 → 准备阶段 → 执行阶段 → 管理配置；左右两列均分，展开互不影响）
 const categories = ref([
   {
-    id: "getting-started",
-    name: "快速入门",
-    icon: Document,
+    id: "projects",
+    name: "项目管理",
+    icon: Briefcase,
     items: [
       {
-        id: "gs-1",
-        title: "平台介绍",
-        description: "了解移动测试平台的基本功能和特点",
-        category: "快速入门",
+        id: "proj-1",
+        title: "创建与编辑项目",
+        description: "在项目管理中新建项目、填写名称与描述，并编辑项目信息",
+        category: "项目管理",
         updateTime: "2024-01-15",
-        content: "<h2>平台介绍</h2><p>移动测试平台是一个专业的...</p>",
+        content: "<h2>创建与编辑项目</h2><p>进入「项目管理」页面，点击「新建项目」填写项目名称、描述等；在列表中可对已有项目进行编辑、删除等操作。</p>",
       },
       {
-        id: "gs-2",
-        title: "注册登录",
-        description: "如何注册账户和登录系统",
-        category: "快速入门",
+        id: "proj-2",
+        title: "项目详情与成员",
+        description: "查看项目详情、管理项目成员与权限",
+        category: "项目管理",
         updateTime: "2024-01-14",
-        content: "<h2>注册登录</h2><p>注册流程如下...</p>",
-      },
-      {
-        id: "gs-3",
-        title: "界面概览",
-        description: "熟悉平台的主要界面和功能区域",
-        category: "快速入门",
-        updateTime: "2024-01-13",
-        content: "<h2>界面概览</h2><p>平台界面包含...</p>",
+        content: "<h2>项目详情与成员</h2><p>点击项目名称进入项目详情页，可查看关联的迭代、需求、设备等；在成员管理中可添加或移除成员并分配角色。</p>",
       },
     ],
   },
   {
-    id: "device-management",
+    id: "iterations",
+    name: "迭代管理",
+    icon: Calendar,
+    items: [
+      {
+        id: "iter-1",
+        title: "创建迭代",
+        description: "为项目创建迭代版本，规划测试周期",
+        category: "迭代管理",
+        updateTime: "2024-01-13",
+        content: "<h2>创建迭代</h2><p>在「迭代管理」中按项目筛选后点击「新建迭代」，填写迭代名称、计划开始/结束时间等，便于按版本组织用例与执行记录。</p>",
+      },
+      {
+        id: "iter-2",
+        title: "迭代与需求关联",
+        description: "将需求关联到迭代，跟踪版本范围",
+        category: "迭代管理",
+        updateTime: "2024-01-12",
+        content: "<h2>迭代与需求关联</h2><p>在迭代详情或需求管理中，可将需求关联到指定迭代，便于按迭代统计需求覆盖与测试进度。</p>",
+      },
+    ],
+  },
+  {
+    id: "requirements",
+    name: "需求管理",
+    icon: Document,
+    items: [
+      {
+        id: "req-1",
+        title: "需求的创建与编辑",
+        description: "新建需求、填写标题与描述，并关联到项目与迭代",
+        category: "需求管理",
+        updateTime: "2024-01-11",
+        content: "<h2>需求的创建与编辑</h2><p>在「需求管理」中可新建需求，填写标题、描述、优先级等，并选择所属项目和迭代；支持对需求进行编辑、状态变更等操作。</p>",
+      },
+      {
+        id: "req-2",
+        title: "需求与用例关联",
+        description: "将测试用例关联到需求，实现需求覆盖追溯",
+        category: "需求管理",
+        updateTime: "2024-01-10",
+        content: "<h2>需求与用例关联</h2><p>在需求详情或用例管理中，可将测试用例关联到需求，用于跟踪需求对应的测试覆盖情况。</p>",
+      },
+    ],
+  },
+  {
+    id: "devices",
     name: "设备管理",
     icon: Monitor,
     items: [
       {
-        id: "dm-1",
-        title: "添加设备",
-        description: "如何连接和管理测试设备",
+        id: "dev-1",
+        title: "设备连接与列表",
+        description: "通过 USB 或无线连接设备，在设备列表中查看与管理",
         category: "设备管理",
-        updateTime: "2024-01-12",
-        content: "<h2>添加设备</h2><p>设备连接方式...</p>",
+        updateTime: "2024-01-09",
+        content: "<h2>设备连接与列表</h2><p>在「设备管理」中可查看已连接设备列表；通过 USB 连接并开启调试后刷新列表，或使用无线连接功能将设备加入平台。</p>",
       },
       {
-        id: "dm-2",
-        title: "设备监控",
-        description: "实时监控设备状态和性能",
+        id: "dev-2",
+        title: "设备详情与任务",
+        description: "查看设备详情、为设备分配或执行测试任务",
         category: "设备管理",
-        updateTime: "2024-01-11",
-        content: "<h2>设备监控</h2><p>监控指标包括...</p>",
+        updateTime: "2024-01-08",
+        content: "<h2>设备详情与任务</h2><p>点击设备进入设备详情页，可查看设备信息、状态及历史任务；可为该设备创建或分配测试任务并执行。</p>",
       },
     ],
   },
   {
-    id: "test-management",
-    name: "测试管理",
-    icon: DataAnalysis,
+    id: "test-cases",
+    name: "用例管理",
+    icon: Document,
     items: [
       {
-        id: "tm-1",
-        title: "创建测试用例",
-        description: "编写和管理自动化测试用例",
-        category: "测试管理",
-        updateTime: "2024-01-10",
-        content: "<h2>创建测试用例</h2><p>测试用例编写规范...</p>",
+        id: "tc-1",
+        title: "用例的创建与编辑",
+        description: "新建用例、填写步骤与预期结果，支持脑图与树形结构",
+        category: "用例管理",
+        updateTime: "2024-01-07",
+        content: "<h2>用例的创建与编辑</h2><p>在「用例管理」中可新建测试用例，填写用例名称、前置条件、步骤与预期结果；支持测试套件树形组织及脑图视图。</p>",
       },
       {
-        id: "tm-2",
-        title: "执行测试任务",
-        description: "配置和执行测试任务",
-        category: "测试管理",
-        updateTime: "2024-01-09",
-        content: "<h2>执行测试任务</h2><p>任务执行流程...</p>",
+        id: "tc-2",
+        title: "测试套件与导入导出",
+        description: "使用测试套件组织用例，支持批量导入与导出",
+        category: "用例管理",
+        updateTime: "2024-01-06",
+        content: "<h2>测试套件与导入导出</h2><p>通过测试套件对用例进行分组管理；支持按模板批量导入用例，或导出用例数据便于备份与迁移。</p>",
       },
     ],
   },
   {
-    id: "user-management",
+    id: "case-reviews",
+    name: "用例评审",
+    icon: ChatDotRound,
+    items: [
+      {
+        id: "cr-1",
+        title: "评审任务与流程",
+        description: "创建评审任务、分配评审人，完成用例评审流程",
+        category: "用例评审",
+        updateTime: "2024-01-05",
+        content: "<h2>评审任务与流程</h2><p>在「用例评审」中可创建评审任务，选择待评审用例并指定评审人；评审人可对用例提出意见，通过后完成评审流程。</p>",
+      },
+    ],
+  },
+  {
+    id: "test-tasks",
+    name: "测试任务",
+    icon: List,
+    items: [
+      {
+        id: "tt-1",
+        title: "创建测试任务",
+        description: "选择设备与用例/套件，配置任务参数并保存",
+        category: "测试任务",
+        updateTime: "2024-01-04",
+        content: "<h2>创建测试任务</h2><p>在「测试任务」中点击新建，选择目标设备（或设备组）、要执行的用例或测试套件，配置超时等参数后保存任务。</p>",
+      },
+      {
+        id: "tt-2",
+        title: "执行与查看日志",
+        description: "执行任务并实时查看执行日志与用例结果",
+        category: "测试任务",
+        updateTime: "2024-01-03",
+        content: "<h2>执行与查看日志</h2><p>在任务列表中点击「执行」启动任务，可进入执行页查看实时日志与每个用例的通过/失败状态，执行完成后可跳转至报告详情。</p>",
+      },
+    ],
+  },
+  {
+    id: "report",
+    name: "报告管理",
+    icon: Odometer,
+    items: [
+      {
+        id: "rpt-1",
+        title: "报告列表与筛选",
+        description: "按类型、项目、时间筛选并查看测试报告列表",
+        category: "报告管理",
+        updateTime: "2024-01-02",
+        content: "<h2>报告列表与筛选</h2><p>在「报告管理」中可按用例测试/设备脚本等类型、项目、时间范围筛选报告，查看历史执行记录与统计概览。</p>",
+      },
+      {
+        id: "rpt-2",
+        title: "报告详情与导出",
+        description: "查看单次执行详情、通过率与失败原因，支持导出",
+        category: "报告管理",
+        updateTime: "2024-01-01",
+        content: "<h2>报告详情与导出</h2><p>点击报告进入详情页，可查看通过率、失败用例及日志；支持将报告导出为文件便于归档或分享。</p>",
+      },
+    ],
+  },
+  {
+    id: "users",
     name: "用户管理",
     icon: User,
     items: [
       {
-        id: "um-1",
-        title: "用户权限",
-        description: "管理用户账户和权限设置",
+        id: "usr-1",
+        title: "用户与角色",
+        description: "管理平台用户账户、角色与权限",
         category: "用户管理",
-        updateTime: "2024-01-08",
-        content: "<h2>用户权限</h2><p>权限管理说明...</p>",
+        updateTime: "2023-12-31",
+        content: "<h2>用户与角色</h2><p>在「用户管理」中可查看用户列表、新建或编辑用户，并为用户分配角色（如管理员、测试、只读等），不同角色拥有不同的功能权限。</p>",
       },
     ],
   },
   {
-    id: "system-settings",
+    id: "settings",
     name: "系统设置",
     icon: Setting,
     items: [
       {
-        id: "ss-1",
-        title: "基础配置",
-        description: "系统基础参数配置",
+        id: "set-1",
+        title: "基础与安全配置",
+        description: "系统基础参数、安全与访问控制配置",
         category: "系统设置",
-        updateTime: "2024-01-07",
-        content: "<h2>基础配置</h2><p>配置项说明...</p>",
-      },
-      {
-        id: "ss-2",
-        title: "安全设置",
-        description: "系统安全和访问控制配置",
-        category: "系统设置",
-        updateTime: "2024-01-06",
-        content: "<h2>安全设置</h2><p>安全配置项...</p>",
+        updateTime: "2023-12-30",
+        content: "<h2>基础与安全配置</h2><p>在「系统设置」中可配置系统基础参数、登录与密码策略、会话超时等安全选项，以及其它全局设置。</p>",
       },
     ],
   },
 ]);
 
-// 快速入门步骤
-const quickStartSteps = ref([
-  {
-    title: "注册账户",
-    description: "创建您的测试平台账户，开始使用各项功能",
-    detail: "注册流程...",
-  },
-  {
-    title: "连接设备",
-    description: "将您的移动设备连接到平台进行测试",
-    detail: "设备连接指南...",
-  },
-  {
-    title: "创建项目",
-    description: "创建测试项目，组织您的测试工作",
-    detail: "项目管理说明...",
-  },
-  {
-    title: "编写用例",
-    description: "编写自动化测试用例，定义测试逻辑",
-    detail: "用例编写教程...",
-  },
-  {
-    title: "执行测试",
-    description: "运行测试任务，获取测试结果",
-    detail: "测试执行指南...",
-  },
-]);
+const leftCategories = computed(() => {
+  const list = categories.value;
+  const mid = Math.ceil(list.length / 2);
+  return list.slice(0, mid);
+});
+
+const rightCategories = computed(() => {
+  const list = categories.value;
+  const mid = Math.ceil(list.length / 2);
+  return list.slice(mid);
+});
+
+// 去除 HTML 标签，用于内容匹配
+function stripHtml(html) {
+  if (!html) return "";
+  return String(html).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// 判断文本是否包含关键字（忽略大小写）
+function matchKeyword(text, keyword) {
+  if (!keyword || !text) return false;
+  return stripHtml(String(text)).toLowerCase().includes(keyword.toLowerCase());
+}
+
+// 按关键字过滤后的分类（仅保留标题或内容包含关键字的条目）
+const filteredCategories = computed(() => {
+  const kw = appliedSearchKeyword.value.trim();
+  const list = categories.value;
+  if (!kw) return list;
+
+  return list
+    .map((cat) => {
+      const filteredItems = cat.items.filter(
+        (item) =>
+          matchKeyword(item.title, kw) ||
+          matchKeyword(item.description, kw) ||
+          matchKeyword(item.content, kw),
+      );
+      if (filteredItems.length === 0) return null;
+      return { ...cat, items: filteredItems };
+    })
+    .filter(Boolean);
+});
+
+const filteredLeftCategories = computed(() => {
+  const list = filteredCategories.value;
+  const mid = Math.ceil(list.length / 2);
+  return list.slice(0, mid);
+});
+
+const filteredRightCategories = computed(() => {
+  const list = filteredCategories.value;
+  const mid = Math.ceil(list.length / 2);
+  return list.slice(mid);
+});
+
+// 按关键字过滤后的视频列表（标题、描述、标签）
+const filteredVideoList = computed(() => {
+  const kw = appliedSearchKeyword.value.trim();
+  const list = videoList.value;
+  if (!kw) return list;
+  return list.filter(
+    (v) =>
+      matchKeyword(v.title, kw) ||
+      matchKeyword(v.description, kw) ||
+      matchKeyword(v.tag, kw),
+  );
+});
+
+// 按关键字过滤后的常见问题（问题、答案）
+const filteredFaqList = computed(() => {
+  const kw = appliedSearchKeyword.value.trim();
+  const list = faqList.value;
+  if (!kw) return list;
+  return list.filter(
+    (f) => matchKeyword(f.question, kw) || matchKeyword(f.answer, kw),
+  );
+});
 
 // 常见问题
 const faqList = ref([
   {
     id: "faq-1",
-    question: "如何连接Android设备？",
+    question: "如何连接 Android 设备？",
     answer:
-      "连接Android设备的步骤如下：<br>1. 确保设备已开启USB调试模式<br>2. 使用USB线连接设备和电脑<br>3. 在设备管理中添加设备...",
-    helpfulCount: 156,
+      "连接 Android 设备请按以下步骤操作：<br>1. 在设备「设置」→「开发者选项」中开启 <strong>USB 调试</strong><br>2. 使用 USB 数据线将设备与电脑连接，并在设备上允许 USB 调试授权<br>3. 打开平台「设备管理」页面，点击「添加设备」或「刷新设备列表」<br>4. 若设备未识别，请检查 USB 线是否支持数据传输、是否已安装对应机型驱动，或尝试更换 USB 端口",
+    helpfulCount: 256,
   },
   {
     id: "faq-2",
-    question: "测试用例支持哪些编程语言？",
+    question: "测试用例支持哪些编写方式？",
     answer:
-      "平台支持多种编程语言编写测试用例：<br>• Python<br>• JavaScript<br>• Java<br>• Kotlin...",
-    helpfulCount: 89,
+      "平台支持多种方式编写与管理测试用例：<br>• <strong>脚本</strong>：支持 Python、JavaScript 等常见语言<br>• <strong>用例库</strong>：在「测试用例」中新建，填写步骤、预期结果等<br>• <strong>导入</strong>：支持从 Excel 模板批量导入，在「测试用例」页面使用「导入」功能下载模板后按格式填写并上传<br>具体支持的脚本语言与模板格式可在「测试管理」帮助文档中查看。",
+    helpfulCount: 189,
   },
   {
     id: "faq-3",
     question: "如何批量导入测试用例？",
     answer:
-      "批量导入测试用例的方法：<br>1. 准备符合模板格式的Excel文件<br>2. 在测试用例管理页面点击导入按钮<br>3. 选择文件并确认导入...",
-    helpfulCount: 67,
+      "批量导入步骤：<br>1. 在「测试用例」页面点击「导入」或「批量导入」<br>2. 下载平台提供的 Excel 模板，按列填写用例名称、步骤、预期结果、优先级等<br>3. 保存 Excel 后，在导入弹窗中选择该文件并上传<br>4. 系统会校验格式并预览，确认后执行导入。若存在重复或格式错误，会提示具体行号便于修改后重新导入。",
+    helpfulCount: 167,
+  },
+  {
+    id: "faq-4",
+    question: "设备显示离线或无法连接怎么办？",
+    answer:
+      "可依次排查：<br>1. <strong>USB</strong>：重新插拔数据线，确认设备端弹出「允许 USB 调试」时勾选「始终允许」并确定<br>2. <strong>驱动</strong>：在电脑设备管理器中查看是否有未识别设备或叹号，安装或更新对应 ADB/厂商驱动<br>3. <strong>端口占用</strong>：关闭其他占用 ADB 的工具（如其他自动化工具、手机助手）后重试<br>4. <strong>无线连接</strong>：若使用 WiFi 连接，确认设备与电脑在同一网段，且 ADB 无线调试已开启并配对成功。",
+    helpfulCount: 142,
+  },
+  {
+    id: "faq-5",
+    question: "如何创建与执行测试任务？",
+    answer:
+      "创建与执行流程：<br>1. 在「测试任务」中点击「新建任务」，选择所属项目与设备（或设备组）<br>2. 选择要执行的测试用例或测试套件，可设置执行顺序、重试次数等<br>3. 配置环境参数（如包名、超时时间等），保存任务<br>4. 在任务列表中点击「执行」，系统会调度设备并依次执行用例，执行过程中可在「测试任务」或「设备详情」中查看实时日志与结果。",
+    helpfulCount: 198,
+  },
+  {
+    id: "faq-6",
+    question: "测试报告在哪里查看？",
+    answer:
+      "测试报告查看方式：<br>• <strong>单次任务</strong>：在「测试任务」列表中点击某次执行记录，进入执行详情即可查看通过/失败统计、用例明细及日志<br>• <strong>汇总报告</strong>：在「报告」或「测试报告」模块可按项目、时间范围筛选，查看多轮执行的汇总与趋势<br>报告支持导出为 PDF 或 Excel，便于归档与分享。",
+    helpfulCount: 134,
+  },
+  {
+    id: "faq-7",
+    question: "如何管理项目与迭代？",
+    answer:
+      "项目与迭代管理：<br>• <strong>项目</strong>：在「项目管理」中新建项目，填写名称、描述等，后续设备、用例、任务均可关联到项目<br>• <strong>迭代</strong>：在项目下创建迭代（如 V1.0、Sprint1），执行任务时可选择迭代，便于按版本统计与追溯<br>在「迭代管理」中可查看各迭代下的用例与执行情况。",
+    helpfulCount: 98,
+  },
+  {
+    id: "faq-8",
+    question: "忘记登录密码怎么办？",
+    answer:
+      "若忘记密码：<br>1. 在登录页点击「忘记密码」<br>2. 输入注册时使用的邮箱或手机号，获取验证码后设置新密码<br>若账号由管理员创建，可联系管理员在「用户管理」中为您重置密码；管理员可在「系统设置」中配置是否开启自助找回密码。",
+    helpfulCount: 87,
+  },
+  {
+    id: "faq-9",
+    question: "如何分配设备与权限？",
+    answer:
+      "设备与权限由管理员配置：<br>• <strong>设备</strong>：在「设备管理」中可将设备分配到指定项目或池，并设置使用权限（如仅某角色可操作）<br>• <strong>用户与角色</strong>：在「用户管理」中为用户分配角色（如管理员、测试、只读），不同角色对设备、用例、任务的可见与操作范围不同<br>具体权限说明见「系统设置」→「权限说明」。",
+    helpfulCount: 76,
+  },
+  {
+    id: "faq-10",
+    question: "支持 iOS 设备吗？",
+    answer:
+      "当前版本主要支持 Android 设备的连接与自动化测试。iOS 支持取决于平台配置与许可证：若已开通 iOS 能力，需使用 Mac 环境并配置相关代理/证书，在「设备管理」中可看到 iOS 设备的连接入口。具体支持范围与配置方式请以当前版本说明或联系管理员为准。",
+    helpfulCount: 203,
   },
 ]);
 
-// 视频教程
+// 视频教程（从左到右、从上到下：项目管理 → 设备管理 → 用例管理 → 任务管理 → 报告管理 → 用户/设置管理）
 const videoList = ref([
   {
     id: "video-1",
-    title: "平台快速入门教程",
-    description: "10分钟快速了解平台基本操作",
-    thumbnail: "/images/video-thumb-1.jpg",
-    url: "/videos/quick-start.mp4",
-    duration: "10:23",
-    views: 1250,
-    uploadTime: "2024-01-15",
+    title: "项目与迭代管理",
+    description: "创建项目、规划迭代，并将用例与任务按版本归类管理。",
+    thumbnail: "",
+    url: "/videos/project-iteration.mp4",
+    duration: "09:50",
+    views: 756,
+    uploadTime: "2024-01-11",
+    tag: "项目管理",
   },
   {
     id: "video-2",
-    title: "设备连接详解",
-    description: "详细介绍各种设备的连接方法",
-    thumbnail: "/images/video-thumb-2.jpg",
+    title: "设备连接与调试入门",
+    description: "从 USB 连接、驱动检查到设备列表刷新，手把手完成首台设备接入。",
+    thumbnail: "",
     url: "/videos/device-connection.mp4",
-    duration: "15:45",
-    views: 890,
-    uploadTime: "2024-01-14",
+    duration: "08:32",
+    views: 2150,
+    uploadTime: "2024-01-15",
+    tag: "设备管理",
   },
   {
     id: "video-3",
-    title: "测试用例编写实战",
-    description: "从零开始编写第一个测试用例",
-    thumbnail: "/images/video-thumb-3.jpg",
-    url: "/videos/test-case-writing.mp4",
-    duration: "25:18",
-    views: 756,
+    title: "测试用例的创建与编辑",
+    description: "在平台中新建用例、填写步骤与预期结果，并关联到测试套件。",
+    thumbnail: "",
+    url: "/videos/test-case-create.mp4",
+    duration: "12:18",
+    views: 1680,
+    uploadTime: "2024-01-14",
+    tag: "用例管理",
+  },
+  {
+    id: "video-4",
+    title: "测试任务配置与执行",
+    description: "创建任务、选择设备与用例、设置参数，并查看执行日志与结果。",
+    thumbnail: "",
+    url: "/videos/test-task-run.mp4",
+    duration: "15:42",
+    views: 1420,
     uploadTime: "2024-01-13",
+    tag: "任务管理",
+  },
+  {
+    id: "video-5",
+    title: "测试报告解读与导出",
+    description: "如何查看通过率、失败原因，以及导出 PDF/Excel 报告。",
+    thumbnail: "",
+    url: "/videos/report-export.mp4",
+    duration: "06:25",
+    views: 980,
+    uploadTime: "2024-01-12",
+    tag: "报告管理",
+  },
+  {
+    id: "video-6",
+    title: "用户与系统配置管理",
+    description: "用户管理、角色与权限分配，以及系统设置中的基础与安全配置说明。",
+    thumbnail: "",
+    url: "/videos/user-settings.mp4",
+    duration: "07:40",
+    views: 620,
+    uploadTime: "2024-01-10",
+    tag: "用户/设置",
   },
 ]);
 
-// 工单表单
-const ticketForm = reactive({
-  type: "",
-  title: "",
-  description: "",
-  attachments: [],
-  contact: "",
-});
-
-// 方法
+// 方法：点击搜索时应用当前关键字进行过滤
 const handleSearch = () => {
-  // 实现搜索逻辑
-  console.log("搜索:", searchKeyword.value);
+  appliedSearchKeyword.value = searchKeyword.value.trim();
+};
+
+// 重置：清空搜索条件并恢复全部内容
+const handleReset = () => {
+  searchKeyword.value = "";
+  appliedSearchKeyword.value = "";
 };
 
 const toggleCategory = (categoryId) => {
@@ -670,10 +789,6 @@ const toggleCategory = (categoryId) => {
 const viewHelpItem = (item) => {
   currentHelpItem.value = item;
   helpDetailVisible.value = true;
-};
-
-const viewStepDetail = (step) => {
-  ElMessage.info(step.detail);
 };
 
 const refreshFAQ = () => {
@@ -698,67 +813,12 @@ const viewAllVideos = () => {
   ElMessage.info("跳转到视频教程页面");
 };
 
-const openTicketDialog = () => {
-  ticketDialogVisible.value = true;
-};
-
-const openChatDialog = () => {
-  ElMessage.info("正在连接在线客服...");
-};
-
-const callSupport = () => {
-  ElMessage.info("客服电话: 400-123-4567");
-};
-
-const sendEmail = () => {
-  ElMessage.info("邮件地址: support@example.com");
-};
-
 const likeHelpItem = () => {
   ElMessage.success("感谢您的反馈！");
 };
 
 const dislikeHelpItem = () => {
   ElMessage.info("我们会继续改进，感谢您的反馈！");
-};
-
-const shareHelpItem = () => {
-  ElMessage.success("分享链接已复制到剪贴板");
-};
-
-const printHelpItem = () => {
-  window.print();
-};
-
-const handleUploadSuccess = (response, file) => {
-  ticketForm.attachments.push({
-    name: file.name,
-    url: response.data.url,
-  });
-};
-
-const handleUploadRemove = (file, fileList) => {
-  ticketForm.attachments = fileList;
-};
-
-const submitTicket = () => {
-  if (!ticketForm.type || !ticketForm.title || !ticketForm.description) {
-    ElMessage.warning("请填写必填项");
-    return;
-  }
-
-  // 提交工单逻辑
-  ElMessage.success("工单提交成功，我们会尽快处理");
-  ticketDialogVisible.value = false;
-
-  // 重置表单
-  Object.assign(ticketForm, {
-    type: "",
-    title: "",
-    description: "",
-    attachments: [],
-    contact: "",
-  });
 };
 
 // 生命周期
@@ -773,26 +833,69 @@ onMounted(() => {
 }
 
 .page-header {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  background: var(--el-bg-color, #fff);
+  padding: 16px 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--el-border-color-lighter, #ebeef5);
 }
 
-.page-header h2 {
+.page-header .header-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.page-header .header-content h1 {
   margin: 0;
-  color: #303133;
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--el-text-color-primary, #303133);
+}
+
+.page-header .description {
+  margin: 0;
+  color: var(--el-text-color-regular, #606266);
+  font-size: 14px;
+}
+
+.page-header .header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.search-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .search-input {
-  width: 300px;
+  width: 280px;
 }
 
+/* 左右两列布局，左侧/右侧卡片展开时互不影响 */
 .help-categories {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: 20px;
+  display: flex;
+  gap: 24px;
   margin-bottom: 30px;
+  align-items: flex-start;
+}
+
+.help-categories-column {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .category-card {
@@ -884,10 +987,9 @@ onMounted(() => {
   font-size: 12px;
 }
 
-.quick-start,
 .faq,
 .video-tutorials,
-.contact-support {
+.developer-contact {
   margin-bottom: 30px;
 }
 
@@ -902,48 +1004,25 @@ onMounted(() => {
   color: #303133;
 }
 
-.quick-start-content {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+.faq-content {
+  max-height: 560px;
+  overflow-y: auto;
 }
 
-.step-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 15px;
-}
-
-.step-number {
-  width: 30px;
-  height: 30px;
-  background-color: #409eff;
-  color: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  flex-shrink: 0;
-}
-
-.step-content {
-  flex: 1;
-}
-
-.step-content h4 {
-  margin: 0 0 5px 0;
+.faq-content :deep(.el-collapse-item__header) {
+  font-size: 15px;
   color: #303133;
 }
 
-.step-content p {
-  margin: 0 0 10px 0;
-  color: #606266;
+.faq-content :deep(.el-collapse-item__content) {
+  padding-bottom: 16px;
 }
 
 .faq-answer {
   margin-bottom: 15px;
-  line-height: 1.6;
+  line-height: 1.7;
+  color: #606266;
+  font-size: 14px;
 }
 
 .faq-meta {
@@ -954,31 +1033,67 @@ onMounted(() => {
   font-size: 14px;
 }
 
+/* 视频教程卡片区域 */
+.video-tutorials :deep(.el-card__body) {
+  padding: 24px;
+}
+
 .video-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
 }
 
 .video-item {
   cursor: pointer;
-  transition: transform 0.2s;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #ebeef5;
+  transition: all 0.25s ease;
 }
 
 .video-item:hover {
-  transform: translateY(-2px);
+  border-color: #409eff;
+  box-shadow: 0 8px 24px rgba(64, 158, 255, 0.15);
+  transform: translateY(-4px);
 }
 
 .video-thumbnail {
   position: relative;
-  border-radius: 8px;
+  width: 100%;
+  height: 160px;
+  border-radius: 12px 12px 0 0;
   overflow: hidden;
+  background: linear-gradient(135deg, #e8f4ff 0%, #d4e8ff 100%);
 }
 
 .video-thumbnail img {
   width: 100%;
-  height: 180px;
+  height: 100%;
   object-fit: cover;
+}
+
+.video-thumbnail-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #e8f4ff 0%, #cce0ff 50%, #b3d1ff 100%);
+  color: #409eff;
+}
+
+.placeholder-icon {
+  font-size: 40px;
+  opacity: 0.9;
+}
+
+.placeholder-text {
+  font-size: 13px;
+  color: #606266;
 }
 
 .play-button {
@@ -986,85 +1101,97 @@ onMounted(() => {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 50px;
-  height: 50px;
-  background-color: rgba(0, 0, 0, 0.7);
+  width: 56px;
+  height: 56px;
+  background-color: rgba(64, 158, 255, 0.92);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 24px;
+  font-size: 26px;
+  transition: transform 0.2s;
+}
+
+.video-item:hover .play-button {
+  transform: translate(-50%, -50%) scale(1.08);
 }
 
 .video-duration {
   position: absolute;
   bottom: 10px;
   right: 10px;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(0, 0, 0, 0.65);
   color: white;
-  padding: 2px 6px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.video-tag {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background-color: rgba(64, 158, 255, 0.9);
+  color: white;
+  padding: 2px 8px;
   border-radius: 4px;
   font-size: 12px;
 }
 
 .video-info {
-  padding: 10px 0;
+  padding: 16px;
 }
 
 .video-info h4 {
-  margin: 0 0 5px 0;
+  margin: 0 0 8px 0;
   color: #303133;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .video-info p {
-  margin: 0 0 10px 0;
+  margin: 0 0 12px 0;
   color: #606266;
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .video-meta {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   color: #909399;
   font-size: 12px;
 }
 
-.support-options {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
+.developer-contact-content {
+  padding: 4px 0;
 }
 
-.support-option {
-  text-align: center;
-  padding: 20px;
-  border: 1px solid #ebeef5;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.support-option:hover {
-  border-color: #409eff;
-  background-color: #f5f7fa;
-}
-
-.support-icon {
-  font-size: 32px;
-  color: #409eff;
-  margin-bottom: 10px;
-}
-
-.support-option h4 {
-  margin: 0 0 5px 0;
-  color: #303133;
-}
-
-.support-option p {
+.developer-desc {
   margin: 0;
   color: #606266;
   font-size: 14px;
+  line-height: 1.7;
+}
+
+.developer-link {
+  text-decoration: none;
+}
+
+.developer-link:hover {
+  text-decoration: none;
 }
 
 .help-detail-header {
@@ -1112,20 +1239,26 @@ onMounted(() => {
     align-items: stretch;
   }
 
-  .search-input {
+  .page-header .header-actions {
     width: 100%;
   }
 
+  .search-area {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .search-input {
+    width: 100%;
+    min-width: 0;
+  }
+
   .help-categories {
-    grid-template-columns: 1fr;
+    flex-direction: column;
   }
 
   .video-grid {
     grid-template-columns: 1fr;
-  }
-
-  .support-options {
-    grid-template-columns: repeat(2, 1fr);
   }
 
   .help-detail-actions {

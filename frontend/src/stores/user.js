@@ -84,6 +84,9 @@ export const useUserStore = defineStore("user", () => {
       // 无论后端请求是否成功，都清除本地数据
       userInfo.value = null;
       sessionStorage.removeItem(USER_KEY);
+      // 清除用例管理页的树展开/选中缓存，重新登录后默认全部收起
+      localStorage.removeItem("testCaseExpandedKeys");
+      localStorage.removeItem("testCaseSelectedSuite");
 
       // 注意：不在这里清除记住的登录信息，让用户主动选择是否记住
 

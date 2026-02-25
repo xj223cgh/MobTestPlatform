@@ -130,6 +130,7 @@
 
         <div class="tree-container">
           <el-tree
+            :key="'suite-tree-' + treeMountKey"
             ref="treeRef"
             :data="treeData"
             :props="defaultProps"
@@ -2280,6 +2281,8 @@ const isDraggable = ref(true); // 控制树组件拖拽功能
 
 // 存储用户手动展开的节点ID
 const expandedKeys = ref([]);
+// 树挂载 key：数据加载完成后递增，强制树重新挂载以正确应用 default-expanded-keys（否则刷新后展开状态会丢失）
+const treeMountKey = ref(0);
 
 // 编辑节点相关
 const editingNodeId = ref(null);
@@ -2958,14 +2961,44 @@ const handleNodeExpand = (data) => {
   scrollToCurrentNode();
 };
 
-// 节点折叠事件处理
-const handleNodeCollapse = (data) => {
-  const index = expandedKeys.value.indexOf(data.id);
-  if (index > -1) {
-    expandedKeys.value.splice(index, 1);
-    // 存储到localStorage
-    localStorage.setItem('testCaseExpandedKeys', JSON.stringify(expandedKeys.value));
+// 从树数据中按 id 查找节点（保证能拿到完整 children），若未传入树则用 treeData
+const findNodeInTree = (nodes, id) => {
+  if (!nodes || !nodes.length) return null;
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    const found = findNodeInTree(n.children, id);
+    if (found) return found;
   }
+  return null;
+};
+
+// 收集某节点及其所有子节点的 id（收起父级时，子级一并视为收起）
+const collectNodeAndDescendantIds = (nodeOrId) => {
+  const node = typeof nodeOrId === 'object' && nodeOrId !== null
+    ? nodeOrId
+    : findNodeInTree(treeData.value, nodeOrId);
+  if (!node) return [typeof nodeOrId === 'object' ? nodeOrId?.id : nodeOrId].filter(Boolean);
+  const ids = [node.id];
+  const walk = (list) => {
+    if (!list || !list.length) return;
+    for (const n of list) {
+      ids.push(n.id);
+      if (n.children?.length) walk(n.children);
+    }
+  };
+  walk(node.children);
+  return ids;
+};
+
+// 节点折叠事件处理：收起父节点时，从展开记录中移除该节点及所有子节点 id，并写入缓存
+const handleNodeCollapse = (data) => {
+  const toRemove = collectNodeAndDescendantIds(data);
+  const keySet = new Set(expandedKeys.value);
+  toRemove.forEach((id) => keySet.delete(id));
+  expandedKeys.value = Array.from(keySet);
+  localStorage.setItem('testCaseExpandedKeys', JSON.stringify(expandedKeys.value));
+  // 强制树重新挂载，使 default-expanded-keys 生效（组件内部不响应 prop 变化，需 remount 才能看到收起）
+  treeMountKey.value += 1;
 };
 
 // 获取用例集评审状态
@@ -3455,7 +3488,7 @@ const loadTreeData = async () => {
     // 更新套件选项
     suiteOptions.value = buildSuiteOptions();
 
-    // 从localStorage恢复展开状态
+    // 展开状态：默认全部收起；有缓存则恢复。重新登录或 24 小时缓存清理会清除缓存，收起状态刷新
     const savedExpandedKeys = localStorage.getItem('testCaseExpandedKeys');
     if (savedExpandedKeys) {
       try {
@@ -3468,7 +3501,8 @@ const loadTreeData = async () => {
       expandedKeys.value = [];
     }
 
-    // 数据更新后，Element Plus Tree 会自动使用 default-expanded-keys 恢复展开状态
+    // 强制树重新挂载，使 default-expanded-keys 生效（Element Plus 树仅在挂载时读取该 prop，数据异步加载后需 remount）
+    treeMountKey.value += 1;
 
     // 检查路由参数中是否有 suite_id，如果有则自动选中对应的用例集
     if (route.query.suite_id) {
