@@ -342,25 +342,6 @@ def create_tables():
                 INDEX idx_iteration_id (iteration_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='测试用例执行记录表'""")
             
-            # 创建tools表
-            cursor.execute("""CREATE TABLE IF NOT EXISTS tools (
-                id INT AUTO_INCREMENT PRIMARY KEY COMMENT '工具编号',
-                tool_name VARCHAR(100) NOT NULL COMMENT '工具名称',
-                tool_description TEXT COMMENT '工具描述',
-                tool_type ENUM('automation', 'performance', 'monitoring', 'debugging', 'utility') NOT NULL COMMENT '工具类型',
-                tool_path VARCHAR(500) NOT NULL COMMENT '工具路径',
-                tool_config TEXT COMMENT '工具配置（JSON格式）',
-                status ENUM('active', 'inactive', 'maintenance') DEFAULT 'active' COMMENT '状态',
-                creator_id INT NOT NULL COMMENT '创建者ID',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-                FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE CASCADE,
-                INDEX idx_tool_name (tool_name),
-                INDEX idx_tool_type (tool_type),
-                INDEX idx_status (status),
-                INDEX idx_creator_id (creator_id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='工具表'""")
-            
             # 创建task_case_relation表
             cursor.execute("""CREATE TABLE IF NOT EXISTS task_case_relation (
                 task_id INT NOT NULL COMMENT '任务ID',

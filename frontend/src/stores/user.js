@@ -98,40 +98,34 @@ export const useUserStore = defineStore("user", () => {
     }
   };
 
-  // 检查认证状态
+  // 检查认证状态：以服务端会话为准，仅在明确未认证或 401 时清除本地
   const checkAuth = async () => {
     try {
       loading.value = true;
-
-      // 尝试调用检查会话接口
       const response = await checkSession();
 
-      if (response.code === 200) {
-        if (response.data.authenticated) {
-          const { user } = response.data;
-          userInfo.value = user;
-          sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+      if (response.code === 200 && response.data) {
+        if (response.data.authenticated && response.data.user) {
+          userInfo.value = response.data.user;
+          sessionStorage.setItem(USER_KEY, JSON.stringify(response.data.user));
           return true;
-        } else {
-          // 后端明确返回未认证，清除本地数据
-          userInfo.value = null;
-          sessionStorage.removeItem(USER_KEY);
-          return false;
         }
-      } else {
-        // API调用成功但返回错误码，保留本地数据
-        return !!userInfo.value;
+        // 服务端明确未认证，清除本地
+        userInfo.value = null;
+        sessionStorage.removeItem(USER_KEY);
+        return false;
       }
+      // 非 200 或无 data：无法确认状态，保留本地
+      return !!userInfo.value;
     } catch (error) {
-      // 检查是否是接口不存在(404)错误
-      if (error.response && error.response.status === 404) {
-        // 接口未实现，保留本地数据
-        return !!userInfo.value;
-      } else {
-        // 其他错误（网络错误、500等），保留本地数据
-        // 只有当明确知道未认证时才清除数据
-        return !!userInfo.value;
+      const status = error.response?.status;
+      if (status === 401) {
+        userInfo.value = null;
+        sessionStorage.removeItem(USER_KEY);
+        return false;
       }
+      // 404/500/网络错误等：不强制踢出，保留本地状态
+      return !!userInfo.value;
     } finally {
       loading.value = false;
     }

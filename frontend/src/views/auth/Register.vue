@@ -65,7 +65,7 @@
               <el-link
                 type="primary"
                 style="vertical-align: baseline"
-                @click="showAgreement"
+                @click.prevent="showAgreement"
               >
                 《用户协议》
               </el-link>
@@ -73,7 +73,7 @@
               <el-link
                 type="primary"
                 style="vertical-align: baseline"
-                @click="showPrivacy"
+                @click.prevent="showPrivacy"
               >
                 《隐私政策》
               </el-link>
@@ -108,6 +108,52 @@
     <div class="register-footer">
       <p>&copy; 2025 移动测试平台. All rights reserved.</p>
     </div>
+
+    <!-- 用户协议弹窗（通用模板） -->
+    <el-dialog
+      v-model="agreementDialogVisible"
+      title="用户协议"
+      width="560px"
+      class="policy-dialog"
+      @close="agreementDialogVisible = false"
+    >
+      <div class="policy-content">
+        <p><strong>【用户协议】</strong></p>
+        <p>欢迎使用移动测试平台。使用本平台即表示您同意以下条款。</p>
+        <p><strong>一、服务说明</strong></p>
+        <p>本平台提供移动应用测试管理相关功能，包括但不限于项目管理、用例管理、任务执行与报告查看。</p>
+        <p><strong>二、账号与安全</strong></p>
+        <p>您应妥善保管账号与密码，对使用该账号进行的所有行为负责。发现盗用或异常请及时联系管理员。</p>
+        <p><strong>三、使用规范</strong></p>
+        <p>您应遵守法律法规及平台规则，不得利用本平台从事违法违规或侵害他人权益的行为。</p>
+        <p><strong>四、协议变更</strong></p>
+        <p>平台可能适时修订本协议，修订后继续使用即视为接受新协议。</p>
+        <p class="policy-tip">以上为通用模板，正式使用前请由法务或合规部门审定并替换为正式文本。</p>
+      </div>
+    </el-dialog>
+
+    <!-- 隐私政策弹窗（通用模板） -->
+    <el-dialog
+      v-model="privacyDialogVisible"
+      title="隐私政策"
+      width="560px"
+      class="policy-dialog"
+      @close="privacyDialogVisible = false"
+    >
+      <div class="policy-content">
+        <p><strong>【隐私政策】</strong></p>
+        <p>我们重视您的隐私。本政策说明我们如何收集、使用与保护您的信息。</p>
+        <p><strong>一、信息收集</strong></p>
+        <p>为提供服务，我们可能收集账号信息（如用户名、手机号、姓名）、使用行为与设备相关信息。</p>
+        <p><strong>二、信息使用</strong></p>
+        <p>所收集信息用于账号认证、功能提供、安全与合规、以及改进产品体验，不会用于与上述目的无关的营销。</p>
+        <p><strong>三、信息保护</strong></p>
+        <p>我们采取合理技术与管理措施保护您的信息，防止未经授权的访问、泄露或篡改。</p>
+        <p><strong>四、政策更新</strong></p>
+        <p>我们可能更新本政策，重大变更会通过平台或注册邮箱等方式通知。</p>
+        <p class="policy-tip">以上为通用模板，正式使用前请由法务或合规部门审定并替换为正式文本。</p>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -222,14 +268,17 @@ const goToLogin = () => {
   router.push("/login");
 };
 
+const agreementDialogVisible = ref(false);
+const privacyDialogVisible = ref(false);
+
 // 显示用户协议
 const showAgreement = () => {
-  ElMessage.info("用户协议页面待完善");
+  agreementDialogVisible.value = true;
 };
 
 // 显示隐私政策
 const showPrivacy = () => {
-  ElMessage.info("隐私政策页面待完善");
+  privacyDialogVisible.value = true;
 };
 </script>
 
@@ -341,6 +390,28 @@ const showPrivacy = () => {
 
   p {
     margin: 0;
+  }
+}
+
+.policy-dialog .policy-content {
+  max-height: 60vh;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #303133;
+
+  p {
+    margin: 0 0 10px 0;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  .policy-tip {
+    margin-top: 16px;
+    font-size: 12px;
+    color: #909399;
   }
 }
 

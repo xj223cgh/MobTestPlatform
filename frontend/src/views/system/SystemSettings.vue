@@ -405,7 +405,11 @@ const loadSettings = async () => {
         try {
           const arr = typeof d.password_policy === "string" ? JSON.parse(d.password_policy) : d.password_policy;
           if (Array.isArray(arr)) securitySettings.passwordPolicy = arr;
-        } catch (_) {}
+          else securitySettings.passwordPolicy = [];
+        } catch (e) {
+          console.warn("密码策略格式无效，已使用默认策略", e);
+          securitySettings.passwordPolicy = [];
+        }
       }
     }
   } catch (error) {

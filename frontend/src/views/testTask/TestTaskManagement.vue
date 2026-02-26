@@ -1136,7 +1136,7 @@ watch(selectedFolderId, () => scrollFolderTreeToCurrent());
 watch(
   () => route.path,
   (newPath) => {
-    if (newPath === "/test-task") {
+    if (newPath === "/test-tasks") {
       loadTasks();
       loadReportSetting();
     }

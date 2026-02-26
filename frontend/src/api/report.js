@@ -261,7 +261,7 @@ export const getReportData = (taskId, params = {}) => {
 // 获取报告图表数据
 export const getReportChartData = (id, chartType, params = {}) => {
   return request({
-    url: `/api/reports/${id}/chart-data/${chartType}`,
+    url: `/reports/${id}/chart-data/${chartType}`,
     method: "get",
     params,
   });
@@ -270,7 +270,7 @@ export const getReportChartData = (id, chartType, params = {}) => {
 // 获取报告日志
 export const getReportLogs = (id, params = {}) => {
   return request({
-    url: `/api/reports/${id}/logs`,
+    url: `/reports/${id}/logs`,
     method: "get",
     params,
   });
@@ -279,7 +279,7 @@ export const getReportLogs = (id, params = {}) => {
 // 获取报告截图
 export const getReportScreenshots = (id, params = {}) => {
   return request({
-    url: `/api/reports/${id}/screenshots`,
+    url: `/reports/${id}/screenshots`,
     method: "get",
     params,
   });
@@ -288,7 +288,7 @@ export const getReportScreenshots = (id, params = {}) => {
 // 获取报告附件
 export const getReportAttachments = (id) => {
   return request({
-    url: `/api/reports/${id}/attachments`,
+    url: `/reports/${id}/attachments`,
     method: "get",
   });
 };
@@ -296,7 +296,7 @@ export const getReportAttachments = (id) => {
 // 上传报告附件
 export const uploadReportAttachment = (id, formData) => {
   return request({
-    url: `/api/reports/${id}/attachments`,
+    url: `/reports/${id}/attachments`,
     method: "post",
     data: formData,
     headers: {
@@ -308,7 +308,7 @@ export const uploadReportAttachment = (id, formData) => {
 // 删除报告附件
 export const deleteReportAttachment = (id, attachmentId) => {
   return request({
-    url: `/api/reports/${id}/attachments/${attachmentId}`,
+    url: `/reports/${id}/attachments/${attachmentId}`,
     method: "delete",
   });
 };
@@ -316,7 +316,7 @@ export const deleteReportAttachment = (id, attachmentId) => {
 // 获取报告评论
 export const getReportComments = (id, params = {}) => {
   return request({
-    url: `/api/reports/${id}/comments`,
+    url: `/reports/${id}/comments`,
     method: "get",
     params,
   });
@@ -325,7 +325,7 @@ export const getReportComments = (id, params = {}) => {
 // 创建报告评论
 export const createReportComment = (id, data) => {
   return request({
-    url: `/api/reports/${id}/comments`,
+    url: `/reports/${id}/comments`,
     method: "post",
     data,
   });
@@ -334,7 +334,7 @@ export const createReportComment = (id, data) => {
 // 更新报告评论
 export const updateReportComment = (id, commentId, data) => {
   return request({
-    url: `/api/reports/${id}/comments/${commentId}`,
+    url: `/reports/${id}/comments/${commentId}`,
     method: "put",
     data,
   });
@@ -343,7 +343,7 @@ export const updateReportComment = (id, commentId, data) => {
 // 删除报告评论
 export const deleteReportComment = (id, commentId) => {
   return request({
-    url: `/api/reports/${id}/comments/${commentId}`,
+    url: `/reports/${id}/comments/${commentId}`,
     method: "delete",
   });
 };
@@ -351,7 +351,7 @@ export const deleteReportComment = (id, commentId) => {
 // 获取报告版本历史
 export const getReportVersions = (id) => {
   return request({
-    url: `/api/reports/${id}/versions`,
+    url: `/reports/${id}/versions`,
     method: "get",
   });
 };
@@ -359,7 +359,7 @@ export const getReportVersions = (id) => {
 // 恢复报告版本
 export const restoreReportVersion = (id, versionId) => {
   return request({
-    url: `/api/reports/${id}/versions/${versionId}/restore`,
+    url: `/reports/${id}/versions/${versionId}/restore`,
     method: "post",
   });
 };
@@ -367,7 +367,7 @@ export const restoreReportVersion = (id, versionId) => {
 // 获取报告依赖关系
 export const getReportDependencies = (id) => {
   return request({
-    url: `/api/reports/${id}/dependencies`,
+    url: `/reports/${id}/dependencies`,
     method: "get",
   });
 };
@@ -375,7 +375,7 @@ export const getReportDependencies = (id) => {
 // 添加报告依赖关系
 export const addReportDependency = (id, data) => {
   return request({
-    url: `/api/reports/${id}/dependencies`,
+    url: `/reports/${id}/dependencies`,
     method: "post",
     data,
   });
@@ -384,7 +384,7 @@ export const addReportDependency = (id, data) => {
 // 删除报告依赖关系
 export const removeReportDependency = (id, dependencyId) => {
   return request({
-    url: `/api/reports/${id}/dependencies/${dependencyId}`,
+    url: `/reports/${id}/dependencies/${dependencyId}`,
     method: "delete",
   });
 };
@@ -392,7 +392,7 @@ export const removeReportDependency = (id, dependencyId) => {
 // 获取报告标签列表
 export const getReportTags = () => {
   return request({
-    url: "/api/reports/tags",
+    url: "/reports/tags",
     method: "get",
   });
 };
@@ -400,7 +400,7 @@ export const getReportTags = () => {
 // 创建报告标签
 export const createReportTag = (data) => {
   return request({
-    url: "/api/reports/tags",
+    url: "/reports/tags",
     method: "post",
     data,
   });
@@ -409,7 +409,7 @@ export const createReportTag = (data) => {
 // 更新报告标签
 export const updateReportTag = (id, data) => {
   return request({
-    url: `/api/reports/tags/${id}`,
+    url: `/reports/tags/${id}`,
     method: "put",
     data,
   });
@@ -418,7 +418,7 @@ export const updateReportTag = (id, data) => {
 // 删除报告标签
 export const deleteReportTag = (id) => {
   return request({
-    url: `/api/reports/tags/${id}`,
+    url: `/reports/tags/${id}`,
     method: "delete",
   });
 };
@@ -426,7 +426,7 @@ export const deleteReportTag = (id) => {
 // 获取报告通知设置
 export const getReportNotifications = (id) => {
   return request({
-    url: `/api/reports/${id}/notifications`,
+    url: `/reports/${id}/notifications`,
     method: "get",
   });
 };
@@ -434,7 +434,7 @@ export const getReportNotifications = (id) => {
 // 创建报告通知设置
 export const createReportNotification = (id, data) => {
   return request({
-    url: `/api/reports/${id}/notifications`,
+    url: `/reports/${id}/notifications`,
     method: "post",
     data,
   });
@@ -443,7 +443,7 @@ export const createReportNotification = (id, data) => {
 // 更新报告通知设置
 export const updateReportNotification = (id, notificationId, data) => {
   return request({
-    url: `/api/reports/${id}/notifications/${notificationId}`,
+    url: `/reports/${id}/notifications/${notificationId}`,
     method: "put",
     data,
   });
@@ -452,7 +452,7 @@ export const updateReportNotification = (id, notificationId, data) => {
 // 删除报告通知设置
 export const deleteReportNotification = (id, notificationId) => {
   return request({
-    url: `/api/reports/${id}/notifications/${notificationId}`,
+    url: `/reports/${id}/notifications/${notificationId}`,
     method: "delete",
   });
 };
@@ -460,7 +460,7 @@ export const deleteReportNotification = (id, notificationId) => {
 // 获取报告权限设置
 export const getReportPermissions = (id) => {
   return request({
-    url: `/api/reports/${id}/permissions`,
+    url: `/reports/${id}/permissions`,
     method: "get",
   });
 };
@@ -468,7 +468,7 @@ export const getReportPermissions = (id) => {
 // 更新报告权限设置
 export const updateReportPermissions = (id, data) => {
   return request({
-    url: `/api/reports/${id}/permissions`,
+    url: `/reports/${id}/permissions`,
     method: "put",
     data,
   });
@@ -477,7 +477,7 @@ export const updateReportPermissions = (id, data) => {
 // 获取报告访问日志
 export const getReportAccessLogs = (id, params = {}) => {
   return request({
-    url: `/api/reports/${id}/access-logs`,
+    url: `/reports/${id}/access-logs`,
     method: "get",
     params,
   });
@@ -486,7 +486,7 @@ export const getReportAccessLogs = (id, params = {}) => {
 // 获取报告统计图表
 export const getReportStatsCharts = (params = {}) => {
   return request({
-    url: "/api/reports/stats-charts",
+    url: "/reports/stats-charts",
     method: "get",
     params,
   });
@@ -495,7 +495,7 @@ export const getReportStatsCharts = (params = {}) => {
 // 获取报告趋势分析
 export const getReportTrendAnalysis = (params = {}) => {
   return request({
-    url: "/api/reports/trend-analysis",
+    url: "/reports/trend-analysis",
     method: "get",
     params,
   });
@@ -504,7 +504,7 @@ export const getReportTrendAnalysis = (params = {}) => {
 // 获取报告对比分析
 export const getReportComparisonAnalysis = (reportIds) => {
   return request({
-    url: "/api/reports/comparison-analysis",
+    url: "/reports/comparison-analysis",
     method: "post",
     data: { report_ids: reportIds },
   });
@@ -513,7 +513,7 @@ export const getReportComparisonAnalysis = (reportIds) => {
 // 获取报告质量分析
 export const getReportQualityAnalysis = (params = {}) => {
   return request({
-    url: "/api/reports/quality-analysis",
+    url: "/reports/quality-analysis",
     method: "get",
     params,
   });
@@ -522,7 +522,7 @@ export const getReportQualityAnalysis = (params = {}) => {
 // 获取报告性能分析
 export const getReportPerformanceAnalysis = (params = {}) => {
   return request({
-    url: "/api/reports/performance-analysis",
+    url: "/reports/performance-analysis",
     method: "get",
     params,
   });
@@ -531,7 +531,7 @@ export const getReportPerformanceAnalysis = (params = {}) => {
 // 获取报告覆盖率分析
 export const getReportCoverageAnalysis = (params = {}) => {
   return request({
-    url: "/api/reports/coverage-analysis",
+    url: "/reports/coverage-analysis",
     method: "get",
     params,
   });
@@ -540,7 +540,7 @@ export const getReportCoverageAnalysis = (params = {}) => {
 // 获取报告错误分析
 export const getReportErrorAnalysis = (params = {}) => {
   return request({
-    url: "/api/reports/error-analysis",
+    url: "/reports/error-analysis",
     method: "get",
     params,
   });
@@ -549,7 +549,7 @@ export const getReportErrorAnalysis = (params = {}) => {
 // 获取报告建议
 export const getReportRecommendations = (params = {}) => {
   return request({
-    url: "/api/reports/recommendations",
+    url: "/reports/recommendations",
     method: "get",
     params,
   });
@@ -558,7 +558,7 @@ export const getReportRecommendations = (params = {}) => {
 // 获取报告预警
 export const getReportAlerts = (params = {}) => {
   return request({
-    url: "/api/reports/alerts",
+    url: "/reports/alerts",
     method: "get",
     params,
   });
@@ -567,7 +567,7 @@ export const getReportAlerts = (params = {}) => {
 // 设置报告预警
 export const setReportAlert = (data) => {
   return request({
-    url: "/api/reports/alerts",
+    url: "/reports/alerts",
     method: "post",
     data,
   });
@@ -576,7 +576,7 @@ export const setReportAlert = (data) => {
 // 删除报告预警
 export const deleteReportAlert = (alertId) => {
   return request({
-    url: `/api/reports/alerts/${alertId}`,
+    url: `/reports/alerts/${alertId}`,
     method: "delete",
   });
 };
@@ -584,7 +584,7 @@ export const deleteReportAlert = (alertId) => {
 // 获取报告自动化配置
 export const getReportAutomationConfig = () => {
   return request({
-    url: "/api/reports/automation-config",
+    url: "/reports/automation-config",
     method: "get",
   });
 };
@@ -592,7 +592,7 @@ export const getReportAutomationConfig = () => {
 // 更新报告自动化配置
 export const updateReportAutomationConfig = (data) => {
   return request({
-    url: "/api/reports/automation-config",
+    url: "/reports/automation-config",
     method: "put",
     data,
   });
@@ -601,7 +601,7 @@ export const updateReportAutomationConfig = (data) => {
 // 获取报告集成配置
 export const getReportIntegrationConfig = () => {
   return request({
-    url: "/api/reports/integration-config",
+    url: "/reports/integration-config",
     method: "get",
   });
 };
@@ -609,7 +609,7 @@ export const getReportIntegrationConfig = () => {
 // 更新报告集成配置
 export const updateReportIntegrationConfig = (data) => {
   return request({
-    url: "/api/reports/integration-config",
+    url: "/reports/integration-config",
     method: "put",
     data,
   });
@@ -618,7 +618,7 @@ export const updateReportIntegrationConfig = (data) => {
 // 测试报告连接
 export const testReportConnection = (config) => {
   return request({
-    url: "/api/reports/test-connection",
+    url: "/reports/test-connection",
     method: "post",
     data: config,
   });
@@ -627,7 +627,7 @@ export const testReportConnection = (config) => {
 // 同步报告数据
 export const syncReportData = (params = {}) => {
   return request({
-    url: "/api/reports/sync-data",
+    url: "/reports/sync-data",
     method: "post",
     data: params,
   });
@@ -636,7 +636,7 @@ export const syncReportData = (params = {}) => {
 // 备份报告
 export const backupReport = (id, params = {}) => {
   return request({
-    url: `/api/reports/${id}/backup`,
+    url: `/reports/${id}/backup`,
     method: "post",
     data: params,
   });
@@ -645,7 +645,7 @@ export const backupReport = (id, params = {}) => {
 // 恢复报告
 export const restoreReport = (backupId) => {
   return request({
-    url: `/api/reports/restore/${backupId}`,
+    url: `/reports/restore/${backupId}`,
     method: "post",
   });
 };
@@ -653,7 +653,7 @@ export const restoreReport = (backupId) => {
 // 获取报告备份列表
 export const getReportBackups = (params = {}) => {
   return request({
-    url: "/api/reports/backups",
+    url: "/reports/backups",
     method: "get",
     params,
   });
@@ -662,7 +662,7 @@ export const getReportBackups = (params = {}) => {
 // 删除报告备份
 export const deleteReportBackup = (backupId) => {
   return request({
-    url: `/api/reports/backups/${backupId}`,
+    url: `/reports/backups/${backupId}`,
     method: "delete",
   });
 };
@@ -670,7 +670,7 @@ export const deleteReportBackup = (backupId) => {
 // 验证报告
 export const validateReport = (data) => {
   return request({
-    url: "/api/reports/validate",
+    url: "/reports/validate",
     method: "post",
     data,
   });
@@ -679,7 +679,7 @@ export const validateReport = (data) => {
 // 预览报告
 export const previewReport = (data) => {
   return request({
-    url: "/api/reports/preview",
+    url: "/reports/preview",
     method: "post",
     data,
   });
@@ -688,7 +688,7 @@ export const previewReport = (data) => {
 // 获取报告模板列表
 export const getReportTemplates = (params = {}) => {
   return request({
-    url: "/api/reports/templates",
+    url: "/reports/templates",
     method: "get",
     params,
   });
@@ -697,7 +697,7 @@ export const getReportTemplates = (params = {}) => {
 // 创建报告模板
 export const createReportTemplate = (data) => {
   return request({
-    url: "/api/reports/templates",
+    url: "/reports/templates",
     method: "post",
     data,
   });
@@ -706,7 +706,7 @@ export const createReportTemplate = (data) => {
 // 更新报告模板
 export const updateReportTemplate = (id, data) => {
   return request({
-    url: `/api/reports/templates/${id}`,
+    url: `/reports/templates/${id}`,
     method: "put",
     data,
   });
@@ -715,7 +715,7 @@ export const updateReportTemplate = (id, data) => {
 // 删除报告模板
 export const deleteReportTemplate = (id) => {
   return request({
-    url: `/api/reports/templates/${id}`,
+    url: `/reports/templates/${id}`,
     method: "delete",
   });
 };
@@ -723,7 +723,7 @@ export const deleteReportTemplate = (id) => {
 // 复制报告模板
 export const copyReportTemplate = (id, data = {}) => {
   return request({
-    url: `/api/reports/templates/${id}/copy`,
+    url: `/reports/templates/${id}/copy`,
     method: "post",
     data,
   });
@@ -732,7 +732,7 @@ export const copyReportTemplate = (id, data = {}) => {
 // 应用报告模板
 export const applyReportTemplate = (id, templateId) => {
   return request({
-    url: `/api/reports/${id}/apply-template/${templateId}`,
+    url: `/reports/${id}/apply-template/${templateId}`,
     method: "post",
   });
 };

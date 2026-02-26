@@ -59,7 +59,6 @@ def drop_tables():
                 'project_members',
                 'projects',
                 'devices',
-                'tools',
                 'users'
             ]
             

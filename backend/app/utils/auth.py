@@ -30,12 +30,6 @@ class PermissionManager:
         'task:execute': '执行测试任务',
         'task:delete': '删除测试任务',
         
-        # 工具管理权限
-        'tool:read': '查看工具',
-        'tool:write': '管理工具',
-        'tool:execute': '执行工具',
-        'tool:delete': '删除工具',
-        
         # 报告管理权限
         'report:read': '查看报告',
         'report:write': '管理报告',
@@ -53,7 +47,6 @@ class PermissionManager:
             'device:read', 'device:write', 'device:delete',
             'testcase:read', 'testcase:write', 'testcase:delete',
             'task:read', 'task:write', 'task:execute', 'task:delete',
-            'tool:read', 'tool:write', 'tool:execute', 'tool:delete',
             'report:read', 'report:write', 'report:delete',
             'system:manage', 'system:log'
         ],
@@ -61,7 +54,6 @@ class PermissionManager:
             'device:read',
             'testcase:read', 'testcase:write',
             'task:read', 'task:write', 'task:execute',
-            'tool:read', 'tool:execute',
             'report:read'
         ],
         'manager': [
@@ -69,7 +61,6 @@ class PermissionManager:
             'device:read', 'device:write',
             'testcase:read', 'testcase:write',
             'task:read', 'task:write', 'task:execute',
-            'tool:read', 'tool:execute',
             'report:read', 'report:write',
             'system:log'
         ],
@@ -78,7 +69,6 @@ class PermissionManager:
             'device:read', 'device:write', 'device:delete',
             'testcase:read', 'testcase:write', 'testcase:delete',
             'task:read', 'task:write', 'task:execute', 'task:delete',
-            'tool:read', 'tool:write', 'tool:execute', 'tool:delete',
             'report:read', 'report:write', 'report:delete',
             'system:manage', 'system:log'
         ]
@@ -154,8 +144,6 @@ class PermissionManager:
             return '用例管理'
         elif permission.startswith('task:'):
             return '测试任务'
-        elif permission.startswith('tool:'):
-            return '工具管理'
         elif permission.startswith('report:'):
             return '报告管理'
         elif permission.startswith('system:'):

@@ -736,9 +736,6 @@ def get_task_statistics(task_id):
         return error_response(500, f'获取统计信息失败: {str(e)}')
 
 
-# XMind视图功能已移除，暂时不再支持脑图实现
-
-
 @bp.route('/options', methods=['GET'])
 @login_required
 def get_task_options():

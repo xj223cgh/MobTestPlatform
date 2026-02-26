@@ -59,7 +59,6 @@ def clear_table_data():
                 'project_members',
                 'projects',
                 'devices',
-                'tools',
                 'users'
             ]
             

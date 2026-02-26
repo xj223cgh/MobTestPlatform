@@ -97,12 +97,19 @@ function applyRightLayout() {
           ["layout", "right"],
           ["Layout", "Right"],
         ];
+        let lastLayoutError = null;
         for (const [cmd, arg] of tried) {
           try {
             minder.execCommand(cmd, arg);
             if (typeof minder.render === "function") minder.render();
             return true;
-          } catch (_) {}
+          } catch (e) {
+            lastLayoutError = e;
+            console.debug("脑图布局命令未支持:", cmd, arg, e?.message ?? String(e));
+          }
+        }
+        if (lastLayoutError) {
+          console.warn("脑图 execCommand 多种写法均未成功，尝试 setLayout/layout", lastLayoutError);
         }
       }
       if (typeof minder.setLayout === "function") {

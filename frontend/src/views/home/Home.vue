@@ -252,6 +252,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from "vue";
+import { useRouter } from "vue-router";
 import { use } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 import { LineChart, PieChart } from "echarts/charts";
@@ -274,6 +275,7 @@ import {
 } from "@/api/home";
 import { useSystemSettingsStore } from "@/stores/systemSettings";
 
+const router = useRouter();
 const systemSettingsStore = useSystemSettingsStore();
 
 // 注册 ECharts 组件
@@ -609,10 +611,9 @@ const refreshData = async () => {
   }
 };
 
-// 查看所有活动
+// 查看所有活动：跳转到测试任务（活动数据主要来自任务执行）
 const viewAllActivities = () => {
-  // TODO: 跳转到活动页面
-  ElMessage.info("查看全部活动功能待完善");
+  router.push("/test-tasks");
 };
 
 // 获取项目状态标签类型

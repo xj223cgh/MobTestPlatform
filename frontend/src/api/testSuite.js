@@ -86,70 +86,12 @@ export const copyTestSuite = (id, data = {}) => {
   });
 };
 
-// Xmind相关功能已移除，暂时不再支持脑图实现
-
 // 获取测试套件中的测试用例
 export const getSuiteCases = (suiteId, params = {}) => {
   return request({
     url: `/test-suites/${suiteId}/test-cases`,
     method: "get",
     params,
-  });
-};
-
-// 向测试套件添加测试用例
-export const addCasesToSuite = (suiteId, caseIds) => {
-  return request({
-    url: `/test-suites/${suiteId}/test-cases`,
-    method: "post",
-    data: { caseIds },
-  });
-};
-
-// 从测试套件移除测试用例
-export const removeCasesFromSuite = (suiteId, caseIds) => {
-  return request({
-    url: `/test-suites/${suiteId}/test-cases`,
-    method: "delete",
-    data: { caseIds },
-  });
-};
-
-// 获取可添加到测试套件的测试用例
-export const getAvailableCases = (suiteId, params = {}) => {
-  return request({
-    url: `/test-suites/${suiteId}/available-test-cases`,
-    method: "get",
-    params,
-  });
-};
-
-// 在测试套件之间移动测试用例
-export const moveCasesBetweenSuites = (
-  sourceSuiteId,
-  caseIds,
-  targetSuiteId,
-) => {
-  return request({
-    url: `/test-suites/${sourceSuiteId}/move-to/${targetSuiteId}`,
-    method: "post",
-    data: { caseIds },
-  });
-};
-
-// 获取测试套件的模块列表
-export const getSuiteModules = (suiteId) => {
-  return request({
-    url: `/test-suites/${suiteId}/modules`,
-    method: "get",
-  });
-};
-
-// 获取项目的模块列表
-export const getProjectModules = (projectId) => {
-  return request({
-    url: `/projects/${projectId}/modules`,
-    method: "get",
   });
 };
 
@@ -165,10 +107,4 @@ export const testSuiteApi = {
   moveTestSuite,
   copyTestSuite,
   getSuiteCases,
-  addCasesToSuite,
-  removeCasesFromSuite,
-  getAvailableCases,
-  moveCasesBetweenSuites,
-  getSuiteModules,
-  getProjectModules,
 };

@@ -80,8 +80,6 @@ export const executeTestCase = (id, params = {}) => {
   });
 };
 
-// Xmind相关功能已移除，暂时不再支持脑图实现
-
 // 批量执行测试用例
 export const batchExecuteTestCases = (ids, params = {}) => {
   return request({

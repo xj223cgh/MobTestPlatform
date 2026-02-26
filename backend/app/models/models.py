@@ -67,8 +67,7 @@ class User(UserMixin, db.Model):
     created_cases = db.relationship('TestCase', lazy='dynamic', foreign_keys='TestCase.creator_id')
     created_tasks = db.relationship('TestTask', lazy='dynamic', foreign_keys='TestTask.creator_id')
     executed_tasks = db.relationship('TestTask', lazy='dynamic', foreign_keys='TestTask.executor_id')
-    created_tools = db.relationship('Tool', backref='creator', lazy='dynamic')
-    
+
     def set_password(self, password):
         """设置密码"""
         self.password_hash = generate_password_hash(password)
@@ -1091,37 +1090,4 @@ class Report(db.Model):
             'assignee_name': self.assignee.real_name if self.assignee else None,
             'status': self.task.status if self.task else None,
         }
-
-
-class Tool(db.Model):
-    """工具模型"""
-    __tablename__ = 'tools'
-    
-    id = db.Column(db.Integer, primary_key=True, comment='工具编号')
-    tool_name = db.Column(db.String(100), nullable=False, comment='工具名称')
-    tool_description = db.Column(db.Text, comment='工具描述')
-    tool_type = db.Column(db.Enum('automation', 'performance', 'monitoring', 'debugging', 'utility'), nullable=False, comment='工具类型')
-    tool_path = db.Column(db.String(500), nullable=False, comment='工具路径')
-    tool_config = db.Column(db.Text, comment='工具配置（JSON格式）')
-    status = db.Column(db.Enum('active', 'inactive', 'maintenance'), default='active', comment='状态')
-    creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, comment='创建者ID')
-    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
-    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
-    
-    def to_dict(self):
-        """转换为字典"""
-        return {
-            'id': self.id,
-            'tool_name': self.tool_name,
-            'tool_description': self.tool_description,
-            'tool_type': self.tool_type,
-            'tool_path': self.tool_path,
-            'tool_config': self.tool_config,
-            'status': self.status,
-            'creator_id': self.creator_id,
-            'creator_name': self.creator.real_name if self.creator else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
-        }
-
 

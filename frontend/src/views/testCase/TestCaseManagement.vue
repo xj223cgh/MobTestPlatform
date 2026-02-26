@@ -889,7 +889,7 @@
                 请先选择迭代
               </div>
               <div v-else-if="requirements.length === 0">
-                <span>暂无需求数据</span>
+                <span>暂无需求数据，可不选直接提交</span>
                 <el-button
                   type="text"
                   size="small"
@@ -1181,13 +1181,17 @@
           :prop="autoCaseForm.generateMode === 'append' ? 'append_suite_id' : 'parent_id'"
           required
         >
-          <div class="case-suite-selector auto-case-suite-selector">
+          <div
+            ref="autoCaseSuiteSelectorRef"
+            class="case-suite-selector auto-case-suite-selector"
+          >
             <el-popover
               :visible="caseSuitePopoverVisible"
               placement="bottom-start"
               trigger="manual"
-              width="auto"
+              :width="autoCaseSuitePopoverWidth"
               teleport="body"
+              popper-class="auto-case-suite-popover"
               @clickoutside="caseSuitePopoverVisible = false"
             >
               <template #reference>
@@ -1291,6 +1295,7 @@
           v-if="autoCaseForm.generateMode === 'new' && autoCaseForm.type === 'suite'"
           label="所属项目"
           prop="project_id"
+          required
         >
           <el-select
             v-model="autoCaseForm.project_id"
@@ -1400,7 +1405,7 @@
                 数据加载中...
               </div>
               <div v-else-if="requirements.length === 0">
-                <span>暂无需求数据</span>
+                <span>暂无需求数据，可不选直接提交</span>
                 <el-button
                   type="text"
                   size="small"
@@ -2330,6 +2335,7 @@ const suiteFormRef = ref(null);
 
 // 标记是否正在初始化表单，用于控制观察者行为
 const isInitializingForm = ref(false);
+// 与后端一致：项目必填，迭代与需求选填（迭代下无需求时也可提交）
 const suiteFormRules = reactive({
   suite_name: [
     { required: true, message: "请输入测试套件名称", trigger: "blur" },
@@ -2338,33 +2344,13 @@ const suiteFormRules = reactive({
   project_id: [
     {
       required: (rule, value, callback) => {
-        // 只有用例集类型才需要选择项目
         return suiteForm.type === "suite";
       },
       message: "请选择所属项目",
       trigger: "change",
     },
   ],
-  iteration_id: [
-    {
-      required: (rule, value, callback) => {
-        // 只有用例集类型才需要选择迭代
-        return suiteForm.type === "suite";
-      },
-      message: "请选择所属迭代",
-      trigger: "change",
-    },
-  ],
-  version_requirement_id: [
-    {
-      required: (rule, value, callback) => {
-        // 只有用例集类型才需要选择需求
-        return suiteForm.type === "suite";
-      },
-      message: "请选择关联需求",
-      trigger: "change",
-    },
-  ],
+  // iteration_id、version_requirement_id 不设必填，与 DB nullable 一致，避免迭代无需求时无法提交
 });
 
 // 项目、迭代、需求列表
@@ -2411,6 +2397,8 @@ const filteredRequirements = computed(() => {
 const caseSuitePopoverVisible = ref(false);
 const selectedCaseSuitePath = ref("");
 const caseFormRef = ref(null);
+const autoCaseSuiteSelectorRef = ref(null);
+const autoCaseSuitePopoverWidth = ref(400);
 
 // 新增：创建方式选择
 const createCaseType = ref("manual");
@@ -2547,15 +2535,16 @@ const validateSuiteName = async (rule, value, callback) => {
 };
 
 // 自动生成表单校验（按生成方式：新用例集 / 追加）
+// parent_id / append_suite_id 不在 change 时校验，避免展开树节点就报错；仅在下拉关闭未选择时由逻辑触发校验
 const autoCaseFormRules = reactive({
   parent_id: [
     {
+      message: "请选择所属文件夹",
       validator: (rule, value, callback) => {
         if (autoCaseForm.generateMode === "append") return callback();
-        if (!value) return callback(new Error("请选择所属文件夹"));
+        if (value === undefined || value === null || value === "") return callback(new Error(rule.message || "请选择所属文件夹"));
         callback();
       },
-      trigger: "change",
     },
   ],
   suite_name: [
@@ -2573,10 +2562,9 @@ const autoCaseFormRules = reactive({
       message: "请选择所属用例集",
       validator: (rule, value, callback) => {
         if (autoCaseForm.generateMode === "new") return callback();
-        if (!value) return callback(new Error("请选择所属用例集"));
+        if (value === undefined || value === null || value === "") return callback(new Error(rule.message || "请选择所属用例集"));
         callback();
       },
-      trigger: "change",
     },
   ],
   project_id: [
@@ -2589,26 +2577,7 @@ const autoCaseFormRules = reactive({
       trigger: "change",
     },
   ],
-  iteration_id: [
-    {
-      validator: (rule, value, callback) => {
-        if (autoCaseForm.generateMode === "append") return callback();
-        if (!value) return callback(new Error("请选择所属迭代"));
-        callback();
-      },
-      trigger: "change",
-    },
-  ],
-  version_requirement_id: [
-    {
-      validator: (rule, value, callback) => {
-        if (autoCaseForm.generateMode === "append") return callback();
-        if (!value) return callback(new Error("请选择所属需求"));
-        callback();
-      },
-      trigger: "change",
-    },
-  ],
+  // 迭代、需求选填，与后端可空一致，迭代无需求时也可提交
 });
 
 // 需求文档上传相关
@@ -2904,6 +2873,8 @@ const handleInitiateReview = async () => {
     ElMessage.success("发起评审成功");
     initiateReviewVisible.value = false;
 
+    // 刷新当前套件评审状态与按钮文案，避免仍显示「暂未发起评审」
+    await getSuiteReviewStatusData(reviewForm.suite_id);
     // 刷新用例集信息，可能需要更新评审状态
     loadTreeData();
   } catch (error) {
@@ -3001,16 +2972,20 @@ const handleNodeCollapse = (data) => {
   treeMountKey.value += 1;
 };
 
-// 获取用例集评审状态
+// 获取用例集评审状态（仅当当前选中的仍是该套件时更新状态，避免切换套件后旧请求覆盖新数据）
 const getSuiteReviewStatusData = async (suiteId) => {
   isLoadingReviewStatus.value = true;
   try {
     const response = await getSuiteReviewStatus(suiteId);
-    suiteReviewStatus.value = response.data;
+    if (selectedSuite.value?.id === suiteId) {
+      suiteReviewStatus.value = response.data;
+    }
     updateReviewButtonText();
   } catch (error) {
     console.error("获取用例集评审状态失败:", error);
-    suiteReviewStatus.value = null;
+    if (selectedSuite.value?.id === suiteId) {
+      suiteReviewStatus.value = null;
+    }
     updateReviewButtonText();
   } finally {
     isLoadingReviewStatus.value = false;
@@ -3166,13 +3141,15 @@ const fetchReviewDetail = async (taskId) => {
   }
 };
 
-// 处理评审按钮点击
+// 处理评审按钮点击（先拉取最新评审状态，再根据状态执行操作，避免「暂未」与真实不符）
 const handleReviewButtonClick = async () => {
   if (!selectedSuite.value || selectedSuite.value.type !== "suite") {
     return;
   }
 
-  // 获取评审状态和相关信息
+  await getSuiteReviewStatusData(selectedSuite.value.id);
+
+  // 获取评审状态和相关信息（已为刚拉取的最新状态）
   const status = suiteReviewStatus.value?.current_status || "not_submitted";
   const reviewerId = suiteReviewStatus.value?.current_reviewer_id;
   const isCreator =
@@ -4173,6 +4150,31 @@ watch(
   () => [autoCaseForm.parent_id, autoCaseForm.append_suite_id, autoCaseForm.generateMode],
   () => {
     selectedCaseSuitePath.value = getSelectedCaseSuitePath();
+  },
+);
+
+// 所属文件夹/用例集下拉：打开时对齐宽度；关闭时若未选择则触发校验
+watch(
+  () => caseSuitePopoverVisible.value,
+  (visible) => {
+    if (visible) {
+      if (createCaseType.value === "auto" && autoCaseSuiteSelectorRef.value) {
+        nextTick(() => {
+          const w = autoCaseSuiteSelectorRef.value?.offsetWidth;
+          if (w && w > 0) autoCaseSuitePopoverWidth.value = w;
+        });
+      }
+    } else {
+      // 仅当「自动生成」且关闭的是所属文件夹/用例集下拉」时：未选择才校验
+      if (createCaseType.value !== "auto" || !autoCaseFormRef.value) return;
+      const mode = autoCaseForm.generateMode;
+      const needParent = mode === "new" && (autoCaseForm.parent_id === null || autoCaseForm.parent_id === "");
+      const needAppend = mode === "append" && (autoCaseForm.append_suite_id === null || autoCaseForm.append_suite_id === "");
+      nextTick(() => {
+        if (needParent) autoCaseFormRef.value.validateField("parent_id");
+        else if (needAppend) autoCaseFormRef.value.validateField("append_suite_id");
+      });
+    }
   },
 );
 
@@ -5384,11 +5386,18 @@ const handleImportExportAction = async () => {
           // 获取当前登录用户信息
           const { userInfo } = useUserStore();
 
-          // 从Excel数据中获取项目、迭代、需求信息（取第一条数据的值，因为同一Excel中值相同）
-          const firstItem = excelData[0];
-          const projectName = firstItem["所属项目"] || "";
-          const iterationName = firstItem["迭代"] || "";
-          const requirementName = firstItem["需求"] || "";
+          // 根据所选父节点获取 project_id 等，满足 DB NOT NULL 约束
+          const parentDetailRes = await getTestSuiteDetail(importExportForm.parent_id);
+          const parentSuite = parentDetailRes?.data || {};
+          const parentProjectId = parentSuite.project_id;
+          const parentIterationId = parentSuite.iteration_id ?? null;
+          const parentRequirementId = parentSuite.version_requirement_id ?? null;
+          if (!parentProjectId) {
+            ElMessage.error("所选目标位置无关联项目，无法导入");
+            loading.close();
+            isImporting.value = false;
+            return;
+          }
 
           // 创建测试套件名称（使用文件名，去掉后缀）
           const suiteName = importExportForm.fileName.replace(
@@ -5396,15 +5405,14 @@ const handleImportExportAction = async () => {
             "",
           );
 
-          // 创建测试套件
+          // 创建测试套件（项目必填，迭代/需求与父节点一致）
           const suiteData = {
             suite_name: suiteName,
-            type: "suite", // 用例集类型
+            type: "suite",
             parent_id: importExportForm.parent_id,
-            // 项目相关字段：暂时使用空值，后续可扩展为从名称映射到ID
-            project_id: null,
-            version_requirement_id: null,
-            iteration_id: null,
+            project_id: parentProjectId,
+            iteration_id: parentIterationId,
+            version_requirement_id: parentRequirementId,
           };
 
           const createSuiteResponse = await createTestSuite(suiteData);
@@ -5417,7 +5425,7 @@ const handleImportExportAction = async () => {
           // 遍历处理每条数据（仅使用与表头名称匹配的字段，未出现的表头对应值为默认/空）
           for (const item of excelData) {
             try {
-              // 用例库不维护执行状态，导入时状态留空
+              // 用例库不维护执行状态，导入时状态留空；project_id 必填，与套件一致
               const caseData = {
                 case_number: item["用例编号"] ?? "",
                 case_name: item["用例名称"] ?? "",
@@ -5429,9 +5437,9 @@ const handleImportExportAction = async () => {
                 steps: item["操作步骤"] ?? "",
                 expected_result: item["预期结果"] ?? "",
                 suite_id: newSuiteId,
-                project_id: null,
-                version_requirement_id: null,
-                iteration_id: null,
+                project_id: parentProjectId,
+                version_requirement_id: parentRequirementId,
+                iteration_id: parentIterationId,
               };
 
               // 调用API创建测试用例
@@ -6889,10 +6897,13 @@ const handleCurrentChange = (page) => {
   width: 100% !important;
   min-width: 0;
 }
+/* 所属文件夹/用例集下拉：与输入框同宽，由 JS 设置 :width，此处保证内容填满 */
+.auto-case-suite-popover.el-popper {
+  min-width: 0;
+}
 .auto-case-suite-selector .suite-tree-popover {
   width: 100%;
-  min-width: 320px;
-  max-width: 540px;
+  min-width: 0;
 }
 
 /* 用例集名称输入容器 - 两列布局 */

@@ -837,7 +837,7 @@ const handleCompleteTask = async () => {
 
     // 如果关闭失败（如从其他页面打开），则跳转回任务列表页面
     setTimeout(() => {
-      router.push("/test-task");
+      router.push("/test-tasks");
     }, 100);
   } catch (error) {
     if (error !== "cancel") {

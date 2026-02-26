@@ -206,7 +206,7 @@ def delete_user(user_id):
 
     from app.models.models import (
         Project, ProjectMember, VersionRequirement, Iteration,
-        TestSuite, TestCase, TestTask, Tool, TestCaseExecution,
+        TestSuite, TestCase, TestTask, TestCaseExecution,
         Device, TestSuiteReviewTask, TestCaseReviewDetail,
         TestSuiteReviewHistory, TestCaseReviewHistory,
     )
@@ -251,9 +251,6 @@ def delete_user(user_id):
     n = TestTask.query.filter_by(executor_id=user_id).count()
     if n > 0:
         refs.append(f"测试任务执行人({n})")
-    n = Tool.query.filter_by(creator_id=user_id).count()
-    if n > 0:
-        refs.append(f"工具创建者({n})")
     n = TestCaseExecution.query.filter_by(executor_id=user_id).count()
     if n > 0:
         refs.append(f"用例执行记录执行人({n})")

@@ -150,8 +150,7 @@ def create_test_case():
             if num < 1 or num > 999:
                 return error_response(400, "用例编号后三位数字必须在001-999之间")
     
-    # 使用前端传递的项目相关信息，优先使用前端传递的值，否则从套件获取
-    # 支持前端传递ID或名称，名称需要额外处理（当前版本暂不支持名称匹配，优先使用套件信息）
+    # 项目/迭代/需求仅支持传 ID：优先用请求体中的 project_id、iteration_id、version_requirement_id，未传则从套件继承
     project_id = data.get('project_id') or (suite.project_id if suite else None)
     version_requirement_id = data.get('version_requirement_id') or (suite.version_requirement_id if suite else None)
     iteration_id = data.get('iteration_id') or (suite.iteration_id if suite else None)
@@ -346,9 +345,6 @@ def get_status_options():
 
 
 # 模块列表功能已移除，模块信息通过套件关联获取
-
-
-# XMind相关功能已移除，因为不再支持xmind_data字段
 
 
 @bp.route('/batch-delete', methods=['POST'])
