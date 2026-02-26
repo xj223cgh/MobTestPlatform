@@ -2,9 +2,9 @@
   <el-popover
     ref="popoverRef"
     placement="right"
-    width="330"
+    width="336"
     trigger="hover"
-    popper-class="!p-0 !overflow-hidden !rounded-lg"
+    popper-class="device-popover-popper !p-0 !overflow-hidden !rounded-lg"
     :disabled="!connectFlag"
     @before-enter="onBeforeEnter"
     @after-leave="onAfterLeave"
@@ -21,18 +21,17 @@
     <div
       v-loading="loading"
       element-loading-text="加载中"
-      class="p-2"
+      class="device-popover-body"
       :class="{ '!h-auto': !connectFlag }"
     >
       <div
         v-if="connectFlag"
-        class="flex-none overflow-hidden rounded-lg shadow bg-gray-200 dark:bg-gray-700 object-contain cursor-pointer flex items-center justify-center"
-        style="height: 600px"
+        class="device-popover-screencap"
       >
         <img
           v-if="deviceInfo.screencap"
           :src="deviceInfo.screencap"
-          class="w-full h-full object-contain"
+          class="device-popover-screencap-img"
           alt="设备截图"
           @click="handlePreview"
         >
@@ -47,61 +46,6 @@
             无法获取截图
           </p>
         </div>
-      </div>
-
-      <div
-        class="overflow-auto mt-1"
-        style="max-height: 40px"
-      >
-        <el-descriptions
-          border
-          :column="1"
-          class="el-descriptions--custom text-sm"
-        >
-          <el-descriptions-item label="设备序列号">
-            {{ deviceInfo.id }}
-          </el-descriptions-item>
-
-          <template v-if="deviceInfo.battery">
-            <el-descriptions-item label="电池电量">
-              {{
-                deviceInfo.battery.batteryPercentage !== null
-                  ? `${deviceInfo.battery.batteryPercentage}%`
-                  : "-"
-              }}
-            </el-descriptions-item>
-            <el-descriptions-item label="是否充电">
-              {{
-                deviceInfo.battery.isCharging !== null
-                  ? deviceInfo.battery.isCharging
-                    ? "是"
-                    : "否"
-                  : "-"
-              }}
-            </el-descriptions-item>
-            <el-descriptions-item label="温度">
-              {{
-                deviceInfo.battery.temperatureCelsius !== null
-                  ? `${deviceInfo.battery.temperatureCelsius}℃`
-                  : "-"
-              }}
-            </el-descriptions-item>
-            <el-descriptions-item label="电源来源">
-              {{
-                deviceInfo.battery.powerSource !== null
-                  ? deviceInfo.battery.powerSource
-                  : "-"
-              }}
-            </el-descriptions-item>
-            <el-descriptions-item label="电压">
-              {{
-                deviceInfo.battery.voltageV !== null
-                  ? `${deviceInfo.battery.voltageV}v`
-                  : "-"
-              }}
-            </el-descriptions-item>
-          </template>
-        </el-descriptions>
       </div>
     </div>
 
@@ -175,10 +119,9 @@ async function onBeforeEnter() {
 
   screencapTimer.value = setInterval(() => {
     getScreencap();
-    getBattery();
   }, 5 * 1000);
 
-  await Promise.allSettled([getScreencap(), getBattery()]);
+  await getScreencap();
 
   loading.value = false;
 }
@@ -370,19 +313,40 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
-// 强制el-link样式，确保与其他元素居中对齐
-:deep() .el-link {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  min-width: 32px !important;
-  min-height: 32px !important;
-  padding: 0 !important;
-  margin: 0 !important;
+.device-popover-body {
+  padding: 8px;
+  max-height: 85vh;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
-:deep() .el-descriptions--custom .el-descriptions__label {
-  width: auto;
-  max-width: 120px;
+.device-popover-screencap {
+  width: 320px;
+  height: 600px;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--el-fill-color-light, #f5f7fa);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  cursor: pointer;
+}
+
+/* 铺满容器宽度、顶对齐，避免左侧空白；仅缩小不放大 */
+.device-popover-screencap-img {
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: top left;
+  display: block;
+}
+</style>
+
+<style lang="scss">
+/* 弹层宽度由 width="560" 控制，确保内容不溢出 */
+.device-popover-popper {
+  box-sizing: border-box;
 }
 </style>

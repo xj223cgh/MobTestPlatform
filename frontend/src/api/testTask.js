@@ -67,11 +67,12 @@ export function resumeTestTask(id) {
   });
 }
 
-// 完成测试任务
-export function completeTestTask(id) {
+// 完成测试任务（设备脚本任务可传 data.result 写入执行结果供报告使用）
+export function completeTestTask(id, data) {
   return request({
     url: `/test-tasks/${id}/complete`,
     method: "post",
+    data: data || undefined,
   });
 }
 

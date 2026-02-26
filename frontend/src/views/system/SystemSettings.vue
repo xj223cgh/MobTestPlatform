@@ -1,8 +1,12 @@
 <template>
   <div class="system-settings">
-    <!-- 页面标题 -->
+    <!-- 页面标题与返回 -->
     <div class="page-header">
       <h2>系统设置</h2>
+      <el-button class="back-btn" @click="handleBack">
+        <el-icon><ArrowLeft /></el-icon>
+        返回
+      </el-button>
     </div>
 
     <!-- 设置选项卡 -->
@@ -214,15 +218,18 @@
 
 <script setup>
 import { ref, reactive, onMounted, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
-import { Plus } from "@element-plus/icons-vue";
+import { Plus, ArrowLeft } from "@element-plus/icons-vue";
 import { getUserSettings, updateUserSettings, getSystemSettings, updateSystemSettings } from "@/api/settings";
 import { useSystemSettingsStore } from "@/stores/systemSettings";
 
+const route = useRoute();
+const router = useRouter();
 const systemSettingsStore = useSystemSettingsStore();
 
-// 响应式数据
-const activeTab = ref("basic");
+// 响应式数据（支持 URL query.tab 定位到对应功能，如 ?tab=feature 打开功能设置）
+const activeTab = ref(route.query.tab === "feature" || route.query.tab === "security" ? route.query.tab : "basic");
 
 // 功能设置：报告生成方式（用户设置）+ 默认每页条数（系统设置）
 const featureSettings = reactive({
@@ -417,6 +424,25 @@ const loadSettings = async () => {
   }
 };
 
+// 返回（有历史则后退，否则回首页）
+const handleBack = () => {
+  if (window.history.length > 1) {
+    router.back();
+  } else {
+    router.push("/home");
+  }
+};
+
+// URL query.tab 变化时同步当前选中的标签页
+watch(
+  () => route.query.tab,
+  (tab) => {
+    if (tab === "feature" || tab === "security") {
+      activeTab.value = tab;
+    }
+  },
+);
+
 // 生命周期
 onMounted(() => {
   loadSettings();
@@ -430,12 +456,19 @@ onMounted(() => {
 }
 
 .page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 20px;
 }
 
 .page-header h2 {
   margin: 0;
   color: var(--el-text-color-primary, #303133);
+}
+
+.page-header .back-btn {
+  flex-shrink: 0;
 }
 
 .settings-content {

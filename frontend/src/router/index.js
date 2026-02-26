@@ -23,9 +23,7 @@ const routes = [
   },
   {
     path: "/register",
-    name: "Register",
-    component: () => import("@/views/auth/Register.vue"),
-    meta: { title: "注册", requiresAuth: false },
+    redirect: "/login",
   },
   {
     path: "/forgot-password",
@@ -126,6 +124,17 @@ const routes = [
         component: () => import("@/views/testTask/TestCaseExecution.vue"),
         meta: {
           title: "用例执行",
+          icon: "Menu",
+          hidden: true,
+          requiresAuth: true,
+        },
+      },
+      {
+        path: "test-tasks/:id/device-execute",
+        name: "DeviceScriptExecution",
+        component: () => import("@/views/testTask/DeviceScriptExecution.vue"),
+        meta: {
+          title: "设备脚本执行",
           icon: "Menu",
           hidden: true,
           requiresAuth: true,
@@ -237,8 +246,12 @@ router.beforeEach(async (to, from, next) => {
       return;
     }
   } else {
-    // 不需要认证的页面，如果已登录则跳转到首页
-    if (userStore.isAuthenticated && to.path !== "/404" && to.path !== "/403") {
+    // 不需要认证的页面，如果已登录则跳转到首页（排除 404/403）
+    if (
+      userStore.isAuthenticated &&
+      to.path !== "/404" &&
+      to.path !== "/403"
+    ) {
       next("/home");
       return;
     }

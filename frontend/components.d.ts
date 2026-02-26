@@ -8,6 +8,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     ControlBar: typeof import('./src/components/ControlBar/index.vue')['default']
+    ElAlert: typeof import('element-plus/es')['ElAlert']
     ElAutocomplete: typeof import('element-plus/es')['ElAutocomplete']
     ElAvatar: typeof import('element-plus/es')['ElAvatar']
     ElBreadcrumb: typeof import('element-plus/es')['ElBreadcrumb']
@@ -47,6 +48,7 @@ declare module 'vue' {
     ElRadioGroup: typeof import('element-plus/es')['ElRadioGroup']
     ElRow: typeof import('element-plus/es')['ElRow']
     ElSelect: typeof import('element-plus/es')['ElSelect']
+    ElSkeleton: typeof import('element-plus/es')['ElSkeleton']
     ElSubMenu: typeof import('element-plus/es')['ElSubMenu']
     ElSwitch: typeof import('element-plus/es')['ElSwitch']
     ElTable: typeof import('element-plus/es')['ElTable']

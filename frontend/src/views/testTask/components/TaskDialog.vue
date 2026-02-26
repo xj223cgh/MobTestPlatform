@@ -60,6 +60,7 @@
             <el-select
               v-model="form.task_type"
               placeholder="请选择任务类型"
+              :disabled="isEdit"
               @change="handleTaskTypeChange"
             >
               <el-option
@@ -97,28 +98,64 @@
             </el-select>
           </el-form-item>
         </el-col>
-        <el-col :span="8">
+        <el-col :span="24">
           <el-form-item
-            label="任务创建位置"
+            label="任务目录"
             prop="folder_id"
           >
-            <el-select
-              v-model="form.folder_id"
-              placeholder="不指定则归入未归类"
-              clearable
-              style="width: 100%"
-            >
-              <el-option
-                label="不指定"
-                :value="null"
-              />
-              <el-option
-                v-for="item in folderOptions"
-                :key="item.id"
-                :label="item.label"
-                :value="item.id"
-              />
-            </el-select>
+            <div class="task-folder-selector">
+              <el-popover
+                :visible="folderPopoverVisible"
+                placement="bottom-start"
+                trigger="manual"
+                width="auto"
+                teleport="body"
+                @clickoutside="folderPopoverVisible = false"
+              >
+                <template #reference>
+                  <div class="task-folder-input-wrap">
+                    <el-input
+                      v-model="selectedFolderPath"
+                      placeholder="请选择任务目录"
+                      readonly
+                      class="task-folder-input"
+                      @click="handleFolderInputClick"
+                    />
+                    <el-button
+                      size="small"
+                      class="task-folder-clear-btn"
+                      :icon="Refresh"
+                      :title="isEdit ? '恢复为打开时的任务目录' : '清空选择'"
+                      @click.stop="resetFolderSelection"
+                    >
+                      重置
+                    </el-button>
+                  </div>
+                </template>
+                <div class="task-folder-tree-popover">
+                  <el-tree
+                    :data="taskFolderTreeData"
+                    :props="{ label: 'name', children: 'children' }"
+                    node-key="id"
+                    :current-node-key="form.folder_id || undefined"
+                    highlight-current
+                    class="task-folder-tree"
+                    :expand-on-click-node="false"
+                    @node-click="handleTaskFolderSelect"
+                  >
+                    <template #default="{ node, data }">
+                      <span
+                        class="tree-node-content"
+                        :class="{ 'current-node': data.id === form.folder_id }"
+                      >
+                        <el-icon class="node-icon"><Folder /></el-icon>
+                        <span>{{ node.label }}</span>
+                      </span>
+                    </template>
+                  </el-tree>
+                </div>
+              </el-popover>
+            </div>
           </el-form-item>
         </el-col>
       </el-row>
@@ -229,6 +266,100 @@
           </el-form-item>
         </el-col>
       </el-row>
+
+      <!-- 脚本文件和设备选择 - 仅设备脚本任务显示（放在计划时间后，便于首屏可见） -->
+      <template v-if="form.task_type === 'device_script'">
+        <el-form-item
+          label="脚本文件"
+          prop="script_file"
+        >
+          <div class="file-input-wrapper">
+            <el-input
+              v-if="!isEdit"
+              v-model="form.script_file"
+              placeholder="请选择脚本文件"
+              readonly
+            />
+            <div
+              v-else
+              class="file-link-wrapper"
+            >
+              <template v-if="form.script_file">
+                <div class="suite-link-wrapper">
+                  <a
+                    class="script-file-link"
+                    @click.prevent="downloadScriptFile"
+                  >
+                    <el-icon><Download /></el-icon>
+                    {{ form.script_file }}
+                  </a>
+                  <el-icon
+                    class="clear-icon"
+                    :size="14"
+                    @click.stop="handleDeleteScriptFile"
+                  >
+                    <CircleClose />
+                  </el-icon>
+                </div>
+              </template>
+              <el-button
+                v-else
+                type="primary"
+                @click="selectScriptFile"
+              >
+                选择文件
+              </el-button>
+            </div>
+            <el-button
+              v-if="!isEdit"
+              type="primary"
+              @click="selectScriptFile"
+            >
+              选择文件
+            </el-button>
+          </div>
+        </el-form-item>
+
+        <el-form-item
+          label="完整执行命令"
+          prop="command"
+        >
+          <el-input
+            v-model="form.command"
+            type="textarea"
+            :rows="4"
+            :placeholder="`请输入完整执行命令，格式示例：
+1. Python脚本: python -m test.py --arg1 value1 --arg2 value2
+2. Shell脚本: ./test.sh arg1 arg2 arg3
+3. 无参数直接运行脚本: python test.py`"
+          />
+        </el-form-item>
+
+        <el-form-item
+          label="执行设备"
+          prop="device_ids"
+          required
+        >
+          <el-select
+            v-model="form.device_ids"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            placeholder="请选择执行设备（可多选，必填）"
+            style="width: 100%"
+            clearable
+          >
+            <el-option
+              v-for="device in devices"
+              :key="device.id"
+              :label="`${device.device_id} (${device.status === 'online' ? '在线' : '离线'})`"
+              :value="device.id"
+              :disabled="device.status !== 'online'"
+            />
+          </el-select>
+          <div v-if="devices.length === 0" class="form-item-hint">暂无可用设备，请先在设备管理中连接设备</div>
+        </el-form-item>
+      </template>
 
       <el-form-item
         label="任务描述"
@@ -362,94 +493,6 @@
         </div>
       </el-form-item>
 
-      <!-- 脚本文件和设备选择 - 仅设备脚本任务显示 -->
-      <template v-if="form.task_type === 'device_script'">
-        <el-form-item
-          label="脚本文件"
-          prop="script_file"
-        >
-          <div class="file-input-wrapper">
-            <el-input
-              v-if="!isEdit"
-              v-model="form.script_file"
-              placeholder="请选择脚本文件"
-              readonly
-            />
-            <div
-              v-else
-              class="file-link-wrapper"
-            >
-              <template v-if="form.script_file">
-                <div class="suite-link-wrapper">
-                  <a
-                    class="script-file-link"
-                    @click.prevent="downloadScriptFile"
-                  >
-                    <el-icon><Download /></el-icon>
-                    {{ form.script_file }}
-                  </a>
-                  <el-icon
-                    class="clear-icon"
-                    :size="14"
-                    @click.stop="handleDeleteScriptFile"
-                  >
-                    <CircleClose />
-                  </el-icon>
-                </div>
-              </template>
-              <el-button
-                v-else
-                type="primary"
-                @click="selectScriptFile"
-              >
-                选择文件
-              </el-button>
-            </div>
-            <el-button
-              v-if="!isEdit"
-              type="primary"
-              @click="selectScriptFile"
-            >
-              选择文件
-            </el-button>
-          </div>
-        </el-form-item>
-
-        <el-form-item
-          label="完整执行命令"
-          prop="command"
-        >
-          <el-input
-            v-model="form.command"
-            type="textarea"
-            :rows="4"
-            :placeholder="`请输入完整执行命令，格式示例：
-1. Python脚本: python -m test.py --arg1 value1 --arg2 value2
-2. Shell脚本: ./test.sh arg1 arg2 arg3
-3. 无参数直接运行脚本: python test.py`"
-          />
-        </el-form-item>
-
-        <el-form-item
-          label="执行设备"
-          prop="device_ids"
-        >
-          <el-select
-            v-model="form.device_ids"
-            multiple
-            placeholder="请选择执行设备"
-          >
-            <el-option
-              v-for="device in devices"
-              :key="device.id"
-              :label="`${device.device_id} (${device.status === 'online' ? '在线' : '离线'})`"
-              :value="device.id"
-              :disabled="device.status !== 'online'"
-            />
-          </el-select>
-        </el-form-item>
-      </template>
-
       <el-row
         v-if="isEdit"
         :gutter="20"
@@ -537,6 +580,14 @@
         {{ isEdit ? "关闭" : "取消" }}
       </el-button>
       <el-button
+        v-if="isEdit && form.task_type === 'device_script'"
+        type="success"
+        @click="goToDeviceScriptExecution"
+      >
+        <el-icon><View /></el-icon>
+        查看执行情况
+      </el-button>
+      <el-button
         v-if="!isEdit"
         type="primary"
         :loading="submitting"
@@ -566,6 +617,7 @@ import {
   CircleClose,
   Refresh,
   Download,
+  View,
 } from "@element-plus/icons-vue";
 import { useRouter } from "vue-router";
 import testTaskApi from "@/api/testTask";
@@ -603,6 +655,14 @@ const suitePopoverVisible = ref(false);
 const selectedSuiteName = ref("");
 const users = ref([]);
 const folderOptions = ref([]);
+// 任务目录选择（树形）
+const folderPopoverVisible = ref(false);
+const selectedFolderPath = ref("");
+const taskFolderTreeData = ref([]);
+const taskFolderTreeRaw = ref([]);
+/** 编辑时打开弹窗时的任务目录原值，用于「重置」恢复 */
+const initialFolderId = ref(null);
+const initialFolderPath = ref("");
 
 const form = reactive({
   task_name: "",
@@ -632,14 +692,20 @@ const rules = {
   task_type: [{ required: true, message: "请选择任务类型", trigger: "change" }],
   project_id: [],
   priority: [{ required: true, message: "请选择优先级", trigger: "change" }],
-  // 设备脚本任务验证规则
+  // 设备脚本任务验证规则（编辑时脚本文件为只读展示，不做必填校验）
   script_file: [
     {
-      required: true,
-      message: "请选择脚本文件",
       trigger: "change",
       validator: (rule, value, callback) => {
-        if (form.task_type === "device_script" && !value) {
+        if (form.task_type !== "device_script") {
+          callback();
+          return;
+        }
+        if (isEdit.value) {
+          callback();
+          return;
+        }
+        if (!value) {
           callback(new Error("请选择脚本文件"));
         } else {
           callback();
@@ -917,11 +983,13 @@ const handleDeleteSuite = async () => {
   }
 };
 
-// 点击关联用例集：复用列表页「执行」逻辑，在新标签页打开用例执行页（展示快照数据）
+// 点击关联用例集：在新标签页打开用例执行页（展示快照数据）；若任务已完成则不显示「完成任务」按钮
 const handleSuiteClick = () => {
   if (!taskId.value) return;
   handleClose();
-  const url = `${window.location.origin}/test-tasks/${taskId.value}/execute`;
+  const base = `${window.location.origin}/test-tasks/${taskId.value}/execute`;
+  const isCompleted = taskDetail.value?.status === "completed";
+  const url = isCompleted ? `${base}?hideComplete=1` : base;
   window.open(url, "_blank");
 };
 
@@ -980,9 +1048,14 @@ const loadTaskDetail = async () => {
     await loadSuites();
     await loadDevices();
     await loadFolderOptions(taskDetail.value.task_type);
+    initialFolderId.value = form.folder_id ?? null;
+    initialFolderPath.value = selectedFolderPath.value || "";
   } catch (error) {
     console.error("加载任务详情失败:", error);
-    ElMessage.error("加载任务详情失败");
+    // 若用户已在加载完成前关闭弹窗，不再提示，避免误报
+    if (visible.value) {
+      ElMessage.error("加载任务详情失败");
+    }
   } finally {
     loading.value = false;
   }
@@ -1002,7 +1075,8 @@ const handleTaskTypeChange = () => {
     form.test_cases = "";
     selectedSuiteName.value = "";
   }
-  loadFolderOptions(form.task_type);
+  // 切换任务类型时不清空已选执行设备，避免误清空
+  loadTaskFolderTree(form.task_type);
 };
 
 function flattenFolderTree(nodes, depth = 0) {
@@ -1020,19 +1094,81 @@ function flattenFolderTree(nodes, depth = 0) {
   return list;
 }
 
-const loadFolderOptions = async (taskType) => {
+/** 在任务目录树中根据 folderId 查找从根到该节点的路径名称（用于显示） */
+function findTaskFolderPath(nodes, folderId, parentPath = []) {
+  if (!nodes || !Array.isArray(nodes)) return null;
+  if (folderId == null || folderId === "" || folderId === "__none__") return null;
+  for (const n of nodes) {
+    const name = n.name || "未命名";
+    const currentPath = [...parentPath, name];
+    if (n.id === folderId) return currentPath.join(" / ");
+    if (n.children?.length) {
+      const found = findTaskFolderPath(n.children, folderId, currentPath);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+const loadTaskFolderTree = async (taskType) => {
   if (!taskType) {
-    folderOptions.value = [];
+    taskFolderTreeRaw.value = [];
+    taskFolderTreeData.value = [];
     return;
   }
   try {
     const res = await testTaskApi.getTaskFolderTree(taskType);
     const roots = res.data?.folders ?? [];
+    taskFolderTreeRaw.value = roots;
+    taskFolderTreeData.value = roots;
     folderOptions.value = flattenFolderTree(roots);
+    updateSelectedFolderPath();
   } catch (e) {
     console.error("加载任务目录失败", e);
+    taskFolderTreeRaw.value = [];
+    taskFolderTreeData.value = [];
     folderOptions.value = [];
   }
+};
+
+const updateSelectedFolderPath = () => {
+  if (form.folder_id == null || form.folder_id === "") {
+    selectedFolderPath.value = "";
+    return;
+  }
+  const path = findTaskFolderPath(taskFolderTreeRaw.value, form.folder_id);
+  selectedFolderPath.value = path || "未命名";
+};
+
+const handleFolderInputClick = () => {
+  if (taskFolderTreeData.value.length === 0 && form.task_type) {
+    loadTaskFolderTree(form.task_type);
+  }
+  folderPopoverVisible.value = !folderPopoverVisible.value;
+};
+
+const handleTaskFolderSelect = (data) => {
+  form.folder_id = data.id;
+  const path = findTaskFolderPath(taskFolderTreeRaw.value, data.id);
+  selectedFolderPath.value = path || data.name || "未命名";
+  folderPopoverVisible.value = false;
+};
+
+/** 任务目录：编辑时为恢复原值，创建时为清空 */
+const resetFolderSelection = () => {
+  if (isEdit.value) {
+    form.folder_id = initialFolderId.value;
+    selectedFolderPath.value = initialFolderPath.value || "";
+  } else {
+    form.folder_id = null;
+    selectedFolderPath.value = "";
+  }
+  folderPopoverVisible.value = false;
+};
+
+/** 兼容旧逻辑：仍提供扁平列表给可能依赖 folderOptions 的代码 */
+const loadFolderOptions = async (taskType) => {
+  await loadTaskFolderTree(taskType);
 };
 
 const handleProjectChange = () => {
@@ -1189,9 +1325,11 @@ const handleUpdate = async () => {
 
     // 处理时间字段
     if (form.task_type === "device_script") {
-      // 设备脚本任务：只需要开始时间
+      // 设备脚本任务：只需要开始时间（详情加载后可能是单元素数组）
       if (form.scheduled_time) {
-        updateData.scheduled_time = form.scheduled_time;
+        updateData.scheduled_time = Array.isArray(form.scheduled_time)
+          ? form.scheduled_time[0]
+          : form.scheduled_time;
       }
     } else {
       // 测试用例任务：需要开始时间和结束时间
@@ -1251,7 +1389,12 @@ const handleUpdate = async () => {
 
     emit("refresh");
   } catch (error) {
-    if (error !== false && error.response) {
+    // 表单校验失败时 error 可能无 response，需单独提示
+    if (error === false || (error && !error.response)) {
+      ElMessage.warning("请检查表单必填项与填写格式");
+      return;
+    }
+    if (error?.response) {
       console.error("更新测试任务失败:", error);
       ElMessage.error(
         "更新测试任务失败：" +
@@ -1261,6 +1404,13 @@ const handleUpdate = async () => {
   } finally {
     submitting.value = false;
   }
+};
+
+/** 设备脚本任务详情：跳转到设备脚本执行页 */
+const goToDeviceScriptExecution = () => {
+  if (!taskId.value) return;
+  visible.value = false;
+  router.push({ name: "DeviceScriptExecution", params: { id: taskId.value } });
 };
 
 const handleClose = () => {
@@ -1296,6 +1446,11 @@ const handleClosed = () => {
   suiteTree.value = [];
   selectedSuiteName.value = "";
   suitePopoverVisible.value = false;
+  selectedFolderPath.value = "";
+  folderPopoverVisible.value = false;
+  taskFolderTreeData.value = [];
+  initialFolderId.value = null;
+  initialFolderPath.value = "";
 
   // 关闭对话框时刷新列表
   emit("refresh");
@@ -1419,6 +1574,44 @@ defineExpose({
   font-size: 12px;
   color: #909399;
   margin-top: 6px;
+}
+
+.form-item-hint {
+  font-size: 12px;
+  color: var(--el-color-warning);
+  margin-top: 4px;
+}
+
+
+.task-folder-selector {
+  width: 100%;
+}
+
+.task-folder-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.task-folder-input {
+  flex: 1;
+  min-width: 360px;
+}
+
+.task-folder-clear-btn {
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.task-folder-tree-popover {
+  width: 360px;
+  padding: 4px 0;
+
+  .task-folder-tree {
+    max-height: 320px;
+    overflow-y: auto;
+  }
 }
 
 .clear-icon {

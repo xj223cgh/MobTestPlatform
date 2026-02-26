@@ -53,6 +53,7 @@ def create_report_for_task(test_task):
     details = _make_serializable(report_data.get('details') or [])
     # 创建人与负责人可为不同人：负责人优先取任务执行人
     assignee_id = test_task.executor_id if test_task.executor_id != test_task.creator_id else None
+    # 快照：任务状态、迭代、用例集、需求名称（报告列表/详情以快照为准，不随任务后续修改变化）
     report = Report(
         task_id=test_task.id,
         report_type=test_task.task_type,
@@ -64,6 +65,11 @@ def create_report_for_task(test_task):
         completed_at=test_task.completed_time,
         creator_id=test_task.creator_id,
         assignee_id=assignee_id or test_task.executor_id,
+        status=test_task.status,
+        iteration_name=test_task.iteration.iteration_name if getattr(test_task, 'iteration', None) else None,
+        suite_id=getattr(test_task, 'suite_id', None),
+        suite_name=test_task.suite_name_snapshot or (test_task.suite.suite_name if getattr(test_task, 'suite', None) else None),
+        requirement_name=test_task.version_requirement.requirement_name if getattr(test_task, 'version_requirement', None) and test_task.version_requirement else None,
     )
     db.session.add(report)
     db.session.flush()
@@ -81,16 +87,27 @@ def list_reports():
         # 报告类型筛选
         if request.args.get('report_type'):
             query = query.filter_by(report_type=request.args['report_type'])
-        
+
+        # 按任务 ID 筛选（用于从任务执行页跳转查看报告）
+        task_id_arg = request.args.get('task_id')
+        if task_id_arg:
+            try:
+                query = query.filter_by(task_id=int(task_id_arg))
+            except ValueError:
+                pass
+
         # 任务名称搜索
         search = request.args.get('search')
         if search:
             query = query.filter(Report.task_name.ilike(f'%{search}%'))
         
-        # 任务状态筛选（需要关联TestTask表）
+        # 任务状态筛选：优先用报告快照 status，无快照时再关联任务表（兼容旧数据）
         status = request.args.get('status')
         if status:
-            query = query.join(TestTask, Report.task_id == TestTask.id).filter(TestTask.status == status)
+            from sqlalchemy import or_, and_
+            query = query.outerjoin(TestTask, Report.task_id == TestTask.id).filter(
+                or_(Report.status == status, and_(Report.status.is_(None), TestTask.status == status))
+            )
         
         # 创建人筛选（需要关联User表）
         creator = request.args.get('creator')
@@ -111,17 +128,38 @@ def list_reports():
         return error_response(500, str(e))
 
 
+def _task_info_from_report(report):
+    """用报告快照构建 task_info，任务已删除或后续修改不影响详情展示"""
+    task = report.task
+    base = (task.to_dict() if task else {})
+    # 以报告快照覆盖，保证展示的是“任务执行时”的数据；任务已删时 base 为空，用 report 字段补全
+    snapshot = {
+        'task_id': report.task_id,
+        'project_id': report.project_id,
+        'task_name': report.task_name,
+        'project_name': report.project_name,
+        'status': report.status if report.status is not None else base.get('status'),
+        'completed_at': report.completed_at.isoformat() if report.completed_at else base.get('completed_time'),
+        'iteration_name': report.iteration_name or base.get('iteration_name'),
+        'suite_id': report.suite_id if report.suite_id is not None else base.get('suite_id'),
+        'suite_name': report.suite_name or base.get('suite_name'),
+        'version_requirement_name': report.requirement_name or base.get('version_requirement_name'),
+    }
+    for k, v in snapshot.items():
+        if v is not None:
+            base[k] = v
+    base['created_by'] = (report.creator.real_name if report.creator else None) or base.get('creator_name') or '-'
+    base['assignee_name'] = report.assignee.real_name if report.assignee else '-'
+    return base
+
+
 @bp.route('/record/<int:report_id>', methods=['GET'])
 @login_required
 def get_report_by_id(report_id):
-    """按报告 ID 获取报告详情（落库数据）"""
+    """按报告 ID 获取报告详情（落库数据，task_info 以报告快照为准）"""
     try:
         report = Report.query.get_or_404(report_id)
-        task = report.task
-        task_info = task.to_dict() if task else {}
-        task_info['created_by'] = (report.creator.real_name if report.creator else None) or task_info.get('creator_name') or '-'
-        task_info['assignee_name'] = report.assignee.real_name if report.assignee else '-'
-        task_info['completed_at'] = task_info.get('completed_time')
+        task_info = _task_info_from_report(report)
         return success_response({
             'task_info': task_info,
             'summary': report.summary or {},
@@ -268,6 +306,7 @@ def generate_test_case_report(test_task):
             stats[e.status] += 1
     executed_cases = sum(stats.values())
     pass_count = stats['pass']
+    # 通过率与任务列表统计列一致：通过数/用例总数（非 通过数/已执行数）
     pass_rate = round(pass_count / total_cases * 100, 1) if total_cases > 0 else 0
     suite_name = test_task.suite_name_snapshot or (test_task.suite.suite_name if test_task.suite else None) or ""
     summary = {
@@ -316,53 +355,75 @@ def generate_test_case_report(test_task):
 
 
 def generate_device_script_report(test_task):
-    """生成设备脚本任务报告"""
-    # 初始化统计数据
-    total_devices = 0
-    success_count = 0
-    failed_count = 0
-    
+    """生成设备脚本任务报告（含任务基本信息与设备执行明细）"""
+    import json
+
+    # 任务基本信息（报告摘要中保留，便于报告页展示）
+    task_name = getattr(test_task, 'task_name', None) or ''
+    script_file = getattr(test_task, 'script_file', None) or ''
+    command = getattr(test_task, 'command', None) or ''
+    scheduled_time = test_task.scheduled_time.isoformat() if getattr(test_task, 'scheduled_time', None) else None
+    completed_at = test_task.completed_time.isoformat() if getattr(test_task, 'completed_time', None) else None
+    task_devices = list(test_task.devices) if getattr(test_task, 'devices', None) else []
+
     # 从任务结果中提取设备执行数据
     device_executions = []
     if test_task.result:
         try:
-            import json
-            result_data = json.loads(test_task.result)
-            # 检查结果数据结构
+            result_data = json.loads(test_task.result) if isinstance(test_task.result, str) else test_task.result
             if isinstance(result_data, dict) and 'executions' in result_data:
-                device_executions = result_data['executions']
-        except Exception as e:
-            # 结果解析失败，使用空列表
+                device_executions = result_data['executions'] or []
+        except Exception:
             device_executions = []
-    
-    # 初始化统计数据
-    total_devices = len(device_executions)
-    success_count = sum(1 for exec in device_executions if exec.get('status') == 'success')
-    failed_count = total_devices - success_count
-    success_rate = round(success_count / total_devices * 100, 1) if total_devices > 0 else 0
-    
-    # 构建报告摘要
+
+    # 有执行结果时：统计与明细来自 result
+    if device_executions:
+        total_devices = len(device_executions)
+        success_count = sum(1 for e in device_executions if e.get('status') == 'success')
+        failed_count = total_devices - success_count
+        success_rate = round(success_count / total_devices * 100, 1) if total_devices > 0 else 0
+        details = []
+        for e in device_executions:
+            details.append({
+                'device_id': e.get('device_id'),
+                'device_name': e.get('device_name'),
+                'status': e.get('status'),
+                'execution_time': e.get('execution_time'),
+                'exit_code': e.get('exit_code'),
+                'output': e.get('output'),
+                'error_output': e.get('error_output'),
+            })
+    else:
+        # 无执行结果时：用任务关联设备生成兜底明细与统计
+        total_devices = len(task_devices)
+        success_count = 0
+        failed_count = 0
+        success_rate = 0
+        details = []
+        for d in task_devices:
+            details.append({
+                'device_id': getattr(d, 'device_id', None) or getattr(d, 'id'),
+                'device_name': getattr(d, 'device_name', None) or '',
+                'status': 'unknown',
+                'execution_time': None,
+                'exit_code': None,
+                'output': '',
+                'error_output': '未记录执行结果',
+            })
+
     summary = {
         'total_devices': total_devices,
         'success_count': success_count,
         'failed_count': failed_count,
-        'success_rate': success_rate
+        'success_rate': success_rate,
+        'task_name': task_name,
+        'script_file': script_file,
+        'command': command,
+        'scheduled_time': scheduled_time,
+        'completed_at': completed_at,
     }
-    
-    # 构建详细数据
-    details = []
-    for execution in device_executions:
-        details.append({
-            'device_id': execution.get('device_id'),
-            'device_name': execution.get('device_name'),
-            'status': execution.get('status'),
-            'execution_time': execution.get('execution_time'),
-            'exit_code': execution.get('exit_code'),
-            'output': execution.get('output'),
-            'error_output': execution.get('error_output')
-        })
-    
+
     return {
         'summary': summary,
-        'details': details
+        'details': details,
     }

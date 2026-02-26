@@ -1050,7 +1050,7 @@ class TestTask(db.Model):
 
 
 class Report(db.Model):
-    """报告模型（落库）"""
+    """报告模型（落库）：存储任务执行完成时的数据快照，列表与详情均以快照为准"""
     __tablename__ = 'reports'
 
     id = db.Column(db.Integer, primary_key=True, comment='报告ID')
@@ -1065,6 +1065,12 @@ class Report(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='报告生成时间')
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建人ID')
     assignee_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='负责人ID')
+    # 以下为任务执行时的快照字段，保证报告列表/详情不随任务后续修改而变化
+    status = db.Column(db.String(20), nullable=True, comment='任务状态快照（生成报告时）')
+    iteration_name = db.Column(db.String(200), nullable=True, comment='迭代名称快照')
+    suite_id = db.Column(db.Integer, nullable=True, comment='用例集ID快照')
+    suite_name = db.Column(db.String(200), nullable=True, comment='用例集名称快照')
+    requirement_name = db.Column(db.String(200), nullable=True, comment='需求名称快照')
 
     task = db.relationship('TestTask', backref=db.backref('reports', lazy='dynamic'))
     project = db.relationship('Project', backref=db.backref('report_list', lazy='dynamic'))
@@ -1088,6 +1094,10 @@ class Report(db.Model):
             'created_by': self.creator.real_name if self.creator else None,
             'assignee_id': self.assignee_id,
             'assignee_name': self.assignee.real_name if self.assignee else None,
-            'status': self.task.status if self.task else None,
+            'status': self.status if self.status is not None else (self.task.status if self.task else None),
+            'iteration_name': self.iteration_name,
+            'suite_id': self.suite_id,
+            'suite_name': self.suite_name,
+            'requirement_name': self.requirement_name,
         }
 

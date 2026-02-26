@@ -7,7 +7,7 @@ from datetime import datetime
 from flask import Blueprint, request
 from flask_login import login_required, current_user
 
-from app.models.models import Device, db, TestTask
+from app.models.models import Device, db, TestTask, TaskFolder
 from app.utils.helpers import (
     success_response, error_response, get_pagination_params, log_user_action,
     validate_json_data
@@ -1170,7 +1170,19 @@ def schedule_batch_tasks():
         # 获取前端传递的任务描述和优先级
         task_description = data.get('task_description', f"设备脚本任务，计划执行时间：{scheduled_time_str}")
         priority = data.get('priority', 'medium')
-        
+        folder_id = data.get('folder_id')
+
+        # 校验任务目录（若传了 folder_id）
+        folder_id_val = None
+        if folder_id is not None and folder_id != '':
+            try:
+                fid = int(folder_id)
+                folder = TaskFolder.query.get(fid)
+                if folder and folder.task_type == 'device_script':
+                    folder_id_val = fid
+            except (TypeError, ValueError):
+                pass
+
         # 创建设备脚本测试任务
         # 优先使用前端传递的script_file参数，否则从file_path中提取
         script_filename = script_file if script_file else (file_path.split('/')[-1] if file_path else '')
@@ -1188,6 +1200,7 @@ def schedule_batch_tasks():
             script_file=script_filename,
             file_path=file_path,
             file_hash=file_hash,
+            folder_id=folder_id_val,
         )
         
         # 关联设备

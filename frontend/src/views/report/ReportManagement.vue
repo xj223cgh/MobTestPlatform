@@ -393,8 +393,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search, Refresh, View, Download, Document } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
@@ -403,10 +403,11 @@ import { useSystemSettingsStore } from '@/stores/systemSettings';
 
 // 路由相关
 const router = useRouter();
+const route = useRoute();
 const systemSettingsStore = useSystemSettingsStore();
 
-// 响应式数据
-const activeTab = ref('test_case');
+// 响应式数据（从 URL query.tab 恢复标签页，避免从脚本报告返回时被重置为用例报告）
+const activeTab = ref(route.query.tab === 'device_script' ? 'device_script' : 'test_case');
 const loading = reactive({
   testCase: false,
   deviceScript: false
@@ -540,9 +541,13 @@ const handleTabChange = () => {
   // 切换标签页时不需要重新加载，因为已经在fetchReportList中加载了所有数据
 };
 
-// 查看报告
+// 查看报告（使用 record 路由，并带上当前 tab 以便返回时恢复标签页）
 const handleViewReport = (row) => {
-  router.push(`/report/${row.id}`);
+  router.push({
+    name: "ReportDetailByRecord",
+    params: { id: row.id },
+    query: { tab: activeTab.value },
+  });
 };
 
 // 表格多选变化
@@ -649,6 +654,16 @@ const getStatusLabel = (status) => {
 onMounted(() => {
   fetchReportList();
 });
+
+// 从详情返回时根据 URL query.tab 恢复当前标签页
+watch(
+  () => route.query.tab,
+  (tab) => {
+    if (tab === 'device_script' || tab === 'test_case') {
+      activeTab.value = tab;
+    }
+  },
+);
 </script>
 
 <style lang="scss" scoped>

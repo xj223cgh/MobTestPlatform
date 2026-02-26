@@ -202,8 +202,8 @@ def insert_test_data():
                 project_start = project_info[0]
                 project_end = project_info[1]
                 
-                # 为每个项目添加2-4个迭代
-                for j in range(2 + i % 3):
+                # 为每个项目添加 4～6 个迭代（保证数据量）
+                for j in range(4 + i % 3):
                     iteration_name = f"{i+1}项目迭代{j+1}"
                     description = f"这是第{i+1}个项目的第{j+1}个迭代，用于测试系统功能"
                     goal = f"完成{iteration_name}的所有需求开发和测试"
@@ -270,8 +270,8 @@ def insert_test_data():
                 project_start = project_info[0]  # 已经是datetime对象
                 project_end = project_info[1]  # 已经是datetime对象
                 
-                # 为每个项目添加3-5个版本需求
-                for j in range(3 + i % 3):
+                # 为每个项目添加 5～8 个版本需求（保证数据量）
+                for j in range(5 + i % 4):
                     requirement_name = f"{i+1}项目需求{j+1}"
                     requirement_description = f"这是第{i+1}个项目的第{j+1}个版本需求，用于测试系统功能"
                     status = requirement_statuses[(i + j) % len(requirement_statuses)]
@@ -484,15 +484,18 @@ def insert_test_data():
             """, cases_data)
             print("测试用例数据插入成功！")
 
-            # 8.5 插入任务文件夹（按任务类型分开，用于测试任务页左侧目录）
+            # 8.5 插入任务文件夹（按任务类型分开，用于测试任务页左侧目录；多目录保证数据量）
             print("开始插入任务文件夹数据...")
             folder_data = [
                 ('回归测试', None, 'test_case', 0),
                 ('冒烟测试', None, 'test_case', 1),
                 ('专项测试', None, 'test_case', 2),
+                ('功能验证', None, 'test_case', 3),
+                ('版本发布', None, 'test_case', 4),
                 ('设备巡检', None, 'device_script', 0),
                 ('性能采集', None, 'device_script', 1),
                 ('兼容性脚本', None, 'device_script', 2),
+                ('信息采集', None, 'device_script', 3),
             ]
             cursor.executemany("""
                 INSERT INTO task_folders (name, parent_id, task_type, sort_order)
@@ -524,14 +527,21 @@ def insert_test_data():
             priorities = ['high', 'medium', 'low']
             now = datetime.now()
             time_fmt = '%Y-%m-%d %H:%M:%S'
+            # 时间分散：计划/开始/完成时间分布在过去约 8～90 天，有广度与分散度
+            def task_time_for_index(idx):
+                days_ago = (idx % 25) * 3 + (idx // 20) * 7  # 0~90 天范围
+                base = now - timedelta(days=days_ago)
+                s_start = base.replace(hour=9 + (idx % 3), minute=0, second=0, microsecond=0)
+                s_end = s_start + timedelta(days=1 + (idx % 2), hours=(idx % 5))
+                return s_start, s_end
 
             for idx, (suite_id, project_id, req_id, category) in enumerate(suite_rows):
                 iteration_id = None
                 if project_id and project_id in project_iterations:
                     iteration_id = project_iterations[project_id][idx % len(project_iterations[project_id])]
                 status = task_statuses[idx % len(task_statuses)]
-                creator_id = user_ids[2]   # 创建人使用用户表中的真实用户（如杨帆）
-                executor_id = user_ids[1] if status == 'completed' else (user_ids[3] if status == 'running' else None)  # 负责人为真实用户（赵敏等）
+                creator_id = user_ids[idx % len(user_ids)]
+                executor_id = user_ids[(idx + 1) % len(user_ids)] if status == 'completed' else (user_ids[(idx + 2) % len(user_ids)] if status == 'running' else None)
                 suite_name = suite_id_to_name.get(suite_id, f'套件{suite_id}')
                 task_name = f"【用例执行】{suite_name}"
                 proj_name = project_id_to_name.get(project_id, '')
@@ -539,18 +549,18 @@ def insert_test_data():
                 req_name = req_id_to_name.get(req_id, '') if req_id else ''
                 description = f"所属项目：{proj_name}。迭代：{iter_name}。关联用例集：{suite_name}，类型：{category}。任务类型：用例执行。"
 
-                # 计划时间：每条任务都有完整的计划开始/结束时间
-                scheduled_start = (now - timedelta(days=1) + timedelta(hours=idx % 24)).strftime(time_fmt)
-                scheduled_end = (now + timedelta(days=1) + timedelta(hours=(idx + 2) % 24)).strftime(time_fmt)
+                scheduled_start_dt, scheduled_end_dt = task_time_for_index(idx)
+                scheduled_start = scheduled_start_dt.strftime(time_fmt)
+                scheduled_end = scheduled_end_dt.strftime(time_fmt)
                 started_time = None
                 completed_time = None
                 if status == 'completed':
-                    started_time = (now - timedelta(hours=2)).strftime(time_fmt)
-                    completed_time = (now - timedelta(minutes=30)).strftime(time_fmt)
+                    started_time = (scheduled_start_dt + timedelta(hours=1)).strftime(time_fmt)
+                    completed_time = (scheduled_start_dt + timedelta(hours=2 + (idx % 6))).strftime(time_fmt)
                 elif status == 'running':
-                    started_time = (now - timedelta(hours=1)).strftime(time_fmt)
+                    started_time = (scheduled_start_dt + timedelta(hours=idx % 2)).strftime(time_fmt)
 
-                folder_id = folder_ids_test_case[idx % (len(folder_ids_test_case) + 1)] if (idx % (len(folder_ids_test_case) + 1) < len(folder_ids_test_case)) else None
+                folder_id = folder_ids_test_case[idx % len(folder_ids_test_case)] if folder_ids_test_case else None
                 tasks_data.append((
                     task_name, description, folder_id, 'test_case', priorities[idx % 3], status,
                     creator_id, executor_id, project_id, iteration_id, suite_id, req_id,
@@ -592,8 +602,9 @@ def insert_test_data():
                 if status != 'completed' or not suite_id or suite_id not in suite_to_cases:
                     continue
                 case_ids = suite_to_cases[suite_id]
-                exec_time = (now - timedelta(minutes=45)).strftime(time_fmt)
+                # 执行时间分散：按任务与用例序号分布在过去数天
                 for i, case_id in enumerate(case_ids):
+                    exec_time = (now - timedelta(days=(task_id + i) % 21, hours=1 + (i % 3), minutes=30)).strftime(time_fmt)
                     st = exec_statuses[i % len(exec_statuses)]
                     executions_data.append((
                         task_id, case_id, project_id, iteration_id, st,
@@ -614,6 +625,57 @@ def insert_test_data():
                     SET tc.status = latest.status
                 """)
             print(f"用例执行记录插入成功，共 {len(executions_data)} 条！")
+
+            # 11.2 评审任务与评审历史：保证所有用户都有发起评审、参与评审及评审历史（时间分散在近 60 天内）
+            print("开始插入评审任务与评审历史...")
+            cursor.execute("SELECT id FROM test_suites WHERE `type` = 'suite' ORDER BY id")
+            all_suite_ids = [row[0] for row in cursor.fetchall()]
+            review_statuses = ['completed', 'completed', 'in_review', 'pending']
+            review_detail_statuses = ['approved', 'approved', 'rejected']
+            n_users = len(user_ids)
+            # 至少为 2*n_users 个用例集创建评审任务，使每人既有发起又有评审
+            n_review_tasks = max(2 * n_users, min(24, len(all_suite_ids)))
+            review_task_ids_inserted = []
+            for r in range(n_review_tasks):
+                suite_id = all_suite_ids[r % len(all_suite_ids)]
+                initiator_id = user_ids[r % n_users]
+                reviewer_id = user_ids[(r + 1) % n_users]
+                status = review_statuses[r % len(review_statuses)]
+                days_ago_start = (r % 20) * 3 + (r // 10) * 2
+                days_ago_end = days_ago_start + 1 + (r % 3)
+                start_time = (now - timedelta(days=days_ago_start)).replace(hour=10 + (r % 4), minute=0, second=0, microsecond=0).strftime(time_fmt)
+                end_time = (now - timedelta(days=days_ago_end)).replace(hour=16, minute=0, second=0, microsecond=0).strftime(time_fmt) if status == 'completed' else None
+                overall = '评审通过，用例覆盖完整。' if status == 'completed' else (None if status == 'pending' else '评审中。')
+                cursor.execute("""
+                    INSERT INTO test_suite_review_tasks (suite_id, initiator_id, reviewer_id, status, start_time, end_time, overall_comments)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (suite_id, initiator_id, reviewer_id, status, start_time, end_time, overall))
+                rt_id = cursor.lastrowid
+                review_task_ids_inserted.append((rt_id, suite_id, initiator_id, reviewer_id, status, start_time, end_time, overall))
+                case_ids = suite_to_cases.get(suite_id, [])[:25]
+                for ci, case_id in enumerate(case_ids):
+                    rs = review_detail_statuses[ci % len(review_detail_statuses)] if status == 'completed' else 'pending'
+                    cursor.execute("""
+                        INSERT INTO test_case_review_details (review_task_id, case_id, reviewer_id, review_status, comments)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (rt_id, case_id, reviewer_id, rs, '通过' if rs == 'approved' else ('需修改' if rs == 'rejected' else None)))
+                if status == 'completed':
+                    cursor.execute("""
+                        INSERT INTO test_suite_review_history (review_task_id, suite_id, initiator_id, reviewer_id, status, start_time, end_time, overall_comments, history_type, created_by, version)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (rt_id, suite_id, initiator_id, reviewer_id, status, start_time, end_time, overall, 'complete', reviewer_id, 1))
+                    hist_id = cursor.lastrowid
+                    for ci, case_id in enumerate(case_ids[:20]):
+                        cursor.execute("SELECT case_number, case_name, priority, test_data, preconditions, steps, expected_result, actual_result FROM test_cases WHERE id = %s", (case_id,))
+                        row = cursor.fetchone()
+                        if not row:
+                            continue
+                        rs = review_detail_statuses[ci % len(review_detail_statuses)]
+                        cursor.execute("""
+                            INSERT INTO test_case_review_history (review_history_id, review_task_id, case_id, reviewer_id, review_status, comments, case_number, case_name, priority, test_data, preconditions, steps, expected_result, actual_result, created_by)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (hist_id, rt_id, case_id, reviewer_id, rs, '通过' if rs == 'approved' else '需修改', row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], reviewer_id))
+            print(f"评审任务与评审历史插入成功，共 {len(review_task_ids_inserted)} 条评审任务！")
 
             # 11.5 报告表：仅清空并确保表结构（assignee_id），不插入造数，由用户在平台上手动创建报告
             print("开始处理报告表...")
@@ -661,9 +723,9 @@ def insert_test_data():
                 proj_id = project_rows[i % len(project_rows)][0] if project_rows else None
                 creator_id = user_ids[i % len(user_ids)]
                 command = f"python {relative_path} --device-id $DEVICE_ID --adb-path adb"
-                # 计划时间：与用例执行任务一致，便于前端显示
-                scheduled_start = (now + timedelta(days=i, hours=i)).strftime(time_fmt)
-                scheduled_end = (now + timedelta(days=i, hours=i + 2)).strftime(time_fmt)
+                # 计划时间：分散在近期与未来数周，有广度
+                scheduled_start = (now + timedelta(days=i * 4 + (i % 5), hours=9 + (i % 2))).strftime(time_fmt)
+                scheduled_end = (now + timedelta(days=i * 4 + (i % 5) + 1, hours=12 + (i % 2))).strftime(time_fmt)
                 folder_id = folder_ids_device_script[i % (len(folder_ids_device_script) + 1)] if (i % (len(folder_ids_device_script) + 1) < len(folder_ids_device_script)) else None
                 script_tasks_data.append((
                     task_name, f"使用 get_device_info 脚本采集设备信息（任务{i+1}）", folder_id, 'device_script', 'medium', 'pending',

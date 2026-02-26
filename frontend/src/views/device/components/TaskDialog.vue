@@ -234,6 +234,65 @@
           </el-form-item>
 
           <el-form-item
+            label="任务目录"
+            prop="folderId"
+          >
+            <div class="task-folder-selector">
+              <el-popover
+                :visible="folderPopoverVisible"
+                placement="bottom-start"
+                trigger="manual"
+                width="auto"
+                teleport="body"
+                @clickoutside="folderPopoverVisible = false"
+              >
+                <template #reference>
+                  <div class="task-folder-input-wrap">
+                    <el-input
+                      v-model="selectedFolderPath"
+                      placeholder="请选择任务目录"
+                      readonly
+                      class="task-folder-input"
+                      @click="handleFolderInputClick"
+                    />
+                    <el-button
+                      size="small"
+                      class="task-folder-clear-btn"
+                      :icon="Refresh"
+                      title="清空选择"
+                      @click.stop="resetFolderSelection"
+                    >
+                      重置
+                    </el-button>
+                  </div>
+                </template>
+                <div class="task-folder-tree-popover">
+                  <el-tree
+                    :data="taskFolderTreeData"
+                    :props="{ label: 'name', children: 'children' }"
+                    node-key="id"
+                    :current-node-key="scriptForm.folderId || undefined"
+                    highlight-current
+                    class="task-folder-tree"
+                    :expand-on-click-node="false"
+                    @node-click="handleTaskFolderSelect"
+                  >
+                    <template #default="{ node, data }">
+                      <span
+                        class="tree-node-content"
+                        :class="{ 'current-node': data.id === scriptForm.folderId }"
+                      >
+                        <el-icon class="node-icon"><Folder /></el-icon>
+                        <span>{{ node.label }}</span>
+                      </span>
+                    </template>
+                  </el-tree>
+                </div>
+              </el-popover>
+            </div>
+          </el-form-item>
+
+          <el-form-item
             label="任务描述"
             prop="taskDescription"
           >
@@ -385,9 +444,10 @@
 <script setup>
 import { ref, reactive } from "vue";
 import { ElMessage } from "element-plus";
-import { Refresh } from "@element-plus/icons-vue";
+import { Refresh, Folder } from "@element-plus/icons-vue";
 import deviceApi from "@/api/device";
 import { uploadFile } from "@/api/files";
+import testTaskApi from "@/api/testTask";
 
 const props = defineProps({
   devices: {
@@ -405,6 +465,12 @@ const resultVisible = ref(false);
 const resultData = ref(null);
 const scriptFormRef = ref(null);
 const selectedFile = ref(null);
+// 任务目录（定时执行）
+const selectedFolderPath = ref("");
+const folderPopoverVisible = ref(false);
+const taskFolderTreeData = ref([]);
+const taskFolderTreeRaw = ref([]);
+const initialFolderId = ref(null);
 
 const scriptForm = reactive({
   taskType: "script",
@@ -418,6 +484,7 @@ const scriptForm = reactive({
   // 定时执行相关参数
   taskName: "",
   taskDescription: "",
+  folderId: null,
   priority: "medium",
   documentationUrl: "",
   installDefault: false,
@@ -481,9 +548,72 @@ const handleExecutionModeChange = () => {
     scriptForm.scheduledTime = "";
     scriptForm.taskName = "";
     scriptForm.taskDescription = "";
+    scriptForm.folderId = null;
     scriptForm.priority = "medium";
     scriptForm.documentationUrl = "";
+    selectedFolderPath.value = "";
+  } else {
+    loadTaskFolderTree();
   }
+};
+
+/** 在任务目录树中根据 folderId 查找路径名称 */
+function findTaskFolderPath(nodes, folderId, parentPath = []) {
+  if (!nodes || !Array.isArray(nodes)) return null;
+  if (folderId == null || folderId === "" || folderId === "__none__") return null;
+  for (const n of nodes) {
+    const name = n.name || "未命名";
+    const currentPath = [...parentPath, name];
+    if (n.id === folderId) return currentPath.join(" / ");
+    if (n.children?.length) {
+      const found = findTaskFolderPath(n.children, folderId, currentPath);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+const loadTaskFolderTree = async () => {
+  try {
+    const res = await testTaskApi.getTaskFolderTree("device_script");
+    const roots = res.data?.folders ?? [];
+    taskFolderTreeRaw.value = roots;
+    taskFolderTreeData.value = roots;
+    updateSelectedFolderPath();
+  } catch (e) {
+    console.error("加载任务目录失败", e);
+    taskFolderTreeRaw.value = [];
+    taskFolderTreeData.value = [];
+  }
+};
+
+const updateSelectedFolderPath = () => {
+  if (scriptForm.folderId == null || scriptForm.folderId === "") {
+    selectedFolderPath.value = "";
+    return;
+  }
+  const path = findTaskFolderPath(taskFolderTreeRaw.value, scriptForm.folderId);
+  selectedFolderPath.value = path || "未命名";
+};
+
+const handleFolderInputClick = () => {
+  if (taskFolderTreeData.value.length === 0) {
+    loadTaskFolderTree();
+  }
+  folderPopoverVisible.value = !folderPopoverVisible.value;
+};
+
+const handleTaskFolderSelect = (data) => {
+  scriptForm.folderId = data.id;
+  const path = findTaskFolderPath(taskFolderTreeRaw.value, data.id);
+  selectedFolderPath.value = path || data.name || "未命名";
+  folderPopoverVisible.value = false;
+};
+
+const resetFolderSelection = () => {
+  scriptForm.folderId = initialFolderId.value;
+  selectedFolderPath.value = initialFolderId.value ? findTaskFolderPath(taskFolderTreeRaw.value, initialFolderId.value) || "" : "";
+  folderPopoverVisible.value = false;
 };
 
 const disabledDate = (time) => {
@@ -677,6 +807,9 @@ const handleSubmitScript = async () => {
         priority: scriptForm.priority,
         documentation_url: scriptForm.documentationUrl,
       };
+      if (scriptForm.folderId != null && scriptForm.folderId !== "") {
+        requestData.folder_id = scriptForm.folderId;
+      }
 
       if (fileData) {
         requestData.file_path = fileData.file_path;
@@ -726,20 +859,29 @@ const handleClosed = () => {
     scheduledTime: "",
     taskName: "",
     taskDescription: "",
+    folderId: null,
     priority: "medium",
     documentationUrl: "",
     installDefault: false,
     installReplace: true,
     installDowngrade: false,
   });
+  selectedFolderPath.value = "";
+  folderPopoverVisible.value = false;
+  taskFolderTreeData.value = [];
+  initialFolderId.value = null;
 };
 
 const open = () => {
   visible.value = true;
-
+  initialFolderId.value = null;
+  selectedFolderPath.value = "";
   const onlineDevices = props.devices.filter((d) => d.status === "online");
   if (onlineDevices.length === 1) {
-    scriptForm.deviceIds = [onlineDevices[0].id];
+    scriptForm.deviceIds = [onlineDevices[0].db_id];
+  }
+  if (scriptForm.executionMode === "scheduled") {
+    loadTaskFolderTree();
   }
 };
 
@@ -803,6 +945,41 @@ defineExpose({
   overflow-y: auto;
   white-space: pre-wrap;
   word-wrap: break-word;
+}
+
+.task-folder-selector {
+  width: 100%;
+}
+
+.task-folder-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.task-folder-input {
+  flex: 1;
+  min-width: 280px;
+}
+
+.task-folder-clear-btn {
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.task-folder-tree-popover {
+  width: 320px;
+  padding: 4px 0;
+}
+
+.task-folder-tree-popover .task-folder-tree {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.tree-node-content.current-node {
+  color: var(--el-color-primary);
 }
 
 </style>

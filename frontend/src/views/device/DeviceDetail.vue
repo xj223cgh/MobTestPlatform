@@ -98,6 +98,27 @@
                 </div>
                 <span v-else>-</span>
               </el-descriptions-item>
+              <el-descriptions-item label="温度">
+                {{
+                  device.battery && device.battery.temperatureCelsius != null
+                    ? `${device.battery.temperatureCelsius}℃`
+                    : "-"
+                }}
+              </el-descriptions-item>
+              <el-descriptions-item label="电源来源">
+                {{
+                  device.battery && device.battery.powerSource != null
+                    ? device.battery.powerSource
+                    : "-"
+                }}
+              </el-descriptions-item>
+              <el-descriptions-item label="电压">
+                {{
+                  device.battery && device.battery.voltageV != null
+                    ? `${device.battery.voltageV}v`
+                    : "-"
+                }}
+              </el-descriptions-item>
               <el-descriptions-item label="设备负责人">
                 {{ device.owner_name || "-" }}
               </el-descriptions-item>

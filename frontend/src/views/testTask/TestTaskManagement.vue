@@ -39,16 +39,19 @@
           <div class="folder-tree-inner">
           <el-tree
             ref="folderTreeRef"
+            :key="'folder-tree-' + taskFolderMountKey"
             :data="folderTreeData"
             :props="{ label: 'name', children: 'children' }"
             node-key="id"
             :current-node-key="selectedFolderId === null ? '__all__' : selectedFolderId"
             highlight-current
-            default-expand-all
+            :default-expanded-keys="taskFolderExpandedKeys"
             :draggable="true"
             :allow-drop="allowFolderDrop"
             :allow-drag="allowFolderDrag"
             @node-click="(data, node, ev) => handleFolderClick(data, ev?.target?.closest?.('.el-tree-node') ?? node?.$el)"
+            @node-expand="handleFolderNodeExpand"
+            @node-collapse="handleFolderNodeCollapse"
             @node-contextmenu="handleFolderContextMenu"
             @node-drop="handleFolderNodeDrop"
           >
@@ -185,14 +188,14 @@
             <el-table-column
               prop="task_name"
               label="任务名称"
-              min-width="160"
+              min-width="200"
               show-overflow-tooltip
               align="center"
             />
             <el-table-column
               prop="executor_name"
               label="负责人"
-              width="100"
+              min-width="100"
               show-overflow-tooltip
               align="center"
             >
@@ -203,7 +206,7 @@
             <el-table-column
               prop="priority"
               label="优先级"
-              width="70"
+              min-width="70"
               align="center"
             >
               <template #default="{ row }">
@@ -215,7 +218,7 @@
             <el-table-column
               prop="status"
               label="状态"
-              width="80"
+              min-width="80"
               align="center"
             >
               <template #default="{ row }">
@@ -228,7 +231,7 @@
             <el-table-column
               v-if="activeTab === 'test_case'"
               label="统计"
-              width="230"
+              min-width="230"
               align="center"
             >
               <template #default="{ row }">
@@ -283,7 +286,7 @@
             </el-table-column>
             <el-table-column
               label="计划时间"
-              width="165"
+              min-width="165"
               align="center"
             >
               <template #default="{ row }">
@@ -302,7 +305,7 @@
             </el-table-column>
             <el-table-column
               label="操作"
-              width="165"
+              min-width="160"
               fixed="right"
               align="center"
             >
@@ -417,6 +420,82 @@ const editingFolderName = ref("");
 const folderEditInputRef = ref(null);
 const lastDropDeniedHintTime = ref(0);
 
+// 任务目录树展开状态（与用例管理页套件树逻辑一致：记录用户手动展开的节点，持久化到 localStorage）
+const taskFolderExpandedKeys = ref([]);
+const taskFolderMountKey = ref(0);
+
+const STORAGE_KEY_TASK_FOLDER_EXPANDED = "testTaskFolderExpandedKeys";
+
+function loadTaskFolderExpandedKeysFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_TASK_FOLDER_EXPANDED);
+    if (!raw) return [];
+    const obj = JSON.parse(raw);
+    const list = obj[activeTab.value];
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveTaskFolderExpandedKeysToStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_TASK_FOLDER_EXPANDED);
+    const obj = raw ? JSON.parse(raw) : {};
+    obj[activeTab.value] = taskFolderExpandedKeys.value;
+    localStorage.setItem(STORAGE_KEY_TASK_FOLDER_EXPANDED, JSON.stringify(obj));
+  } catch (e) {
+    console.error("保存任务目录展开状态失败:", e);
+  }
+}
+
+function findNodeInFolderTree(nodes, id) {
+  if (!nodes || !nodes.length) return null;
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    const found = findNodeInFolderTree(n.children, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+function collectFolderNodeAndDescendantIds(nodeOrId) {
+  const node =
+    typeof nodeOrId === "object" && nodeOrId != null
+      ? nodeOrId
+      : findNodeInFolderTree(folderTreeData.value, nodeOrId);
+  const id = node ? node.id : nodeOrId;
+  if (!node) return [id].filter((x) => x != null);
+  const ids = [node.id];
+  function walk(list) {
+    if (!list || !list.length) return;
+    for (const n of list) {
+      ids.push(n.id);
+      if (n.children?.length) walk(n.children);
+    }
+  }
+  walk(node.children);
+  return ids;
+}
+
+function handleFolderNodeExpand(data) {
+  if (data.id == null) return;
+  if (!taskFolderExpandedKeys.value.includes(data.id)) {
+    taskFolderExpandedKeys.value = [...taskFolderExpandedKeys.value, data.id];
+    saveTaskFolderExpandedKeysToStorage();
+  }
+  scrollFolderTreeToCurrent();
+}
+
+function handleFolderNodeCollapse(data) {
+  const toRemove = collectFolderNodeAndDescendantIds(data);
+  const set = new Set(taskFolderExpandedKeys.value);
+  toRemove.forEach((id) => set.delete(id));
+  taskFolderExpandedKeys.value = Array.from(set);
+  saveTaskFolderExpandedKeysToStorage();
+  taskFolderMountKey.value += 1;
+}
+
 const loadFolderTree = async () => {
   try {
     const res = await testTaskApi.getTaskFolderTree(activeTab.value);
@@ -425,11 +504,15 @@ const loadFolderTree = async () => {
     folderTreeData.value = [
       { id: "__all__", name: "全部", children: list },
     ];
+    const saved = loadTaskFolderExpandedKeysFromStorage();
+    taskFolderExpandedKeys.value = saved.length ? saved : ["__all__"];
+    taskFolderMountKey.value += 1;
     scrollFolderTreeToCurrent();
   } catch (e) {
     console.error("加载任务文件夹树失败:", e);
     ElMessage.error("加载任务目录失败");
     folderTreeData.value = [{ id: "__all__", name: "全部", children: [] }];
+    taskFolderExpandedKeys.value = ["__all__"];
   }
 };
 
@@ -883,88 +966,21 @@ const handleExecute = async (row) => {
     if (row.task_type === "test_case") {
       const url = `${window.location.origin}/test-tasks/${row.id}/execute`;
       window.open(url, "_blank");
-    } else {
-      // 对于设备脚本任务，执行前检查设备连接状态
-      if (row.status === 'pending' || row.status === 'completed') {
-        // 获取任务关联的设备列表
-        const taskDevicesResponse = await testTaskApi.getTaskDevices(row.id);
-        const taskDevices = taskDevicesResponse.data?.devices || [];
-        
-        if (taskDevices.length === 0) {
-          ElMessage.warning("任务未关联任何设备，无法执行");
-          return;
-        }
-        
-        // 检查设备连接状态
-        let allDevicesConnected = true;
-        const disconnectedDevices = [];
-        
-        for (const device of taskDevices) {
-          try {
-            const statusResponse = await deviceApi.getDeviceStatus(device.id);
-            const deviceStatus = statusResponse.data?.status;
-            if (deviceStatus !== 'connected') {
-              allDevicesConnected = false;
-              disconnectedDevices.push(device.device_name || device.device_id);
-            }
-          } catch (error) {
-            // 设备状态检查失败，视为未连接
-            allDevicesConnected = false;
-            disconnectedDevices.push(device.device_name || device.device_id);
-          }
-        }
-        
-        if (!allDevicesConnected) {
-          ElMessage.warning(`以下设备未连接，无法执行任务：${disconnectedDevices.join(', ')}`);
-          return;
-        }
-        
-        // 执行待执行或已完成的任务
-        await testTaskApi.executeTestTask(row.id);
-        ElMessage.success("测试任务开始执行");
-        loadTasks();
-        
-        // 对于设备脚本任务，自动执行设备脚本
-        if (row.task_type === "device_script") {
-          try {
-            // 根据脚本文件扩展名确定任务类型
-            let taskType = "shell";
-            if (row.script_file) {
-              const fileExt = row.script_file.toLowerCase().split('.').pop();
-              if (fileExt === "py") {
-                taskType = "python";
-              }
-            }
-            
-            // 构建请求数据
-            const requestData = {
-              task_type: taskType, // 根据脚本文件扩展名确定任务类型
-              command: row.command || "",
-              task_id: row.id // 传递任务ID，以便后端在脚本执行完成后更新任务状态
-            };
-            
-            // 如果有脚本文件，使用file_path
-            if (row.file_path) {
-              requestData.file_path = row.file_path;
-              requestData.script_file = row.script_file;
-            }
-            
-            // 执行设备脚本
-            for (const device of taskDevices) {
-              await deviceApi.executeDeviceTask(device.id, requestData);
-            }
-            
-            ElMessage.success("设备脚本开始执行");
-          } catch (error) {
-            console.error("执行设备脚本失败:", error);
-            ElMessage.error(
-              "执行设备脚本失败：" + (error.response?.data?.message || error.message)
-            );
-          }
-        }
-      } else {
+      return;
+    }
+    // 对于设备脚本任务，跳转到设备脚本执行页，实时显示终端输出
+    if (row.task_type === "device_script") {
+      if (row.status !== "pending" && row.status !== "completed") {
         ElMessage.warning("当前任务状态不支持此操作");
+        return;
       }
+      const taskDevicesResponse = await testTaskApi.getTaskDevices(row.id);
+      const taskDevices = taskDevicesResponse.data?.devices || [];
+      if (taskDevices.length === 0) {
+        ElMessage.warning("任务未关联任何设备，无法执行");
+        return;
+      }
+      router.push({ name: "DeviceScriptExecution", params: { id: row.id } });
     }
   } catch (error) {
     if (error !== "cancel") {
@@ -972,17 +988,6 @@ const handleExecute = async (row) => {
       ElMessage.error(
         "执行测试任务失败：" + (error.response?.data?.message || error.message),
       );
-      
-      // 如果是设备脚本任务，且任务状态为执行中，自动终止任务
-      if (row.task_type === "device_script" && row.status === "running") {
-        try {
-          await testTaskApi.completeTestTask(row.id);
-          ElMessage.success("任务已自动终止");
-          loadTasks();
-        } catch (stopError) {
-          console.error("终止任务失败:", stopError);
-        }
-      }
     }
   }
 };
@@ -1025,6 +1030,15 @@ const handleReExecute = async (row) => {
 };
 
 const handleGenerateReport = async (row) => {
+  try {
+    await ElMessageBox.confirm("确认为该任务生成报告？生成后将跳转到报告详情。", "生成报告", {
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      type: "info",
+    });
+  } catch {
+    return;
+  }
   try {
     const res = await manualGenerateReport(row.id);
     if (res?.success && res?.data?.report_id) {

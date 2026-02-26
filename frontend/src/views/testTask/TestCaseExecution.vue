@@ -7,6 +7,7 @@
       </div>
       <div class="buttons-section">
         <el-button
+          v-if="!hideCompleteButton"
           type="primary"
           :loading="loading.completeTask"
           @click="handleCompleteTask"
@@ -278,13 +279,17 @@
                       v-model="executionForm.actual_result"
                       type="textarea"
                       :rows="4"
-                      placeholder="请输入实际执行结果，失焦时自动保存"
+                      :readonly="isExecutionReadonly"
+                      :placeholder="isExecutionReadonly ? '任务已完成，仅可查看' : '请输入实际执行结果，失焦时自动保存'"
                       style="width: 100%"
                       @blur="saveActualResult"
                     />
                   </el-descriptions-item>
                 </el-descriptions>
-                <div class="execution-section">
+                <div
+                  v-if="!isExecutionReadonly"
+                  class="execution-section"
+                >
                   <div class="status-buttons">
                     <el-button
                       type="success"
@@ -472,6 +477,12 @@ const route = useRoute();
 const router = useRouter();
 
 const taskId = route.params.id;
+// 从已完成任务详情或报告详情跳转而来时隐藏「完成任务」按钮，且用例执行区只读（快照不再变化）
+const hideCompleteButton = computed(() => {
+  const q = route.query.hideComplete;
+  return q === "1" || q === "true" || q === true;
+});
+const isExecutionReadonly = computed(() => hideCompleteButton.value || taskInfo.value?.status === "completed");
 const taskInfo = ref({});
 const testCases = ref([]);
 const testCaseTree = ref([]);
@@ -512,9 +523,9 @@ const toggleCaseTree = () => {
   }
 };
 
-// 实际结果：失焦时保存（写入任务执行记录，不更新用例库）
+// 实际结果：失焦时保存（写入任务执行记录，不更新用例库）；已完成或只读入口不保存
 const saveActualResult = async () => {
-  if (!selectedCase.value || !taskId) return;
+  if (isExecutionReadonly.value || !selectedCase.value || !taskId) return;
   const caseId = selectedCase.value.case_id ?? selectedCase.value.id;
   const status = selectedCase.value.status && ["pass","fail","blocked","not_applicable"].includes(selectedCase.value.status)
     ? selectedCase.value.status
@@ -776,6 +787,7 @@ const getStatusText = (status) => {
 
 // 更新用例状态（写入任务执行记录 TestCaseExecution，不更新用例库）
 const updateCaseStatus = async (status) => {
+  if (isExecutionReadonly.value) return;
   if (!selectedCase.value || !taskId) {
     ElMessage.warning("请先选择一个测试用例");
     return;

@@ -3,7 +3,7 @@
     <div class="page-header">
       <div class="header-left">
         <h1 class="title">{{ systemSettingsStore.systemName || '移动测试平台' }}</h1>
-        <p class="subtitle">{{ systemSettingsStore.systemDescription || '专业的移动应用测试管理系统' }}</p>
+        <p class="subtitle">{{ systemSettingsStore.systemDescription || '专业的移动测试管理平台' }}</p>
       </div>
       <div class="actions">
         <el-button
@@ -706,21 +706,22 @@ onMounted(() => {
       font-size: 26px;
       color: #fff;
       flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 
       &.primary {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #5c6fd6 0%, #6b7ee8 100%);
       }
 
       &.success {
-        background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+        background: linear-gradient(135deg, #52a852 0%, #6bc06b 100%);
       }
 
       &.warning {
-        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        background: linear-gradient(135deg, #d4896b 0%, #e8a078 100%);
       }
 
       &.info {
-        background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
+        background: linear-gradient(135deg, #52a8a8 0%, #6bc0c0 100%);
       }
     }
 

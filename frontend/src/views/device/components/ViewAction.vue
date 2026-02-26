@@ -16,8 +16,6 @@
 </template>
 
 <script setup>
-import { useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
 import { View } from "@element-plus/icons-vue";
 
 const props = defineProps({
@@ -25,24 +23,12 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
-  isOnline: {
-    type: Boolean,
-    default: false,
-  },
 });
 
-const router = useRouter();
+const emit = defineEmits(["view"]);
 
 function handleClick(row = props.row) {
-  if (!props.isOnline) {
-    ElMessage.warning("当前设备离线，无法查看详情");
-    return;
-  }
-
-  router.push({
-    name: "DeviceDetail",
-    params: { id: row.id },
-  });
+  emit("view", row);
 }
 </script>
 

@@ -348,6 +348,24 @@
                   autoresize
                 />
               </div>
+              <div class="chart-caption">
+                <span
+                  v-for="item in caseExecutionLegend"
+                  :key="item.name"
+                  class="chart-caption-item"
+                  :class="{ 'chart-caption-item-inactive': !caseExecutionSelected[item.name] }"
+                  @click="toggleCaseExecution(item.name)"
+                >
+                  <span
+                    class="chart-caption-rect"
+                    :style="{ backgroundColor: caseExecutionSelected[item.name] ? item.color : undefined }"
+                  />
+                  <span
+                    class="chart-caption-label"
+                    :style="{ color: caseExecutionSelected[item.name] ? item.color : undefined }"
+                  >{{ item.name }}</span>
+                </span>
+              </div>
             </div>
           </el-col>
 
@@ -368,6 +386,24 @@
                   autoresize
                 />
               </div>
+              <div class="chart-caption">
+                <span
+                  v-for="item in iterationLegend"
+                  :key="item.name"
+                  class="chart-caption-item"
+                  :class="{ 'chart-caption-item-inactive': !iterationSelected[item.name] }"
+                  @click="toggleIteration(item.name)"
+                >
+                  <span
+                    class="chart-caption-rect"
+                    :style="{ backgroundColor: iterationSelected[item.name] ? item.color : undefined }"
+                  />
+                  <span
+                    class="chart-caption-label"
+                    :style="{ color: iterationSelected[item.name] ? item.color : undefined }"
+                  >{{ item.name }}</span>
+                </span>
+              </div>
             </div>
           </el-col>
 
@@ -387,6 +423,24 @@
                   :option="requirementChartOption"
                   autoresize
                 />
+              </div>
+              <div class="chart-caption">
+                <span
+                  v-for="item in requirementLegend"
+                  :key="item.name"
+                  class="chart-caption-item"
+                  :class="{ 'chart-caption-item-inactive': !requirementSelected[item.name] }"
+                  @click="toggleRequirement(item.name)"
+                >
+                  <span
+                    class="chart-caption-rect"
+                    :style="{ backgroundColor: requirementSelected[item.name] ? item.color : undefined }"
+                  />
+                  <span
+                    class="chart-caption-label"
+                    :style="{ color: requirementSelected[item.name] ? item.color : undefined }"
+                  >{{ item.name }}</span>
+                </span>
               </div>
             </div>
           </el-col>
@@ -568,6 +622,84 @@ const projectRules = {
   end_date: [{ required: true, message: "请选择结束日期", trigger: "change" }],
 };
 
+// 扇形图底部图题：对应颜色的矩形 + 文字标签（与图表扇区一致）
+const caseExecutionLegend = [
+  { name: "通过", color: "#5cb85c" },
+  { name: "失败", color: "#ff6e6e" },
+  { name: "阻塞", color: "#ffc107" },
+  { name: "不适用", color: "#8e44ad" },
+  { name: "未执行", color: "#a6a6a6" },
+];
+const iterationLegend = [
+  { name: "规划中", color: "#428bca" },
+  { name: "进行中", color: "#5cb85c" },
+  { name: "已完成", color: "#ffc107" },
+  { name: "已取消", color: "#ff6e6e" },
+];
+const requirementLegend = [
+  { name: "新建", color: "#a6a6a6" },
+  { name: "进行中", color: "#ffc107" },
+  { name: "已完成", color: "#5cb85c" },
+  { name: "已取消", color: "#ff6e6e" },
+];
+
+// 图题对应项是否在扇形图中显示（true=显示，false=不显示，点击图题切换）
+const caseExecutionSelected = ref({
+  通过: true,
+  失败: true,
+  阻塞: true,
+  不适用: true,
+  未执行: true,
+});
+const iterationSelected = ref({
+  规划中: true,
+  进行中: true,
+  已完成: true,
+  已取消: true,
+});
+const requirementSelected = ref({
+  新建: true,
+  进行中: true,
+  已完成: true,
+  已取消: true,
+});
+
+function toggleCaseExecution(name) {
+  caseExecutionSelected.value = {
+    ...caseExecutionSelected.value,
+    [name]: !caseExecutionSelected.value[name],
+  };
+  applyChartLegendSelected();
+}
+function toggleIteration(name) {
+  iterationSelected.value = {
+    ...iterationSelected.value,
+    [name]: !iterationSelected.value[name],
+  };
+  applyChartLegendSelected();
+}
+function toggleRequirement(name) {
+  requirementSelected.value = {
+    ...requirementSelected.value,
+    [name]: !requirementSelected.value[name],
+  };
+  applyChartLegendSelected();
+}
+function applyChartLegendSelected() {
+  caseExecutionChartOption.value.legend = {
+    ...caseExecutionChartOption.value.legend,
+    selected: { ...caseExecutionSelected.value },
+  };
+  iterationChartOption.value.legend = {
+    ...iterationChartOption.value.legend,
+    selected: { ...iterationSelected.value },
+  };
+  requirementChartOption.value.legend = {
+    ...requirementChartOption.value.legend,
+    selected: { ...requirementSelected.value },
+  };
+}
+
 // 图表配置选项
 const caseExecutionChartOption = ref({
   title: {
@@ -579,22 +711,17 @@ const caseExecutionChartOption = ref({
     formatter: "{b}: {c} ({d}%)",
   },
   legend: {
-    orient: "horizontal",
-    bottom: 0,
-    left: "center",
-    textStyle: {
-      fontSize: 11,
-    },
-    itemGap: 10,
-    padding: [10, 0, 0, 0],
+    show: false,
+    selected: {},
   },
   series: [
     {
       name: "用例执行情况",
       type: "pie",
       radius: "62%",
-      center: ["50%", "48%"],
+      center: ["50%", "44%"],
       avoidLabelOverlap: true,
+      minAngle: 2,
       itemStyle: {
         borderRadius: 0,
         borderColor: "#fff",
@@ -633,22 +760,17 @@ const iterationChartOption = ref({
     formatter: "{b}: {c} ({d}%)",
   },
   legend: {
-    orient: "horizontal",
-    bottom: 0,
-    left: "center",
-    textStyle: {
-      fontSize: 11,
-    },
-    itemGap: 10,
-    padding: [10, 0, 0, 0],
+    show: false,
+    selected: {},
   },
   series: [
     {
       name: "迭代统计",
       type: "pie",
       radius: "62%",
-      center: ["50%", "48%"],
+      center: ["50%", "44%"],
       avoidLabelOverlap: true,
+      minAngle: 2,
       itemStyle: {
         borderRadius: 0,
         borderColor: "#fff",
@@ -688,22 +810,17 @@ const requirementChartOption = ref({
     formatter: "{b}: {c} ({d}%)",
   },
   legend: {
-    orient: "horizontal",
-    bottom: 0,
-    left: "center",
-    textStyle: {
-      fontSize: 11,
-    },
-    itemGap: 10,
-    padding: [10, 0, 0, 0],
+    show: false,
+    selected: {},
   },
   series: [
     {
       name: "需求状态",
       type: "pie",
       radius: "62%",
-      center: ["50%", "48%"],
+      center: ["50%", "44%"],
       avoidLabelOverlap: true,
+      minAngle: 2,
       itemStyle: {
         borderRadius: 0,
         borderColor: "#fff",
@@ -781,9 +898,22 @@ const formatDateTime = (dateTime) => {
   return dateTime ? dayjs(dateTime).format("YYYY-MM-DD HH:mm:ss") : "-";
 };
 
+// 为饼图设置与报告详情一致的 formatter（0 显示 0%）及多 0 值错开显示的 minAngle
+function applyPieChartFormatters(optionRef) {
+  const data = optionRef.value.series[0].data || [];
+  const total = data.reduce((s, d) => s + (d.value ?? 0), 0);
+  const zeroCount = data.filter((d) => (d.value ?? 0) === 0).length;
+  optionRef.value.series[0].minAngle = zeroCount >= 2 ? 8 : 2;
+  const pct = (v) => (total > 0 ? (((v ?? 0) / total) * 100).toFixed(1) : "0");
+  optionRef.value.tooltip.formatter = (params) =>
+    `${params.name}: ${params.value ?? 0} (${pct(params.value)}%)`;
+  optionRef.value.series[0].label.formatter = (params) =>
+    `${params.name}: ${params.value ?? 0} (${pct(params.value)}%)`;
+}
+
 // 更新图表数据
 const updateCharts = () => {
-  // 利用ECharts默认行为：值为0的数据项不会显示在饼图上，但会保留在图例中
+  // 与报告详情一致：0 的项也占位显示、显示为 0%，多个 0 值时错开显示（minAngle）
 
   // 更新用例执行情况饼图 - 通过绿色、失败红色、阻塞黄色、不适用紫色、未执行灰色
   const caseStats = projectDetail.value.case_stats || {};
@@ -814,6 +944,7 @@ const updateCharts = () => {
       itemStyle: { color: "#a6a6a6" },
     },
   ];
+  applyPieChartFormatters(caseExecutionChartOption);
 
   // 更新迭代统计饼图 - 与实际迭代表状态属性值对应
   const iterationStats = projectDetail.value.iteration_stats || {};
@@ -849,6 +980,7 @@ const updateCharts = () => {
       itemStyle: { color: "#ff6e6e" },
     },
   ];
+  applyPieChartFormatters(iterationChartOption);
 
   // 更新需求状态分布饼图 - 新建灰色、进行中黄色、已完成绿色、已取消红色
   const requirementStats = projectDetail.value.requirement_stats || {};
@@ -874,8 +1006,10 @@ const updateCharts = () => {
       itemStyle: { color: "#ff6e6e" },
     },
   ];
+  applyPieChartFormatters(requirementChartOption);
 
   applyLegendTheme();
+  applyChartLegendSelected();
 };
 
 // 获取项目详情
@@ -1107,23 +1241,63 @@ onMounted(() => {
   overflow: visible;
 }
 
-/* 统计项头部样式 */
+/* 统计项头部样式（上）：与扇形图留出间距 */
 .stat-header {
   text-align: center;
   margin-top: 5px;
-  margin-bottom: -30px;
+  margin-bottom: 12px;
   padding: 0 10px;
 }
 
-/* 小图表容器样式：留出左右空间避免扇形图外侧数据标注被裁切 */
+/* 小图表容器样式（中）：留出左右空间避免扇形图外侧数据标注被裁切 */
 .chart-container-small {
-  height: 300px;
+  height: 260px;
   width: 100%;
   min-width: 150px;
-  margin-bottom: 15px;
+  margin-bottom: 0;
   overflow: visible;
   padding: 0 8px;
   box-sizing: border-box;
+}
+
+/* 扇形图底部属性（下）：紧贴扇形图，缩小与图表的间距 */
+.chart-caption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 12px;
+  padding: 0 4px 2px;
+  margin-top: -16px;
+}
+.chart-caption-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+}
+.chart-caption-item:hover {
+  opacity: 0.85;
+}
+.chart-caption-rect {
+  width: 14px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  transition: background-color 0.2s;
+}
+.chart-caption-item-inactive .chart-caption-rect {
+  background-color: var(--el-text-color-placeholder, #c0c4cc) !important;
+}
+.chart-caption-label {
+  transition: color 0.2s;
+}
+.chart-caption-item-inactive .chart-caption-label {
+  color: var(--el-text-color-placeholder, #c0c4cc) !important;
+  text-decoration: line-through;
 }
 
 /* 项目链接样式 */

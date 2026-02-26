@@ -107,11 +107,11 @@
                 <span class="value">{{ currentReport.requirement_name || '-' }}</span>
               </div>
               <div v-if="currentReport.task_type === 'test_case'" class="info-item">
-                <span class="label">用例集：</span>
+                <span class="label">关联用例集：</span>
                 <el-link 
                   type="primary" 
                   :underline="false"
-                  @click="goToTestSuite(currentReport.suite_id)"
+                  @click="goToCaseExecution(currentReport.id)"
                 >
                   {{ currentReport.suite_name || '-' }}
                 </el-link>
@@ -639,25 +639,43 @@ const devicePageSize = ref(20);
 
 const reportId = ref(route.params.id);
 
-// 图表配置 - 测试用例饼图
-const testCasePieOption = computed(() => ({
-  tooltip: { trigger: 'item' },
-  legend: { bottom: 0 },
-  color: ['#67c23a', '#f56c6c', '#e6a23c', '#909399'],
-  series: [{
-    type: 'pie',
-    radius: ['40%', '70%'],
-    avoidLabelOverlap: false,
-    itemStyle: { borderColor: '#fff', borderWidth: 2 },
-    label: { show: true, formatter: '{b}: {c}' },
-    data: [
-      { value: reportSummary.value.pass_count, name: '通过' },
-      { value: reportSummary.value.fail_count, name: '失败' },
-      { value: reportSummary.value.blocked_count, name: '阻塞' },
-      { value: reportSummary.value.not_applicable_count, name: '不适用' }
-    ].filter(d => d.value > 0)
-  }]
-}));
+// 图表配置 - 测试用例饼图（数据为 0 的项也显示为 0%，多个 0 值项在扇形图上错开占位显示）
+const testCasePieOption = computed(() => {
+  const pass = reportSummary.value.pass_count ?? 0;
+  const fail = reportSummary.value.fail_count ?? 0;
+  const blocked = reportSummary.value.blocked_count ?? 0;
+  const notApp = reportSummary.value.not_applicable_count ?? 0;
+  const total = pass + fail + blocked + notApp;
+  const pct = (v) => (total > 0 ? ((v / total) * 100).toFixed(1) : '0');
+  const zeroCount = [pass, fail, blocked, notApp].filter((v) => v === 0).length;
+  // 多个 0 值时用较大 minAngle 使各扇区错开分布，避免挤在一起；仅 1 个 0 时用较小 minAngle
+  const minAngle = zeroCount >= 2 ? 8 : 2;
+  return {
+    tooltip: {
+      trigger: 'item',
+      formatter: (params) => `${params.name}: ${params.value} (${pct(params.value)}%)`
+    },
+    legend: { bottom: 0 },
+    color: ['#67c23a', '#f56c6c', '#e6a23c', '#909399'],
+    series: [{
+      type: 'pie',
+      radius: ['40%', '70%'],
+      avoidLabelOverlap: true,
+      minAngle,
+      itemStyle: { borderColor: '#fff', borderWidth: 2 },
+      label: {
+        show: true,
+        formatter: (params) => `${params.name}: ${params.value} (${pct(params.value)}%)`
+      },
+      data: [
+        { value: pass, name: '通过' },
+        { value: fail, name: '失败' },
+        { value: blocked, name: '阻塞' },
+        { value: notApp, name: '不适用' }
+      ]
+    }]
+  };
+});
 
 // 测试用例柱状图
 const testCaseBarOption = computed(() => ({
@@ -770,7 +788,11 @@ const fetchReportData = async () => {
     if (response && response.success && response.data) {
       currentReport.value = response.data.task_info;
       if (currentReport.value.task_type === 'test_case') {
-        reportSummary.value = response.data.summary || {};
+        reportSummary.value = { ...(response.data.summary || {}) };
+        // 通过率与任务列表统计列一致：通过数/用例总数（前端兜底，避免历史错误数据）
+        const total = reportSummary.value.total_cases || 0;
+        const passCount = reportSummary.value.pass_count || 0;
+        reportSummary.value.pass_rate = total > 0 ? Math.round((passCount / total) * 1000) / 10 : 0;
       } else if (currentReport.value.task_type === 'device_script') {
         deviceReportSummary.value = response.data.summary || {};
         deviceReportDetails.value = response.data.details || [];
@@ -788,12 +810,28 @@ const fetchReportData = async () => {
   }
 };
 
-const handleBack = () => router.push('/report');
+// 返回报告列表时带上当前报告类型对应的 tab，避免列表页被重置为用例执行报告
+const handleBack = () => {
+  const tab =
+    route.query.tab === 'device_script' || route.query.tab === 'test_case'
+      ? route.query.tab
+      : currentReport.value?.task_type === 'device_script'
+        ? 'device_script'
+        : undefined;
+  router.push({ path: '/report', query: tab ? { tab } : {} });
+};
 const handleDeviceSearch = () => { deviceCurrentPage.value = 1; };
 const handleDeviceFilter = () => { deviceCurrentPage.value = 1; };
 
 const goToTestSuite = (suiteId) => {
   router.push({ path: '/test-cases', query: { suite_id: suiteId } });
+};
+
+// 报告详情的关联用例集：跳转到用例执行页（与任务详情行为一致），且不显示「完成任务」按钮
+const goToCaseExecution = (taskId) => {
+  if (!taskId) return;
+  const url = `${window.location.origin}/test-tasks/${taskId}/execute?hideComplete=1`;
+  window.open(url, '_blank');
 };
 
 const goToDevice = (deviceId) => {

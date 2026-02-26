@@ -270,7 +270,7 @@
               <div class="flex-1 flex justify-center">
                 <ViewAction
                   :row="row"
-                  :is-online="row.status === 'online'"
+                  @view="openDeviceDetail"
                 />
               </div>
 
@@ -347,6 +347,12 @@
       :devices="deviceList"
       @refresh-devices="refreshDevices"
     />
+
+    <DeviceDetailDialog
+      v-model="deviceDetailDialogVisible"
+      :device-id="deviceDetailRow?.db_id ?? null"
+      :row="deviceDetailRow || {}"
+    />
   </div>
 </template>
 
@@ -388,6 +394,7 @@ import WirelessAction from "./components/WirelessAction.vue";
 import RemoveAction from "./components/RemoveAction.vue";
 import WirelessGroup from "./components/WirelessGroup.vue";
 import TaskDialog from "./components/TaskDialog.vue";
+import DeviceDetailDialog from "./components/DeviceDetailDialog.vue";
 // 导入设备控制栏组件
 import ControlBar from "@/components/ControlBar/index.vue";
 
@@ -403,8 +410,15 @@ const autoRefreshTimer = ref(null);
 const autoRefreshInterval = ref(5000);
 const autoRefreshEnabled = ref(false);
 const taskDialogRef = ref(null);
+const deviceDetailDialogVisible = ref(false);
+const deviceDetailRow = ref(null);
 
 const route = useRoute();
+
+const openDeviceDetail = (row) => {
+  deviceDetailRow.value = row;
+  deviceDetailDialogVisible.value = true;
+};
 const { proxy } = getCurrentInstance();
 
 const isMultipleRow = computed(() => selectionRows.value.length > 0);
@@ -582,7 +596,15 @@ const getDevices = async () => {
       }),
     );
 
-    deviceList.value = mergedDevices;
+    // 排序：在线优先，同状态按设备名称/设备ID 排序，符合使用习惯
+    const statusOrder = { online: 0, busy: 1, offline: 2, maintenance: 3 };
+    const getStatusSortKey = (d) => statusOrder[d.status] ?? 4;
+    const getNameKey = (d) => (d.name || d.device_id || d.id || "").toLowerCase();
+    deviceList.value = mergedDevices.slice().sort((a, b) => {
+      const statusDiff = getStatusSortKey(a) - getStatusSortKey(b);
+      if (statusDiff !== 0) return statusDiff;
+      return getNameKey(a).localeCompare(getNameKey(b), "zh-CN");
+    });
   } catch (error) {
     ElMessage.error(
       "获取设备列表失败：" + (error.response?.data?.message || error.message),

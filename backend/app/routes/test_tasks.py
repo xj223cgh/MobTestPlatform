@@ -327,6 +327,7 @@ def get_test_task(task_id):
     """获取测试任务详情"""
     test_task = TestTask.query.options(
         selectinload(TestTask.case_snapshots),
+        selectinload(TestTask.devices),
     ).get_or_404(task_id)
     return success_response({
         'test_task': test_task.to_dict()
@@ -423,10 +424,18 @@ def create_test_task():
             suite_for_snapshot = None
             cases_for_snapshot = []
 
-        # 处理设备关联（仅设备脚本任务）
+        # 处理设备关联（仅设备脚本任务）；前端传的是设备表主键 id 列表
         if task_type == 'device_script':
             if data.get('devices'):
-                devices = Device.query.filter(Device.device_id.in_(data['devices'])).all()
+                device_ids = []
+                for x in data['devices']:
+                    if x is None or (isinstance(x, str) and x.strip() == ''):
+                        continue
+                    try:
+                        device_ids.append(int(x))
+                    except (TypeError, ValueError):
+                        continue
+                devices = Device.query.filter(Device.id.in_(device_ids)).all() if device_ids else []
                 test_task.devices = devices
             else:
                 test_task.devices = []
@@ -585,10 +594,18 @@ def update_test_task(task_id):
         suite_for_snapshot = None
         cases_for_snapshot = []
 
-    # 处理设备关联（仅设备脚本任务）
+    # 处理设备关联（仅设备脚本任务）；前端传的是设备表主键 id 列表
     if new_task_type == 'device_script':
-        if 'devices' in data:
-            devices = Device.query.filter(Device.device_id.in_(data['devices'])).all()
+        if 'devices' in data and data['devices']:
+            device_ids = []
+            for x in data['devices']:
+                if x is None or (isinstance(x, str) and x.strip() == ''):
+                    continue
+                try:
+                    device_ids.append(int(x))
+                except (TypeError, ValueError):
+                    continue
+            devices = Device.query.filter(Device.id.in_(device_ids)).all() if device_ids else []
             test_task.devices = devices
         else:
             test_task.devices = []
@@ -662,11 +679,12 @@ def get_task_executions(task_id):
 @bp.route('/<int:task_id>/executions/<int:case_id>', methods=['POST'])
 @login_required
 def update_case_execution(task_id, case_id):
-    """更新测试用例在任务中的执行状态"""
+    """更新测试用例在任务中的执行状态（已完成任务不可再修改，保证报告对应的快照不变）"""
     try:
         task = TestTask.query.get_or_404(task_id)
         test_case = TestCase.query.get_or_404(case_id)
-        
+        if task.status == 'completed':
+            return error_response(400, '任务已完成，不能修改用例执行记录')
         data = request.get_json()
         if not data:
             return error_response(400, '请求体不能为空')
@@ -841,7 +859,7 @@ def resume_test_task(task_id):
 @bp.route('/<int:task_id>/complete', methods=['POST'])
 @login_required
 def complete_test_task(task_id):
-    """完成测试任务；若用户设置为自动生成报告则落库"""
+    """完成测试任务；若用户设置为自动生成报告则落库。设备脚本任务可传 result 写入任务结果供报告使用。"""
     test_task = TestTask.query.get_or_404(task_id)
 
     if test_task.status != 'running':
@@ -850,6 +868,15 @@ def complete_test_task(task_id):
     try:
         test_task.status = 'completed'
         test_task.completed_time = datetime.now(timezone(timedelta(hours=8)))
+
+        # 设备脚本任务：允许前端提交执行结果，用于报告详情
+        data = request.get_json(silent=True) or {}
+        if test_task.task_type == 'device_script' and data.get('result') is not None:
+            import json
+            try:
+                test_task.result = json.dumps(data['result']) if not isinstance(data['result'], str) else data['result']
+            except (TypeError, ValueError):
+                pass
 
         # 用户设置：自动生成报告（默认自动）
         auto_gen = True

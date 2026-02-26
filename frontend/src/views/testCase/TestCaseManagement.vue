@@ -406,17 +406,17 @@
                           @change="handlePriorityAllChange"
                           style="margin-bottom: 6px; font-weight: 500;"
                         >
-                          全选
+                          全选 ({{ priorityFilterTotal }})
                         </el-checkbox>
                         <el-checkbox-group
                           v-model="priorityFilterValues"
                           @change="handlePriorityFilterChange"
                         >
-                          <el-checkbox label="P0" style="display: block; margin: 4px 0;" />
-                          <el-checkbox label="P1" style="display: block; margin: 4px 0;" />
-                          <el-checkbox label="P2" style="display: block; margin: 4px 0;" />
-                          <el-checkbox label="P3" style="display: block; margin: 4px 0;" />
-                          <el-checkbox label="P4" style="display: block; margin: 4px 0;" />
+                          <el-checkbox label="P0" style="display: block; margin: 4px 0;">P0 ({{ priorityFilterCounts.P0 }})</el-checkbox>
+                          <el-checkbox label="P1" style="display: block; margin: 4px 0;">P1 ({{ priorityFilterCounts.P1 }})</el-checkbox>
+                          <el-checkbox label="P2" style="display: block; margin: 4px 0;">P2 ({{ priorityFilterCounts.P2 }})</el-checkbox>
+                          <el-checkbox label="P3" style="display: block; margin: 4px 0;">P3 ({{ priorityFilterCounts.P3 }})</el-checkbox>
+                          <el-checkbox label="P4" style="display: block; margin: 4px 0;">P4 ({{ priorityFilterCounts.P4 }})</el-checkbox>
                         </el-checkbox-group>
                         <div style="margin-top: 8px; text-align: right; border-top: 1px solid #e4e7ed; padding-top: 6px;">
                           <el-button size="small" @click="handlePriorityReset">重置</el-button>
@@ -3465,17 +3465,18 @@ const loadTreeData = async () => {
     // 更新套件选项
     suiteOptions.value = buildSuiteOptions();
 
-    // 展开状态：默认全部收起；有缓存则恢复。重新登录或 24 小时缓存清理会清除缓存，收起状态刷新
+    // 展开状态：无缓存时默认展开根目录；有缓存则恢复
     const savedExpandedKeys = localStorage.getItem('testCaseExpandedKeys');
     if (savedExpandedKeys) {
       try {
         expandedKeys.value = JSON.parse(savedExpandedKeys);
       } catch (error) {
         console.error('Failed to parse saved expanded keys:', error);
-        expandedKeys.value = [];
+        expandedKeys.value = (treeData.value || []).map((n) => n.id).filter(Boolean);
       }
     } else {
-      expandedKeys.value = [];
+      // 默认展开根目录（所有顶层节点）
+      expandedKeys.value = (treeData.value || []).map((n) => n.id).filter(Boolean);
     }
 
     // 强制树重新挂载，使 default-expanded-keys 生效（Element Plus 树仅在挂载时读取该 prop，数据异步加载后需 remount）
@@ -5646,6 +5647,23 @@ const cancelCaseEdit = () => {
 // 优先级筛选状态
 const priorityFilterAll = ref(false);
 const priorityFilterValues = ref([]);
+
+// 各优先级在当前用例列表中的数量（用于筛选条件旁显示 n）
+const priorityFilterCounts = computed(() => {
+  const list = testCases.value || [];
+  const counts = { P0: 0, P1: 0, P2: 0, P3: 0, P4: 0 };
+  list.forEach((item) => {
+    const p = item.priority;
+    if (Object.prototype.hasOwnProperty.call(counts, p)) counts[p]++;
+  });
+  return counts;
+});
+
+// 当前用例列表总数（用于「全选」旁显示数量）
+const priorityFilterTotal = computed(() => {
+  const c = priorityFilterCounts.value;
+  return (c.P0 || 0) + (c.P1 || 0) + (c.P2 || 0) + (c.P3 || 0) + (c.P4 || 0);
+});
 
 // 过滤后的测试用例
 const filteredTestCases = computed(() => {
