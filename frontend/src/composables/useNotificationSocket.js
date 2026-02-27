@@ -7,12 +7,16 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
 const BASE_DELAY = 1000;
 
+/** 开发环境仅用 polling（经 Vite 代理），避免 WebSocket 导致 write() before start_response；且与页面同源才能带上 session cookie */
 function getSocketOptions() {
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  if (typeof window === "undefined") {
+    return { path: "/socket.io", withCredentials: true, transports: ["websocket", "polling"], reconnection: true };
+  }
+  const isDev = window.location.port === "8081";
   return {
     path: "/socket.io",
     withCredentials: true,
-    transports: ["websocket", "polling"],
+    transports: isDev ? ["polling"] : ["websocket", "polling"],
     reconnection: true,
     reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
     reconnectionDelay: BASE_DELAY,
