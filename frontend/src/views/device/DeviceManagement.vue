@@ -64,6 +64,7 @@
             border
             row-key="id"
             height="100%"
+            :row-class-name="getDeviceRowClassName"
             @selection-change="onSelectionChange"
           >
           <template #empty>
@@ -383,6 +384,7 @@ import {
   getStatusTagType,
   getStatusText,
 } from "@/utils/deviceStatus";
+import { isPermissionError } from "@/utils/request";
 
 // 导入设备相关组件
 import DevicePopover from "./components/DevicePopover.vue";
@@ -410,6 +412,7 @@ const autoRefreshTimer = ref(null);
 const autoRefreshInterval = ref(5000);
 const autoRefreshEnabled = ref(false);
 const taskDialogRef = ref(null);
+const tableRef = ref(null);
 const deviceDetailDialogVisible = ref(false);
 const deviceDetailRow = ref(null);
 
@@ -426,6 +429,24 @@ const isMultipleRow = computed(() => selectionRows.value.length > 0);
 const hasOnlineDevices = computed(() => {
   return deviceList.value.some((device) => device.status === "online");
 });
+
+// 从报告等页跳转时高亮对应设备行（query: highlight_device_id 为设备序列号）
+const highlightDeviceId = computed(() => route.query.highlight_device_id || "");
+const getDeviceRowClassName = ({ row }) => {
+  if (highlightDeviceId.value && row.id === highlightDeviceId.value) return "highlight-row";
+  return "";
+};
+const scrollToHighlightRow = () => {
+  if (!highlightDeviceId.value || !deviceList.value.length) return;
+  nextTick(() => {
+    setTimeout(() => {
+      const table = tableRef.value?.$el;
+      if (!table) return;
+      const row = table.querySelector("tr.highlight-row");
+      if (row) row.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 150);
+  });
+};
 
 // 获取电池颜色
 const getBatteryColor = (percentage) => {
@@ -606,6 +627,7 @@ const getDevices = async () => {
       return getNameKey(a).localeCompare(getNameKey(b), "zh-CN");
     });
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error(
       "获取设备列表失败：" + (error.response?.data?.message || error.message),
     );
@@ -672,6 +694,7 @@ const saveDeviceNameEdit = async (device) => {
       deviceList.value[index].name = editingDeviceName.value;
     }
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error(
       "保存设备名称失败：" + (error.response?.data?.message || error.message),
     );
@@ -711,6 +734,7 @@ const handleOwnerChange = async (device) => {
       ElMessage.success("设备信息保存成功");
     }
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error(
       "保存设备负责人失败：" + (error.response?.data?.message || error.message),
     );
@@ -751,7 +775,11 @@ const handleBatchDelete = async () => {
     );
 
     for (const device of selectionRows.value) {
-      await deviceApi.deleteDevice(device.id);
+      if (device.db_id == null) {
+        console.warn('设备缺少 db_id，跳过删除:', device.device_id || device.id);
+        continue;
+      }
+      await deviceApi.deleteDevice(device.db_id);
     }
 
     ElMessage.success('批量删除成功');
@@ -759,6 +787,7 @@ const handleBatchDelete = async () => {
     await refreshDevices();
   } catch (error) {
     if (error !== 'cancel') {
+      if (isPermissionError(error)) return;
       ElMessage.error('批量删除失败：' + (error.message || error));
     }
   }
@@ -848,6 +877,13 @@ watch(
       stopAutoRefresh();
     }
   },
+);
+
+// 从报告等页带 highlight_device_id 进入时，列表加载后滚动到高亮行
+watch(
+  () => [deviceList.value.length, highlightDeviceId.value],
+  () => scrollToHighlightRow(),
+  { flush: "post" },
 );
 
 // 组件挂载时获取设备列表
@@ -1015,6 +1051,13 @@ onUnmounted(() => {
 
   .el-table .el-table__row .cell {
     padding: 8px 0;
+  }
+
+  .el-table tr.highlight-row > td {
+    background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
+  }
+  .el-table tr.highlight-row:hover > td {
+    background-color: var(--el-color-primary-light-8, #d9ecff) !important;
   }
 }
 </style>

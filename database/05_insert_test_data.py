@@ -78,7 +78,7 @@ def insert_test_data():
                 ('Lethe', '13800138000', '超级管理员', 'male', '管理部', password_hash, 'super'),
                 ('Manager', '13800138001', '项目经理', 'male', '项目部', password_hash, 'manager'),
                 ('Tester', '13800138002', '测试主管', 'female', '测试部', password_hash, 'tester'),
-                ('Admin', '13800138003', '实习生', 'female', '测试部', password_hash, 'admin')
+                ('Admin', '13800138003', '普通成员', 'female', '测试部', password_hash, 'admin')
             ]
             
             cursor.executemany("""

@@ -67,7 +67,7 @@
           <el-descriptions-item label="执行设备" :span="2">
             <template v-if="devices.length">
               <el-tag v-for="d in devices" :key="d.id" size="small" style="margin-right: 8px">
-                {{ d.device_id || d.device_name }}
+                {{ formatDeviceDisplay(d) }}
               </el-tag>
             </template>
             <span v-else>-</span>
@@ -109,6 +109,7 @@ import testTaskApi from "@/api/testTask";
 import deviceApi from "@/api/device";
 import { getReportList, manualGenerateReport } from "@/api/report";
 import { getUserSettings } from "@/api/settings";
+import { isPermissionError } from "@/utils/request";
 
 const route = useRoute();
 const router = useRouter();
@@ -138,6 +139,14 @@ const statusTagType = computed(() => {
   const map = { pending: "info", running: "warning", paused: "warning", completed: "success" };
   return map[taskStatus.value] || "info";
 });
+
+/** 设备展示口径统一：设备名称 (设备ID)，与报告/列表一致 */
+function formatDeviceDisplay(d) {
+  const id = d?.device_id ?? d?.id;
+  const name = d?.device_name;
+  if (name && id) return `${name} (${id})`;
+  return name || id || "-";
+}
 
 /** 可以开始执行：待执行或已完成（重新执行），且有关联设备 */
 const canStart = computed(() => {
@@ -169,6 +178,18 @@ const loadTaskDetail = async () => {
     }
     const devRes = await testTaskApi.getTaskDevices(taskId);
     devices.value = devRes.data?.devices || [];
+    // 持久化的终端输出：任务完成后 result 中存有 terminal_log，刷新或再次打开时可恢复
+    const rawResult = taskInfo.value.result;
+    if (rawResult && typeof rawResult === "string") {
+      try {
+        const parsed = JSON.parse(rawResult);
+        if (parsed && typeof parsed.terminal_log === "string") {
+          terminalOutput.value = parsed.terminal_log;
+        }
+      } catch (_) {
+        // 忽略解析失败
+      }
+    }
   } catch (e) {
     console.error("加载任务详情失败", e);
     ElMessage.error("加载任务详情失败");
@@ -225,6 +246,24 @@ const handleStartExecute = async () => {
   terminalOutput.value = "";
   const executionResults = [];
   try {
+    // 执行前检查设备是否在线（ADB 连接），避免离线时点击执行却无终端输出
+    const offlineList = [];
+    for (const d of devices.value) {
+      try {
+        const res = await deviceApi.getDeviceStatus(d.id);
+        if (res.data?.status !== "connected") {
+          offlineList.push(formatDeviceDisplay(d));
+        }
+      } catch {
+        offlineList.push(formatDeviceDisplay(d));
+      }
+    }
+    if (offlineList.length) {
+      starting.value = false;
+      ElMessage.warning(`以下设备未连接，请连接后再执行：${offlineList.join("、")}`);
+      return;
+    }
+
     await testTaskApi.executeTestTask(taskId);
     await loadTaskDetail();
     executing.value = true;
@@ -266,15 +305,40 @@ const handleStartExecute = async () => {
       }
     }
 
+    // 终止时补全未执行设备为 cancelled，保证报告设备列表与状态一致
+    if (abortRequested.value && devices.value.length) {
+      const executedIds = new Set(executionResults.map((e) => e.device_id || e.device_name));
+      for (const device of devices.value) {
+        const key = device.device_id || device.device_name || device.id;
+        if (key != null && !executedIds.has(key)) {
+          executionResults.push({
+            device_id: device.device_id || device.device_name,
+            device_name: device.device_name || device.device_id || "-",
+            status: "cancelled",
+            execution_time: 0,
+            exit_code: null,
+            output: "",
+            error_output: "用户终止执行",
+          });
+          executedIds.add(key);
+        }
+      }
+    }
+
+    const resultPayload = {
+      executions: executionResults,
+      terminal_log: terminalOutput.value || "",
+    };
     if (abortRequested.value) {
-      await testTaskApi.completeTestTask(taskId, { result: { executions: executionResults } });
+      await testTaskApi.completeTestTask(taskId, { result: resultPayload });
       ElMessage.info("任务已终止");
     } else {
-      await testTaskApi.completeTestTask(taskId, { result: { executions: executionResults } });
+      await testTaskApi.completeTestTask(taskId, { result: resultPayload });
       ElMessage.success("任务已完成");
     }
     await loadTaskDetail();
   } catch (err) {
+    if (isPermissionError(err)) return;
     console.error("执行失败", err);
     ElMessage.error(err.response?.data?.message || err.message || "执行失败");
   } finally {
@@ -354,7 +418,7 @@ const loadReportSetting = async () => {
 };
 
 const handleBack = () => {
-  router.push({ name: "TestTasks" });
+  router.push({ name: "TestTasks", query: { tab: "device_script" } });
 };
 
 onMounted(() => {

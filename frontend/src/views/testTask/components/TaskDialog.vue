@@ -116,7 +116,7 @@
                   <div class="task-folder-input-wrap">
                     <el-input
                       v-model="selectedFolderPath"
-                      placeholder="请选择任务目录"
+                      placeholder="选填，不选则归入全部"
                       readonly
                       class="task-folder-input"
                       @click="handleFolderInputClick"
@@ -268,7 +268,7 @@
       </el-row>
 
       <!-- 脚本文件和设备选择 - 仅设备脚本任务显示（放在计划时间后，便于首屏可见） -->
-      <template v-if="form.task_type === 'device_script'">
+        <template v-if="form.task_type === 'device_script'">
         <el-form-item
           label="脚本文件"
           prop="script_file"
@@ -280,35 +280,21 @@
               placeholder="请选择脚本文件"
               readonly
             />
+            <!-- 任务详情（编辑）时脚本文件只读，仅支持查看/下载 -->
             <div
               v-else
               class="file-link-wrapper"
             >
               <template v-if="form.script_file">
-                <div class="suite-link-wrapper">
-                  <a
-                    class="script-file-link"
-                    @click.prevent="downloadScriptFile"
-                  >
-                    <el-icon><Download /></el-icon>
-                    {{ form.script_file }}
-                  </a>
-                  <el-icon
-                    class="clear-icon"
-                    :size="14"
-                    @click.stop="handleDeleteScriptFile"
-                  >
-                    <CircleClose />
-                  </el-icon>
-                </div>
+                <a
+                  class="script-file-link"
+                  @click.prevent="downloadScriptFile"
+                >
+                  <el-icon><Download /></el-icon>
+                  {{ form.script_file }}
+                </a>
               </template>
-              <el-button
-                v-else
-                type="primary"
-                @click="selectScriptFile"
-              >
-                选择文件
-              </el-button>
+              <span v-else class="no-script">无</span>
             </div>
             <el-button
               v-if="!isEdit"
@@ -1049,7 +1035,7 @@ const loadTaskDetail = async () => {
     await loadDevices();
     await loadFolderOptions(taskDetail.value.task_type);
     initialFolderId.value = form.folder_id ?? null;
-    initialFolderPath.value = selectedFolderPath.value || "";
+    initialFolderPath.value = selectedFolderPath.value || "全部";
   } catch (error) {
     console.error("加载任务详情失败:", error);
     // 若用户已在加载完成前关闭弹窗，不再提示，避免误报
@@ -1133,7 +1119,7 @@ const loadTaskFolderTree = async (taskType) => {
 
 const updateSelectedFolderPath = () => {
   if (form.folder_id == null || form.folder_id === "") {
-    selectedFolderPath.value = "";
+    selectedFolderPath.value = "全部";
     return;
   }
   const path = findTaskFolderPath(taskFolderTreeRaw.value, form.folder_id);
@@ -1154,14 +1140,14 @@ const handleTaskFolderSelect = (data) => {
   folderPopoverVisible.value = false;
 };
 
-/** 任务目录：编辑时为恢复原值，创建时为清空 */
+/** 任务目录：编辑时为恢复原值，创建时为清空（清空后显示「全部」） */
 const resetFolderSelection = () => {
   if (isEdit.value) {
     form.folder_id = initialFolderId.value;
-    selectedFolderPath.value = initialFolderPath.value || "";
+    selectedFolderPath.value = initialFolderPath.value || "全部";
   } else {
     form.folder_id = null;
-    selectedFolderPath.value = "";
+    selectedFolderPath.value = "全部";
   }
   folderPopoverVisible.value = false;
 };

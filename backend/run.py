@@ -1,3 +1,12 @@
+# 非 Windows 下使用 eventlet 需在其它导入前 monkey_patch，避免 Flask-SocketIO WebSocket 报错；Windows 下 eventlet 不兼容，使用 threading
+import sys
+if sys.platform != "win32":
+    try:
+        import eventlet
+        eventlet.monkey_patch()
+    except ImportError:
+        pass
+
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -13,10 +22,11 @@ app = create_app()
 if __name__ == '__main__':
     # 获取配置
     config_name = os.getenv('FLASK_ENV', 'development')
-    
-    # 运行应用
-    app.run(
+    port = int(os.getenv('PORT', 5000))
+    # 使用 SocketIO 启动，与 Flask 同进程，支持 WebSocket 推送
+    app.socketio.run(
+        app,
         host='0.0.0.0',
-        port=int(os.getenv('PORT', 5000)),
+        port=port,
         debug=(config_name == 'development')
     )

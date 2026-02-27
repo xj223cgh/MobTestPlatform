@@ -472,6 +472,7 @@ import {
 } from "@element-plus/icons-vue";
 import testTaskApi from "@/api/testTask";
 import { getUserSettings } from "@/api/settings";
+import { isPermissionError } from "@/utils/request";
 
 const route = useRoute();
 const router = useRouter();
@@ -538,6 +539,7 @@ const saveActualResult = async () => {
     selectedCase.value.actual_result = executionForm.actual_result;
     ElMessage.success("保存成功");
   } catch (error) {
+    if (isPermissionError(error)) return;
     console.error("保存实际结果失败:", error);
     ElMessage.error("保存失败");
   }
@@ -577,8 +579,18 @@ const getTaskInfo = async () => {
     const response = await testTaskApi.getTestTaskDetail(taskId);
     taskInfo.value = response.data.test_task;
   } catch (error) {
+    if (isPermissionError(error)) {
+      router.replace("/test-tasks");
+      return;
+    }
     console.error("获取任务信息失败:", error);
-    ElMessage.error("获取任务信息失败");
+    const status = error?.response?.status;
+    if (status === 404) {
+      ElMessage.warning("该任务可能已被删除或您无权限查看");
+      router.replace("/test-tasks");
+    } else {
+      ElMessage.error("获取任务信息失败");
+    }
   } finally {
     loading.getTaskInfo = false;
   }
@@ -592,6 +604,7 @@ const getTestCases = async () => {
     testCases.value = response.data.test_cases;
     buildTestCaseTree();
   } catch (error) {
+    if (isPermissionError(error)) return;
     console.error("获取测试用例失败:", error);
     ElMessage.error("获取测试用例失败");
   } finally {
@@ -853,6 +866,7 @@ const handleCompleteTask = async () => {
     }, 100);
   } catch (error) {
     if (error !== "cancel") {
+      if (isPermissionError(error)) return;
       console.error("完成任务失败:", error);
       ElMessage.error("完成任务失败");
     }

@@ -9,7 +9,8 @@ from app.utils.helpers import (
     validate_json_data, validate_phone, validate_username
 )
 from app.utils.auth_utils import SessionManager, PasswordManager, TwoFactorAuth
-from app.utils.auth import PermissionManager, rate_limiter
+from app.utils.auth import rate_limiter
+from app.services.permission_service import get_user_permission_codes
 
 bp = Blueprint('auth', __name__)
 
@@ -149,7 +150,7 @@ def login():
     
     return success_response({
         'user': user.to_dict(),
-        'permissions': PermissionManager.get_user_permissions(user)
+        'permissions': get_user_permission_codes(user)
     }, "登录成功")
 
 
@@ -231,20 +232,22 @@ def register():
         real_name=real_name,
         gender=gender,
         department=department,
-        role='admin'  # 新注册用户默认为实习生角色
+        role='admin'  # 新注册用户默认为普通成员角色
     )
     user.set_password(password)
     
     try:
         db.session.add(user)
         db.session.commit()
-        
         log_user_action("注册", f"新用户: {username}")
-        
+        # 通知所有 super、manager 角色用户
+        admin_users = User.query.filter(User.role.in_(['super', 'manager'])).all()
+        if admin_users:
+            from app.services.notification_service import notify_users
+            notify_users([u.id for u in admin_users], 'user_registered', '新用户注册', f'新用户 {username}（{real_name}）已注册', 'user', user.id)
         return success_response({
             'user': user.to_dict()
         }, "注册成功")
-        
     except Exception as e:
         db.session.rollback()
         return error_response(500, "注册失败，请稍后重试")
@@ -300,16 +303,18 @@ def change_password():
 def check_session():
     """检查会话状态"""
     from flask_login import current_user
-    
-    if current_user.is_authenticated:
+
+    if not current_user.is_authenticated:
+        return success_response({'authenticated': False})
+    try:
         return success_response({
             'authenticated': True,
             'user': current_user.to_dict()
         })
-    else:
-        return success_response({
-            'authenticated': False
-        })
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning('check_session: to_dict failed, %s', e)
+        return success_response({'authenticated': False})
 
 
 @bp.route('/forgot-password', methods=['POST'])
@@ -451,8 +456,8 @@ def disable_2fa():
 @bp.route('/permissions', methods=['GET'])
 @login_required
 def get_permissions():
-    """获取当前用户权限"""
+    """获取当前用户权限（埋点编码列表）"""
+    permissions = get_user_permission_codes(current_user)
     return success_response({
-        'permissions': [],
-        'permission_info': []
+        'permissions': permissions,
     })

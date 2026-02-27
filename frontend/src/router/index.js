@@ -60,7 +60,7 @@ const routes = [
         path: "projects",
         name: "Projects",
         component: () => import("@/views/project/ProjectManagement.vue"),
-        meta: { title: "项目管理", icon: "Briefcase" },
+        meta: { title: "项目管理", icon: "Briefcase", permissions: ["project.list"] },
       },
       {
         path: "projects/:id",
@@ -72,7 +72,7 @@ const routes = [
         path: "iterations",
         name: "Iterations",
         component: () => import("@/views/project/IterationManagement.vue"),
-        meta: { title: "迭代管理", icon: "Calendar" },
+        meta: { title: "迭代管理", icon: "Calendar", permissions: ["iteration.list"] },
       },
       {
         path: "iterations/:id",
@@ -85,7 +85,7 @@ const routes = [
         name: "Requirements",
         component: () =>
           import("@/views/requirement/RequirementManagement.vue"),
-        meta: { title: "需求管理", icon: "Document" },
+        meta: { title: "需求管理", icon: "Document", permissions: ["requirement.list"] },
       },
       {
         path: "devices",
@@ -162,9 +162,14 @@ const routes = [
         path: "users",
         name: "Users",
         component: () => import("@/views/user/UserManagement.vue"),
-        meta: { title: "用户管理", icon: "User" },
+        meta: { title: "用户管理", icon: "User", permissions: ["user.list"] },
       },
-
+      {
+        path: "role-permissions",
+        name: "RolePermissions",
+        component: () => import("@/views/system/RolePermissionConfig.vue"),
+        meta: { title: "权限配置", icon: "Key", permissions: ["role.permission_config"] },
+      },
       {
         path: "help",
         name: "HelpCenter",
@@ -253,6 +258,15 @@ router.beforeEach(async (to, from, next) => {
       to.path !== "/403"
     ) {
       next("/home");
+      return;
+    }
+  }
+
+  // 已登录且目标路由要求权限时，校验埋点
+  if (userStore.isAuthenticated && to.meta?.permissions?.length) {
+    const hasAny = to.meta.permissions.some((p) => userStore.hasPermission(p));
+    if (!hasAny) {
+      next("/403");
       return;
     }
   }

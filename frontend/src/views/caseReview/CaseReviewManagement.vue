@@ -15,7 +15,40 @@
             <div class="section-header">
               <h3>待我评审的用例集</h3>
             </div>
-
+            <div class="list-filter-bar">
+              <el-input
+                v-model="filterSuiteNameMyTasks"
+                placeholder="用例集名称"
+                clearable
+                style="width: 180px"
+                @clear="getMyTasks"
+                @keyup.enter="getMyTasks"
+              />
+              <el-select
+                v-model="filterStatusMyTasks"
+                placeholder="评审状态"
+                clearable
+                style="width: 140px"
+                @change="getMyTasks"
+              >
+                <el-option label="待处理" value="pending" />
+                <el-option label="评审中" value="in_review" />
+                <el-option label="已完成" value="completed" />
+                <el-option label="已拒绝" value="rejected" />
+              </el-select>
+              <el-date-picker
+                v-model="filterDateRangeMyTasks"
+                type="daterange"
+                range-separator="至"
+                start-placeholder="创建开始"
+                end-placeholder="创建结束"
+                value-format="YYYY-MM-DD"
+                style="width: 240px"
+                @change="getMyTasks"
+              />
+              <el-button type="primary" @click="getMyTasks">查询</el-button>
+              <el-button @click="resetFilterMyTasks">重置</el-button>
+            </div>
             <div class="review-table-wrapper">
               <el-table
                 v-loading="loading.myTasks"
@@ -23,6 +56,7 @@
                 class="review-list-table"
                 style="width: 100%; min-width: 1080px"
                 row-key="id"
+                :row-class-name="getReviewRowClassName"
                 header-align="center"
                 align="center"
                 @row-click="handleTaskClick"
@@ -149,6 +183,17 @@
               </el-table-column>
               </el-table>
             </div>
+            <el-pagination
+              v-if="paginationMyTasks.total > 0"
+              class="review-list-pagination"
+              :current-page="paginationMyTasks.page"
+              :page-size="paginationMyTasks.size"
+              :page-sizes="[10, 20, 50, 100]"
+              :total="paginationMyTasks.total"
+              layout="total, sizes, prev, pager, next"
+              @current-change="onMyTasksPageChange"
+              @size-change="onMyTasksSizeChange"
+            />
           </div>
         </el-tab-pane>
 
@@ -161,7 +206,40 @@
             <div class="section-header">
               <h3>我发起的评审</h3>
             </div>
-
+            <div class="list-filter-bar">
+              <el-input
+                v-model="filterSuiteNameMyInitiated"
+                placeholder="用例集名称"
+                clearable
+                style="width: 180px"
+                @clear="getMyInitiated"
+                @keyup.enter="getMyInitiated"
+              />
+              <el-select
+                v-model="filterStatusMyInitiated"
+                placeholder="评审状态"
+                clearable
+                style="width: 140px"
+                @change="getMyInitiated"
+              >
+                <el-option label="待处理" value="pending" />
+                <el-option label="评审中" value="in_review" />
+                <el-option label="已完成" value="completed" />
+                <el-option label="已拒绝" value="rejected" />
+              </el-select>
+              <el-date-picker
+                v-model="filterDateRangeMyInitiated"
+                type="daterange"
+                range-separator="至"
+                start-placeholder="创建开始"
+                end-placeholder="创建结束"
+                value-format="YYYY-MM-DD"
+                style="width: 240px"
+                @change="getMyInitiated"
+              />
+              <el-button type="primary" @click="getMyInitiated">查询</el-button>
+              <el-button @click="resetFilterMyInitiated">重置</el-button>
+            </div>
             <div class="review-table-wrapper">
             <el-table
               v-loading="loading.myInitiated"
@@ -169,6 +247,7 @@
               class="review-list-table"
               style="width: 100%; min-width: 1080px"
               row-key="id"
+              :row-class-name="getReviewRowClassName"
               header-align="center"
               align="center"
               @row-click="handleTaskClick"
@@ -282,6 +361,17 @@
               </el-table-column>
               </el-table>
             </div>
+            <el-pagination
+              v-if="paginationMyInitiated.total > 0"
+              class="review-list-pagination"
+              :current-page="paginationMyInitiated.page"
+              :page-size="paginationMyInitiated.size"
+              :page-sizes="[10, 20, 50, 100]"
+              :total="paginationMyInitiated.total"
+              layout="total, sizes, prev, pager, next"
+              @current-change="onMyInitiatedPageChange"
+              @size-change="onMyInitiatedSizeChange"
+            />
           </div>
         </el-tab-pane>
 
@@ -291,171 +381,236 @@
           name="review-history"
         >
           <div class="review-section">
-            <div class="section-header">
-              <h3>用例集评审历史记录</h3>
-            </div>
-
-            <!-- 用例集选择器（与用例管理页样式统一） -->
-            <div class="suite-selector">
-              <el-form
-                :inline="true"
-                class="suite-form"
-              >
-                <el-form-item label="目标用例集">
-                  <div class="case-suite-selector">
-                    <el-popover
-                      :visible="suitePopoverVisible"
-                      placement="bottom-start"
-                      trigger="manual"
-                      width="auto"
-                      teleport="body"
-                      @clickoutside="suitePopoverVisible = false"
-                    >
-                      <template #reference>
-                        <el-input
-                          v-model="selectedSuitePath"
-                          placeholder="点击选择所属用例集"
-                          readonly
-                          style="width: 100%; min-width: 280px"
-                          clearable
-                          @click="suitePopoverVisible = !suitePopoverVisible"
-                          @clear="handleClearSuiteSelection"
-                        />
-                      </template>
-                      <div
-                        class="suite-tree-popover"
-                        style="width: 100%; min-width: 300px; max-width: 400px"
-                      >
-                        <el-tree
-                          :current-node-key="selectedSuiteId"
-                          :data="suiteTreeData"
-                          :props="defaultProps"
-                          node-key="id"
-                          style="max-height: 300px; overflow-y: auto; width: 100%; padding-right: 10px;"
-                          :expand-on-click-node="true"
-                          :filter-node-method="filterSuiteType"
-                          @node-click="handleSuiteTreeNodeClick"
-                        >
-                          <template #default="{ node, data }">
-                            <span
-                              class="tree-node-content"
-                              :class="{
-                                'current-node': node.key === selectedSuiteId,
-                                'folder-node': data.type === 'folder',
-                              }"
-                            >
-                              <el-icon class="node-icon">
-                                <Document v-if="data.type === 'suite'" />
-                                <Folder v-else />
-                              </el-icon>
-                              <span class="node-label">{{ node.label }}</span>
-                              <span
-                                v-if="data.type === 'suite' && data.cases_count > 0"
-                                class="case-count"
-                              >({{ data.cases_count }})</span>
-                            </span>
-                          </template>
-                        </el-tree>
-                      </div>
-                    </el-popover>
+            <el-tabs v-model="reviewHistorySubTab" type="card" class="review-history-sub-tabs">
+              <el-tab-pane label="全部最近历史" name="recent">
+                <div class="section-header">
+                  <h3>全部最近历史</h3>
+                  <p class="section-tip">按时间倒序显示您作为发起人或评审人的评审记录，点击「查看详情」可查看该次历史。</p>
+                </div>
+                <el-table
+                  v-loading="loading.recentHistory"
+                  :data="paginatedRecentHistory"
+                  style="width: 100%"
+                  row-key="id"
+                  max-height="400"
+                >
+                  <el-table-column prop="end_time" label="评审时间" min-width="160">
+                    <template #default="scope">
+                      {{ formatDate(scope.row.end_time || scope.row.created_at) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="suite_name" label="用例集" min-width="160" show-overflow-tooltip />
+                  <el-table-column prop="initiator_name" label="发起人" min-width="100" />
+                  <el-table-column prop="reviewer_name" label="评审人" min-width="100" />
+                  <el-table-column label="类型" min-width="90">
+                    <template #default="scope">
+                      <el-tag :type="scope.row.history_type === 'reject' ? 'danger' : 'success'" size="small">
+                        {{ scope.row.history_type === 'reject' ? '打回' : '完成' }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="case_stats.total" label="总用例数" width="90" align="center" />
+                  <el-table-column prop="case_stats.approved" label="通过" width="70" align="center" />
+                  <el-table-column prop="case_stats.rejected" label="拒绝" width="70" align="center" />
+                  <el-table-column label="操作" width="100" align="center" fixed="right">
+                    <template #default="scope">
+                      <el-button type="primary" link size="small" @click="handleViewReviewHistory(scope.row)">查看详情</el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+                <el-pagination
+                  v-if="paginationRecent.total > 0"
+                  class="review-list-pagination"
+                  :current-page="paginationRecent.page"
+                  :page-size="paginationRecent.size"
+                  :page-sizes="[10, 20, 50, 100]"
+                  :total="paginationRecent.total"
+                  layout="total, sizes, prev, pager, next"
+                  @current-change="(p) => { paginationRecent.page = p; }"
+                  @size-change="(s) => { paginationRecent.size = s; paginationRecent.page = 1; }"
+                />
+              </el-tab-pane>
+              <el-tab-pane label="按用例集查看历史" name="by-suite">
+                <div class="by-suite-layout">
+                  <div class="section-header">
+                    <h3>按用例集查看历史</h3>
+                    <p class="section-tip">选择目标用例集后，可查看该用例集的全部评审历史记录。</p>
                   </div>
-                </el-form-item>
-              </el-form>
-            </div>
-
-            <!-- 评审历史列表 -->
-            <el-table
-              v-loading="loading.reviewHistory"
-              :data="reviewHistory"
-              style="width: 100%"
-              row-key="id"
-              header-align="center"
-              align="center"
-              fit
-            >
-              <el-table-column
-                prop="end_time"
-                label="评审时间"
-                min-width="160"
-                header-align="center"
-                align="center"
-              >
-                <template #default="scope">
-                  {{ formatDate(scope.row.end_time || scope.row.created_at) }}
-                </template>
-              </el-table-column>
-              <el-table-column
-                prop="initiator_name"
-                label="发起人"
-                min-width="120"
-                header-align="center"
-                align="center"
-              />
-              <el-table-column
-                prop="reviewer_name"
-                label="评审人"
-                min-width="120"
-                header-align="center"
-                align="center"
-              />
-              <el-table-column
-                prop="status"
-                label="评审状态"
-                min-width="120"
-                header-align="center"
-                align="center"
-              >
-                <template #default="scope">
-                  <el-tag
-                    :type="
-                      getStatusTagType(scope.row.status, scope.row.history_type)
-                    "
-                    size="small"
+                  <div class="suite-selector">
+                    <el-form
+                      :inline="true"
+                      class="suite-form"
+                    >
+                      <el-form-item label="目标用例集">
+                        <div class="case-suite-selector">
+                          <el-popover
+                            :visible="suitePopoverVisible"
+                            placement="bottom-start"
+                            trigger="manual"
+                            width="auto"
+                            teleport="body"
+                            @clickoutside="suitePopoverVisible = false"
+                          >
+                            <template #reference>
+                              <el-input
+                                v-model="selectedSuitePath"
+                                placeholder="点击选择所属用例集"
+                                readonly
+                                style="width: 100%; min-width: 280px"
+                                clearable
+                                @click="suitePopoverVisible = !suitePopoverVisible"
+                                @clear="handleClearSuiteSelection"
+                              />
+                            </template>
+                            <div
+                              class="suite-tree-popover"
+                              style="width: 100%; min-width: 300px; max-width: 400px"
+                            >
+                              <el-tree
+                                :current-node-key="selectedSuiteId"
+                                :data="suiteTreeData"
+                                :props="defaultProps"
+                                node-key="id"
+                                style="max-height: 300px; overflow-y: auto; width: 100%; padding-right: 10px;"
+                                :expand-on-click-node="true"
+                                :filter-node-method="filterSuiteType"
+                                @node-click="handleSuiteTreeNodeClick"
+                              >
+                                <template #default="{ node, data }">
+                                  <span
+                                    class="tree-node-content"
+                                    :class="{
+                                      'current-node': node.key === selectedSuiteId,
+                                      'folder-node': data.type === 'folder',
+                                    }"
+                                  >
+                                    <el-icon class="node-icon">
+                                      <Document v-if="data.type === 'suite'" />
+                                      <Folder v-else />
+                                    </el-icon>
+                                    <span class="node-label">{{ node.label }}</span>
+                                    <span
+                                      v-if="data.type === 'suite' && data.cases_count > 0"
+                                      class="case-count"
+                                    >({{ data.cases_count }})</span>
+                                  </span>
+                                </template>
+                              </el-tree>
+                            </div>
+                          </el-popover>
+                        </div>
+                      </el-form-item>
+                    </el-form>
+                  </div>
+                  <div class="review-table-wrapper">
+                <el-table
+                  v-loading="loading.reviewHistory"
+                  :data="paginatedReviewHistory"
+                  class="review-list-table"
+                  style="width: 100%"
+                  row-key="id"
+                  header-align="center"
+                  align="center"
+                  fit
+                >
+                  <el-table-column
+                    prop="end_time"
+                    label="评审时间"
+                    min-width="160"
+                    header-align="center"
+                    align="center"
                   >
-                    {{
-                      getStatusText(scope.row.status, scope.row.history_type)
-                    }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column
-                prop="case_stats.total"
-                label="总用例数"
-                min-width="80"
-                header-align="center"
-                align="center"
-              />
-              <el-table-column
-                prop="case_stats.approved"
-                label="通过数"
-                min-width="80"
-                header-align="center"
-                align="center"
-              />
-              <el-table-column
-                prop="case_stats.rejected"
-                label="拒绝数"
-                min-width="80"
-                header-align="center"
-                align="center"
-              />
-              <el-table-column
-                label="操作"
-                min-width="120"
-                header-align="center"
-                align="center"
-              >
-                <template #default="scope">
-                  <el-button
-                    type="primary"
-                    size="small"
-                    @click.stop="handleViewReviewHistory(scope.row)"
+                    <template #default="scope">
+                      {{ formatDate(scope.row.end_time || scope.row.created_at) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column
+                    prop="initiator_name"
+                    label="发起人"
+                    min-width="120"
+                    header-align="center"
+                    align="center"
+                  />
+                  <el-table-column
+                    prop="reviewer_name"
+                    label="评审人"
+                    min-width="120"
+                    header-align="center"
+                    align="center"
+                  />
+                  <el-table-column
+                    prop="status"
+                    label="评审状态"
+                    min-width="120"
+                    header-align="center"
+                    align="center"
                   >
-                    查看详情
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
+                    <template #default="scope">
+                      <el-tag
+                        :type="
+                          getStatusTagType(scope.row.status, scope.row.history_type)
+                        "
+                        size="small"
+                      >
+                        {{
+                          getStatusText(scope.row.status, scope.row.history_type)
+                        }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column
+                    prop="case_stats.total"
+                    label="总用例数"
+                    min-width="80"
+                    header-align="center"
+                    align="center"
+                  />
+                  <el-table-column
+                    prop="case_stats.approved"
+                    label="通过数"
+                    min-width="80"
+                    header-align="center"
+                    align="center"
+                  />
+                  <el-table-column
+                    prop="case_stats.rejected"
+                    label="拒绝数"
+                    min-width="80"
+                    header-align="center"
+                    align="center"
+                  />
+                  <el-table-column
+                    label="操作"
+                    min-width="120"
+                    header-align="center"
+                    align="center"
+                  >
+                    <template #default="scope">
+                      <el-button
+                        type="primary"
+                        size="small"
+                        @click.stop="handleViewReviewHistory(scope.row)"
+                      >
+                        查看详情
+                      </el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+                  </div>
+                <el-pagination
+                  v-if="paginationBySuite.total > 0"
+                  class="review-list-pagination"
+                  :current-page="paginationBySuite.page"
+                  :page-size="paginationBySuite.size"
+                  :page-sizes="[10, 20, 50, 100]"
+                  :total="paginationBySuite.total"
+                  layout="total, sizes, prev, pager, next"
+                  @current-change="(p) => { paginationBySuite.page = p; }"
+                  @size-change="(s) => { paginationBySuite.size = s; paginationBySuite.page = 1; }"
+                />
+                </div>
+              </el-tab-pane>
+            </el-tabs>
           </div>
         </el-tab-pane>
       </el-tabs>
@@ -580,7 +735,7 @@
             <div class="filter-bar-right">
               <el-button size="default" @click="resetCaseReviewFilter">重置条件</el-button>
               <el-button
-                v-if="isReviewer"
+                v-if="isReviewerAndCanEdit"
                 type="success"
                 size="default"
                 @click="handleSetAllApproved"
@@ -588,7 +743,7 @@
                 全部通过
               </el-button>
               <el-button
-                v-if="isReviewer"
+                v-if="isReviewerAndCanEdit"
                 size="default"
                 @click="handleResetAllStatus"
               >
@@ -599,7 +754,7 @@
           </div>
           <el-table
             v-loading="loading.caseReviews"
-            :data="filteredCaseReviews"
+            :data="paginatedFilteredCaseReviews"
             class="review-case-table"
             style="width: 100%"
             row-key="id"
@@ -733,9 +888,9 @@
               min-width="90"
             >
               <template #default="scope">
-                <!-- 如果是评审人，显示可编辑的单选按钮组 -->
+                <!-- 如果是评审人且可编辑，显示可编辑的单选按钮组 -->
                 <el-radio-group
-                  v-if="isReviewer"
+                  v-if="isReviewerAndCanEdit"
                   v-model="scope.row.review_status"
                   size="small"
                   class="case-review-status-group"
@@ -761,9 +916,9 @@
               min-width="120"
             >
               <template #default="scope">
-                <!-- 如果是评审人，显示可编辑的输入框 -->
+                <!-- 如果是评审人且可编辑，显示可编辑的输入框 -->
                 <el-input
-                  v-if="isReviewer"
+                  v-if="isReviewerAndCanEdit"
                   v-model="scope.row.comments"
                   type="textarea"
                   :rows="2"
@@ -793,6 +948,17 @@
               </template>
             </el-table-column>
           </el-table>
+          <el-pagination
+            v-if="filteredCaseReviews.length > 0"
+            class="review-list-pagination"
+            :current-page="paginationCaseReview.page"
+            :page-size="paginationCaseReview.size"
+            :page-sizes="[10, 20, 50, 100]"
+            :total="filteredCaseReviews.length"
+            layout="total, sizes, prev, pager, next"
+            @current-change="(p) => { paginationCaseReview.page = p; }"
+            @size-change="(s) => { paginationCaseReview.size = s; paginationCaseReview.page = 1; }"
+          />
         </div>
 
         <!-- 整体评审意见 -->
@@ -801,9 +967,9 @@
           class="dialog-section"
         >
           <h4>整体评审意见</h4>
-          <!-- 如果是评审人，显示可编辑的输入框 -->
+          <!-- 如果是评审人且可编辑，显示可编辑的输入框 -->
           <el-input
-            v-if="isReviewer"
+            v-if="isReviewerAndCanEdit"
             v-model="overallComments"
             type="textarea"
             :rows="4"
@@ -842,22 +1008,23 @@
               >
                 完成评审
               </el-button>
-              <!-- 如果评审已完成，显示重新评审按钮 -->
+              <!-- 如果评审已完成或已拒绝，显示重新评审按钮（评审人可重新打开继续评） -->
               <el-button
                 v-else-if="
-                  currentReviewTask && currentReviewTask.status === 'completed'
+                  currentReviewTask &&
+                  (currentReviewTask.status === 'completed' || currentReviewTask.status === 'rejected')
                 "
                 type="warning"
                 @click="handleRestartReview"
               >
                 重新评审
               </el-button>
-              <!-- 如果是评审人且评审状态不是待处理，或者有被拒绝的用例，显示打回评审按钮 -->
+              <!-- 评审中或已完成且非已拒绝时，或有被拒绝的用例时，显示打回评审（已拒绝后不再显示打回） -->
               <el-button
                 v-if="
                   currentReviewTask &&
-                    (currentReviewTask.status !== 'pending' && currentReviewTask.status !== 'rejected') ||
-                    hasRejectedCases
+                  currentReviewTask.status !== 'rejected' &&
+                  ((currentReviewTask.status !== 'pending') || hasRejectedCases)
                 "
                 type="danger"
                 @click="handleRejectReview"
@@ -866,12 +1033,12 @@
               </el-button>
             </template>
 
-            <!-- 发起人操作按钮：已拒绝的评审可以重新发起 -->
+            <!-- 发起人操作按钮：已完成或已拒绝的评审可以重新发起 -->
             <el-button
               v-if="
                 isInitiator &&
                   currentReviewTask &&
-                  currentReviewTask.status === 'rejected'
+                  (currentReviewTask.status === 'rejected' || currentReviewTask.status === 'completed')
               "
               type="warning"
               @click="handleReinitiateReview"
@@ -886,32 +1053,57 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import * as reviewApi from "@/api/reviewTask";
 import * as testSuiteApi from "@/api/testSuite";
+import { isPermissionError } from "@/utils/request";
 import { useUserStore } from "@/stores/user";
+import { useSystemSettingsStore } from "@/stores/systemSettings";
 import { Folder, Document, Search } from "@element-plus/icons-vue";
 
 // 状态管理
 const userStore = useUserStore();
+const systemSettingsStore = useSystemSettingsStore();
+const defaultPageSize = computed(() => systemSettingsStore.defaultPageSize || 10);
 const route = useRoute();
 const router = useRouter();
 // 从路由参数中获取activeTab，默认值为'my-tasks'
 const activeTab = ref(route.query.activeTab || "my-tasks");
+const reviewHistorySubTab = ref("recent");
+// 消息跳转时的短暂闪烁行（2.5s 后清除）
+const flashTaskId = ref(null);
+let flashClearTimer = null;
+// 从消息带 taskId 进入时是否已自动打开过详情弹窗（避免重复打开）
+const hasOpenedDialogForFlashTask = ref(false);
+const getReviewRowClassName = ({ row }) => {
+  if (flashTaskId.value && row.id === flashTaskId.value) return "notification-flash-row";
+  return "";
+};
 const loading = ref({
   myTasks: false,
   myInitiated: false,
   caseReviews: false,
   updateReview: false,
   reviewHistory: false,
+  recentHistory: false,
   suites: false,
 });
 
 // 数据
 const myTasks = ref([]);
 const myInitiated = ref([]);
+// 待我评审 / 我发起的 分页（每页条数使用系统设置）
+const paginationMyTasks = ref({ page: 1, size: 10, total: 0 });
+const paginationMyInitiated = ref({ page: 1, size: 10, total: 0 });
+// 待我评审 / 我发起的 列表筛选
+const filterSuiteNameMyTasks = ref("");
+const filterStatusMyTasks = ref("");
+const filterDateRangeMyTasks = ref(null);
+const filterSuiteNameMyInitiated = ref("");
+const filterStatusMyInitiated = ref("");
+const filterDateRangeMyInitiated = ref(null);
 const caseReviews = ref([]);
 const originalCaseReviews = ref([]); // 保存原始的用例评审数据，用于判断哪些用例被修改了
 const currentReviewTask = ref(null);
@@ -929,6 +1121,12 @@ const defaultProps = ref({
   children: "children",
 });
 const reviewHistory = ref([]);
+const recentHistory = ref([]);
+// 评审历史分页（前端分页，每页条数使用系统设置）
+const paginationRecent = ref({ page: 1, size: 10, total: 0 });
+const paginationBySuite = ref({ page: 1, size: 10, total: 0 });
+// 评审详情弹窗内用例列表分页（前端分页）
+const paginationCaseReview = ref({ page: 1, size: 10 });
 
 // 用例评审列表筛选条件（评审详情弹窗内）
 const caseReviewKeyword = ref("");
@@ -937,24 +1135,20 @@ const caseReviewStatusFilter = ref([]);
 const caseReviewPriorityFilterAll = ref(true);
 const caseReviewStatusFilterAll = ref(true);
 
-// 计算属性
+// 计算属性：是否为当前任务的评审人（含已拒绝时，用于显示「重新评审」等按钮）
 const isReviewer = computed(() => {
-  // 评审历史详情是只读的，无论用户是否为评审人
-  if (currentReviewTask.value?.version) {
-    return false;
-  }
-
-  // 已拒绝的评审，评审人无法编辑
-  if (currentReviewTask.value?.status === "rejected") {
-    return false;
-  }
-
-  // 根据当前登录用户和评审任务的评审人信息判断是否为评审人
+  if (currentReviewTask.value?.version) return false;
   if (!userStore.userInfo || !currentReviewTask.value) return false;
-  // 确保类型一致，转换为字符串进行比较
   const currentUserId = String(userStore.userInfo.id);
   const reviewerId = String(currentReviewTask.value.reviewer_id);
   return currentUserId === reviewerId;
+});
+
+// 评审人且可编辑（已拒绝时仅只读，不展示编辑控件）
+const isReviewerAndCanEdit = computed(() => {
+  if (!isReviewer.value) return false;
+  if (currentReviewTask.value?.status === "rejected") return false;
+  return true;
 });
 
 const isInitiator = computed(() => {
@@ -988,6 +1182,20 @@ const hasRejectedCases = computed(() => {
   return caseReviews.value.some((cr) => cr.review_status === "rejected");
 });
 
+// 全部最近历史（前端分页）
+const paginatedRecentHistory = computed(() => {
+  const list = recentHistory.value || [];
+  const { page, size } = paginationRecent.value;
+  const start = (page - 1) * size;
+  return list.slice(start, start + size);
+});
+// 按用例集查看历史（前端分页）
+const paginatedReviewHistory = computed(() => {
+  const list = reviewHistory.value || [];
+  const { page, size } = paginationBySuite.value;
+  const start = (page - 1) * size;
+  return list.slice(start, start + size);
+});
 // 用例评审列表筛选结果（关键字 + 优先级 + 评审状态）
 const filteredCaseReviews = computed(() => {
   let list = caseReviews.value || [];
@@ -1019,37 +1227,105 @@ const filteredCaseReviews = computed(() => {
   }
   return list;
 });
+// 评审详情弹窗内用例列表（前端分页）
+const paginatedFilteredCaseReviews = computed(() => {
+  const list = filteredCaseReviews.value || [];
+  const { page, size } = paginationCaseReview.value;
+  const start = (page - 1) * size;
+  return list.slice(start, start + size);
+});
 
 // 方法
-// 获取我的评审任务
+// 获取我的评审任务（支持状态、用例集名称、创建时间筛选、分页）
 const getMyTasks = async () => {
   loading.value.myTasks = true;
   try {
-    const response = await reviewApi.getMyReviewTasks();
+    const params = {
+      page: paginationMyTasks.value.page,
+      size: paginationMyTasks.value.size,
+    };
+    if (filterStatusMyTasks.value) params.status = filterStatusMyTasks.value;
+    if (filterSuiteNameMyTasks.value?.trim()) params.suite_name = filterSuiteNameMyTasks.value.trim();
+    if (filterDateRangeMyTasks.value?.length === 2) {
+      params.created_after = filterDateRangeMyTasks.value[0];
+      params.created_before = filterDateRangeMyTasks.value[1];
+    }
+    const response = await reviewApi.getMyReviewTasks(params);
     myTasks.value = response.data.items || [];
+    paginationMyTasks.value.total = response.data.total ?? 0;
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error("获取我的评审任务失败");
   } finally {
     loading.value.myTasks = false;
   }
 };
 
-// 获取我发起的评审
+// 获取我发起的评审（支持状态、用例集名称、创建时间筛选、分页）
 const getMyInitiated = async () => {
   loading.value.myInitiated = true;
   try {
-    const response = await reviewApi.getMyInitiatedReviews();
+    const params = {
+      page: paginationMyInitiated.value.page,
+      size: paginationMyInitiated.value.size,
+    };
+    if (filterStatusMyInitiated.value) params.status = filterStatusMyInitiated.value;
+    if (filterSuiteNameMyInitiated.value?.trim()) params.suite_name = filterSuiteNameMyInitiated.value.trim();
+    if (filterDateRangeMyInitiated.value?.length === 2) {
+      params.created_after = filterDateRangeMyInitiated.value[0];
+      params.created_before = filterDateRangeMyInitiated.value[1];
+    }
+    const response = await reviewApi.getMyInitiatedReviews(params);
     myInitiated.value = response.data.items || [];
+    paginationMyInitiated.value.total = response.data.total ?? 0;
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error("获取我发起的评审失败");
   } finally {
     loading.value.myInitiated = false;
   }
 };
 
-// 获取评审任务详情
+const resetFilterMyTasks = () => {
+  filterSuiteNameMyTasks.value = "";
+  filterStatusMyTasks.value = "";
+  filterDateRangeMyTasks.value = null;
+  paginationMyTasks.value.page = 1;
+  getMyTasks();
+};
+
+const resetFilterMyInitiated = () => {
+  filterSuiteNameMyInitiated.value = "";
+  filterStatusMyInitiated.value = "";
+  filterDateRangeMyInitiated.value = null;
+  paginationMyInitiated.value.page = 1;
+  getMyInitiated();
+};
+
+const onMyTasksPageChange = (page) => {
+  paginationMyTasks.value.page = page;
+  getMyTasks();
+};
+const onMyTasksSizeChange = (size) => {
+  paginationMyTasks.value.size = size;
+  paginationMyTasks.value.page = 1;
+  getMyTasks();
+};
+const onMyInitiatedPageChange = (page) => {
+  paginationMyInitiated.value.page = page;
+  getMyInitiated();
+};
+const onMyInitiatedSizeChange = (size) => {
+  paginationMyInitiated.value.size = size;
+  paginationMyInitiated.value.page = 1;
+  getMyInitiated();
+};
+
+// 获取评审任务详情（从消息跳转时若任务已删除会提示并清除 URL 中的 taskId）
 const getReviewTaskDetail = async (taskId) => {
   loading.value.caseReviews = true;
+  paginationCaseReview.value.page = 1;
+  paginationCaseReview.value.size = defaultPageSize.value;
   try {
     const response = await reviewApi.getReviewTask(taskId);
     currentReviewTask.value = response.data;
@@ -1064,7 +1340,31 @@ const getReviewTaskDetail = async (taskId) => {
     // 获取整体评审意见
     overallComments.value = response.data.overall_comments || "";
   } catch (error) {
-    ElMessage.error("获取评审任务详情失败");
+    if (isPermissionError(error)) {
+      if (route.query.taskId) {
+        flashTaskId.value = null;
+        hasOpenedDialogForFlashTask.value = false;
+        reviewDialogVisible.value = false;
+        const q = { ...route.query };
+        delete q.taskId;
+        router.replace({ path: route.path, query: Object.keys(q).length ? q : undefined });
+      }
+      return;
+    }
+    const status = error.response?.status;
+    if (status === 404) {
+      ElMessage.warning("该评审任务可能已被删除或您无权限查看");
+      if (route.query.taskId) {
+        flashTaskId.value = null;
+        hasOpenedDialogForFlashTask.value = false;
+        reviewDialogVisible.value = false;
+        const q = { ...route.query };
+        delete q.taskId;
+        router.replace({ path: route.path, query: Object.keys(q).length ? q : undefined });
+      }
+    } else {
+      ElMessage.error("获取评审任务详情失败");
+    }
   } finally {
     loading.value.caseReviews = false;
   }
@@ -1077,10 +1377,10 @@ const handleTaskClick = (row) => {
   getReviewTaskDetail(row.id);
 };
 
-// 点击用例集名称：跳转到用例管理页并定位到对应用例集
+// 点击用例集名称：跳转到用例管理页并定位到对应用例集（带 fromReview 便于用例管理页刷新评审状态）
 const handleGoToSuite = (row) => {
   if (!row?.suite_id) return;
-  router.push({ path: "/test-cases", query: { suite_id: row.suite_id } });
+  router.push({ path: "/test-cases", query: { suite_id: row.suite_id, fromReview: "1" } });
 };
 
 // 处理开始评审
@@ -1108,6 +1408,7 @@ const handleReview = async (row) => {
         await getReviewTaskDetail(row.id);
       }
     } catch (error) {
+      if (isPermissionError(error)) return;
       console.error("更新评审状态失败:", error);
       ElMessage.error("更新评审状态失败");
     }
@@ -1130,6 +1431,7 @@ const getAvailableSuites = async () => {
     const response = await testSuiteApi.getTestSuiteTree();
     suiteTreeData.value = response.data || [];
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error("获取用例集列表失败");
     console.error("获取用例集列表失败:", error);
   } finally {
@@ -1177,7 +1479,23 @@ const buildSuitePath = (data) => {
   return data.suite_name;
 };
 
-// 获取评审历史记录
+// 获取全部最近评审历史（评审历史 Tab 用）
+const getRecentReviewHistory = async () => {
+  loading.value.recentHistory = true;
+  try {
+    const response = await reviewApi.getRecentReviewHistory({ limit: 500 });
+    recentHistory.value = response.data.items || [];
+    paginationRecent.value.total = recentHistory.value.length;
+    paginationRecent.value.page = 1;
+  } catch (error) {
+    if (isPermissionError(error)) return;
+    ElMessage.error("获取最近评审历史失败");
+  } finally {
+    loading.value.recentHistory = false;
+  }
+};
+
+// 获取评审历史记录（按用例集）
 const handleGetReviewHistory = async () => {
   if (!selectedSuiteId.value) {
     ElMessage.warning("请先选择用例集");
@@ -1190,7 +1508,10 @@ const handleGetReviewHistory = async () => {
       selectedSuiteId.value,
     );
     reviewHistory.value = response.data.review_history || [];
+    paginationBySuite.value.total = reviewHistory.value.length;
+    paginationBySuite.value.page = 1;
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error("获取评审历史记录失败");
     console.error("获取评审历史记录失败:", error);
   } finally {
@@ -1226,6 +1547,7 @@ const handleViewReviewHistory = async (row) => {
     // 获取整体评审意见
     overallComments.value = response.data.overall_comments || "";
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error("获取评审历史详情失败");
   } finally {
     loading.value.caseReviews = false;
@@ -1264,6 +1586,7 @@ const handleReviewStatusChange = async (row) => {
       getMyInitiated();
     }
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error("更新评审状态失败");
   } finally {
     loading.value.updateReview = false;
@@ -1297,6 +1620,7 @@ const handleCommentsChange = async (row) => {
 
     ElMessage.success("评审意见更新成功");
   } catch (error) {
+    if (isPermissionError(error)) return;
     console.error("更新评审意见失败:", error);
     ElMessage.error(
       "更新评审意见失败: " + (error.response?.data?.message || error.message),
@@ -1372,6 +1696,7 @@ const handleCompleteReview = async () => {
       getMyInitiated();
     }
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error("完成评审失败");
   } finally {
     loading.value.updateReview = false;
@@ -1408,13 +1733,14 @@ const handleRestartReview = async () => {
       getMyInitiated();
     }
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error("重新评审失败");
   } finally {
     loading.value.updateReview = false;
   }
 };
 
-// 处理重新发起评审：发起人重新发起已拒绝的评审
+// 处理重新发起评审：发起人重新发起已拒绝/已完成的评审
 const handleReinitiateReview = async () => {
   if (!currentReviewTask.value) return;
 
@@ -1433,17 +1759,15 @@ const handleReinitiateReview = async () => {
     await reviewApi.reinitiateReview(currentReviewTask.value.id);
 
     ElMessage.success("重新发起评审成功");
+    reviewDialogVisible.value = false;
 
-    // 重新获取评审任务详情，更新本地数据
-    await getReviewTaskDetail(currentReviewTask.value.id);
-
-    // 刷新列表
     if (activeTab.value === "my-tasks") {
       getMyTasks();
     } else {
       getMyInitiated();
     }
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error("重新发起评审失败");
   } finally {
     loading.value.updateReview = false;
@@ -1454,15 +1778,17 @@ const handleReinitiateReview = async () => {
 const handleRejectReview = async () => {
   if (!currentReviewTask.value) return;
 
-  await ElMessageBox.confirm(
-    "确定要打回评审吗？此操作将保存当前评审编辑并重置评审状态。",
-    "提示",
-    {
-      confirmButtonText: "确定",
-      cancelButtonText: "取消",
-      type: "warning",
-    },
-  );
+  const pendingCount = caseReviews.value.filter((cr) => cr.review_status === "pending").length;
+  const message =
+    pendingCount > 0
+      ? `当前还有 ${pendingCount} 条用例未填写评审结果，确定连同未填项一起打回吗？此操作将保存当前编辑并重置评审状态。`
+      : "确定要打回评审吗？此操作将保存当前评审编辑并重置评审状态。";
+
+  await ElMessageBox.confirm(message, "提示", {
+    confirmButtonText: "确定",
+    cancelButtonText: "取消",
+    type: "warning",
+  });
 
   loading.value.updateReview = true;
   try {
@@ -1522,6 +1848,7 @@ const handleRejectReview = async () => {
       getMyInitiated();
     }
   } catch (error) {
+    if (isPermissionError(error)) return;
     console.error("打回评审失败:", error);
     ElMessage.error(
       "打回评审失败: " + (error.response?.data?.message || error.message),
@@ -1769,46 +2096,110 @@ const progressColor = (percentage) => {
   return "#e6a23c";
 };
 
+// 切换到评审历史 Tab 时加载全部最近历史
+watch(activeTab, (tab) => {
+  if (tab === "review-history") getRecentReviewHistory();
+});
+
+// 评审详情弹窗内筛选条件变化时重置到第一页
+watch([caseReviewKeyword, caseReviewPriorityFilter, caseReviewStatusFilter], () => {
+  paginationCaseReview.value.page = 1;
+});
+
+// 消息跳转：taskId 时设置要闪烁的行，等列表有数据后再启动 2.5s 清除定时器，并可选自动打开详情
+watch(
+  () => route.query?.taskId,
+  (taskIdVal) => {
+    if (flashClearTimer) {
+      clearTimeout(flashClearTimer);
+      flashClearTimer = null;
+    }
+    if (!taskIdVal) {
+      flashTaskId.value = null;
+      hasOpenedDialogForFlashTask.value = false;
+      return;
+    }
+    flashTaskId.value = Number(taskIdVal);
+    hasOpenedDialogForFlashTask.value = false;
+  },
+  { immediate: true }
+);
+
+watch(
+  () => [myTasks.value, myInitiated.value, flashTaskId.value, activeTab.value],
+  async () => {
+    const tid = flashTaskId.value;
+    if (!tid) return;
+    const inMyTasks = myTasks.value.some((t) => t.id === tid);
+    const inMyInitiated = myInitiated.value.some((t) => t.id === tid);
+    if (inMyTasks) activeTab.value = "my-tasks";
+    else if (inMyInitiated) activeTab.value = "my-initiated";
+    const list = activeTab.value === "my-tasks" ? myTasks.value : myInitiated.value;
+    const hasRow = list.some((t) => t.id === tid);
+    if (!hasRow) return;
+    // 从消息带 taskId 进入时，自动打开该任务的评审详情弹窗（仅一次）
+    if (!hasOpenedDialogForFlashTask.value) {
+      hasOpenedDialogForFlashTask.value = true;
+      reviewDialogTitle.value = "评审详情";
+      reviewDialogVisible.value = true;
+      await getReviewTaskDetail(tid);
+    }
+    if (flashClearTimer) return;
+    flashClearTimer = setTimeout(() => {
+      flashTaskId.value = null;
+      const q = { ...route.query };
+      delete q.taskId;
+      router.replace({ path: route.path, query: Object.keys(q).length ? q : undefined });
+      flashClearTimer = null;
+    }, 2600);
+  },
+  { flush: "post" }
+);
+
 // 生命周期
 onMounted(async () => {
+  systemSettingsStore.load();
+  const size = defaultPageSize.value;
+  paginationMyTasks.value.size = size;
+  paginationMyInitiated.value.size = size;
+  paginationRecent.value.size = size;
+  paginationBySuite.value.size = size;
+  paginationCaseReview.value.size = size;
   // 初始加载数据
   await getMyTasks();
   await getMyInitiated();
   // 获取可用用例集列表，用于评审历史查询
   await getAvailableSuites();
-  
-  // 处理从用例集页面跳转过来的情况
+  // 处理从用例集页面跳转过来的情况（保留 taskId/activeTab，仅移除 suiteId）
+  // 若 URL 带 taskId（如从消息中心进入），由 watch 统一打开详情，此处不再根据 suiteId 打开，避免重复
   const suiteId = route.query.suiteId;
-  if (suiteId) {
+  if (suiteId && !route.query.taskId) {
     try {
-      // 查找对应套件的最新评审任务
       const tasks = myInitiated.value;
-      const suiteTask = tasks.find(task => task.suite_id === parseInt(suiteId));
+      const suiteTask = tasks.find((task) => task.suite_id === parseInt(suiteId, 10));
       if (suiteTask) {
-        // 显示评审详情
-        await getReviewTaskDetail(suiteTask.id);
         reviewDialogTitle.value = "评审详情";
         reviewDialogVisible.value = true;
-      } else {
-        console.log('未找到对应套件的评审任务:', suiteId);
+        await getReviewTaskDetail(suiteTask.id);
       }
-      
-      // 移除URL中的suiteId参数，避免刷新页面时再次触发
-      router.replace({
-        query: {
-          activeTab: route.query.activeTab || "my-initiated"
-        }
-      });
+      const nextQuery = { ...route.query };
+      delete nextQuery.suiteId;
+      if (!nextQuery.activeTab) nextQuery.activeTab = "my-initiated";
+      router.replace({ path: route.path, query: Object.keys(nextQuery).length ? nextQuery : undefined });
     } catch (error) {
-      console.error('处理套件ID跳转失败:', error);
-      ElMessage.error('处理跳转失败，请手动查找评审任务');
-      
-      // 即使出错也移除URL中的suiteId参数
-      router.replace({
-        query: {
-          activeTab: route.query.activeTab || "my-initiated"
-        }
-      });
+      if (isPermissionError(error)) {
+        const nextQuery = { ...route.query };
+        delete nextQuery.suiteId;
+        if (!nextQuery.activeTab) nextQuery.activeTab = "my-initiated";
+        router.replace({ path: route.path, query: Object.keys(nextQuery).length ? nextQuery : undefined });
+        return;
+      }
+      console.error("处理套件ID跳转失败:", error);
+      ElMessage.error("处理跳转失败，请手动查找评审任务");
+      const nextQuery = { ...route.query };
+      delete nextQuery.suiteId;
+      if (!nextQuery.activeTab) nextQuery.activeTab = "my-initiated";
+      router.replace({ path: route.path, query: Object.keys(nextQuery).length ? nextQuery : undefined });
     }
   }
 });
@@ -1921,6 +2312,45 @@ onMounted(async () => {
   padding: 20px;
   border-radius: 8px;
   overflow: hidden;
+
+  .section-header,
+  .list-filter-bar,
+  .review-list-pagination {
+    flex-shrink: 0;
+  }
+}
+
+.review-history-sub-tabs {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.review-history-sub-tabs :deep(.el-tabs__content) {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.review-history-sub-tabs :deep(.el-tab-pane) {
+  height: 100%;
+}
+
+/* 按用例集查看历史：列表与分页布局，分页固定在容器底部 */
+.by-suite-layout {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.by-suite-layout .section-header,
+.by-suite-layout .suite-selector,
+.by-suite-layout .review-list-pagination {
+  flex-shrink: 0;
+}
+.by-suite-layout .review-table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 /* 表格外层滚动容器：解决 flex 布局下横向滚动无法滚到头的问题 */
@@ -1952,9 +2382,32 @@ onMounted(async () => {
   h3 {
     margin: 0;
     font-size: 16px;
-    font-weight: 600;
-    color: var(--el-text-color-primary, #303133);
   }
+
+  .section-tip {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+  }
+}
+
+.list-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+
+  .el-input,
+  .el-select {
+    margin: 0;
+  }
+}
+
+.review-list-pagination {
+  margin-top: 12px;
+  justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 .review-dialog-content {

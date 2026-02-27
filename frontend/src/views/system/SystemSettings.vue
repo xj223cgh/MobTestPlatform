@@ -48,28 +48,31 @@
               </el-form-item>
               <el-form-item label="系统Logo">
                 <div class="logo-upload-row">
-                  <el-upload
-                    class="logo-uploader"
-                    :action="uploadUrl"
-                    :show-file-list="false"
-                    :on-success="handleLogoSuccess"
-                    :before-upload="beforeLogoUpload"
+                  <div
+                    class="logo-preview-wrap"
+                    @click="triggerLogoFileInput"
                   >
                     <img
-                      v-if="basicSettings.systemLogo"
-                      :src="basicSettings.systemLogo"
-                      class="logo"
+                      :src="logoDisplayUrl"
+                      class="logo-preview-img"
+                      alt="Logo"
                     >
-                    <el-icon
-                      v-else
-                      class="logo-uploader-icon"
-                    >
-                      <Plus />
-                    </el-icon>
-                  </el-upload>
+                    <div class="logo-preview-overlay">
+                      <el-icon class="logo-preview-edit-icon">
+                        <Edit />
+                      </el-icon>
+                    </div>
+                  </div>
+                  <input
+                    ref="logoFileInputRef"
+                    type="file"
+                    accept="image/jpeg,image/png"
+                    class="logo-file-input"
+                    @change="onLogoFileChange"
+                  >
                   <el-button
                     type="default"
-                    :disabled="!basicSettings.systemLogo"
+                    :disabled="!basicSettings.systemLogo && !pendingLogoFile"
                     @click="resetLogoToDefault"
                   >
                     重置
@@ -149,6 +152,34 @@
           </div>
         </el-tab-pane>
 
+        <!-- 消息通知（用户个人设置） -->
+        <el-tab-pane
+          label="消息通知"
+          name="notification"
+        >
+          <div class="settings-content">
+            <h3>消息通知</h3>
+            <el-form
+              :model="notificationSettings"
+              label-width="140px"
+            >
+              <el-form-item label="新消息提示音">
+                <el-switch v-model="notificationSettings.notification_sound" />
+                <span style="margin-left: 10px">收到新消息时播放短提示音</span>
+              </el-form-item>
+              <el-form-item label="桌面通知">
+                <el-switch v-model="notificationSettings.notification_desktop" />
+                <span style="margin-left: 10px">使用浏览器桌面通知弹窗（需授权）</span>
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" @click="saveNotificationSettings">
+                  保存
+                </el-button>
+              </el-form-item>
+            </el-form>
+          </div>
+        </el-tab-pane>
+
         <!-- 安全设置 -->
         <el-tab-pane
           label="安全设置"
@@ -217,26 +248,38 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from "vue";
+import { ref, reactive, computed, onMounted, watch, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
-import { Plus, ArrowLeft } from "@element-plus/icons-vue";
-import { getUserSettings, updateUserSettings, getSystemSettings, updateSystemSettings } from "@/api/settings";
+import { Edit, ArrowLeft } from "@element-plus/icons-vue";
+import { getUserSettings, updateUserSettings, getSystemSettings, updateSystemSettings, uploadLogo } from "@/api/settings";
+import { isPermissionError } from "@/utils/request";
 import { useSystemSettingsStore } from "@/stores/systemSettings";
 
 const route = useRoute();
 const router = useRouter();
 const systemSettingsStore = useSystemSettingsStore();
 
-// 响应式数据（支持 URL query.tab 定位到对应功能，如 ?tab=feature 打开功能设置）
-const activeTab = ref(route.query.tab === "feature" || route.query.tab === "security" ? route.query.tab : "basic");
+// 响应式数据（支持 URL query.tab 定位到对应功能）
+const activeTab = ref(
+  ["feature", "security", "notification"].includes(route.query.tab) ? route.query.tab : "basic"
+);
 
 // 功能设置：报告生成方式（用户设置）+ 默认每页条数（系统设置）
 const featureSettings = reactive({
   report_auto_generate: "auto",
   defaultPageSize: 10,
 });
-const uploadUrl = ref("/api/files/upload/logo");
+// 默认图标：与浏览器标签页一致（蓝色 M）
+const defaultFaviconUrl = (import.meta.env.BASE_URL || "/").replace(/\/?$/, "/") + "favicon.svg";
+const logoFileInputRef = ref(null);
+const logoPreviewUrl = ref("");
+const pendingLogoFile = ref(null);
+
+// 显示用的 Logo：预览图 > 已保存的 Logo > 默认图标
+const logoDisplayUrl = computed(
+  () => logoPreviewUrl.value || basicSettings.systemLogo || defaultFaviconUrl
+);
 
 // 基础设置
 const basicSettings = reactive({
@@ -245,6 +288,12 @@ const basicSettings = reactive({
   systemVersion: "1.0.0",
   systemLogo: "",
   theme: "light",
+});
+
+// 消息通知（用户个人设置，默认提示音开、桌面通知关）
+const notificationSettings = reactive({
+  notification_sound: true,
+  notification_desktop: false,
 });
 
 // 安全设置（会话超时默认 24 小时 = 1440 分钟）
@@ -273,6 +322,15 @@ const BASIC_KEYS = {
 
 const saveBasicSettings = async () => {
   try {
+    let logoUrl = basicSettings.systemLogo;
+    if (pendingLogoFile.value) {
+      const res = await uploadLogo(pendingLogoFile.value);
+      logoUrl = res?.data?.url ?? res?.data?.data?.url ?? "";
+      if (logoPreviewUrl.value) URL.revokeObjectURL(logoPreviewUrl.value);
+      logoPreviewUrl.value = "";
+      pendingLogoFile.value = null;
+      basicSettings.systemLogo = logoUrl;
+    }
     const payload = {};
     for (const [frontKey, backKey] of Object.entries(BASIC_KEYS)) {
       if (basicSettings[frontKey] !== undefined && basicSettings[frontKey] !== null) {
@@ -283,6 +341,7 @@ const saveBasicSettings = async () => {
     systemSettingsStore.setFromSettings(basicSettings);
     ElMessage.success("基础设置保存成功");
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error(error?.response?.data?.message || "保存失败");
   }
 };
@@ -304,6 +363,19 @@ const SECURITY_KEYS = {
   loginFailureLock: "login_failure_lock",
 };
 
+const saveNotificationSettings = async () => {
+  try {
+    await updateUserSettings({
+      notification_sound: notificationSettings.notification_sound ? "true" : "false",
+      notification_desktop: notificationSettings.notification_desktop ? "true" : "false",
+    });
+    ElMessage.success("消息通知设置已保存");
+  } catch (error) {
+    if (isPermissionError(error)) return;
+    ElMessage.error(error?.response?.data?.message || "保存失败");
+  }
+};
+
 const saveSecuritySettings = async () => {
   try {
     const payload = {
@@ -317,6 +389,7 @@ const saveSecuritySettings = async () => {
     await updateSystemSettings(payload);
     ElMessage.success("安全设置保存成功");
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error(error?.response?.data?.message || "保存失败");
   }
 };
@@ -329,36 +402,44 @@ const resetSecuritySettings = () => {
   });
 };
 
-const handleLogoSuccess = (response) => {
-  const url = response?.data?.data?.url ?? response?.data?.url;
-  if (url) {
-    basicSettings.systemLogo = url;
-    systemSettingsStore.systemLogo = url; // 立即应用为预览（侧边栏、标签页图标）
+const triggerLogoFileInput = () => {
+  logoFileInputRef.value?.click();
+};
+
+const onLogoFileChange = (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file) return;
+  if (file.type !== "image/jpeg" && file.type !== "image/png") {
+    ElMessage.error("Logo 仅支持 JPG/PNG 格式");
+    return;
   }
-  ElMessage.success("Logo 已选择，请点击「保存设置」生效");
+  if (file.size / 1024 / 1024 > 2) {
+    ElMessage.error("Logo 大小不能超过 2MB");
+    return;
+  }
+  if (logoPreviewUrl.value) URL.revokeObjectURL(logoPreviewUrl.value);
+  logoPreviewUrl.value = URL.createObjectURL(file);
+  pendingLogoFile.value = file;
+  systemSettingsStore.systemLogo = logoPreviewUrl.value;
+  ElMessage.success("已选择新 Logo，点击「保存」后生效");
 };
 
 const resetLogoToDefault = () => {
-  if (!basicSettings.systemLogo) return;
+  if (!basicSettings.systemLogo && !pendingLogoFile.value) return;
+  if (logoPreviewUrl.value) {
+    URL.revokeObjectURL(logoPreviewUrl.value);
+    logoPreviewUrl.value = "";
+  }
+  pendingLogoFile.value = null;
   basicSettings.systemLogo = "";
-  systemSettingsStore.systemLogo = ""; // 立即应用为预览
-  ElMessage.success("已重置为默认图标，请点击「保存设置」生效");
+  systemSettingsStore.systemLogo = "";
+  ElMessage.success("已重置为默认图标，点击「保存」后生效");
 };
 
-const beforeLogoUpload = (file) => {
-  const isJPG = file.type === "image/jpeg" || file.type === "image/png";
-  const isLt2M = file.size / 1024 / 1024 < 2;
-
-  if (!isJPG) {
-    ElMessage.error("Logo只能是 JPG/PNG 格式!");
-    return false;
-  }
-  if (!isLt2M) {
-    ElMessage.error("Logo大小不能超过 2MB!");
-    return false;
-  }
-  return true;
-};
+onBeforeUnmount(() => {
+  if (logoPreviewUrl.value) URL.revokeObjectURL(logoPreviewUrl.value);
+});
 
 const saveFeatureSettings = async () => {
   try {
@@ -371,6 +452,7 @@ const saveFeatureSettings = async () => {
     systemSettingsStore.setFromSettings({ defaultPageSize: featureSettings.defaultPageSize });
     ElMessage.success("功能设置已保存");
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error(error?.response?.data?.message || "保存失败");
   }
 };
@@ -381,6 +463,12 @@ const loadSettings = async () => {
     if (userRes?.data && typeof userRes.data === "object") {
       if (userRes.data.report_auto_generate !== undefined) {
         featureSettings.report_auto_generate = userRes.data.report_auto_generate === "manual" ? "manual" : "auto";
+      }
+      if (userRes.data.notification_sound !== undefined) {
+        notificationSettings.notification_sound = userRes.data.notification_sound !== "false";
+      }
+      if (userRes.data.notification_desktop !== undefined) {
+        notificationSettings.notification_desktop = userRes.data.notification_desktop === "true";
       }
     }
   } catch (error) {
@@ -394,6 +482,8 @@ const loadSettings = async () => {
       if (d.system_description !== undefined) basicSettings.systemDescription = d.system_description;
       if (d.system_version !== undefined) basicSettings.systemVersion = d.system_version;
       if (d.system_logo !== undefined) basicSettings.systemLogo = d.system_logo || "";
+      logoPreviewUrl.value = "";
+      pendingLogoFile.value = null;
       if (d.theme !== undefined) basicSettings.theme = d.theme;
       if (d.default_page_size !== undefined && d.default_page_size !== null && d.default_page_size !== "") {
         const v = Number(d.default_page_size);
@@ -418,6 +508,8 @@ const loadSettings = async () => {
           securitySettings.passwordPolicy = [];
         }
       }
+      // 同步到全局 store，使侧边栏 Logo、标签页图标与当前系统设置一致
+      systemSettingsStore.setFromSettings(basicSettings);
     }
   } catch (error) {
     console.error("加载系统设置失败:", error);
@@ -488,34 +580,53 @@ onMounted(() => {
   gap: 12px;
 }
 
-.logo-uploader .logo {
-  width: 100px;
-  height: 100px;
-  display: block;
-  border-radius: 6px;
-  object-fit: cover;
-}
-
-.logo-uploader :deep(.el-upload) {
-  border: 1px dashed var(--el-border-color, #d9d9d9);
-  border-radius: 6px;
-  cursor: pointer;
+.logo-preview-wrap {
   position: relative;
-  overflow: hidden;
-  transition: 0.2s;
-}
-
-.logo-uploader :deep(.el-upload:hover) {
-  border-color: var(--el-color-primary, #409eff);
-}
-
-.logo-uploader-icon {
-  font-size: 28px;
-  color: var(--el-text-color-placeholder, #8c939d);
   width: 100px;
   height: 100px;
-  line-height: 100px;
-  text-align: center;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid var(--el-border-color, #dcdfe6);
+  flex-shrink: 0;
+  background: var(--el-fill-color-light, #f5f7fa);
+}
+
+.logo-preview-wrap:hover .logo-preview-overlay {
+  opacity: 1;
+}
+
+.logo-preview-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  object-position: center;
+  border-radius: 8px;
+}
+
+.logo-preview-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.logo-preview-edit-icon {
+  font-size: 28px;
+  color: #fff;
+}
+
+.logo-file-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 :deep(.el-tabs__content) {

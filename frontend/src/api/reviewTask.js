@@ -98,6 +98,15 @@ export const restartReview = (taskId) => {
   });
 };
 
+// 获取当前用户参与的全部最近评审历史（按时间）
+export const getRecentReviewHistory = (params) => {
+  return request({
+    url: "/review-tasks/review-center/recent-history",
+    method: "get",
+    params,
+  });
+};
+
 // 获取评审历史记录列表
 export const getReviewHistoryList = (taskId) => {
   return request({

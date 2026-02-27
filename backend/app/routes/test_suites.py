@@ -293,32 +293,6 @@ def update_test_suite(suite_id):
         return error_response(500, f'更新测试套件失败: {str(e)}')
 
 
-@bp.route('/<int:suite_id>/sync-reviewer', methods=['POST'])
-@login_required
-def sync_reviewer_to_cases(suite_id):
-    """同步评审人到用例集下的所有用例（已废弃，评审人信息从评审任务中获取）"""
-    try:
-        # 获取测试套件
-        suite = TestSuite.query.get_or_404(suite_id)
-        
-        # 检查是否为用例集
-        if suite.type != 'suite':
-            return error_response(400, '只有用例集才能同步评审人到用例')
-        
-        # 获取该用例集下的所有用例
-        from app.models.models import TestCase
-        cases = TestCase.query.filter_by(suite_id=suite_id).all()
-        
-        # 评审人信息从评审任务中获取，不再需要同步
-        # 提交更改
-        db.session.commit()
-        
-        return success_response({"message": f"评审人同步功能已废弃，评审人信息从评审任务中获取", "cases_count": len(cases)})
-    except Exception as e:
-        db.session.rollback()
-        return error_response(500, f'同步评审人失败: {str(e)}')
-
-
 def _collect_suite_ids(suite_obj):
     """收集该套件及其所有子孙套件的 id 列表（用于关联引用校验）"""
     ids = [suite_obj.id]

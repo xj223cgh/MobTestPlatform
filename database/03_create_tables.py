@@ -56,6 +56,16 @@ def create_tables():
                 INDEX idx_phone (phone),
                 INDEX idx_role (role)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表'""")
+
+            # 创建role_permissions表（角色-埋点配置）
+            cursor.execute("""CREATE TABLE IF NOT EXISTS role_permissions (
+                id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'ID',
+                role VARCHAR(20) NOT NULL COMMENT '角色：super/manager/tester/admin',
+                permission_code VARCHAR(80) NOT NULL COMMENT '埋点编码',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                UNIQUE KEY uk_role_permission (role, permission_code),
+                INDEX idx_role (role)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色权限配置表'""")
             
             # 创建projects表
             cursor.execute("""CREATE TABLE IF NOT EXISTS projects (
@@ -523,6 +533,35 @@ def create_tables():
                 INDEX idx_assignee_id (assignee_id),
                 INDEX idx_status (status)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='报告表'""")
+
+            # 创建notifications表（消息通知，含置顶字段）
+            cursor.execute("""CREATE TABLE IF NOT EXISTS notifications (
+                id INT AUTO_INCREMENT PRIMARY KEY COMMENT '通知ID',
+                user_id INT NOT NULL COMMENT '接收人用户ID',
+                type VARCHAR(80) NOT NULL COMMENT '消息类型',
+                title VARCHAR(255) NOT NULL COMMENT '标题',
+                summary TEXT COMMENT '摘要',
+                is_read BOOLEAN DEFAULT FALSE COMMENT '是否已读',
+                is_pinned BOOLEAN DEFAULT FALSE COMMENT '是否置顶',
+                related_type VARCHAR(50) NULL COMMENT '关联实体类型',
+                related_id INT NULL COMMENT '关联实体ID',
+                extra JSON NULL COMMENT '扩展信息',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                deleted_at DATETIME NULL COMMENT '软删除时间',
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                INDEX idx_user_created (user_id, created_at),
+                INDEX idx_user_read (user_id, is_read),
+                INDEX idx_user_deleted (user_id, deleted_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消息通知表'""")
+
+            # 兼容已有库：若 notifications 已存在但无 is_pinned 列，则追加
+            cursor.execute("SHOW TABLES LIKE 'notifications'")
+            if cursor.fetchone():
+                cursor.execute("SHOW COLUMNS FROM notifications LIKE 'is_pinned'")
+                if cursor.fetchone() is None:
+                    cursor.execute("ALTER TABLE notifications ADD COLUMN is_pinned TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否置顶' AFTER is_read")
+                    connection.commit()
+                    print("已为 notifications 表添加 is_pinned 列")
             
             connection.commit()
             print("所有数据表创建成功！")
@@ -542,6 +581,15 @@ def create_tables():
                 connection.commit()
             except Exception as repair_e:
                 print(f"优先级修复跳过（可忽略）: {repair_e}")
+
+            # 角色展示统一：原「实习生」改为「普通成员」（仅更新展示用 real_name，role 仍为 admin）
+            try:
+                cursor.execute("UPDATE users SET real_name = '普通成员' WHERE role = 'admin' AND real_name = '实习生'")
+                if cursor.rowcount and cursor.rowcount > 0:
+                    print(f"已更新用户角色展示：{cursor.rowcount} 条 real_name 实习生 → 普通成员")
+                connection.commit()
+            except Exception as role_e:
+                print(f"用户角色展示更新跳过（可忽略）: {role_e}")
 
             return True
             

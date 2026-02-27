@@ -384,6 +384,7 @@ import { getUserList } from "@/api/user";
 import deviceApi from "@/api/device";
 import { manualGenerateReport } from "@/api/report";
 import { getUserSettings } from "@/api/settings";
+import { isPermissionError } from "@/utils/request";
 import TaskDialog from "./components/TaskDialog.vue";
 
 const activeTab = ref("test_case");
@@ -894,6 +895,7 @@ const loadTasks = async () => {
       taskList.testCase = res.data.test_tasks;
       pagination.testCase.total = res.data.pagination.total;
     } catch (error) {
+      if (isPermissionError(error)) return;
       console.error("加载测试用例任务列表失败:", error);
       ElMessage.error("加载测试用例任务列表失败");
     } finally {
@@ -913,6 +915,7 @@ const loadTasks = async () => {
       taskList.deviceScript = res.data.test_tasks;
       pagination.deviceScript.total = res.data.pagination.total;
     } catch (error) {
+      if (isPermissionError(error)) return;
       console.error("加载设备脚本任务列表失败:", error);
       ElMessage.error("加载设备脚本任务列表失败");
     } finally {
@@ -984,6 +987,7 @@ const handleExecute = async (row) => {
     }
   } catch (error) {
     if (error !== "cancel") {
+      if (isPermissionError(error)) return;
       console.error("执行测试任务失败:", error);
       ElMessage.error(
         "执行测试任务失败：" + (error.response?.data?.message || error.message),
@@ -1006,6 +1010,7 @@ const handleStopTask = async (row) => {
     loadTasks();
   } catch (error) {
     if (error !== "cancel" && error !== "close") {
+      if (isPermissionError(error)) return;
       console.error("停止任务失败:", error);
       ElMessage.error(
         "停止任务失败：" + (error.response?.data?.message || error.message),
@@ -1021,6 +1026,7 @@ const handleReExecute = async (row) => {
     loadTasks();
   } catch (error) {
     if (error !== "cancel") {
+      if (isPermissionError(error)) return;
       console.error("重新执行任务失败:", error);
       ElMessage.error(
         "重新执行任务失败：" + (error.response?.data?.message || error.message),
@@ -1048,6 +1054,7 @@ const handleGenerateReport = async (row) => {
       ElMessage.error(res?.message || "生成报告失败");
     }
   } catch (e) {
+    if (isPermissionError(e)) return;
     ElMessage.error(e?.response?.data?.message || e?.message || "生成报告失败");
   }
 };
@@ -1073,6 +1080,7 @@ const handleDelete = async (row) => {
     loadTasks();
   } catch (error) {
     if (error !== "cancel") {
+      if (isPermissionError(error)) return;
       console.error("删除测试任务失败:", error);
       ElMessage.error(
         "删除测试任务失败：" + (error.response?.data?.message || error.message),
@@ -1131,6 +1139,10 @@ const onFolderContextMenuMousedown = (e) => {
 };
 
 onMounted(() => {
+  // 从设备脚本执行页返回时保持设备脚本任务标签
+  if (route.query.tab === "device_script") {
+    activeTab.value = "device_script";
+  }
   loadFolderTree();
   loadTasks();
   loadUsers();
@@ -1153,6 +1165,18 @@ watch(
     if (newPath === "/test-tasks") {
       loadTasks();
       loadReportSetting();
+    }
+  }
+);
+
+// 从执行页返回带 tab=device_script 时保持设备脚本标签（path 未变仅 query 变时 path 的 watch 不触发）
+watch(
+  () => route.query.tab,
+  (tab) => {
+    if (tab === "device_script") {
+      activeTab.value = "device_script";
+      loadFolderTree();
+      loadTasks();
     }
   }
 );

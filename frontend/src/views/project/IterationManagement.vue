@@ -55,7 +55,11 @@
         <!-- 右侧迭代卡片 -->
         <div
           class="iteration-card"
-          :class="[`status-${iteration.status}`, { 'highlight-card': highlightId && iteration.id === highlightId }]"
+          :class="[
+            `status-${iteration.status}`,
+            { 'highlight-card': highlightId && iteration.id === highlightId },
+            { 'notification-flash-card': flashId && iteration.id === flashId }
+          ]"
         >
           <!-- 卡片头部 - 左侧区域 -->
           <div class="card-section card-main">
@@ -330,6 +334,7 @@ import {
   deleteIteration as deleteIterationApi,
 } from "@/api/iteration";
 import { getProjects } from "@/api/project";
+import { isPermissionError } from "@/utils/request";
 import { ElLoading, ElMessage, ElMessageBox } from "element-plus";
 
 export default {
@@ -343,6 +348,9 @@ export default {
 
       // 从用例集信息跳转时高亮指定行（仅此时有值）
       highlightId: null,
+      // 消息跳转时的短暂闪烁卡片（2.5s 后清除）
+      flashId: null,
+      flashClearTimer: null,
 
       // 迭代列表数据
       iterations: [],
@@ -506,6 +514,15 @@ export default {
         this.projects = response.data?.items || [];
         const q = this.$route?.query || {};
         this.highlightId = q.highlight_id ? Number(q.highlight_id) : null;
+        if (this.flashClearTimer) {
+          clearTimeout(this.flashClearTimer);
+          this.flashClearTimer = null;
+        }
+        if (q.highlight_id) {
+          this.flashId = Number(q.highlight_id);
+        } else {
+          this.flashId = null;
+        }
         if (this.projects.length > 0) {
           if (q.project_id) {
             const pid = Number(q.project_id);
@@ -515,9 +532,9 @@ export default {
             this.selectedProjectId = this.projects[0].id;
           }
           await this.loadIterations();
-          if (this.highlightId) {
+          if (this.highlightId || this.flashId) {
             this.$nextTick(() => {
-              const el = this.$el?.querySelector(".highlight-card");
+              const el = this.$el?.querySelector(".notification-flash-card, .highlight-card");
               if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
             });
           }
@@ -525,6 +542,7 @@ export default {
           this.pageLoading = false;
         }
       } catch (error) {
+        if (isPermissionError(error)) return;
         console.error("获取项目列表失败:", error);
         this.pageLoading = false;
         ElMessage.error(
@@ -547,11 +565,22 @@ export default {
           this.iterationsData = [...this.iterations].sort((a, b) => {
             return new Date(a.start_date) - new Date(b.start_date);
           });
+          // 列表加载后再启动闪烁清除定时器（消息跳转）
+          if (this.flashId && this.iterationsData.some((it) => it.id === this.flashId) && !this.flashClearTimer) {
+            this.flashClearTimer = setTimeout(() => {
+              this.flashId = null;
+              const newQuery = { ...this.$route.query };
+              delete newQuery.highlight_id;
+              this.$router.replace({ path: this.$route.path, query: Object.keys(newQuery).length ? newQuery : undefined });
+              this.flashClearTimer = null;
+            }, 2600);
+          }
         } else {
           this.iterations = [];
           this.iterationsData = [];
         }
       } catch (error) {
+        if (isPermissionError(error)) return;
         console.error("获取迭代列表失败:", error);
         ElMessage.error(
           "获取迭代列表失败: " + (error?.message || "未知错误"),
@@ -663,6 +692,7 @@ export default {
         this.closeIterationDialog();
         this.loadIterations();
       } catch (error) {
+        if (isPermissionError(error)) return;
         console.error("提交迭代表单失败:", error);
         ElMessage.error("操作失败: " + (error?.message || "未知错误"));
       }
@@ -695,6 +725,7 @@ export default {
         this.loadIterations();
       } catch (error) {
         if (error !== "cancel") {
+          if (isPermissionError(error)) return;
           console.error("删除迭代失败:", error);
           // 400 校验等已由 request 拦截器统一展示，此处仅处理无 response 的情况
           if (!error.response?.data?.message) {

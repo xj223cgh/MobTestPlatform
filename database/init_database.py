@@ -65,7 +65,7 @@ def main():
     print("   - Lethe (超级管理员): 123321")
     print("   - Manager (管理员): 123321")
     print("   - Tester (测试人员): 123321")
-    print("   - Admin (实习生): 123321")
+    print("   - Admin (普通成员): 123321")
     print("=" * 50)
     
     return 0

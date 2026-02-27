@@ -64,7 +64,7 @@
               value="tester"
             />
             <el-option
-              label="实习生"
+              label="普通成员"
               value="admin"
             />
           </el-select>
@@ -223,7 +223,20 @@
               >
                 编辑
               </el-button>
+              <el-tooltip v-if="row.username === 'Lethe'" content="超级管理员账号不可禁用" placement="top">
+                <span>
+                  <el-button
+                    :type="row.is_active ? 'warning' : 'success'"
+                    size="small"
+                    class="op-btn"
+                    disabled
+                  >
+                    {{ row.is_active ? "禁用" : "启用" }}
+                  </el-button>
+                </span>
+              </el-tooltip>
               <el-button
+                v-else
                 :type="row.is_active ? 'warning' : 'success'"
                 size="small"
                 class="op-btn"
@@ -231,7 +244,13 @@
               >
                 {{ row.is_active ? "禁用" : "启用" }}
               </el-button>
+              <el-tooltip v-if="row.username === 'Lethe'" content="超级管理员账号不可删除" placement="top">
+                <span>
+                  <el-button type="danger" size="small" class="op-btn" disabled>删除</el-button>
+                </span>
+              </el-tooltip>
               <el-button
+                v-else
                 type="danger"
                 size="small"
                 class="op-btn"
@@ -320,8 +339,10 @@
             v-model="userForm.role"
             placeholder="请选择角色"
             style="width: 100%"
+            :disabled="isEdit && userForm.username === 'Lethe'"
           >
             <el-option
+              v-if="userForm.username === 'Lethe'"
               label="超级管理员"
               value="super"
             />
@@ -334,10 +355,11 @@
               value="tester"
             />
             <el-option
-              label="实习生"
+              label="普通成员"
               value="admin"
             />
           </el-select>
+          <div v-if="isEdit && userForm.username === 'Lethe'" class="form-item-tip">超级管理员账号角色固定，不可修改</div>
         </el-form-item>
         <el-form-item
           label="性别"
@@ -416,6 +438,7 @@ import {
   toggleUserStatus,
 } from "@/api/user";
 import dayjs from "dayjs";
+import { isPermissionError } from "@/utils/request";
 import { useUserStore } from "@/stores/user";
 
 // 响应式数据
@@ -547,6 +570,7 @@ const fetchUserList = async () => {
       pagination.total = total;
     }
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error("获取用户列表失败");
     console.error("获取用户列表错误:", error);
   } finally {
@@ -629,6 +653,7 @@ const handleDelete = (row) => {
         }
       }
     } catch (error) {
+      if (isPermissionError(error)) return;
       // 校验类（如 400 关联引用）已由拦截器提示，不再重复「删除失败」
       if (!error.response?.data?.message) {
         ElMessage.error("删除失败");
@@ -661,7 +686,10 @@ const handleToggleStatus = (row) => {
       ElMessage.success(`${action}成功`);
       fetchUserList();
     } catch (error) {
-      ElMessage.error(`${action}失败`);
+      if (isPermissionError(error)) return;
+      if (!error?.response?.data?.message) {
+        ElMessage.error(`${action}失败`);
+      }
     }
   });
 };
@@ -713,7 +741,12 @@ const handleSubmit = async () => {
       );
     }
   } catch (error) {
-    ElMessage.error("操作失败");
+    if (isPermissionError(error)) return;
+    // 校验类错误（如手机号重复、真实姓名为空等）已由请求拦截器统一提示，此处不再重复
+    const hasShown = error?.response?.data?.message || (error?.response?.data?.errors && Object.keys(error.response.data.errors).length > 0);
+    if (!hasShown) {
+      ElMessage.error("操作失败");
+    }
   } finally {
     submitLoading.value = false;
   }
@@ -754,7 +787,7 @@ const handleCurrentChange = (page) => {
 const getRoleLabel = (role) => {
   const roleMap = {
     super: "超级管理员",
-    admin: "实习生",
+    admin: "普通成员",
     manager: "管理员",
     tester: "测试人员",
   };
@@ -798,6 +831,16 @@ const scrollToHighlightRow = () => {
     }, 150);
   });
 };
+
+// 仅 Lethe 可拥有超级管理员：用户名非 Lethe 时若当前选了 super 则重置为 admin
+watch(
+  () => userForm.username,
+  (name) => {
+    if (name !== "Lethe" && userForm.role === "super") {
+      userForm.role = "admin";
+    }
+  }
+);
 
 watch(
   () => [userList.value.length, highlightId.value],
@@ -944,6 +987,12 @@ onMounted(() => {
   .table-section {
     margin-bottom: 70px;
   }
+}
+
+.form-item-tip {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-top: 4px;
 }
 
 /* 操作列：与需求管理页面一致，紧凑按钮样式 */

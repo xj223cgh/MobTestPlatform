@@ -530,7 +530,10 @@ const highlightId = computed(() => {
   const id = route.query.highlight_id;
   return id ? Number(id) : null;
 });
+const flashRowId = ref(null);
+let flashClearTimer = null;
 const getRowClassName = ({ row }) => {
+  if (flashRowId.value && row.id === flashRowId.value) return "notification-flash-row";
   if (highlightId.value && row.id === highlightId.value) return "highlight-row";
   return "";
 };
@@ -948,21 +951,57 @@ const handleCreatorChange = (row) => {
   row._displayUserId = row.creator_id;
 };
 
-// 高亮行滚动到视口（仅当通过 highlight_id 跳转时）
+// 高亮行滚动到视口（仅当通过 highlight_id 或消息跳转时）
 const scrollToHighlightRow = () => {
-  if (!highlightId.value || !projectList.value.length) return;
+  const targetId = flashRowId.value || highlightId.value;
+  if (!targetId || !projectList.value.length) return;
   nextTick(() => {
     setTimeout(() => {
       const table = projectTableRef.value?.$el;
       if (!table) return;
-      const row = table.querySelector("tr.highlight-row");
+      const row = table.querySelector("tr.notification-flash-row, tr.highlight-row");
       if (row) row.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }, 150);
   });
 };
 
 watch(
-  () => [projectList.value.length, highlightId.value],
+  () => route.query?.highlight_id,
+  (idVal) => {
+    if (flashClearTimer) {
+      clearTimeout(flashClearTimer);
+      flashClearTimer = null;
+    }
+    if (!idVal) {
+      flashRowId.value = null;
+      return;
+    }
+    flashRowId.value = Number(idVal);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => [projectList.value, flashRowId.value],
+  () => {
+    const id = flashRowId.value;
+    if (!id || !projectList.value.length) return;
+    const hasRow = projectList.value.some((p) => p.id === id);
+    if (!hasRow) return;
+    if (flashClearTimer) return;
+    flashClearTimer = setTimeout(() => {
+      flashRowId.value = null;
+      const q = { ...route.query };
+      delete q.highlight_id;
+      router.replace({ path: route.path, query: Object.keys(q).length ? q : undefined });
+      flashClearTimer = null;
+    }, 2600);
+  },
+  { flush: "post" }
+);
+
+watch(
+  () => [projectList.value.length, highlightId.value, flashRowId.value],
   () => scrollToHighlightRow(),
   { flush: "post" }
 );

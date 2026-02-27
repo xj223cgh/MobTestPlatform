@@ -1,6 +1,6 @@
 import request from "@/utils/request";
 
-// 获取用户列表
+// 获取用户列表（需 user.list 权限，用于用户管理页）
 export function getUserList(params) {
   return request({
     url: "/users",
@@ -9,11 +9,12 @@ export function getUserList(params) {
   });
 }
 
-// 获取用户详情
-export function getUserDetail(id) {
+// 获取用户选项（仅需登录，用于评审人/负责人/执行人等下拉）
+export function getUserOptions(params) {
   return request({
-    url: `/users/${id}`,
+    url: "/users/options",
     method: "get",
+    params: params || { size: 1000 },
   });
 }
 
@@ -60,69 +61,13 @@ export function resetUserPassword(id, data) {
   });
 }
 
-// 批量删除用户
-export function batchDeleteUsers(ids) {
-  return request({
-    url: "/users/batch-delete",
-    method: "post",
-    data: { ids },
-  });
-}
-
-// 导出用户数据
-export function exportUsers(params) {
-  return request({
-    url: "/users/export",
-    method: "get",
-    params,
-    responseType: "blob",
-  });
-}
-
-// 导入用户数据
-export function importUsers(file) {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  return request({
-    url: "/users/import",
-    method: "post",
-    data: formData,
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
-}
-
-// 获取用户统计信息
-export function getUserStats() {
-  return request({
-    url: "/users/stats",
-    method: "get",
-  });
-}
-
-// 搜索用户
-export function searchUsers(keyword) {
-  return request({
-    url: "/users/search",
-    method: "get",
-    params: { keyword },
-  });
-}
-
 // 默认导出所有方法
 export default {
   getUserList,
-  getUserDetail,
+  getUserOptions,
   createUser,
   updateUser,
   deleteUser,
   toggleUserStatus,
   resetUserPassword,
-  batchDeleteUsers,
-  exportUsers,
-  importUsers,
-  getUserStats,
-  searchUsers,
 };

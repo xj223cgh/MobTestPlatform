@@ -7,6 +7,18 @@ from app.utils.helpers import success_response, error_response, get_pagination_p
 # 设置本地时区
 LOCAL_TIMEZONE = timezone(timedelta(hours=8))
 
+# 评审结果枚举值 -> 通知/展示用中文
+REVIEW_STATUS_LABEL = {
+    "approved": "已通过",
+    "rejected": "已拒绝",
+    "pending": "待审核",
+    "completed": "已完成",
+    "in_review": "评审中",
+}
+
+def _review_status_label(value):
+    return REVIEW_STATUS_LABEL.get(value, value) if value else value
+
 # 创建Blueprint
 bp = Blueprint('review_tasks', __name__, url_prefix='/api/review-tasks')
 
@@ -67,9 +79,9 @@ def initiate_review(suite_id):
             db.session.add(case_review)
         
         # 不需要更新用例集状态，评审状态由评审任务管理
-        
         db.session.commit()
-        
+        from app.services.notification_service import notify_users
+        notify_users([reviewer_id], 'review_pending', '待评审', f'你有新的用例集评审任务待处理（{suite.suite_name}）', 'review_task', review_task.id, exclude_user_id=current_user.id)
         return success_response({
             'message': f'成功发起评审，共{len(cases)}条用例待评审',
             'review_task_id': review_task.id,
@@ -247,7 +259,9 @@ def complete_review(task_id):
             case.last_reviewed_at = now
             case_review.updated_at = now  # 确保用例评审列表的“评审时间”有值
         db.session.commit()
-        
+        if review_task.initiator_id and review_task.initiator_id != current_user.id:
+            from app.services.notification_service import notify_users
+            notify_users([review_task.initiator_id], 'review_completed', '评审已完成', f'用例集评审已结束，结果：{_review_status_label(suite_review_status)}', 'review_task', task_id, extra={'suite_review_status': suite_review_status}, exclude_user_id=current_user.id)
         return success_response({
             'message': '评审已完成',
             'review_task': review_task.to_dict(),
@@ -303,6 +317,20 @@ def get_my_review_tasks():
         # 处理筛选条件
         if request.args.get('status'):
             query = query.filter_by(status=request.args['status'])
+        if request.args.get('suite_name'):
+            query = query.join(TestSuite).filter(TestSuite.suite_name.like(f'%{request.args["suite_name"].strip()}%'))
+        if request.args.get('created_after'):
+            try:
+                t = datetime.strptime(request.args['created_after'], '%Y-%m-%d').replace(tzinfo=LOCAL_TIMEZONE)
+                query = query.filter(TestSuiteReviewTask.created_at >= t)
+            except ValueError:
+                pass
+        if request.args.get('created_before'):
+            try:
+                t = datetime.strptime(request.args['created_before'], '%Y-%m-%d').replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=LOCAL_TIMEZONE)
+                query = query.filter(TestSuiteReviewTask.created_at <= t)
+            except ValueError:
+                pass
         
         # 执行分页查询
         pagination = query.order_by(TestSuiteReviewTask.created_at.desc()).paginate(
@@ -358,6 +386,20 @@ def get_my_initiated_reviews():
         # 处理筛选条件
         if request.args.get('status'):
             query = query.filter_by(status=request.args['status'])
+        if request.args.get('suite_name'):
+            query = query.join(TestSuite).filter(TestSuite.suite_name.like(f'%{request.args["suite_name"].strip()}%'))
+        if request.args.get('created_after'):
+            try:
+                t = datetime.strptime(request.args['created_after'], '%Y-%m-%d').replace(tzinfo=LOCAL_TIMEZONE)
+                query = query.filter(TestSuiteReviewTask.created_at >= t)
+            except ValueError:
+                pass
+        if request.args.get('created_before'):
+            try:
+                t = datetime.strptime(request.args['created_before'], '%Y-%m-%d').replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=LOCAL_TIMEZONE)
+                query = query.filter(TestSuiteReviewTask.created_at <= t)
+            except ValueError:
+                pass
         
         # 执行分页查询
         pagination = query.order_by(TestSuiteReviewTask.created_at.desc()).paginate(
@@ -411,9 +453,9 @@ def restart_review(task_id):
         if current_user.id != review_task.reviewer_id:
             return error_response(403, '只有评审人可以重新评审')
         
-        # 验证评审任务状态：只有已完成的评审才能重新评审
-        if review_task.status != 'completed':
-            return error_response(400, '只有已完成的评审才能重新评审')
+        # 验证评审任务状态：已完成或已拒绝的评审均可重新评审（评审人可重新打开继续评）
+        if review_task.status not in ('completed', 'rejected'):
+            return error_response(400, '只有已完成或已拒绝的评审才能重新评审')
         
         # 重新评审，将状态改为评审中
         review_task.status = 'in_review'
@@ -421,6 +463,19 @@ def restart_review(task_id):
         
         db.session.commit()
         
+        # 通知发起人：评审人已重新开始评审
+        if review_task.initiator_id and review_task.initiator_id != current_user.id:
+            from app.services.notification_service import notify_users
+            suite_name = review_task.suite.suite_name if review_task.suite else '用例集'
+            notify_users(
+                [review_task.initiator_id],
+                'review_restarted',
+                '重新评审',
+                f'评审人已重新开始评审用例集（{suite_name}）',
+                'review_task',
+                task_id,
+                exclude_user_id=current_user.id,
+            )
         return success_response({
             'message': '重新评审成功',
             'review_task': review_task.to_dict()
@@ -442,9 +497,9 @@ def reinitiate_review(task_id):
         if current_user.id != review_task.initiator_id:
             return error_response(403, '只有评审发起人可以重新发起评审')
         
-        # 验证评审任务状态：只有已拒绝的评审才能重新发起
-        if review_task.status != 'rejected':
-            return error_response(400, '只有已拒绝的评审才能重新发起')
+        # 验证评审任务状态：已完成或已拒绝的评审均可重新发起（发起人可再发起一轮）
+        if review_task.status not in ('completed', 'rejected'):
+            return error_response(400, '只有已完成或已拒绝的评审才能重新发起')
         
         # 重新发起评审，将状态改为待处理，清除结束时间
         review_task.status = 'pending'
@@ -453,6 +508,19 @@ def reinitiate_review(task_id):
         
         db.session.commit()
         
+        # 通知评审人：发起人已重新发起，请处理
+        if review_task.reviewer_id and review_task.reviewer_id != current_user.id:
+            from app.services.notification_service import notify_users
+            suite_name = review_task.suite.suite_name if review_task.suite else '用例集'
+            notify_users(
+                [review_task.reviewer_id],
+                'review_pending',
+                '待评审',
+                f'发起人已重新发起评审，请处理（{suite_name}）',
+                'review_task',
+                task_id,
+                exclude_user_id=current_user.id,
+            )
         return success_response({
             'message': '重新发起评审成功',
             'review_task': review_task.to_dict()
@@ -547,7 +615,9 @@ def reject_review(task_id):
         # 不需要重置用例的评审结果，只需要将评审任务状态改为待评审
         
         db.session.commit()
-        
+        if review_task.initiator_id and review_task.initiator_id != current_user.id:
+            from app.services.notification_service import notify_users
+            notify_users([review_task.initiator_id], 'review_rejected', '评审被拒绝', '评审人已拒绝该评审任务', 'review_task', task_id, exclude_user_id=current_user.id)
         return success_response({
             'message': '打回评审成功',
             'review_task': review_task.to_dict()
@@ -636,14 +706,16 @@ def get_suite_review_status(suite_id):
             response_data.update({
                 'current_status': current_status,
                 'current_reviewer_id': latest_task.reviewer_id,
-                'current_reviewer_name': latest_task.reviewer.real_name if latest_task.reviewer else None
+                'current_reviewer_name': latest_task.reviewer.real_name if latest_task.reviewer else None,
+                'latest_task_id': latest_task.id,
             })
         else:
             # 如果没有评审任务，返回默认状态
             response_data.update({
                 'current_status': 'not_submitted',
                 'current_reviewer_id': None,
-                'current_reviewer_name': None
+                'current_reviewer_name': None,
+                'latest_task_id': None,
             })
         
         return success_response(response_data)
@@ -676,6 +748,40 @@ def get_review_history_list(task_id):
         })
     except Exception as e:
         return error_response(500, f'获取评审历史失败: {str(e)}')
+
+
+@bp.route('/review-center/recent-history', methods=['GET'])
+@login_required
+def get_recent_review_history():
+    """获取当前用户参与的全部最近评审历史（作为发起人或评审人），按时间倒序"""
+    try:
+        limit = min(int(request.args.get('limit', 50)), 100)
+        query = TestSuiteReviewHistory.query.filter(
+            (TestSuiteReviewHistory.initiator_id == current_user.id) |
+            (TestSuiteReviewHistory.reviewer_id == current_user.id)
+        ).order_by(TestSuiteReviewHistory.created_at.desc()).limit(limit)
+        rows = query.all()
+        result = []
+        for h in rows:
+            d = h.to_dict()
+            case_histories = TestCaseReviewHistory.query.filter_by(review_history_id=h.id).all()
+            d['case_stats'] = {
+                'total': len(case_histories),
+                'approved': sum(1 for c in case_histories if c.review_status == 'approved'),
+                'rejected': sum(1 for c in case_histories if c.review_status == 'rejected'),
+                'pending': sum(1 for c in case_histories if c.review_status == 'pending'),
+            }
+            if h.suite:
+                d['suite_name'] = h.suite.suite_name
+            else:
+                d['suite_name'] = None
+            if h.review_task:
+                d['task_id'] = h.review_task.id
+                d['task_status'] = h.review_task.status
+            result.append(d)
+        return success_response({'items': result})
+    except Exception as e:
+        return error_response(500, f'获取最近评审历史失败: {str(e)}')
 
 
 @bp.route('/review-history/<int:history_id>', methods=['GET'])

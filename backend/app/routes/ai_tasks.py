@@ -159,7 +159,10 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
                 message=f'成功生成并保存{len(saved_cases)}条测试用例',
                 progress=100
             )
-            
+            creator_id = params.get('creatorId')
+            if creator_id:
+                from app.services.notification_service import notify_users
+                notify_users([creator_id], 'ai_case_generated', 'AI 用例生成完成', f'已成功生成并保存 {len(saved_cases)} 条测试用例', 'suite', suite_id, extra={'total_cases': len(saved_cases)})
             return {
                 'suite_id': suite_id,
                 'total_cases': len(saved_cases),
@@ -168,6 +171,10 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
             
         except Exception as e:
             db.session.rollback()
+            creator_id = params.get('creatorId')
+            if creator_id:
+                from app.services.notification_service import notify_users
+                notify_users([creator_id], 'ai_case_generated', 'AI 用例生成失败', str(e)[:200] or '任务执行失败', 'suite', suite_id, extra={'error': str(e)[:200]})
             raise e
 
 

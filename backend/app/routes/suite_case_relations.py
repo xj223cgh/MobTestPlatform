@@ -1,7 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required
 from app.models.models import db, TestSuite, TestCase
-from app.utils.auth import role_required
 from app.utils.helpers import success_response, error_response
 
 # 创建蓝图
@@ -10,7 +9,6 @@ bp = Blueprint('suite_case_relations', __name__, url_prefix='/api/suite-case-rel
 
 @bp.route('/<int:suite_id>/cases', methods=['GET'])
 @login_required
-@role_required(['manager', 'tester', 'admin'])
 def get_suite_cases(suite_id):
     """
     获取测试套件中的测试用例列表
@@ -57,7 +55,6 @@ def get_suite_cases(suite_id):
 
 @bp.route('/<int:suite_id>/add-cases', methods=['POST'])
 @login_required
-@role_required(['manager', 'tester', 'admin'])
 def add_cases_to_suite(suite_id):
     """
     向测试套件中添加测试用例
@@ -102,7 +99,6 @@ def add_cases_to_suite(suite_id):
 
 @bp.route('/<int:suite_id>/remove-cases', methods=['POST'])
 @login_required
-@role_required(['manager', 'tester', 'admin'])
 def remove_cases_from_suite(suite_id):
     """
     从测试套件中移除测试用例
@@ -141,7 +137,6 @@ def remove_cases_from_suite(suite_id):
 
 @bp.route('/<int:suite_id>/available-cases', methods=['GET'])
 @login_required
-@role_required(['manager', 'tester', 'admin'])
 def get_available_cases(suite_id):
     """
     获取可添加到测试套件的测试用例（属于同一项目但未分配到其他套件的用例）
@@ -191,7 +186,6 @@ def get_available_cases(suite_id):
 
 @bp.route('/<int:suite_id>/move-cases', methods=['POST'])
 @login_required
-@role_required(['manager', 'tester', 'admin'])
 def move_cases_between_suites(suite_id):
     """
     将测试用例从一个套件移动到另一个套件

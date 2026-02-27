@@ -2269,7 +2269,7 @@ import {
   getReviewTask,
   getCaseReviews,
 } from "@/api/reviewTask";
-import { getUserList } from "@/api/user";
+import { getUserOptions } from "@/api/user";
 
 // 脑图组件导入
 import MindMap from "@/components/MindMap.vue";
@@ -2791,11 +2791,11 @@ const reviewDialogContent = ref("");
 const reviewDialogType = ref("detail"); // detail: 详情页面, message: 提示消息
 const currentReviewTask = ref(null);
 
-// 获取评审人列表（排除当前用户，评审人不能为自己）
+// 获取评审人列表（排除当前用户，评审人不能为自己）。使用仅需登录的 /users/options，不依赖 user.list 权限
 const loadReviewers = async () => {
   try {
-    const response = await getUserList();
-    const users = response.data.users || [];
+    const response = await getUserOptions({ size: 1000 });
+    const users = response.data?.items || [];
     const currentUserId = userStore.userInfo?.id;
     reviewerOptions.value = currentUserId
       ? users.filter((u) => u.id !== currentUserId)
@@ -3169,11 +3169,11 @@ const handleReviewButtonClick = async () => {
         // 显示悬浮提示信息
         ElMessage.info("等待评审人完成评审...");
       } else if (status === "approved" || status === "completed" || status === "rejected") {
-        // 先跳转到我发起的评审标签页，再弹出评审详情
-        router.push({
-          path: "/case-reviews",
-          query: { activeTab: "my-initiated", suiteId: selectedSuite.value.id }
-        });
+        // 跳转用例评审页并打开该用例集对应的评审任务详情，便于发起人点击「重新发起评审」
+        const latestTaskId = suiteReviewStatus.value?.latest_task_id;
+        const query = { activeTab: "my-initiated", suiteId: selectedSuite.value.id };
+        if (latestTaskId != null) query.taskId = String(latestTaskId);
+        router.push({ path: "/case-reviews", query });
       }
     } else if (isReviewer) {
     // 作为评审人
@@ -3482,10 +3482,14 @@ const loadTreeData = async () => {
     // 强制树重新挂载，使 default-expanded-keys 生效（Element Plus 树仅在挂载时读取该 prop，数据异步加载后需 remount）
     treeMountKey.value += 1;
 
-    // 检查路由参数中是否有 suite_id，如果有则自动选中对应的用例集
+    // 检查路由参数中是否有 suite_id，如果有则自动选中对应的用例集（含从用例评审页返回时的刷新）
     if (route.query.suite_id) {
       const suiteId = parseInt(route.query.suite_id);
       await selectSuiteById(suiteId);
+      // 若来自评审页，清除 fromReview 以保持 URL 简洁
+      if (route.query.fromReview) {
+        router.replace({ path: route.path, query: { suite_id: route.query.suite_id } });
+      }
     } else {
       // 从localStorage恢复选中状态
       const savedSelectedSuite = localStorage.getItem('testCaseSelectedSuite');
@@ -3574,6 +3578,8 @@ const selectSuiteById = async (suiteId) => {
 
       // 加载该用例集的测试用例
       await loadTestCases(suiteId);
+      // 从用例评审页返回或带 suite_id 进入时，拉取最新评审状态并刷新按钮文案
+      getSuiteReviewStatusData(suiteId);
 
       // 确保树形组件高亮显示当前节点并滚动到该节点
       if (treeRef.value) {

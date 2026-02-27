@@ -9,22 +9,15 @@
       :class="{ collapsed: isCollapsed }"
     >
       <div class="logo">
-        <img
-          v-if="logoDisplayUrl"
-          :src="logoDisplayUrl"
-          :class="{ 'logo-img-collapsed': isCollapsed }"
-          alt="Logo"
-        >
-        <template v-if="!isCollapsed">
-          <h1
-            class="sidebar-system-name"
-            style="color: white; margin: 0; font-size: 18px"
-          >
-            {{ systemSettingsStore.systemName || 'MobTest' }}
-          </h1>
-        </template>
         <h1
-          v-else-if="!logoDisplayUrl"
+          v-if="!isCollapsed"
+          class="sidebar-system-name"
+          style="color: white; margin: 0; font-size: 18px"
+        >
+          {{ systemSettingsStore.systemName || 'MobTest' }}
+        </h1>
+        <h1
+          v-else
           class="sidebar-system-name"
           style="color: white; margin: 0; font-size: 14px"
         >
@@ -168,6 +161,75 @@
         </div>
 
         <div class="header-right">
+          <!-- 消息下拉列表 -->
+          <el-popover
+            v-model:visible="notificationPopoverVisible"
+            placement="bottom-end"
+            :width="360"
+            trigger="click"
+            :show-arrow="false"
+            popper-class="notification-popover"
+            @show="onNotificationPopoverShow"
+          >
+            <template #reference>
+              <el-badge :value="notificationStore.unreadCount" :hidden="notificationStore.unreadCount === 0" :max="99" class="notification-badge">
+                <el-tooltip content="消息" placement="bottom">
+                  <el-button type="text" class="header-btn">
+                    <el-icon><Bell /></el-icon>
+                  </el-button>
+                </el-tooltip>
+              </el-badge>
+            </template>
+            <div class="notification-dropdown">
+              <div class="notification-dropdown-header">消息</div>
+              <div v-loading="notificationListLoading" class="notification-list">
+                <template v-if="notificationList.length">
+                  <div
+                    v-for="item in notificationList"
+                    :key="item.id"
+                    class="notification-item"
+                    :class="{ unread: !item.is_read }"
+                    @click="onNotificationItemClick(item)"
+                  >
+                    <div class="notification-item-main">
+                      <div class="notification-item-title">{{ item.title }}</div>
+                      <div class="notification-item-summary">{{ formatNotificationSummary(item.summary) }}</div>
+                      <div class="notification-item-meta">
+                        <el-tag :type="item.is_read ? 'info' : 'warning'" size="small" class="notification-item-status">
+                          {{ item.is_read ? '已读' : '未读' }}
+                        </el-tag>
+                        <span class="notification-item-time">{{ formatNotificationTime(item.created_at) }}</span>
+                      </div>
+                    </div>
+                    <div class="notification-item-actions" @click.stop>
+                      <el-tooltip :content="item.is_pinned ? '取消置顶' : '置顶'" placement="top">
+                        <el-button link type="primary" size="small" class="notification-action-btn" @click="onDropdownPin(item)">
+                          <el-icon><Top /></el-icon>
+                        </el-button>
+                      </el-tooltip>
+                      <el-tooltip :content="item.is_read ? '标为未读' : '标为已读'" placement="top">
+                        <el-button link type="primary" size="small" class="notification-action-btn" @click="onDropdownToggleRead(item)">
+                          <el-icon v-if="item.is_read"><CircleClose /></el-icon>
+                          <el-icon v-else><CircleCheck /></el-icon>
+                        </el-button>
+                      </el-tooltip>
+                      <el-tooltip content="删除" placement="top">
+                        <el-button link type="danger" size="small" class="notification-action-btn" @click="onDropdownDelete(item)">
+                          <el-icon><Delete /></el-icon>
+                        </el-button>
+                      </el-tooltip>
+                    </div>
+                  </div>
+                </template>
+                <el-empty v-else description="暂无消息" :image-size="60" />
+              </div>
+              <div class="notification-dropdown-footer">
+                <el-button type="primary" link size="small" :loading="readAllLoading" @click="markAllRead">
+                  全部已读
+                </el-button>
+              </div>
+            </div>
+          </el-popover>
           <!-- 全屏按钮 -->
           <el-tooltip
             content="全屏"
@@ -234,7 +296,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { useSystemSettingsStore } from "@/stores/systemSettings";
@@ -248,12 +310,119 @@ import {
   User,
   SwitchButton,
   Setting,
+  Bell,
+  Top,
+  CircleCheck,
+  CircleClose,
+  Delete,
 } from "@element-plus/icons-vue";
+import { useNotificationStore } from "@/stores/notification";
+import { useNotificationSocket } from "@/composables/useNotificationSocket";
+import { getNotifications, markRead, markReadAll, deleteNotification, pinNotification } from "@/api/notifications";
+import { getNotificationRoute } from "@/utils/notificationLink";
 
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
 const systemSettingsStore = useSystemSettingsStore();
+const notificationStore = useNotificationStore();
+const { connect: connectNotificationSocket, disconnect: disconnectNotificationSocket } = useNotificationSocket();
+
+// 消息下拉
+const notificationPopoverVisible = ref(false);
+const notificationList = ref([]);
+const notificationListLoading = ref(false);
+const readAllLoading = ref(false);
+
+function formatNotificationSummary(summary) {
+  if (!summary || typeof summary !== "string") return "";
+  return summary
+    .replace(/结果：approved/g, "结果：已通过")
+    .replace(/结果：rejected/g, "结果：已拒绝")
+    .replace(/结果：pending/g, "结果：待审核");
+}
+
+function formatNotificationTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = now - d;
+  if (diff < 60000) return "刚刚";
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
+  return d.toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+async function fetchNotificationList() {
+  notificationListLoading.value = true;
+  try {
+    const res = await getNotifications({ page: 1, size: 15 });
+    notificationList.value = res?.data?.items ?? [];
+  } catch (_) {
+    notificationList.value = [];
+  } finally {
+    notificationListLoading.value = false;
+  }
+}
+
+function onNotificationPopoverShow() {
+  fetchNotificationList();
+}
+
+async function onNotificationItemClick(item) {
+  if (item.id && !item.is_read) {
+    try {
+      await markRead(item.id);
+      item.is_read = true;
+      notificationStore.fetchUnreadCount();
+    } catch (_) {}
+  }
+  const routeOpt = getNotificationRoute(item);
+  if (routeOpt) {
+    try {
+      await router.push(routeOpt);
+    } catch (_) {}
+  }
+  notificationPopoverVisible.value = false;
+}
+
+async function markAllRead() {
+  readAllLoading.value = true;
+  try {
+    await markReadAll();
+    notificationStore.setUnreadCount(0);
+    notificationList.value = notificationList.value.map((n) => ({ ...n, is_read: true }));
+  } catch (_) {}
+  finally {
+    readAllLoading.value = false;
+  }
+}
+
+async function onDropdownPin(item) {
+  if (!item?.id) return;
+  try {
+    await pinNotification(item.id, { is_pinned: !item.is_pinned });
+    await fetchNotificationList();
+  } catch (_) {}
+}
+
+async function onDropdownToggleRead(item) {
+  if (!item?.id) return;
+  try {
+    await markRead(item.id, { is_read: !item.is_read });
+    item.is_read = !item.is_read;
+    notificationStore.fetchUnreadCount();
+  } catch (_) {}
+}
+
+async function onDropdownDelete(item) {
+  if (!item?.id) return;
+  try {
+    await deleteNotification(item.id);
+    notificationList.value = notificationList.value.filter((n) => n.id !== item.id);
+    notificationStore.fetchUnreadCount();
+  } catch (_) {}
+}
 
 // 应用基础设置：主题（深/浅/跟随系统）、语言（html lang）
 useSystemAppearance(systemSettingsStore);
@@ -261,8 +430,7 @@ useSystemAppearance(systemSettingsStore);
 // 侧边栏折叠状态
 const isCollapsed = ref(false);
 
-// 侧边栏 Logo：仅当已设置系统 Logo 时显示，未设置时不显示任何图片
-const logoDisplayUrl = computed(() => systemSettingsStore.systemLogo || "");
+// 侧边栏顶部仅显示系统名称，不显示 Logo；系统 Logo 仅用于浏览器标签页图标与系统设置页
 
 // 浏览器标签页：动态标题（系统名 + 当前页）
 function setPageTitle() {
@@ -294,6 +462,13 @@ onMounted(() => {
   systemSettingsStore.load();
   setPageTitle();
   setFavicon();
+  if (userStore.isAuthenticated) {
+    notificationStore.fetchUnreadCount();
+    connectNotificationSocket();
+  }
+});
+onUnmounted(() => {
+  disconnectNotificationSocket();
 });
 
 watch(route, setPageTitle);
@@ -309,13 +484,14 @@ const menuRoutes = computed(() => {
     return [];
   }
 
-  // 直接返回Layout组件的children，保持路由配置中的顺序，排除hidden为true的路由
+  // 按权限过滤：若 meta.permissions 存在，则用户须拥有其中至少一个埋点才显示
+  const hasPermission = userStore.hasPermission;
   return layoutRoute.children.filter(
-    (route) =>
-      route &&
-      route.path &&
-      route.meta?.title &&
-      route.meta?.hidden !== true &&
+    (r) =>
+      r &&
+      r.path &&
+      r.meta?.title &&
+      r.meta?.hidden !== true &&
       ![
         "profile",
         "403",
@@ -324,7 +500,8 @@ const menuRoutes = computed(() => {
         "register",
         "forgot-password",
         "reset-password",
-      ].includes(route.path),
+      ].includes(r.path) &&
+      (!r.meta?.permissions?.length || r.meta.permissions.some((p) => hasPermission(p))),
   );
 });
 
@@ -453,19 +630,6 @@ const handleCommand = (command) => {
     border-bottom: 1px solid var(--el-border-color-light, $border-light);
     gap: 10px;
 
-    img {
-      height: 32px;
-      width: auto;
-      max-width: 120px;
-      object-fit: contain;
-      flex-shrink: 0;
-
-      &.logo-img-collapsed {
-        height: 28px;
-        margin: 0;
-      }
-    }
-
     span {
       font-size: 18px;
       font-weight: 600;
@@ -565,6 +729,10 @@ const handleCommand = (command) => {
     display: flex;
     align-items: center;
     gap: 15px;
+
+    .notification-badge {
+      margin-right: 4px;
+    }
 
     .header-btn {
       font-size: 18px;
@@ -670,6 +838,120 @@ const handleCommand = (command) => {
   .layout .content .fixed-pagination,
   .layout .content .pagination-container {
     left: 0 !important;
+  }
+}
+
+/* 消息下拉（popper 挂载在 body，需全局样式） */
+.notification-popover {
+  padding: 0 !important;
+}
+.notification-popover .notification-dropdown {
+  max-height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+.notification-popover .notification-dropdown-header {
+  padding: 12px 16px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+.notification-popover .notification-list {
+  max-height: 320px;
+  overflow-y: auto;
+  min-height: 80px;
+}
+.notification-popover .notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--el-border-color-extra-light);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.notification-popover .notification-item:hover {
+  background: var(--el-fill-color-light);
+}
+.notification-popover .notification-item.unread {
+  background: var(--el-fill-color-extra-light);
+}
+.notification-popover .notification-item-main {
+  flex: 1;
+  min-width: 0;
+}
+.notification-popover .notification-item-title {
+  font-size: 14px;
+  color: var(--el-text-color-primary);
+  margin-bottom: 4px;
+}
+.notification-popover .notification-item-summary {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.notification-popover .notification-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.notification-popover .notification-item-status {
+  flex-shrink: 0;
+}
+.notification-popover .notification-item-time {
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
+}
+.notification-popover .notification-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+.notification-popover .notification-action-btn {
+  padding: 2px;
+}
+.notification-popover .notification-action-btn .el-icon {
+  font-size: 14px;
+}
+.notification-popover .notification-dropdown-footer {
+  padding: 8px 16px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+/* 消息跳转后列表行/卡片：蓝色选中闪烁 2～3 次后消失（约 2.8s） */
+tr.notification-flash-row > td,
+.el-table tr.notification-flash-row > td {
+  background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
+  animation: notification-flash-bg 2.8s ease-in-out forwards !important;
+}
+.iteration-card.notification-flash-card {
+  background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
+  animation: notification-flash-bg 2.8s ease-in-out forwards !important;
+}
+@keyframes notification-flash-bg {
+  0% {
+    background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
+  }
+  12% {
+    background-color: transparent !important;
+  }
+  22% {
+    background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
+  }
+  34% {
+    background-color: transparent !important;
+  }
+  44% {
+    background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
+  }
+  60% {
+    background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
+  }
+  100% {
+    background-color: transparent !important;
   }
 }
 

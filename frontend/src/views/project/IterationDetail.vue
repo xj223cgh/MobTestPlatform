@@ -288,6 +288,7 @@
 import { ref, reactive, onMounted, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getIteration, updateIteration } from "@/api/iteration";
+import { isPermissionError } from "@/utils/request";
 import { ElMessage } from "element-plus";
 import { Edit, ArrowLeft } from "@element-plus/icons-vue";
 import VChart from "vue-echarts";
@@ -402,6 +403,7 @@ export default {
           iterationDetail.value = response.data;
         }
       } catch (error) {
+        if (isPermissionError(error)) return;
         console.error("获取迭代详情失败:", error);
         ElMessage.error("获取迭代详情失败: " + (error?.message || "未知错误"));
       } finally {
@@ -465,6 +467,7 @@ export default {
           fetchIterationDetail();
         }
       } catch (error) {
+        if (isPermissionError(error)) return;
         console.error("更新迭代失败:", error);
         ElMessage.error("更新迭代失败: " + (error?.message || "未知错误"));
       }

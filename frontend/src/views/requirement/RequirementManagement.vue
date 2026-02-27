@@ -479,6 +479,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed, watch, nextTick } from "vue";
+import { useRouter } from "vue-router";
 import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { formatDateTime } from "@/utils/helpers";
@@ -496,13 +497,18 @@ import { useSystemSettingsStore } from "@/stores/systemSettings";
 import dayjs from "dayjs";
 
 const route = useRoute();
+const router = useRouter();
 
 // 从用例集信息跳转时高亮指定行（仅此时有值）
 const highlightId = computed(() => {
   const id = route.query?.highlight_id;
   return id ? Number(id) : null;
 });
+// 消息跳转时的短暂闪烁行（2.5s 后清除）
+const flashRowId = ref(null);
+let flashClearTimer = null;
 const getRowClassName = ({ row }) => {
+  if (flashRowId.value && row.id === flashRowId.value) return "notification-flash-row";
   if (highlightId.value && row.id === highlightId.value) return "highlight-row";
   return "";
 };
@@ -1371,21 +1377,60 @@ const handleDeleteRequirement = (row) => {
 };
 
 // 页面加载时：需求列表立即请求，选项数据并行加载，避免列表等待下拉数据
-// 高亮行滚动到视口（仅当通过 highlight_id 跳转时）
+// 高亮行滚动到视口（仅当通过 highlight_id 或消息跳转时）
 const scrollToHighlightRow = () => {
-  if (!highlightId.value || !requirementList.value.length) return;
+  const targetId = flashRowId.value || highlightId.value;
+  if (!targetId || !requirementList.value.length) return;
   nextTick(() => {
     setTimeout(() => {
       const table = requirementTableRef.value?.$el;
       if (!table) return;
-      const row = table.querySelector("tr.highlight-row");
+      const row = table.querySelector("tr.notification-flash-row, tr.highlight-row");
       if (row) row.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }, 150);
   });
 };
 
+// 消息跳转：从 query 设置要闪烁的 id，等列表渲染出该行后再启动 2.5s 清除定时器
 watch(
-  () => [requirementList.value.length, highlightId.value],
+  () => route.query?.highlight_id ?? route.query?.requirementId,
+  (idVal) => {
+    if (flashClearTimer) {
+      clearTimeout(flashClearTimer);
+      flashClearTimer = null;
+    }
+    if (!idVal) {
+      flashRowId.value = null;
+      return;
+    }
+    flashRowId.value = Number(idVal);
+  },
+  { immediate: true }
+);
+
+// 列表加载出目标行后再启动清除定时器，确保行先带上样式
+watch(
+  () => [requirementList.value, flashRowId.value],
+  () => {
+    const id = flashRowId.value;
+    if (!id || !requirementList.value.length) return;
+    const hasRow = requirementList.value.some((r) => r.id === id);
+    if (!hasRow) return;
+    if (flashClearTimer) return; // 已启动过
+    flashClearTimer = setTimeout(() => {
+      flashRowId.value = null;
+      const q = { ...route.query };
+      delete q.highlight_id;
+      delete q.requirementId;
+      router.replace({ path: route.path, query: Object.keys(q).length ? q : undefined });
+      flashClearTimer = null;
+    }, 2600);
+  },
+  { flush: "post" }
+);
+
+watch(
+  () => [requirementList.value.length, highlightId.value, flashRowId.value],
   () => scrollToHighlightRow(),
   { flush: "post" }
 );

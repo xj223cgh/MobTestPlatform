@@ -68,3 +68,11 @@ export const changePassword = (data) => {
     data,
   });
 };
+
+// 获取当前用户权限（埋点编码列表）
+export const getPermissions = () => {
+  return request({
+    url: "/auth/permissions",
+    method: "get",
+  });
+};

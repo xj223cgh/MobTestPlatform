@@ -320,6 +320,7 @@ import {
   Calendar,
   List,
   Odometer,
+  Key,
 } from "@element-plus/icons-vue";
 
 // 响应式数据
@@ -527,6 +528,52 @@ const categories = ref([
     ],
   },
   {
+    id: "permission-config",
+    name: "权限配置",
+    icon: Key,
+    items: [
+      {
+        id: "perm-1",
+        title: "角色与权限配置入口",
+        description: "进入权限配置页、选择角色并查看当前已勾选的功能权限",
+        category: "权限配置",
+        updateTime: "2024-01-16",
+        content: "<h2>角色与权限配置入口</h2><p>拥有「权限配置」权限的用户可在系统设置或侧栏进入「角色权限配置」页。页面上方选择角色（管理员、测试人员、普通成员），即可查看该角色当前已勾选的功能埋点。超管权限不可修改。</p>",
+      },
+      {
+        id: "perm-2",
+        title: "为角色勾选功能权限",
+        description: "按模块为角色勾选或取消功能点，保存后立即生效",
+        category: "权限配置",
+        updateTime: "2024-01-16",
+        content: "<h2>为角色勾选功能权限</h2><p>权限按 5 个模块展示：项目管理、迭代管理、需求管理、权限配置、用户管理。每个模块下可勾选「入口（列表/查看）」及增删改等操作。勾选后点击「保存配置」即可生效，该角色下所有用户将仅拥有已勾选的功能。</p>",
+      },
+    ],
+  },
+  {
+    id: "profile",
+    name: "个人中心",
+    icon: User,
+    items: [
+      {
+        id: "profile-1",
+        title: "个人资料与修改",
+        description: "查看与编辑真实姓名、性别、手机号、部门等个人信息",
+        category: "个人中心",
+        updateTime: "2024-01-16",
+        content: "<h2>个人资料与修改</h2><p>在「个人中心」可查看当前登录账号的基本信息；点击「编辑」可修改真实姓名、性别、手机号、部门等，修改后保存即可生效。</p>",
+      },
+      {
+        id: "profile-2",
+        title: "修改密码",
+        description: "修改当前账号的登录密码，修改成功后需重新登录",
+        category: "个人中心",
+        updateTime: "2024-01-16",
+        content: "<h2>修改密码</h2><p>在个人中心「修改密码」区域填写原密码与新密码，提交后系统会校验原密码并更新。为保障安全，修改成功后将退出登录，需使用新密码重新登录。</p>",
+      },
+    ],
+  },
+  {
     id: "settings",
     name: "系统设置",
     icon: Setting,
@@ -534,10 +581,18 @@ const categories = ref([
       {
         id: "set-1",
         title: "基础与安全配置",
-        description: "系统基础参数、安全与访问控制配置",
+        description: "系统名称、Logo、登录失败锁定、会话超时等安全与访问控制",
         category: "系统设置",
-        updateTime: "2023-12-30",
-        content: "<h2>基础与安全配置</h2><p>在「系统设置」中可配置系统基础参数、登录与密码策略、会话超时等安全选项，以及其它全局设置。</p>",
+        updateTime: "2024-01-16",
+        content: "<h2>基础与安全配置</h2><p>在「系统设置」→「基础设置」中可配置系统名称、简称、Logo 等；在「安全设置」中可配置登录失败锁定次数、会话超时时间等，提升账号与访问安全。</p>",
+      },
+      {
+        id: "set-2",
+        title: "消息通知与功能设置",
+        description: "消息通知方式、报告自动生成等功能开关",
+        category: "系统设置",
+        updateTime: "2024-01-16",
+        content: "<h2>消息通知与功能设置</h2><p>在「消息通知」中可配置站内消息、邮件等通知方式；在「功能设置」中可配置如「任务完成后是否自动生成报告」等开关，满足不同团队使用习惯。</p>",
       },
     ],
   },
@@ -696,7 +751,7 @@ const faqList = ref([
   },
 ]);
 
-// 视频教程（从左到右、从上到下：项目管理 → 设备管理 → 用例管理 → 任务管理 → 报告管理 → 用户/设置管理）
+// 视频教程（项目管理 → 设备管理 → 用例管理 → 任务管理 → 报告管理 → 用户管理 → 权限配置 → 个人中心 → 系统设置）
 const videoList = ref([
   {
     id: "video-1",
@@ -755,14 +810,47 @@ const videoList = ref([
   },
   {
     id: "video-6",
-    title: "用户与系统配置管理",
-    description: "用户管理、角色与权限分配，以及系统设置中的基础与安全配置说明。",
+    title: "用户管理",
+    description: "用户列表、新建与编辑用户、分配角色及禁用/启用账号。",
     thumbnail: "",
-    url: "/videos/user-settings.mp4",
-    duration: "07:40",
+    url: "/videos/user-management.mp4",
+    duration: "06:20",
     views: 620,
     uploadTime: "2024-01-10",
-    tag: "用户/设置",
+    tag: "用户管理",
+  },
+  {
+    id: "video-7",
+    title: "权限配置",
+    description: "进入角色权限配置、为管理员/测试人员/普通成员勾选功能权限并保存。",
+    thumbnail: "",
+    url: "/videos/permission-config.mp4",
+    duration: "05:50",
+    views: 480,
+    uploadTime: "2024-01-16",
+    tag: "权限配置",
+  },
+  {
+    id: "video-8",
+    title: "个人中心",
+    description: "修改个人资料与登录密码，修改密码后重新登录。",
+    thumbnail: "",
+    url: "/videos/profile.mp4",
+    duration: "04:30",
+    views: 520,
+    uploadTime: "2024-01-16",
+    tag: "个人中心",
+  },
+  {
+    id: "video-9",
+    title: "系统设置",
+    description: "基础与安全配置、消息通知、功能设置（如报告自动生成）等。",
+    thumbnail: "",
+    url: "/videos/system-settings.mp4",
+    duration: "06:10",
+    views: 410,
+    uploadTime: "2024-01-16",
+    tag: "系统设置",
   },
 ]);
 
@@ -922,12 +1010,12 @@ onMounted(() => {
 .category-header h3 {
   margin: 0;
   flex: 1;
-  color: #303133;
+  color: var(--el-text-color-primary, #303133);
 }
 
 .expand-icon {
   transition: transform 0.3s;
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
 }
 
 .expand-icon.expanded {
@@ -946,7 +1034,7 @@ onMounted(() => {
 
 .help-item {
   padding: 15px;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--el-border-color-light, #ebeef5);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
@@ -954,17 +1042,17 @@ onMounted(() => {
 
 .help-item:hover {
   border-color: #409eff;
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light, #f5f7fa);
 }
 
 .help-item h4 {
   margin: 0 0 5px 0;
-  color: #303133;
+  color: var(--el-text-color-primary, #303133);
 }
 
 .help-item p {
   margin: 0 0 10px 0;
-  color: #606266;
+  color: var(--el-text-color-regular, #606266);
   font-size: 14px;
 }
 
@@ -983,7 +1071,7 @@ onMounted(() => {
 }
 
 .update-time {
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   font-size: 12px;
 }
 
@@ -1001,7 +1089,7 @@ onMounted(() => {
 
 .card-header h3 {
   margin: 0;
-  color: #303133;
+  color: var(--el-text-color-primary, #303133);
 }
 
 .faq-content {
@@ -1011,7 +1099,7 @@ onMounted(() => {
 
 .faq-content :deep(.el-collapse-item__header) {
   font-size: 15px;
-  color: #303133;
+  color: var(--el-text-color-primary, #303133);
 }
 
 .faq-content :deep(.el-collapse-item__content) {
@@ -1021,7 +1109,7 @@ onMounted(() => {
 .faq-answer {
   margin-bottom: 15px;
   line-height: 1.7;
-  color: #606266;
+  color: var(--el-text-color-regular, #606266);
   font-size: 14px;
 }
 
@@ -1029,7 +1117,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 15px;
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   font-size: 14px;
 }
 
@@ -1048,8 +1136,8 @@ onMounted(() => {
   cursor: pointer;
   border-radius: 12px;
   overflow: hidden;
-  background: #fff;
-  border: 1px solid #ebeef5;
+  background: var(--el-bg-color, #fff);
+  border: 1px solid var(--el-border-color-light, #ebeef5);
   transition: all 0.25s ease;
 }
 
@@ -1093,7 +1181,7 @@ onMounted(() => {
 
 .placeholder-text {
   font-size: 13px;
-  color: #606266;
+  color: var(--el-text-color-regular, #606266);
 }
 
 .play-button {
@@ -1146,7 +1234,7 @@ onMounted(() => {
 
 .video-info h4 {
   margin: 0 0 8px 0;
-  color: #303133;
+  color: var(--el-text-color-primary, #303133);
   font-size: 15px;
   font-weight: 600;
   line-height: 1.4;
@@ -1158,7 +1246,7 @@ onMounted(() => {
 
 .video-info p {
   margin: 0 0 12px 0;
-  color: #606266;
+  color: var(--el-text-color-regular, #606266);
   font-size: 13px;
   line-height: 1.5;
   display: -webkit-box;
@@ -1171,7 +1259,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   font-size: 12px;
 }
 
@@ -1181,7 +1269,7 @@ onMounted(() => {
 
 .developer-desc {
   margin: 0;
-  color: #606266;
+  color: var(--el-text-color-regular, #606266);
   font-size: 14px;
   line-height: 1.7;
 }
@@ -1200,7 +1288,7 @@ onMounted(() => {
   align-items: center;
   margin-bottom: 20px;
   padding-bottom: 10px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--el-border-color-light, #ebeef5);
 }
 
 .help-category {
@@ -1212,7 +1300,7 @@ onMounted(() => {
 }
 
 .help-update-time {
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   font-size: 14px;
 }
 
@@ -1225,7 +1313,7 @@ onMounted(() => {
   display: flex;
   gap: 10px;
   padding-top: 20px;
-  border-top: 1px solid #ebeef5;
+  border-top: 1px solid var(--el-border-color-light, #ebeef5);
 }
 
 @media (max-width: 768px) {

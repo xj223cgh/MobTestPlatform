@@ -1,5 +1,16 @@
 import request from "@/utils/request";
 
+/** 上传系统 Logo（仅上传文件，持久化需再调用 updateSystemSettings） */
+export const uploadLogo = (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return request({
+    url: "/files/upload/logo",
+    method: "post",
+    data: formData,
+  });
+};
+
 /** 用户个人设置（与后端 /api/settings 对应） */
 export const getUserSettings = () => {
   return request({

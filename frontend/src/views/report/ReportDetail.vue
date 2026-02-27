@@ -77,6 +77,7 @@
     <div
       v-else-if="currentReport"
       class="report-content"
+      :class="{ 'device-script-report': currentReport.task_type === 'device_script' }"
     >
           <!-- 报告概览 -->
           <div class="overview-section">
@@ -242,22 +243,35 @@
           <!-- 设备脚本：统计 + 图表 -->
           <template v-else-if="currentReport.task_type === 'device_script'">
             <!-- 脚本信息 -->
-            <div class="script-section">
+            <div class="script-section device-script-block">
               <h4 class="section-title">
                 脚本信息
               </h4>
               <div class="script-info-content">
-                <div class="info-item">
-                  <span class="label">脚本文件名：</span>
-                  <span class="value">{{ currentReport.script_file || '-' }}</span>
+                <div class="script-file-row">
+                  <div class="info-item">
+                    <span class="label">脚本文件：</span>
+                    <span class="value">
+                      <el-link
+                        v-if="currentReport.file_path && currentReport.script_file"
+                        type="primary"
+                        :underline="false"
+                        @click="handleDownloadReportScript"
+                      >
+                        <el-icon><Download /></el-icon>
+                        {{ currentReport.script_file }}
+                      </el-link>
+                      <span v-else>{{ currentReport.script_file || '-' }}</span>
+                    </span>
+                  </div>
+                  <div class="info-item">
+                    <span class="label">文件路径：</span>
+                    <span class="value">{{ currentReport.file_path || '-' }}</span>
+                  </div>
                 </div>
                 <div class="info-item">
                   <span class="label">执行命令：</span>
                   <span class="value">{{ currentReport.command || '-' }}</span>
-                </div>
-                <div class="info-item">
-                  <span class="label">文件路径：</span>
-                  <span class="value">{{ currentReport.file_path || '-' }}</span>
                 </div>
               </div>
             </div>
@@ -392,6 +406,7 @@
               </el-button>
             </div>
             <el-table
+              class="device-details-table"
               :data="paginatedDeviceDetails"
               stripe
               border
@@ -401,7 +416,7 @@
               <el-table-column
                 prop="device_id"
                 label="设备ID"
-                width="90"
+                min-width="120"
                 align="center"
               >
                 <template #default="{ row }">
@@ -417,45 +432,46 @@
               <el-table-column
                 prop="device_name"
                 label="设备名称"
-                min-width="150"
+                min-width="140"
+                align="center"
                 show-overflow-tooltip
               />
               <el-table-column
                 prop="status"
                 label="执行状态"
-                width="100"
+                min-width="100"
                 align="center"
               >
                 <template #default="{ row }">
-                  <el-tag :type="row.status === 'success' ? 'success' : 'danger'">
-                    {{ row.status === 'success' ? '成功' : '失败' }}
+                  <el-tag :type="row.status === 'success' ? 'success' : row.status === 'cancelled' ? 'info' : 'danger'">
+                    {{ row.status === 'success' ? '成功' : row.status === 'cancelled' ? '已取消' : '失败' }}
                   </el-tag>
                 </template>
               </el-table-column>
               <el-table-column
                 prop="execution_time"
                 label="执行时间(s)"
-                width="120"
+                min-width="110"
                 align="center"
                 sortable
               />
               <el-table-column
                 prop="exit_code"
                 label="退出码"
-                width="90"
+                min-width="90"
                 align="center"
               />
               <el-table-column
                 label="操作"
-                width="120"
+                min-width="100"
                 align="center"
                 fixed="right"
               >
                 <template #default="{ row }">
                   <el-button
                     type="primary"
-                    size="small"
                     link
+                    class="device-detail-output-btn"
                     @click="handleViewOutput(row)"
                   >
                     <el-icon><Document /></el-icon>
@@ -596,10 +612,19 @@ import { PieChart, BarChart } from 'echarts/charts';
 import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components';
 import dayjs from 'dayjs';
 import { getReportData, getReportByRecordId } from '@/api/report';
+import { isPermissionError } from '@/utils/request';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
+import { useSystemSettingsStore } from '@/stores/systemSettings';
 
 use([CanvasRenderer, PieChart, BarChart, GridComponent, TooltipComponent, LegendComponent]);
+
+const systemSettingsStore = useSystemSettingsStore();
+const chartTextColor = computed(() => {
+  const t = systemSettingsStore.theme || 'light';
+  const isDark = t === 'dark' || (t === 'auto' && typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  return isDark ? '#c0c4cc' : '#303133';
+});
 
 const route = useRoute();
 const router = useRouter();
@@ -655,7 +680,7 @@ const testCasePieOption = computed(() => {
       trigger: 'item',
       formatter: (params) => `${params.name}: ${params.value} (${pct(params.value)}%)`
     },
-    legend: { bottom: 0 },
+    legend: { bottom: 0, textStyle: { color: chartTextColor.value } },
     color: ['#67c23a', '#f56c6c', '#e6a23c', '#909399'],
     series: [{
       type: 'pie',
@@ -665,6 +690,7 @@ const testCasePieOption = computed(() => {
       itemStyle: { borderColor: '#fff', borderWidth: 2 },
       label: {
         show: true,
+        color: chartTextColor.value,
         formatter: (params) => `${params.name}: ${params.value} (${pct(params.value)}%)`
       },
       data: [
@@ -696,14 +722,14 @@ const testCaseBarOption = computed(() => ({
 // 设备饼图
 const devicePieOption = computed(() => ({
   tooltip: { trigger: 'item' },
-  legend: { bottom: 0 },
+  legend: { bottom: 0, textStyle: { color: chartTextColor.value } },
   color: ['#67c23a', '#f56c6c'],
   series: [{
     type: 'pie',
     radius: ['40%', '70%'],
     avoidLabelOverlap: false,
     itemStyle: { borderColor: '#fff', borderWidth: 2 },
-    label: { show: true, formatter: '{b}: {c}' },
+    label: { show: true, color: chartTextColor.value, formatter: '{b}: {c}' },
     data: [
       { value: deviceReportSummary.value.success_count, name: '成功' },
       { value: deviceReportSummary.value.failed_count, name: '失败' }
@@ -803,8 +829,13 @@ const fetchReportData = async () => {
     }
   } catch (error) {
     loadError.value = true;
-    const msg = error?.response?.data?.message || error?.message || '获取报告数据失败';
-    ElMessage.error(msg);
+    if (isPermissionError(error)) return;
+    const status = error?.response?.status;
+    const msg =
+      status === 404
+        ? '该报告可能已被删除或您无权限查看'
+        : error?.response?.data?.message || error?.message || '获取报告数据失败';
+    ElMessage.warning(msg);
   } finally {
     loading.value = false;
   }
@@ -835,7 +866,21 @@ const goToCaseExecution = (taskId) => {
 };
 
 const goToDevice = (deviceId) => {
-  router.push({ path: `/devices/${deviceId}` });
+  router.push({ path: "/devices", query: { highlight_device_id: deviceId || "" } });
+};
+
+// 设备脚本报告：下载脚本文件
+const handleDownloadReportScript = () => {
+  const report = currentReport.value;
+  if (!report?.file_path || !report?.script_file) return;
+  const url = `/api/files/${report.file_path}?filename=${encodeURIComponent(report.script_file)}`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = report.script_file;
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 };
 
 const handleViewOutput = (row) => {
@@ -926,7 +971,7 @@ async function exportExcel() {
       ...filteredDeviceDetails.value.map(r => [
         r.device_id,
         r.device_name,
-        r.status === 'success' ? '成功' : '失败',
+        r.status === 'success' ? '成功' : r.status === 'cancelled' ? '已取消' : '失败',
         r.execution_time,
         r.exit_code
       ])
@@ -985,7 +1030,7 @@ async function exportHtml() {
     html += `<h2>执行统计</h2><p>成功率：${deviceReportSummary.value.success_rate}% | 成功：${deviceReportSummary.value.success_count} | 失败：${deviceReportSummary.value.failed_count}</p>`;
     html += '<h2>设备明细</h2><table><tr><th>设备ID</th><th>设备名称</th><th>状态</th><th>执行时间(s)</th><th>退出码</th></tr>';
     filteredDeviceDetails.value.forEach(r => {
-      html += `<tr><td>${r.device_id}</td><td>${r.device_name}</td><td>${r.status === 'success' ? '成功' : '失败'}</td><td>${r.execution_time || '-'}</td><td>${r.exit_code || '-'}</td></tr>`;
+      html += `<tr><td>${r.device_id}</td><td>${r.device_name}</td><td>${r.status === 'success' ? '成功' : r.status === 'cancelled' ? '已取消' : '失败'}</td><td>${r.execution_time || '-'}</td><td>${r.exit_code || '-'}</td></tr>`;
     });
     html += '</table>';
   }
@@ -1133,6 +1178,42 @@ watch(
   margin-bottom: 24px;
 }
 
+/* 脚本信息区域样式 */
+.script-section .script-info-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 0;
+}
+.script-section .script-info-content .info-item .label {
+  min-width: 72px;
+  flex-shrink: 0;
+}
+.script-section .script-info-content .info-item .value {
+  flex: 1;
+  min-width: 0;
+}
+.script-file-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 32px;
+}
+.script-file-row .info-item {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.script-file-row .info-item .value {
+  word-break: break-all;
+}
+.script-section .script-info-content > .info-item {
+  align-items: flex-start;
+}
+.script-section .script-info-content > .info-item .value {
+  word-break: break-all;
+  line-height: 1.5;
+}
+
 .overview-info {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -1228,7 +1309,7 @@ watch(
 .script-info-content {
   padding: 10px 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 16px;
 }
 
@@ -1238,6 +1319,17 @@ watch(
   align-items: center;
   margin-bottom: 16px;
   flex-wrap: wrap;
+}
+
+/* 设备明细表格：内容居中，操作列「查看输出」字号与表格一致 */
+.device-details-table :deep(.el-table__body-wrapper .cell) {
+  text-align: center;
+}
+.device-details-table .device-detail-output-btn {
+  font-size: 14px;
+}
+.device-details-table .device-detail-output-btn .el-icon {
+  font-size: 14px;
 }
 
 .empty-state {

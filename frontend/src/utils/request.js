@@ -104,8 +104,10 @@ request.interceptors.response.use(
           break;
 
         case 403:
-          // 权限不足：仅提示，不跳转，避免操作类接口（如创建需求）误跳 403 页
-          ElMessage.warning(data?.message || "权限不足，无法执行该操作");
+          // 权限不足：统一在此提示一次，打标后 reject，业务 catch 可据此不再重复弹窗
+          const permissionMsg = data?.message && String(data.message).trim() ? data.message : "权限不足，请检查角色权限配置或联系管理员";
+          ElMessage.warning(permissionMsg);
+          if (error && typeof error === "object") error._permissionHandled = true;
           break;
 
         case 404:
@@ -165,5 +167,10 @@ request.interceptors.response.use(
     return Promise.reject(error);
   },
 );
+
+/** 是否为权限不足类错误（拦截器已统一提示，业务 catch 可据此不再重复弹窗） */
+export function isPermissionError(err) {
+  return err?.response?.status === 403 || err?._permissionHandled === true;
+}
 
 export default request;

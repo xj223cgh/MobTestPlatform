@@ -4,13 +4,16 @@ from app.models.models import (
     db, Project, ProjectMember, Iteration, VersionRequirement,
     TestSuite, TestCase, TestTask, TestCaseExecution,
 )
+from app.services.permission_service import permission_required
 from datetime import datetime
 import json
 
 bp = Blueprint('iterations', __name__)
 
+
 @bp.route('/', methods=['POST'])
 @login_required
+@permission_required('iteration.create')
 def create_iteration_new():
     """创建迭代（通用路由）"""
     try:
@@ -64,7 +67,9 @@ def create_iteration_new():
         
         db.session.add(new_iteration)
         db.session.commit()
-        
+        if project.owner_id and project.owner_id != current_user.id:
+            from app.services.notification_service import notify_users
+            notify_users([project.owner_id], 'iteration_created', '新建迭代', f'项目「{project.project_name}」下已创建迭代「{new_iteration.iteration_name}」', 'iteration', new_iteration.id, exclude_user_id=current_user.id)
         return jsonify({
             'code': 201,
             'message': '迭代创建成功',
@@ -76,6 +81,7 @@ def create_iteration_new():
 
 @bp.route('/projects/<int:project_id>/iterations', methods=['POST'])
 @login_required
+@permission_required('iteration.create')
 def create_iteration(project_id):
     """创建迭代（不做权限鉴别）"""
     try:
@@ -121,7 +127,10 @@ def create_iteration(project_id):
         
         db.session.add(new_iteration)
         db.session.commit()
-        
+        # 通知项目负责人（若非当前用户）
+        if project.owner_id and project.owner_id != current_user.id:
+            from app.services.notification_service import notify_users
+            notify_users([project.owner_id], 'iteration_created', '新建迭代', f'项目「{project.project_name}」下已创建迭代「{new_iteration.iteration_name}」', 'iteration', new_iteration.id, exclude_user_id=current_user.id)
         return jsonify({
             'code': 201,
             'message': '迭代创建成功',
@@ -133,6 +142,7 @@ def create_iteration(project_id):
 
 @bp.route('/projects/<int:project_id>/iterations', methods=['GET'])
 @login_required
+@permission_required('iteration.list')
 def get_iterations(project_id):
     """获取项目的迭代列表"""
     try:
@@ -187,6 +197,7 @@ def get_iteration(iteration_id):
 
 @bp.route('/<int:iteration_id>', methods=['PUT'])
 @login_required
+@permission_required('iteration.edit')
 def update_iteration(iteration_id):
     """更新迭代信息"""
     try:
@@ -230,6 +241,7 @@ def update_iteration(iteration_id):
 
 @bp.route('/<int:iteration_id>', methods=['DELETE'])
 @login_required
+@permission_required('iteration.delete')
 def delete_iteration(iteration_id):
     """删除迭代。仅校验关联引用，有关联则提示无法删除；不做权限鉴别。"""
     iteration = Iteration.query.get(iteration_id)

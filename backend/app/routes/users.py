@@ -3,16 +3,18 @@ from flask_login import login_required, current_user
 
 from app.models.models import User, ProjectMember, db
 from app.utils.helpers import (
-    success_response, error_response, validate_phone, 
+    success_response, error_response, validate_phone,
     validate_username, get_pagination_params, log_user_action,
     validate_json_data
 )
+from app.services.permission_service import permission_required
 
 bp = Blueprint('users', __name__)
 
 
 @bp.route('', methods=['GET'])
 @login_required
+@permission_required('user.list')
 def get_users():
     """获取用户列表"""
     page, size = get_pagination_params()
@@ -63,8 +65,22 @@ def get_users():
     })
 
 
+@bp.route('/options', methods=['GET'])
+@login_required
+def get_user_options():
+    """获取用户选项列表（id、姓名等），用于评审人/负责人/执行人等下拉。仅需登录，不做 user.list 权限校验。"""
+    size = min(request.args.get('size', 1000, type=int), 5000)
+    users = User.query.filter_by(is_active=True).order_by(User.real_name, User.username).limit(size).all()
+    items = [
+        {'id': u.id, 'username': u.username, 'real_name': u.real_name or u.username}
+        for u in users
+    ]
+    return success_response({'items': items, 'total': len(items)})
+
+
 @bp.route('/<int:user_id>', methods=['GET'])
 @login_required
+@permission_required('user.list')
 def get_user(user_id):
     """获取用户详情"""
     user = User.query.get_or_404(user_id)
@@ -75,6 +91,7 @@ def get_user(user_id):
 
 @bp.route('', methods=['POST'])
 @login_required
+@permission_required('user.create')
 @validate_json_data(['username', 'phone', 'password', 'real_name', 'role'])
 def create_user():
     """创建用户"""
@@ -102,6 +119,8 @@ def create_user():
     
     if role not in ['super', 'manager', 'tester', 'admin']:
         return error_response(400, "无效的角色类型")
+    if role == 'super' and username != 'Lethe':
+        return error_response(400, "仅 Lethe 账号可设为超级管理员")
     
     # 检查用户名是否已存在
     if User.query.filter_by(username=username).first():
@@ -139,6 +158,7 @@ def create_user():
 
 @bp.route('/<int:user_id>', methods=['PUT'])
 @login_required
+@permission_required('user.edit')
 @validate_json_data(['real_name'])
 def update_user(user_id):
     """更新用户信息"""
@@ -178,8 +198,13 @@ def update_user(user_id):
         role = data['role']
         if role not in ['super', 'manager', 'tester', 'admin']:
             return error_response(400, "无效的角色类型")
-        
-        user.role = role
+        # 仅 Lethe 可拥有或保持超级管理员
+        if role == 'super' and user.username != 'Lethe':
+            return error_response(400, "仅 Lethe 账号可设为超级管理员")
+        if user.username == 'Lethe':
+            pass  # Lethe 角色固定，不应用修改，保持 super
+        else:
+            user.role = role
     
     if 'is_active' in data:
         user.is_active = data['is_active']
@@ -200,9 +225,12 @@ def update_user(user_id):
 
 @bp.route('/<int:user_id>', methods=['DELETE'])
 @login_required
+@permission_required('user.delete')
 def delete_user(user_id):
     """删除用户。如有关联引用则拒绝删除并返回引用信息。"""
     user = User.query.get_or_404(user_id)
+    if user.username == 'Lethe':
+        return error_response(400, "不可删除超级管理员账号")
 
     from app.models.models import (
         Project, ProjectMember, VersionRequirement, Iteration,
@@ -304,9 +332,10 @@ def delete_user(user_id):
 
 @bp.route('/<int:user_id>/reset-password', methods=['POST'])
 @login_required
+@permission_required('user.edit')
 @validate_json_data(['new_password'])
 def reset_user_password(user_id):
-    """重置用户密码"""
+    """重置用户密码（需具备编辑用户权限）"""
     user = User.query.get_or_404(user_id)
     data = request.get_json()
     new_password = data.get('new_password', '')
@@ -330,10 +359,12 @@ def reset_user_password(user_id):
 
 @bp.route('/<int:user_id>/toggle-status', methods=['POST'])
 @login_required
+@permission_required('user.edit')
 def toggle_user_status(user_id):
     """切换用户状态（启用/禁用）"""
     user = User.query.get_or_404(user_id)
-    
+    if user.username == 'Lethe':
+        return error_response(400, "不可禁用超级管理员账号")
     # 切换用户状态
     user.is_active = not user.is_active
     
@@ -355,12 +386,13 @@ def toggle_user_status(user_id):
 @bp.route('/roles', methods=['GET'])
 @login_required
 def get_roles():
+    """获取角色列表（下拉用），任意登录用户可调"""
     """获取角色列表"""
     roles = [
         {'value': 'super', 'label': '超级管理员'},
         {'value': 'manager', 'label': '管理员'},
         {'value': 'tester', 'label': '测试人员'},
-        {'value': 'admin', 'label': '实习生'}
+        {'value': 'admin', 'label': '普通成员'}
     ]
     
     return success_response({

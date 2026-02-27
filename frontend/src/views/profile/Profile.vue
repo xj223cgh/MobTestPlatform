@@ -251,6 +251,7 @@ import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { getUserInfo, changePassword as changePasswordApi } from "@/api/auth";
 import { updateUser } from "@/api/user";
+import { isPermissionError } from "@/utils/request";
 
 const router = useRouter();
 
@@ -323,7 +324,7 @@ const getRoleText = (role) => {
     super: "超级管理员",
     manager: "管理员",
     tester: "测试员",
-    admin: "实习生",
+    admin: "普通成员",
   };
   return roleMap[role] || role;
 };
@@ -350,6 +351,7 @@ const loadUserInfo = async () => {
       infoForm.department = userInfo.value.department || "";
     }
   } catch (error) {
+    if (isPermissionError(error)) return;
     console.error("获取用户信息失败:", error);
     ElMessage.error("获取用户信息失败");
   }
@@ -385,6 +387,7 @@ const updateInfo = async () => {
       ElMessage.error(response.message || "更新失败");
     }
   } catch (error) {
+    if (isPermissionError(error)) return;
     console.error("更新个人信息失败:", error);
     ElMessage.error("更新失败，请稍后重试");
   } finally {
@@ -444,6 +447,7 @@ const changePassword = async () => {
       ElMessage.error(response.message || "密码修改失败");
     }
   } catch (error) {
+    if (isPermissionError(error)) return;
     // 如果用户点击了取消按钮，不做处理
     if (error.name !== "MessageBoxCloseError") {
       console.error("修改密码失败:", error);

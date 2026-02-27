@@ -13,8 +13,26 @@ from app.utils.helpers import (
     validate_json_data
 )
 from app.utils.scheduler import add_scheduled_task, remove_scheduled_task, get_scheduled_tasks
-
 bp = Blueprint('devices', __name__)
+
+
+def _resolve_device_ids_to_serials(device_ids):
+    """将前端传入的 device_ids（可能是数据库主键或设备序列号）解析为设备序列号列表，用于 adb -s。"""
+    serials = []
+    for raw_id in device_ids:
+        if raw_id is None or (isinstance(raw_id, str) and not raw_id.strip()):
+            continue
+        device = None
+        try:
+            if isinstance(raw_id, int) or (isinstance(raw_id, str) and raw_id.isdigit()):
+                device = Device.query.get(int(raw_id))
+            if not device:
+                device = Device.query.filter_by(device_id=str(raw_id).strip()).first()
+            if device:
+                serials.append(device.device_id)
+        except (TypeError, ValueError):
+            pass
+    return serials
 
 
 @bp.route('', methods=['GET'])
@@ -732,9 +750,14 @@ def execute_batch_tasks():
     if not device_ids:
         return error_response(400, "请选择设备")
 
+    # 前端可能传数据库主键，解析为设备序列号供 adb 使用
+    device_serials = _resolve_device_ids_to_serials(device_ids)
+    if not device_serials:
+        return error_response(400, "未找到有效设备，请检查设备是否已录入")
+
     results = []
 
-    for device_id in device_ids:
+    for device_id in device_serials:
         try:
             # 计算项目根目录路径
             project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -1221,18 +1244,18 @@ def schedule_batch_tasks():
         db.session.add(test_task)
         db.session.commit()
 
-        log_user_action("创建定时任务", f"测试任务ID: {test_task.id}, 执行时间: {scheduled_time_str}, 设备数量: {len(device_ids)}")
+        log_user_action("创建计划任务", f"测试任务ID: {test_task.id}, 计划时间: {scheduled_time_str}, 设备数量: {len(device_ids)}")
 
         return success_response({
             'task_id': test_task.id,
             'scheduled_time': scheduled_time_str,
             'device_count': len(device_ids)
-        }, "定时任务创建成功")
+        }, "计划任务创建成功")
 
     except ValueError as e:
         return error_response(400, "时间格式错误，请使用格式：YYYY-MM-DD HH:mm:ss")
     except Exception as e:
         db.session.rollback()
-        return error_response(500, f"创建定时任务失败: {str(e)}")
+        return error_response(500, f"创建计划任务失败: {str(e)}")
 
 

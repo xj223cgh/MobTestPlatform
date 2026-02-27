@@ -211,12 +211,17 @@
       <div class="card">
         <div class="card-header">
           <h3>最近活动</h3>
-          <el-link
-            type="primary"
-            @click="viewAllActivities"
+          <el-select
+            v-model="activityTimeRange"
+            size="small"
+            class="activity-time-select"
           >
-            查看全部
-          </el-link>
+            <el-option label="默认(近期10条)" value="default" />
+            <el-option label="近3天" value="3d" />
+            <el-option label="近7天" value="7d" />
+            <el-option label="近30天" value="30d" />
+            <el-option label="3个月内" value="90d" />
+          </el-select>
         </div>
         <div class="activity-list">
           <div
@@ -226,10 +231,10 @@
           >
             <div
               class="activity-icon"
-              :class="activity.type"
+              :class="[activity.type, { 'is-notification': activity._isNotification }]"
             >
               <el-icon>
-                <component :is="getActivityIcon(activity.type)" />
+                <component :is="getActivityIcon(activity)" />
               </el-icon>
             </div>
             <div class="activity-content">
@@ -273,6 +278,8 @@ import {
   getRecentProjects,
   getTaskStatusDistribution,
 } from "@/api/home";
+import { getNotifications } from "@/api/notifications";
+import { isPermissionError } from "@/utils/request";
 import { useSystemSettingsStore } from "@/stores/systemSettings";
 
 const router = useRouter();
@@ -312,8 +319,22 @@ const stats = reactive({
 // 任务趋势周期
 const taskTrendPeriod = ref("7d");
 
-// 最近活动
-const recentActivities = ref([]);
+// 最近活动：全量缓存，时间范围筛选后取前 10 条
+const recentActivitiesAll = ref([]);
+const activityTimeRange = ref("default");
+const ACTIVITY_LIMIT = 10;
+
+const recentActivities = computed(() => {
+  const list = recentActivitiesAll.value || [];
+  if (activityTimeRange.value === "default") {
+    return list.slice(0, ACTIVITY_LIMIT);
+  }
+  const now = Date.now();
+  const days = { "3d": 3, "7d": 7, "30d": 30, "90d": 90 }[activityTimeRange.value] || 0;
+  const cutoff = now - days * 24 * 60 * 60 * 1000;
+  const cutoffStr = new Date(cutoff).toISOString();
+  return list.filter((a) => (a.created_at || "") >= cutoffStr).slice(0, ACTIVITY_LIMIT);
+});
 
 // 最近项目
 const recentProjects = ref([]);
@@ -491,7 +512,9 @@ const taskStatusOption = computed(() => ({
 }));
 
 // 获取活动图标
-const getActivityIcon = (type) => {
+const getActivityIcon = (activity) => {
+  if (activity && activity._isNotification) return "Bell";
+  const type = typeof activity === "string" ? activity : activity?.type;
   const iconMap = {
     task: "List",
     device: "Monitor",
@@ -513,6 +536,7 @@ const fetchStats = async () => {
       Object.assign(stats, response.data);
     }
   } catch (error) {
+    if (isPermissionError(error)) return;
     console.error("获取统计数据失败:", error);
     ElMessage.error("获取统计数据失败");
   }
@@ -579,13 +603,39 @@ const loadRecentProjects = async () => {
   }
 };
 
-// 获取最近活动
+// 获取最近活动：合并首页 activities 与当前用户通知，按时间倒序，多拉一些供时间范围筛选
 const fetchRecentActivities = async () => {
   try {
-    const response = await getRecentActivities({ limit: 10 });
-    if (response.code === 200 || response.success) {
-      recentActivities.value = response.data || [];
+    const fetchLimit = 80;
+    const [actRes, notifRes] = await Promise.all([
+      getRecentActivities({ limit: fetchLimit }),
+      getNotifications({ page: 1, size: fetchLimit }).catch(() => ({ data: {} })),
+    ]);
+    const list = [];
+    if (actRes?.code === 200 || actRes?.success) {
+      (actRes.data || []).forEach((a) => list.push({ ...a, _sort: a.created_at }));
     }
+    const notifItems = notifRes?.data?.items || [];
+    const formatReviewSummary = (s) => {
+      if (!s || typeof s !== "string") return "";
+      return s
+        .replace(/结果：approved/g, "结果：已通过")
+        .replace(/结果：rejected/g, "结果：已拒绝")
+        .replace(/结果：pending/g, "结果：待审核");
+    };
+    notifItems.forEach((n) => {
+      list.push({
+        id: `n_${n.id}`,
+        type: n.type || "notification",
+        title: n.title,
+        description: formatReviewSummary(n.summary || ""),
+        created_at: n.created_at,
+        _sort: n.created_at,
+        _isNotification: true,
+      });
+    });
+    list.sort((a, b) => (b._sort || "").localeCompare(a._sort || ""));
+    recentActivitiesAll.value = list.map(({ _sort, ...item }) => item);
   } catch (error) {
     console.error("获取最近活动失败:", error);
   }
@@ -605,15 +655,11 @@ const refreshData = async () => {
     ]);
     ElMessage.success("数据刷新成功");
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error("数据刷新失败");
   } finally {
     loading.value = false;
   }
-};
-
-// 查看所有活动：跳转到测试任务（活动数据主要来自任务执行）
-const viewAllActivities = () => {
-  router.push("/test-tasks");
 };
 
 // 获取项目状态标签类型
@@ -648,7 +694,7 @@ onMounted(() => {
 <style lang="scss" scoped>
 .home {
   padding: 20px;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page, #f5f7fa);
   min-height: 100vh;
 }
 
@@ -662,13 +708,13 @@ onMounted(() => {
     .title {
       font-size: 28px;
       font-weight: 600;
-      color: #303133;
+      color: var(--el-text-color-primary, #303133);
       margin: 0 0 8px 0;
     }
     
     .subtitle {
       font-size: 14px;
-      color: #909399;
+      color: var(--el-text-color-secondary, #909399);
       margin: 0;
     }
   }
@@ -681,7 +727,7 @@ onMounted(() => {
   margin-bottom: 30px;
 
   .stat-card {
-    background: #fff;
+    background: var(--el-bg-color, #fff);
     border-radius: 8px;
     padding: 24px;
     display: flex;
@@ -689,7 +735,7 @@ onMounted(() => {
     gap: 20px;
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.06);
     transition: all 0.3s;
-    border: 1px solid #ebeef5;
+    border: 1px solid var(--el-border-color-light, #ebeef5);
 
     &:hover {
       transform: translateY(-4px);
@@ -731,14 +777,14 @@ onMounted(() => {
       .stat-number {
         font-size: 28px;
         font-weight: 600;
-        color: #303133;
+        color: var(--el-text-color-primary, #303133);
         line-height: 1.2;
         margin-bottom: 6px;
       }
 
       .stat-label {
         font-size: 14px;
-        color: #909399;
+        color: var(--el-text-color-secondary, #909399);
         margin-bottom: 8px;
       }
       
@@ -747,7 +793,7 @@ onMounted(() => {
         align-items: center;
         gap: 2px;
         font-size: 12px;
-        color: #909399;
+        color: var(--el-text-color-secondary, #909399);
         
         &.positive {
           color: #67c23a;
@@ -768,11 +814,11 @@ onMounted(() => {
   margin-bottom: 30px;
 
   .chart-card {
-    background: #fff;
+    background: var(--el-bg-color, #fff);
     border-radius: 8px;
     padding: 24px;
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.06);
-    border: 1px solid #ebeef5;
+    border: 1px solid var(--el-border-color-light, #ebeef5);
 
     .chart-header {
       display: flex;
@@ -780,13 +826,13 @@ onMounted(() => {
       align-items: center;
       margin-bottom: 20px;
       padding-bottom: 16px;
-      border-bottom: 1px solid #f0f2f5;
+      border-bottom: 1px solid var(--el-border-color-lighter, #f0f2f5);
 
       h3 {
         margin: 0;
         font-size: 16px;
         font-weight: 600;
-        color: #303133;
+        color: var(--el-text-color-primary, #303133);
       }
     }
 
@@ -803,11 +849,11 @@ onMounted(() => {
 
 .activity-section {
   .card {
-    background: #fff;
+    background: var(--el-bg-color, #fff);
     border-radius: 8px;
     padding: 24px;
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.06);
-    border: 1px solid #ebeef5;
+    border: 1px solid var(--el-border-color-light, #ebeef5);
 
     .card-header {
       display: flex;
@@ -815,13 +861,17 @@ onMounted(() => {
       align-items: center;
       margin-bottom: 20px;
       padding-bottom: 16px;
-      border-bottom: 1px solid #f0f2f5;
+
+      .activity-time-select {
+        width: 160px;
+      }
+      border-bottom: 1px solid var(--el-border-color-lighter, #f0f2f5);
 
       h3 {
         margin: 0;
         font-size: 16px;
         font-weight: 600;
-        color: #303133;
+        color: var(--el-text-color-primary, #303133);
       }
     }
 
@@ -834,7 +884,7 @@ onMounted(() => {
         display: flex;
         gap: 15px;
         padding: 16px 0;
-        border-bottom: 1px solid #f5f7fa;
+        border-bottom: 1px solid var(--el-border-color-lighter, #f5f7fa);
         transition: all 0.2s;
 
         &:last-child {
@@ -842,7 +892,7 @@ onMounted(() => {
         }
         
         &:hover {
-          background-color: #fafafa;
+          background-color: var(--el-fill-color-light, #fafafa);
           padding-left: 8px;
           margin-left: -8px;
           padding-right: 8px;
@@ -872,6 +922,10 @@ onMounted(() => {
           &.user {
             background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
           }
+
+          &.is-notification {
+            background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
+          }
         }
 
         .activity-content {
@@ -881,7 +935,7 @@ onMounted(() => {
           .activity-title {
             font-size: 14px;
             font-weight: 500;
-            color: #303133;
+            color: var(--el-text-color-primary, #303133);
             margin-bottom: 6px;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -890,7 +944,7 @@ onMounted(() => {
 
           .activity-desc {
             font-size: 13px;
-            color: #606266;
+            color: var(--el-text-color-regular, #606266);
             margin-bottom: 6px;
             line-height: 1.5;
             overflow: hidden;
@@ -900,7 +954,7 @@ onMounted(() => {
 
           .activity-time {
             font-size: 12px;
-            color: #909399;
+            color: var(--el-text-color-secondary, #909399);
           }
         }
       }
@@ -915,11 +969,11 @@ onMounted(() => {
   margin-bottom: 30px;
 
   .chart-card {
-    background: #fff;
+    background: var(--el-bg-color, #fff);
     border-radius: 8px;
     padding: 24px;
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.06);
-    border: 1px solid #ebeef5;
+    border: 1px solid var(--el-border-color-light, #ebeef5);
 
     .chart-header {
       display: flex;
@@ -927,13 +981,13 @@ onMounted(() => {
       align-items: center;
       margin-bottom: 20px;
       padding-bottom: 16px;
-      border-bottom: 1px solid #f0f2f5;
+      border-bottom: 1px solid var(--el-border-color-lighter, #f0f2f5);
 
       h3 {
         margin: 0;
         font-size: 16px;
         font-weight: 600;
-        color: #303133;
+        color: var(--el-text-color-primary, #303133);
       }
     }
 
@@ -958,7 +1012,7 @@ onMounted(() => {
         justify-content: space-between;
         align-items: center;
         padding: 14px 8px 14px 0;
-        border-bottom: 1px solid #f5f7fa;
+        border-bottom: 1px solid var(--el-border-color-lighter, #f5f7fa);
         transition: all 0.2s;
         gap: 12px;
         
@@ -967,7 +1021,7 @@ onMounted(() => {
         }
         
         &:hover {
-          background-color: #fafafa;
+          background-color: var(--el-fill-color-light, #fafafa);
           padding-left: 8px;
           padding-right: 8px;
           margin-left: -8px;
@@ -981,7 +1035,7 @@ onMounted(() => {
           .project-name {
             font-size: 14px;
             font-weight: 500;
-            color: #303133;
+            color: var(--el-text-color-primary, #303133);
             margin-bottom: 8px;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -996,7 +1050,7 @@ onMounted(() => {
             
             .project-owner {
               font-size: 13px;
-              color: #909399;
+              color: var(--el-text-color-secondary, #909399);
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;
@@ -1006,7 +1060,7 @@ onMounted(() => {
         
         .project-time {
           font-size: 12px;
-          color: #C0C4CC;
+          color: var(--el-text-color-secondary, #C0C4CC);
           white-space: nowrap;
           flex-shrink: 0;
           margin-left: 8px;

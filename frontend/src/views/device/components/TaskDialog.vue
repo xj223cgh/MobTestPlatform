@@ -197,12 +197,12 @@
               立即执行
             </el-radio>
             <el-radio label="scheduled">
-              定时执行
+              计划执行
             </el-radio>
           </el-radio-group>
         </el-form-item>
 
-        <!-- 定时执行相关参数 -->
+        <!-- 计划执行相关参数 -->
         <template v-if="scriptForm.executionMode === 'scheduled'">
           <el-form-item
             label="任务名称"
@@ -216,14 +216,14 @@
           </el-form-item>
 
           <el-form-item
-            label="执行时间"
+            label="计划执行时间"
             prop="scheduledTime"
             :required="true"
           >
             <el-date-picker
               v-model="scriptForm.scheduledTime"
               type="datetime"
-              placeholder="选择执行时间"
+              placeholder="选择计划执行时间"
               :disabled-date="disabledDate"
               :disabled-hours="disabledHours"
               :disabled-minutes="disabledMinutes"
@@ -250,7 +250,7 @@
                   <div class="task-folder-input-wrap">
                     <el-input
                       v-model="selectedFolderPath"
-                      placeholder="请选择任务目录"
+                      placeholder="选填，不选则归入全部"
                       readonly
                       class="task-folder-input"
                       @click="handleFolderInputClick"
@@ -823,7 +823,7 @@ const handleSubmitScript = async () => {
 
       await deviceApi.scheduleBatchTasks(requestData);
       ElMessage.success(
-        `定时任务已创建，将在 ${scriptForm.scheduledTime} 执行`,
+        `计划任务已创建，计划执行时间：${scriptForm.scheduledTime}`,
       );
       handleClose();
     }

@@ -6,14 +6,17 @@ from app.models.models import (
 from flask_login import login_required, current_user
 from datetime import datetime
 import json
+from app.services.permission_service import permission_required
 
 # 项目状态常量 - 与models.py保持一致
 PROJECT_STATUS = ('not_started', 'in_progress', 'paused', 'completed', 'closed')
 
 bp = Blueprint('projects', __name__)
 
+
 @bp.route('/', methods=['POST'])
 @login_required
+@permission_required('project.create')
 def create_project():
     """创建新项目"""
     try:
@@ -97,6 +100,19 @@ def create_project():
                             db.session.add(project_member)
         
         db.session.commit()
+        # 通知：负责人若非当前用户则 project_created；新加入的成员（不含当前用户、不含 owner）project_member_added
+        from app.services.notification_service import notify_users
+        owner_id = new_project.owner_id
+        if owner_id and owner_id != current_user.id:
+            notify_users([owner_id], 'project_created', '项目负责人', f'你被设为项目「{new_project.project_name}」的负责人', 'project', new_project.id, exclude_user_id=current_user.id)
+        member_ids = []
+        if 'members' in data:
+            for member in data['members']:
+                uid = member.get('user_id')
+                if uid and uid != current_user.id and uid != owner_id:
+                    member_ids.append(uid)
+        if member_ids:
+            notify_users(member_ids, 'project_member_added', '加入项目', f'你已被加入项目「{new_project.project_name}」', 'project', new_project.id, exclude_user_id=current_user.id)
         return jsonify({'code': 200, 'message': '项目创建成功', 'data': new_project.to_dict()}), 201
     except Exception as e:
         db.session.rollback()
@@ -104,6 +120,7 @@ def create_project():
 
 @bp.route('/', methods=['GET'])
 @login_required
+@permission_required('project.list')
 def get_projects():
     """获取所有项目列表，支持分页和搜索筛选"""
     try:
@@ -175,6 +192,7 @@ def get_project(project_id):
 
 @bp.route('/<int:project_id>', methods=['PUT'])
 @login_required
+@permission_required('project.edit')
 def update_project(project_id):
     """更新项目信息"""
     try:
@@ -218,7 +236,11 @@ def update_project(project_id):
             # 验证项目负责人是否存在
             owner = User.query.get(data['owner_id'])
             if owner:
-                project.owner_id = data['owner_id']
+                new_owner_id = data['owner_id']
+                if new_owner_id != project.owner_id and new_owner_id != current_user.id:
+                    from app.services.notification_service import notify_users
+                    notify_users([new_owner_id], 'project_owner_changed', '项目负责人变更', f'你已成为项目「{project.project_name}」的负责人', 'project', project_id, exclude_user_id=current_user.id)
+                project.owner_id = new_owner_id
             else:
                 return jsonify({'error': '项目负责人不存在'}), 400
         if 'doc_url' in data:
@@ -267,6 +289,9 @@ def update_project(project_id):
                                 role=role
                             )
                             db.session.add(project_member)
+                            # 通知新成员
+                            from app.services.notification_service import notify_users
+                            notify_users([user_id], 'project_member_added', '加入项目', f'你已被加入项目「{project.project_name}」', 'project', project_id, exclude_user_id=current_user.id)
             
             # 删除不再存在的成员，但保留项目负责人
             for member in current_member_ids.values():
@@ -283,6 +308,7 @@ def update_project(project_id):
 
 @bp.route('/<int:project_id>', methods=['DELETE'])
 @login_required
+@permission_required('project.delete')
 def delete_project(project_id):
     """删除项目。如有关联引用则拒绝删除并返回引用信息。"""
     project = Project.query.get(project_id)
@@ -434,6 +460,7 @@ def remove_project_member(project_id, member_id):
 
 @bp.route('/<int:project_id>/version-requirements', methods=['GET'])
 @login_required
+@permission_required('requirement.list')
 def get_project_version_requirements(project_id):
     """获取项目的版本需求列表"""
     try:
@@ -468,6 +495,7 @@ def get_project_version_requirements(project_id):
 
 @bp.route('/version-requirements', methods=['GET'])
 @login_required
+@permission_required('requirement.list')
 def get_all_version_requirements():
     """获取所有版本需求列表"""
     try:
@@ -500,6 +528,7 @@ def get_all_version_requirements():
 
 @bp.route('/<int:project_id>/version-requirements', methods=['POST'])
 @login_required
+@permission_required('requirement.create')
 def create_project_version_requirement(project_id):
     """创建版本需求（不做权限鉴别）"""
     try:
@@ -540,7 +569,10 @@ def create_project_version_requirement(project_id):
                 return jsonify({'code': 400, 'message': '结束日期格式错误，请使用有效的日期格式'}), 400
         db.session.add(new_requirement)
         db.session.commit()
-        
+        # 通知被指派人（若存在且非当前用户）
+        if new_requirement.assigned_to and new_requirement.assigned_to != current_user.id:
+            from app.services.notification_service import notify_users
+            notify_users([new_requirement.assigned_to], 'requirement_assigned', '需求指派', f'需求「{new_requirement.requirement_name}」已分配给你', 'version_requirement', new_requirement.id, exclude_user_id=current_user.id)
         return jsonify({'code': 200, 'message': '版本需求创建成功', 'data': new_requirement.to_dict()}), 201
     except Exception as e:
         db.session.rollback()
@@ -548,6 +580,7 @@ def create_project_version_requirement(project_id):
 
 @bp.route('/<int:project_id>/version-requirements/<int:requirement_id>', methods=['PUT'])
 @login_required
+@permission_required('requirement.edit')
 def update_project_version_requirement(project_id, requirement_id):
     """更新版本需求（不做权限鉴别）"""
     try:
@@ -579,7 +612,11 @@ def update_project_version_requirement(project_id, requirement_id):
         if 'actual_hours' in data:
             requirement.actual_hours = data['actual_hours']
         if 'assigned_to' in data:
-            requirement.assigned_to = data['assigned_to']
+            new_assigned = data['assigned_to']
+            if new_assigned != requirement.assigned_to and new_assigned and new_assigned != current_user.id:
+                from app.services.notification_service import notify_users
+                notify_users([new_assigned], 'requirement_assigned', '需求指派', f'需求「{requirement.requirement_name}」已分配给你', 'version_requirement', requirement.id, exclude_user_id=current_user.id)
+            requirement.assigned_to = new_assigned
         if 'start_date' in data:
             try:
                 requirement.start_date = datetime.fromisoformat(data['start_date'].replace('Z', '+00:00'))
@@ -605,6 +642,7 @@ def update_project_version_requirement(project_id, requirement_id):
 
 @bp.route('/<int:project_id>/version-requirements/<int:requirement_id>', methods=['DELETE'])
 @login_required
+@permission_required('requirement.delete')
 def delete_project_version_requirement(project_id, requirement_id):
     """删除版本需求。仅校验关联引用，有关联则提示无法删除；不做权限鉴别。"""
     requirement_to_delete = VersionRequirement.query.filter_by(
@@ -645,6 +683,7 @@ def delete_project_version_requirement(project_id, requirement_id):
 
 @bp.route('/<int:project_id>/iterations', methods=['GET'])
 @login_required
+@permission_required('iteration.list')
 def get_project_iterations(project_id):
     """获取项目的迭代列表"""
     try:

@@ -65,8 +65,8 @@ class User(UserMixin, db.Model):
     # 关系
     created_devices = db.relationship('Device', backref='owner', lazy='dynamic', foreign_keys='Device.owner_id')
     created_cases = db.relationship('TestCase', lazy='dynamic', foreign_keys='TestCase.creator_id')
-    created_tasks = db.relationship('TestTask', lazy='dynamic', foreign_keys='TestTask.creator_id')
-    executed_tasks = db.relationship('TestTask', lazy='dynamic', foreign_keys='TestTask.executor_id')
+    created_tasks = db.relationship('TestTask', lazy='dynamic', foreign_keys='TestTask.creator_id', overlaps='creator')
+    executed_tasks = db.relationship('TestTask', lazy='dynamic', foreign_keys='TestTask.executor_id', overlaps='executor')
 
     def set_password(self, password):
         """设置密码"""
@@ -89,6 +89,32 @@ class User(UserMixin, db.Model):
             'is_active': self.is_active,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+# 系统固定角色枚举，与 User.role 一致
+ROLE_ENUM = ('super', 'manager', 'tester', 'admin')
+
+
+class RolePermission(db.Model):
+    """角色-埋点配置：每个角色对应一组可用的功能埋点编码"""
+    __tablename__ = 'role_permissions'
+
+    id = db.Column(db.Integer, primary_key=True, comment='ID')
+    role = db.Column(db.Enum(*ROLE_ENUM), nullable=False, comment='角色')
+    permission_code = db.Column(db.String(80), nullable=False, comment='埋点编码')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+
+    __table_args__ = (
+        db.UniqueConstraint('role', 'permission_code', name='uk_role_permission'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'role': self.role,
+            'permission_code': self.permission_code,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
         }
 
 
@@ -354,7 +380,7 @@ class Iteration(db.Model):
     
     # 关系
 
-    test_tasks = db.relationship('TestTask', cascade='all, delete-orphan')
+    test_tasks = db.relationship('TestTask', cascade='all, delete-orphan', overlaps='iteration')
     version_requirements = db.relationship('VersionRequirement', back_populates='iteration', cascade='all, delete-orphan')
     case_executions = db.relationship('TestCaseExecution', back_populates='iteration', cascade='all, delete-orphan')
     creator = db.relationship('User', backref='created_iterations', foreign_keys=[created_by])
@@ -719,8 +745,8 @@ class TestCase(db.Model):
     # 审核信息
     review_comments = db.Column(db.Text, comment='审核意见')
     
-    # 关系
-    test_tasks = db.relationship('TestTask', secondary='task_case_relation')
+    # 关系（与 TestTask.test_cases 通过 task_case_relation 关联，声明 overlaps 消除 SAWarning）
+    test_tasks = db.relationship('TestTask', secondary='task_case_relation', overlaps='test_cases')
     # 移除backref参数，避免与User模型中的created_cases冲突
     creator = db.relationship('User', foreign_keys=[creator_id], overlaps="created_cases")
     assignee = db.relationship('User', backref='assigned_cases', foreign_keys=[assignee_id])
@@ -937,16 +963,16 @@ class TestTask(db.Model):
     suite = db.relationship('TestSuite', backref='test_tasks')
     # 与项目的多对一关系
     project = db.relationship('Project', backref='test_tasks')
-    # 与迭代的多对一关系
-    iteration = db.relationship('Iteration')
+    # 与迭代的多对一关系（与 Iteration.test_tasks 互斥写入，声明 overlaps 消除 SAWarning）
+    iteration = db.relationship('Iteration', overlaps='test_tasks')
     # 与设备的多对多关系
     devices = db.relationship('Device', secondary='task_device_relation', backref='test_tasks')
-    # 与测试用例的多对多关系
-    test_cases = db.relationship('TestCase', secondary='task_case_relation')
-    # 与创建者的多对一关系
-    creator = db.relationship('User', foreign_keys=[creator_id])
-    # 与执行者的多对一关系
-    executor = db.relationship('User', foreign_keys=[executor_id])
+    # 与测试用例的多对多关系（与 TestCase.test_tasks 互斥，声明 overlaps 消除 SAWarning）
+    test_cases = db.relationship('TestCase', secondary='task_case_relation', overlaps='test_tasks')
+    # 与创建者的多对一关系（与 User.created_tasks 互斥）
+    creator = db.relationship('User', foreign_keys=[creator_id], overlaps='created_tasks')
+    # 与执行者的多对一关系（与 User.executed_tasks 互斥）
+    executor = db.relationship('User', foreign_keys=[executor_id], overlaps='executed_tasks')
     # 与版本需求的多对一关系
     version_requirement = db.relationship('VersionRequirement', backref='test_tasks')
     # 与任务文件夹的多对一关系（backref 在 TaskFolder 已定义）
@@ -1099,5 +1125,41 @@ class Report(db.Model):
             'suite_id': self.suite_id,
             'suite_name': self.suite_name,
             'requirement_name': self.requirement_name,
+        }
+
+
+class Notification(db.Model):
+    """消息通知模型"""
+    __tablename__ = 'notifications'
+
+    id = db.Column(db.Integer, primary_key=True, comment='通知ID')
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, comment='接收人用户ID')
+    type = db.Column(db.String(80), nullable=False, comment='消息类型')
+    title = db.Column(db.String(255), nullable=False, comment='标题')
+    summary = db.Column(db.Text, comment='摘要')
+    is_read = db.Column(db.Boolean, default=False, comment='是否已读')
+    is_pinned = db.Column(db.Boolean, default=False, comment='是否置顶')
+    related_type = db.Column(db.String(50), comment='关联实体类型')
+    related_id = db.Column(db.Integer, comment='关联实体ID')
+    extra = db.Column(db.JSON, comment='扩展信息')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+    deleted_at = db.Column(db.DateTime(timezone=True), nullable=True, comment='软删除时间')
+
+    user = db.relationship('User', backref=db.backref('notifications', lazy='dynamic'))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'type': self.type,
+            'title': self.title,
+            'summary': self.summary,
+            'is_read': self.is_read,
+            'is_pinned': getattr(self, 'is_pinned', False),
+            'related_type': self.related_type,
+            'related_id': self.related_id,
+            'extra': self.extra,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None,
         }
 

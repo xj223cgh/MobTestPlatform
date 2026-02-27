@@ -28,6 +28,23 @@ def _cors_origins():
     return base
 
 
+def is_origin_allowed(origin, allowed_origins=None):
+    """
+    判断请求的 origin 是否在允许列表中。
+    支持字符串精确匹配和正则匹配（用于 Socket.IO 等只接受简单列表的库）。
+    """
+    if not origin:
+        return False
+    origins = allowed_origins if allowed_origins is not None else _cors_origins()
+    for allowed in origins:
+        if hasattr(allowed, "match"):  # 正则
+            if allowed.match(origin):
+                return True
+        elif allowed == "*" or allowed == origin:
+            return True
+    return False
+
+
 class Config:
     """基础配置类"""
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'

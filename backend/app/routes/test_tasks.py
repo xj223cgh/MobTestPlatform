@@ -797,9 +797,12 @@ def execute_test_task(task_id):
             TestCaseExecution.query.filter_by(task_id=task_id).delete()
         
         db.session.commit()
-        
         log_user_action("执行测试任务", f"任务ID: {task_id}")
-        
+        from app.services.notification_service import notify_users
+        user_ids = [test_task.creator_id]
+        if test_task.executor_id and test_task.executor_id != test_task.creator_id:
+            user_ids.append(test_task.executor_id)
+        notify_users(user_ids, 'task_started', '任务开始执行', f'测试任务「{test_task.task_name}」已开始执行', 'test_task', task_id, exclude_user_id=current_user.id)
         return success_response({
             'test_task': test_task.to_dict()
         }, "测试任务开始执行")
@@ -868,6 +871,11 @@ def complete_test_task(task_id):
     try:
         test_task.status = 'completed'
         test_task.completed_time = datetime.now(timezone(timedelta(hours=8)))
+        from app.services.notification_service import notify_users
+        user_ids = [test_task.creator_id]
+        if test_task.executor_id and test_task.executor_id != test_task.creator_id:
+            user_ids.append(test_task.executor_id)
+        notify_users(user_ids, 'task_completed', '任务执行完成', f'测试任务「{test_task.task_name}」已执行完成', 'test_task', task_id, exclude_user_id=current_user.id)
 
         # 设备脚本任务：允许前端提交执行结果，用于报告详情
         data = request.get_json(silent=True) or {}

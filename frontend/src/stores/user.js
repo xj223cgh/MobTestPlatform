@@ -4,15 +4,18 @@ import {
   login as loginApi,
   logout as logoutApi,
   checkSession,
+  getPermissions as getPermissionsApi,
 } from "@/api/auth";
 import { ElMessage } from "element-plus";
 
 const USER_KEY = "mob_user";
+const PERMISSIONS_KEY = "mob_permissions";
 const REMEMBER_KEY = "mob_remember";
 
 export const useUserStore = defineStore("user", () => {
   // 状态
   const userInfo = ref(JSON.parse(sessionStorage.getItem(USER_KEY) || "null"));
+  const permissions = ref(JSON.parse(sessionStorage.getItem(PERMISSIONS_KEY) || "[]"));
   const loading = ref(false);
 
   // 计算属性
@@ -28,11 +31,15 @@ export const useUserStore = defineStore("user", () => {
       const response = await loginApi(credentials);
 
       if (response.code === 200) {
-        const { user } = response.data;
+        const { user, permissions: permList } = response.data;
 
         // 保存用户信息到sessionStorage
         userInfo.value = user;
         sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+        // 保存权限埋点列表（用于菜单与按钮显隐）
+        const permArr = Array.isArray(permList) ? permList : [];
+        permissions.value = permArr;
+        sessionStorage.setItem(PERMISSIONS_KEY, JSON.stringify(permArr));
 
         // 处理记住我功能
         if (credentials.remember) {
@@ -83,7 +90,9 @@ export const useUserStore = defineStore("user", () => {
     } finally {
       // 无论后端请求是否成功，都清除本地数据
       userInfo.value = null;
+      permissions.value = [];
       sessionStorage.removeItem(USER_KEY);
+      sessionStorage.removeItem(PERMISSIONS_KEY);
       // 清除用例管理页的树展开/选中缓存，重新登录后默认全部收起
       localStorage.removeItem("testCaseExpandedKeys");
       localStorage.removeItem("testCaseSelectedSuite");
@@ -108,11 +117,21 @@ export const useUserStore = defineStore("user", () => {
         if (response.data.authenticated && response.data.user) {
           userInfo.value = response.data.user;
           sessionStorage.setItem(USER_KEY, JSON.stringify(response.data.user));
+          // 刷新权限列表
+          try {
+            const permRes = await getPermissionsApi();
+            if (permRes.code === 200 && Array.isArray(permRes.data?.permissions)) {
+              permissions.value = permRes.data.permissions;
+              sessionStorage.setItem(PERMISSIONS_KEY, JSON.stringify(permRes.data.permissions));
+            }
+          } catch (_) {}
           return true;
         }
         // 服务端明确未认证，清除本地
         userInfo.value = null;
+        permissions.value = [];
         sessionStorage.removeItem(USER_KEY);
+        sessionStorage.removeItem(PERMISSIONS_KEY);
         return false;
       }
       // 非 200 或无 data：无法确认状态，保留本地
@@ -121,7 +140,9 @@ export const useUserStore = defineStore("user", () => {
       const status = error.response?.status;
       if (status === 401) {
         userInfo.value = null;
+        permissions.value = [];
         sessionStorage.removeItem(USER_KEY);
+        sessionStorage.removeItem(PERMISSIONS_KEY);
         return false;
       }
       // 404/500/网络错误等：不强制踢出，保留本地状态
@@ -164,6 +185,25 @@ export const useUserStore = defineStore("user", () => {
     localStorage.removeItem(REMEMBER_KEY);
   };
 
+  // 判断当前用户是否拥有某埋点权限
+  const hasPermission = (code) => {
+    if (!permissions.value || !Array.isArray(permissions.value)) return false;
+    return permissions.value.includes(code);
+  };
+
+  // 刷新权限列表（如角色被管理员修改后调用）
+  const fetchPermissions = async () => {
+    try {
+      const res = await getPermissionsApi();
+      if (res.code === 200 && Array.isArray(res.data?.permissions)) {
+        permissions.value = res.data.permissions;
+        sessionStorage.setItem(PERMISSIONS_KEY, JSON.stringify(res.data.permissions));
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  };
+
   // 更新记住的登录信息（当用户在登录页面取消勾选记住我时调用）
   const updateRememberedCredentials = (username, password, remember) => {
     if (remember && username && password) {
@@ -181,6 +221,7 @@ export const useUserStore = defineStore("user", () => {
   return {
     // 状态
     userInfo,
+    permissions,
     loading,
 
     // 计算属性
@@ -194,6 +235,8 @@ export const useUserStore = defineStore("user", () => {
     logout,
     checkAuth,
     updateUserInfo,
+    hasPermission,
+    fetchPermissions,
     getRememberedCredentials,
     clearRememberedCredentials,
     updateRememberedCredentials,

@@ -399,6 +399,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search, Refresh, View, Download, Document } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
 import { getReportList, getReportData, deleteReport, batchDeleteReports } from '@/api/report';
+import { isPermissionError } from '@/utils/request';
 import { useSystemSettingsStore } from '@/stores/systemSettings';
 
 // 路由相关
@@ -474,6 +475,7 @@ const fetchReportList = async () => {
       ElMessage.error(testCaseResponse.message || '获取测试用例报告列表失败');
     }
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error('获取测试用例报告列表失败');
   } finally {
     loading.testCase = false;
@@ -499,6 +501,7 @@ const fetchReportList = async () => {
       ElMessage.error(deviceScriptResponse.message || '获取设备脚本报告列表失败');
     }
   } catch (error) {
+    if (isPermissionError(error)) return;
     ElMessage.error('获取设备脚本报告列表失败');
   } finally {
     loading.deviceScript = false;
@@ -572,6 +575,7 @@ const handleDeleteReport = async (row, tab) => {
     fetchReportList();
   } catch (err) {
     if (err !== 'cancel') {
+      if (isPermissionError(err)) return;
       ElMessage.error(err?.response?.data?.message || err?.message || '删除失败');
     }
   }
@@ -598,6 +602,7 @@ const handleBatchDelete = async (tab) => {
     fetchReportList();
   } catch (err) {
     if (err !== 'cancel') {
+      if (isPermissionError(err)) return;
       ElMessage.error(err?.response?.data?.message || err?.message || '批量删除失败');
     }
   }
