@@ -678,10 +678,14 @@ def get_suite_review_status(suite_id):
             
             review_history.append(history_dict)
         
-        # 获取最新的评审任务
+        # 获取最新的评审任务（created_at 可能为 None，避免 None 与 None 比较报错）
         latest_task = None
         if review_tasks:
-            latest_task = max(review_tasks, key=lambda x: x.created_at)
+            tasks_with_date = [t for t in review_tasks if t.created_at is not None]
+            if tasks_with_date:
+                latest_task = max(tasks_with_date, key=lambda x: x.created_at)
+            else:
+                latest_task = review_tasks[0]
         
         # 构建响应数据，从最新评审任务中获取当前状态和评审人
         response_data = {

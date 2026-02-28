@@ -372,22 +372,18 @@ def execute_adb_command():
             command_parts = shlex.split(command)
             command_parts[0] = scrcpy_path
             
-            # 执行scrcpy命令，不使用check=True，避免命令失败时抛出异常
-            result = subprocess.run(command_parts, capture_output=True, text=True, check=False, env=env, encoding='utf-8', errors='ignore')
-            
-            # 根据退出码判断命令是否成功
-            if result.returncode == 0:
-                # 命令执行成功
-                return success_response({
-                    'stdout': result.stdout,
-                    'stderr': result.stderr,
-                    'exit_code': result.returncode,
-                    'command': command_parts
-                })
-            else:
-                # 命令执行失败，返回错误响应
-                error_message = result.stderr or "命令执行失败"
-                return error_response(500, f"命令执行失败: {error_message}")
+            # 投屏为长驻进程，用户关闭窗口后进程才退出；用 Popen 启动后立即返回，避免“关闭投屏”时前端才收到成功并误提示“启动成功”
+            try:
+                popen_kw = {'env': env, 'stdout': subprocess.DEVNULL, 'stderr': subprocess.DEVNULL}
+                if hasattr(subprocess, 'CREATE_NEW_PROCESS_GROUP'):
+                    popen_kw['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
+                subprocess.Popen(command_parts, **popen_kw)
+            except Exception as e:
+                return error_response(500, f"启动投屏失败: {str(e)}")
+            return success_response({
+                'message': '投屏已启动',
+                'command': command_parts
+            })
         else:
             # 使用escrcpy中的adb
             adb_path = os.path.join(

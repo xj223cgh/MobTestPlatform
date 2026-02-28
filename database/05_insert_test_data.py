@@ -243,15 +243,30 @@ def insert_test_data():
             
             # 6. 插入版本需求测试数据
             print("开始插入版本需求数据...")
-            # 确保 version_requirements.priority 为 high/medium/low（若表为旧结构 P0-P4 会报 Data truncated）
+            # 确保 version_requirements.priority 为 P0-P4（若曾被改为 high/medium/low 则先修正，避免创建需求时报 Data truncated）
             try:
                 cursor.execute("""
-                    ALTER TABLE version_requirements
-                    MODIFY COLUMN priority ENUM('high', 'medium', 'low') DEFAULT 'medium' COMMENT '优先级'
-                """)
-                connection.commit()
+                    SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'version_requirements' AND COLUMN_NAME = 'priority'
+                """, (DB_CONFIG['database'],))
+                row = cursor.fetchone()
+                if row:
+                    current_type = (row[0] or "").upper()
+                    if ("HIGH" in current_type or "MEDIUM" in current_type or "LOW" in current_type) and "P1" not in current_type:
+                        cursor.execute("""
+                            ALTER TABLE version_requirements
+                            MODIFY COLUMN priority ENUM('high', 'medium', 'low', 'P0', 'P1', 'P2', 'P3', 'P4') DEFAULT 'P1' COMMENT '优先级'
+                        """)
+                        connection.commit()
+                        cursor.execute("UPDATE version_requirements SET priority = 'P1' WHERE priority IN ('high', 'medium', 'low')")
+                        connection.commit()
+                        cursor.execute("""
+                            ALTER TABLE version_requirements
+                            MODIFY COLUMN priority ENUM('P0', 'P1', 'P2', 'P3', 'P4') DEFAULT 'P1' COMMENT '优先级'
+                        """)
+                        connection.commit()
             except Exception:
-                pass  # 已是正确定义或表不存在时忽略
+                pass
             # 获取所有迭代ID
             cursor.execute("SELECT id FROM iterations")
             iteration_ids = [row[0] for row in cursor.fetchall()]
@@ -259,7 +274,7 @@ def insert_test_data():
             # 版本需求数据
             requirements_data = []
             requirement_statuses = ['new', 'in_progress', 'completed', 'cancelled']
-            priorities = ['high', 'medium', 'low']
+            priorities = ['P0', 'P1', 'P2', 'P3', 'P4']  # 与 version_requirements 表 ENUM 一致
             modules = ['登录模块', '首页模块', '用户管理', '权限管理', '测试管理', '报告管理', '设备管理']
             
             # 为每个项目添加版本需求

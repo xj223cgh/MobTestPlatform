@@ -38,7 +38,7 @@ DB_CONFIG = {
 | `06_clear_table_data.py` | 仅清空所有表数据（不删表） |
 | `07_test_connection.py` | 测试数据库连接 |
 
-**说明**：`03_create_tables.py` 已包含完整表结构（含主键、枚举 rejected、executor_id 可空、reports 表任务快照字段 status/iteration_name/suite_id/suite_name/requirement_name 等），新环境只需按顺序执行 01 → 03 → 05 即可，无需额外迁移脚本。
+**说明**：`03_create_tables.py` 已包含完整表结构（含主键、枚举 rejected、executor_id 可空、reports 表任务快照字段 status/iteration_name/suite_id/suite_name/requirement_name 等），新环境只需按顺序执行 01 → 03 → 05 即可，无需额外迁移脚本。执行 `05_insert_test_data.py` 时若检测到 `version_requirements.priority` 曾被改为 high/medium/low，会先自动改回 P0-P4 再插入数据，避免创建需求时报 Data truncated。
 
 **推荐执行顺序：**
 

@@ -316,9 +316,35 @@
             style="width: 100%"
             clearable
             :disabled="!requirementForm.project_id"
+            :loading="iterationLoading"
+            @focus="
+              requirementForm.project_id && loadDialogIterations(requirementForm.project_id)
+            "
           >
+            <template #empty>
+              <div v-if="!requirementForm.project_id">
+                请先选择项目
+              </div>
+              <div v-else-if="iterationLoading">
+                数据加载中...
+              </div>
+              <div v-else-if="dialogIterationOptions.length === 0">
+                <span>暂无迭代数据</span>
+                <el-button
+                  type="primary"
+                  link
+                  size="small"
+                  @click="loadDialogIterations(requirementForm.project_id)"
+                >
+                  重新加载
+                </el-button>
+              </div>
+              <div v-else>
+                未找到匹配的迭代
+              </div>
+            </template>
             <el-option
-              v-for="iteration in filteredIterationOptions"
+              v-for="iteration in dialogIterationOptions"
               :key="iteration.id"
               :label="iteration.iteration_name"
               :value="iteration.id"
@@ -533,6 +559,10 @@ const searchForm = reactive({});
 // 选项数据
 const projectOptions = ref([]);
 const iterationOptions = ref([]);
+/** 弹窗内「所属迭代」下拉数据（按选中项目单独加载） */
+const dialogIterationOptions = ref([]);
+/** 弹窗内迭代下拉加载中 */
+const iterationLoading = ref(false);
 const userOptions = ref([]);
 const creatorOptions = ref([]);
 const assigneeOptions = ref([]);
@@ -1240,6 +1270,7 @@ const resetForm = () => {
     requirementFormRef.value.resetFields();
   }
   editingRequirementId.value = null;
+  dialogIterationOptions.value = [];
   Object.assign(requirementForm, {
     requirement_name: "",
     description: "",
@@ -1256,10 +1287,33 @@ const resetForm = () => {
   });
 };
 
+// 弹窗内按项目加载迭代列表（带 loading）
+const loadDialogIterations = async (projectId) => {
+  if (!projectId) {
+    dialogIterationOptions.value = [];
+    return;
+  }
+  iterationLoading.value = true;
+  dialogIterationOptions.value = [];
+  try {
+    const res = await getProjectIterations(projectId, { page: 1, page_size: 1000 });
+    dialogIterationOptions.value = res?.data?.items ?? [];
+  } catch (e) {
+    console.error("加载迭代列表失败:", e);
+    ElMessage.error("加载迭代列表失败");
+  } finally {
+    iterationLoading.value = false;
+  }
+};
+
 // 项目选择变化处理函数
 const handleProjectChange = () => {
-  // 清空迭代选择
   requirementForm.iteration_id = "";
+  if (requirementForm.project_id) {
+    loadDialogIterations(requirementForm.project_id);
+  } else {
+    dialogIterationOptions.value = [];
+  }
 };
 
 // 创建需求
@@ -1289,6 +1343,12 @@ const handleEditRequirement = (row) => {
     start_date: row.start_date || "",
     end_date: row.end_date || "",
   });
+  // 加载所属项目的迭代列表，便于下拉有数据且可切换
+  if (requirementForm.project_id) {
+    loadDialogIterations(requirementForm.project_id);
+  } else {
+    dialogIterationOptions.value = [];
+  }
   dialogVisible.value = true;
 };
 

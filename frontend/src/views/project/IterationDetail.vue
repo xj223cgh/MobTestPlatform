@@ -167,7 +167,7 @@
       @close="resetForm"
     >
       <el-form
-        ref="iterationForm"
+        ref="iterationFormRef"
         :model="iterationForm"
         :rules="iterationRules"
         label-width="120px"
@@ -211,7 +211,8 @@
         >
           <el-date-picker
             v-model="iterationForm.start_date"
-            type="datetime"
+            type="date"
+            value-format="YYYY-MM-DD"
             placeholder="选择开始日期"
             style="width: 100%"
           />
@@ -223,7 +224,8 @@
         >
           <el-date-picker
             v-model="iterationForm.end_date"
-            type="datetime"
+            type="date"
+            value-format="YYYY-MM-DD"
             placeholder="选择结束日期"
             style="width: 100%"
           />
@@ -335,6 +337,7 @@ export default {
 
     // 编辑对话框
     const editDialogVisible = ref(false);
+    const iterationFormRef = ref(null);
     const iterationForm = reactive({
       id: null,
       iteration_name: "",
@@ -416,16 +419,17 @@ export default {
       router.push("/iterations");
     };
 
-    // 编辑迭代
+    // 编辑迭代：回填表单，日期取 YYYY-MM-DD 与后端一致
     const handleEdit = () => {
-      iterationForm.id = iterationDetail.value.id;
-      iterationForm.iteration_name = iterationDetail.value.iteration_name;
-      iterationForm.goal = iterationDetail.value.goal;
-      iterationForm.version = iterationDetail.value.version;
-      iterationForm.start_date = iterationDetail.value.start_date;
-      iterationForm.end_date = iterationDetail.value.end_date;
-      iterationForm.status = iterationDetail.value.status;
-      iterationForm.description = iterationDetail.value.description;
+      const d = iterationDetail.value;
+      iterationForm.id = d.id;
+      iterationForm.iteration_name = d.iteration_name || "";
+      iterationForm.goal = d.goal || "";
+      iterationForm.version = d.version || "";
+      iterationForm.start_date = d.start_date ? String(d.start_date).slice(0, 10) : "";
+      iterationForm.end_date = d.end_date ? String(d.end_date).slice(0, 10) : "";
+      iterationForm.status = d.status || "planning";
+      iterationForm.description = d.description || "";
       editDialogVisible.value = true;
     };
 
@@ -439,27 +443,34 @@ export default {
       iterationForm.end_date = "";
       iterationForm.status = "planning";
       iterationForm.description = "";
-      if (this.$refs.iterationForm) {
-        this.$refs.iterationForm.resetFields();
+      iterationFormRef.value?.resetFields();
+    };
+
+    // 格式化为 YYYY-MM-DD，兼容 value-format 与 Date 对象
+    const formatDateForApi = (v) => {
+      if (!v) return "";
+      if (typeof v === "string") return v.slice(0, 10);
+      if (v instanceof Date) {
+        const y = v.getFullYear(), m = String(v.getMonth() + 1).padStart(2, "0"), d = String(v.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
       }
+      return String(v).slice(0, 10);
     };
 
     // 提交表单
     const submitForm = async () => {
-      if (!this.$refs.iterationForm) return;
+      if (!iterationFormRef.value) return;
       try {
-        await this.$refs.iterationForm.validate();
-
+        await iterationFormRef.value.validate();
         const iterationData = {
           iteration_name: iterationForm.iteration_name,
           goal: iterationForm.goal,
           version: iterationForm.version,
-          start_date: iterationForm.start_date,
-          end_date: iterationForm.end_date,
+          start_date: formatDateForApi(iterationForm.start_date),
+          end_date: formatDateForApi(iterationForm.end_date),
           status: iterationForm.status,
-          description: iterationForm.description,
+          description: iterationForm.description ?? "",
         };
-
         const response = await updateIteration(iterationForm.id, iterationData);
         if (response && response.code === 200) {
           ElMessage.success("迭代更新成功");
@@ -468,8 +479,9 @@ export default {
         }
       } catch (error) {
         if (isPermissionError(error)) return;
+        const msg = error?.response?.data?.error || error?.response?.data?.message || error?.message || "未知错误";
         console.error("更新迭代失败:", error);
-        ElMessage.error("更新迭代失败: " + (error?.message || "未知错误"));
+        ElMessage.error("更新迭代失败: " + msg);
       }
     };
 
@@ -600,6 +612,7 @@ export default {
       iterationDetail,
       loading,
       editDialogVisible,
+      iterationFormRef,
       iterationForm,
       iterationRules,
       fetchIterationDetail,

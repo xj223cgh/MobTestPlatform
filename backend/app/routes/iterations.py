@@ -46,10 +46,13 @@ def create_iteration_new():
         if start_date > end_date:
             return jsonify({'error': '开始日期不能晚于结束日期'}), 400
         
-        # 验证迭代日期是否在项目日期范围内（只在项目有日期限制时检查）
+        # 验证迭代日期是否在项目日期范围内（只比较日期部分，避免时间/时区影响）
         if project.start_date and project.end_date:
-            if start_date < project.start_date or end_date > project.end_date:
-                return jsonify({'error': f'迭代日期必须在项目日期范围内（{project.start_date.strftime("%Y-%m-%d")} 至 {project.end_date.strftime("%Y-%m-%d")}）'}), 400
+            ps = project.start_date.date() if hasattr(project.start_date, 'date') else project.start_date
+            pe = project.end_date.date() if hasattr(project.end_date, 'date') else project.end_date
+            if start_date.date() < ps or end_date.date() > pe:
+                range_str = f"{ps.strftime('%Y-%m-%d')} 至 {pe.strftime('%Y-%m-%d')}"
+                return jsonify({'error': f'迭代的开始、结束日期需在项目日期范围内（{range_str}），请调整后重试'}), 400
         
         # 创建迭代
         new_iteration = Iteration(
@@ -107,9 +110,13 @@ def create_iteration(project_id):
         if start_date > end_date:
             return jsonify({'error': '开始日期不能晚于结束日期'}), 400
         
-        # 验证迭代日期是否在项目日期范围内
-        if start_date < project.start_date or end_date > project.end_date:
-            return jsonify({'error': '迭代日期必须在项目日期范围内'}), 400
+        # 验证迭代日期是否在项目日期范围内（只比较日期部分）
+        if project.start_date and project.end_date:
+            ps = project.start_date.date() if hasattr(project.start_date, 'date') else project.start_date
+            pe = project.end_date.date() if hasattr(project.end_date, 'date') else project.end_date
+            if start_date.date() < ps or end_date.date() > pe:
+                range_str = f"{ps.strftime('%Y-%m-%d')} 至 {pe.strftime('%Y-%m-%d')}"
+                return jsonify({'error': f'迭代的开始、结束日期需在项目日期范围内（{range_str}），请调整后重试'}), 400
         
         # 创建迭代
         new_iteration = Iteration(
@@ -226,7 +233,18 @@ def update_iteration(iteration_id):
                 iteration.end_date = datetime.strptime(data['end_date'], '%Y-%m-%d')
             except ValueError:
                 return jsonify({'error': '结束日期格式错误，请使用YYYY-MM-DD格式'}), 400
-        
+
+        # 若修改了日期，校验是否在项目日期范围内（只比较日期部分）
+        project = Project.query.get(iteration.project_id)
+        if project and project.start_date and project.end_date:
+            ps = project.start_date.date() if hasattr(project.start_date, 'date') else project.start_date
+            pe = project.end_date.date() if hasattr(project.end_date, 'date') else project.end_date
+            sd = iteration.start_date.date() if hasattr(iteration.start_date, 'date') else iteration.start_date
+            ed = iteration.end_date.date() if hasattr(iteration.end_date, 'date') else iteration.end_date
+            if sd < ps or ed > pe:
+                range_str = f"{ps.strftime('%Y-%m-%d')} 至 {pe.strftime('%Y-%m-%d')}"
+                return jsonify({'error': f'迭代的开始、结束日期需在项目日期范围内（{range_str}），请调整后重试'}), 400
+
         iteration.updated_by = current_user.id
         
         db.session.commit()
@@ -320,10 +338,15 @@ def copy_iteration(iteration_id):
             new_start_date = source_iteration.start_date
         
         new_end_date = new_start_date + datetime.timedelta(days=iteration_duration - 1)
-        
-        # 验证新的迭代日期是否在项目日期范围内
-        if new_start_date < project.start_date or new_end_date > project.end_date:
-            return jsonify({'error': '新迭代日期必须在项目日期范围内，请手动设置日期'}), 400
+
+        # 验证新的迭代日期是否在项目日期范围内（只比较日期部分）
+        if project.start_date and project.end_date:
+            ps = project.start_date.date() if hasattr(project.start_date, 'date') else project.start_date
+            pe = project.end_date.date() if hasattr(project.end_date, 'date') else project.end_date
+            ns = new_start_date.date() if hasattr(new_start_date, 'date') else new_start_date
+            ne = new_end_date.date() if hasattr(new_end_date, 'date') else new_end_date
+            if ns < ps or ne > pe:
+                return jsonify({'error': '新迭代日期必须在项目日期范围内，请手动设置日期'}), 400
         
         # 创建新迭代
         new_iteration = Iteration(

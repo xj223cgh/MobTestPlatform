@@ -457,53 +457,38 @@ export default {
   },
   
   methods: {
-    // 禁用开始日期（超出项目范围的日期）
+    // 禁用开始日期（超出项目范围的日期）；按本地日期比较，避免时区导致边界日被误禁用
     disabledStartDate(time) {
       if (!this.currentProject) return false;
-      
       const projectStart = this.currentProject.start_date;
       const projectEnd = this.currentProject.end_date;
-      
       if (!projectStart || !projectEnd) return false;
-      
-      const startTime = new Date(projectStart).getTime();
-      const endTime = new Date(projectEnd).getTime();
-      const currentTime = time.getTime();
-      
-      return currentTime < startTime || currentTime > endTime;
+      const cur = this.toLocalDateString(time);
+      const startStr = this.toLocalDateString(projectStart);
+      const endStr = this.toLocalDateString(projectEnd);
+      return cur < startStr || cur > endStr;
     },
-    
-    // 禁用结束日期（超出项目范围的日期，且不能早于开始日期）
+
+    // 禁用结束日期（超出项目范围的日期，且不能早于开始日期）；按本地日期比较
     disabledEndDate(time) {
       if (!this.currentProject) return false;
-      
       const projectStart = this.currentProject.start_date;
       const projectEnd = this.currentProject.end_date;
-      
+      const cur = this.toLocalDateString(time);
       if (!projectStart || !projectEnd) {
-        // 如果项目没有日期限制，只限制不能早于迭代开始日期
         if (this.iterationForm.start_date) {
-          const startTime = new Date(this.iterationForm.start_date).getTime();
-          return time.getTime() < startTime;
+          const startStr = this.toLocalDateString(this.iterationForm.start_date);
+          return cur < startStr;
         }
         return false;
       }
-      
-      const startTime = new Date(projectStart).getTime();
-      const endTime = new Date(projectEnd).getTime();
-      const currentTime = time.getTime();
-      
-      // 超出项目范围
-      if (currentTime < startTime || currentTime > endTime) {
-        return true;
-      }
-      
-      // 早于迭代开始日期
+      const startStr = this.toLocalDateString(projectStart);
+      const endStr = this.toLocalDateString(projectEnd);
+      if (cur < startStr || cur > endStr) return true;
       if (this.iterationForm.start_date) {
-        const iterStartTime = new Date(this.iterationForm.start_date).getTime();
-        return currentTime < iterStartTime;
+        const iterStartStr = this.toLocalDateString(this.iterationForm.start_date);
+        return cur < iterStartStr;
       }
-      
       return false;
     },
     
@@ -649,16 +634,30 @@ export default {
       this.resetIterationForm();
     },
 
-    // 将日期格式化为 YYYY-MM-DD，后端只接受该格式
+    // 将日期格式化为 YYYY-MM-DD（按本地日期，避免 toISOString 在 UTC 下导致日期错位）
     formatDateForApi(value) {
       if (!value) return "";
       if (typeof value === "string") {
         return value.slice(0, 10);
       }
       if (value instanceof Date) {
-        return value.toISOString().slice(0, 10);
+        const y = value.getFullYear();
+        const m = String(value.getMonth() + 1).padStart(2, "0");
+        const d = String(value.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
       }
       return "";
+    },
+
+    // 转为本地日期字符串 YYYY-MM-DD，用于按“日”比较、避免时区导致边界日被误禁用
+    toLocalDateString(val) {
+      if (!val) return "";
+      const d = val instanceof Date ? val : new Date(val);
+      if (isNaN(d.getTime())) return "";
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
     },
 
     // 提交迭代表单
@@ -693,8 +692,14 @@ export default {
         this.loadIterations();
       } catch (error) {
         if (isPermissionError(error)) return;
+        // 400 等业务校验错误已由 request 拦截器统一提示，此处仅记录
+        if (error?.response?.status === 400) {
+          console.warn("提交迭代表单校验未通过:", error?.response?.data?.error || error?.response?.data?.message);
+          return;
+        }
         console.error("提交迭代表单失败:", error);
-        ElMessage.error("操作失败: " + (error?.message || "未知错误"));
+        const msg = error?.response?.data?.error || error?.response?.data?.message || error?.message || "未知错误";
+        ElMessage.error("操作失败: " + msg);
       }
     },
 

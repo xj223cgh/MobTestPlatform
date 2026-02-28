@@ -116,8 +116,8 @@ request.interceptors.response.use(
           break;
 
         case 400:
-          // 业务校验/约束类提示（如删除关联校验），使用警告色而非红色
-          ElMessage.warning(data?.message || "请求无效");
+          // 业务校验/约束类提示（后端可能返回 error 或 message）
+          ElMessage.warning(data?.error || data?.message || "请求无效");
           break;
 
         case 422:

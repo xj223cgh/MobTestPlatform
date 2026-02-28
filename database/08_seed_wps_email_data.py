@@ -173,7 +173,7 @@ def run(connection):
         ('专项-兼容', '多机型、多系统版本兼容', iteration_ids[5], 'new'),
     ]
     requirement_ids = []
-    req_priorities = ['high', 'medium', 'high', 'medium', 'low']
+    req_priorities = ['P0', 'P1', 'P2', 'P3', 'P4']  # 与 version_requirements 表 ENUM 一致
     for idx, (mod_name, desc, iter_id, status) in enumerate(req_rows):
         priority = req_priorities[idx % len(req_priorities)]
         cursor.execute("""

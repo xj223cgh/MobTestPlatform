@@ -199,10 +199,11 @@ export function deleteVersionRequirement(projectId, requirementId) {
  * @param {number} projectId 项目ID
  * @returns {Promise}
  */
-export function getProjectIterations(projectId) {
+export function getProjectIterations(projectId, params) {
   return request({
     url: `/projects/${projectId}/iterations`,
     method: "get",
+    params,
   });
 }
 
