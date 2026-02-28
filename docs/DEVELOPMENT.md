@@ -3,43 +3,76 @@
 ## 项目架构
 
 ### 技术栈
-- **后端**: Python 3.8+ + Flask + SQLAlchemy + Redis
-- **前端**: Vue 3 + Vite + Element Plus + Pinia
-- **数据库**: MySQL 5.7+ / PostgreSQL 10+
-- **缓存**: Redis 6.0+
-- **任务队列**: Celery + Redis
-- **WebSocket**: Flask-SocketIO
+
+- **前端**: Vue 3 + Element Plus + Vite + Pinia + Axios + ECharts + Socket.IO Client
+- **后端**: Python 3.8+ + Flask + Flask-SQLAlchemy + Flask-Login + Flask-SocketIO + APScheduler + PyMySQL
+- **数据库**: MySQL 5.7+
+- **WebSocket**: Flask-SocketIO + eventlet
+- **认证方式**: Flask-Login（基于 Session）
 
 ### 系统架构图
+
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   前端 (Vue3)   │────│  后端 (Flask)   │────│  数据库 (MySQL) │
-│                 │    │                 │    │                 │
-│ - 用户界面      │    │ - RESTful API   │    │ - 业务数据      │
-│ - 状态管理      │    │ - WebSocket     │    │ - 用户数据      │
-│ - 路由管理      │    │ - 任务队列      │    │ - 测试数据      │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                              │
-                       ┌─────────────────┐
-                       │   缓存 (Redis)  │
-                       │                 │
-                       │ - 会话存储      │
-                       │ - 任务队列      │
-                       │ - 实时数据      │
-                       └─────────────────┘
+┌──────────────────────┐     ┌──────────────────────┐     ┌───────────────────┐
+│   前端 (Vue 3)       │     │   后端 (Flask)        │     │  数据库 (MySQL)   │
+│   端口: 8081         │────▶│   端口: 5000          │────▶│  mobile_test_     │
+│                      │     │                      │     │  platform         │
+│ - Element Plus UI    │     │ - RESTful API        │     │                   │
+│ - Pinia 状态管理     │     │ - Flask-Login 认证    │     │ - 24 张业务表     │
+│ - Axios HTTP 请求    │     │ - Flask-SocketIO 推送 │     │ - 4 级角色权限    │
+│ - ECharts 数据图表   │     │ - APScheduler 定时任务│     │                   │
+│ - Socket.IO 实时通信 │     │ - ADB 设备管理       │     │                   │
+└──────────────────────┘     └──────────────────────┘     └───────────────────┘
+```
+
+### 目录结构
+
+```
+MobTestPlatform/
+├── backend/                    # 后端 Flask 应用
+│   ├── app/
+│   │   ├── config/             # 配置（config.py、.env 加载）
+│   │   ├── models/             # SQLAlchemy 模型（models.py）
+│   │   ├── routes/             # 路由蓝图（17 个路由文件）
+│   │   ├── services/           # 业务服务（邮件等）
+│   │   └── utils/              # 工具（helpers.py 统一响应/分页/校验）
+│   ├── logs/                   # 日志文件
+│   ├── storage/                # 文件存储（脚本、Logo）
+│   ├── .env                    # 环境变量
+│   ├── run.py                  # Flask 启动入口
+│   └── requirements.txt        # Python 依赖
+├── frontend/                   # 前端 Vue 3 应用
+│   ├── src/
+│   │   ├── api/                # API 接口封装（17 个模块）
+│   │   ├── components/         # 公共组件
+│   │   │   ├── layout/         #   Layout.vue 主布局
+│   │   │   ├── ControlBar/     #   控制栏组件
+│   │   │   ├── MindMap.vue     #   脑图组件
+│   │   │   └── QqEmailInput.vue#   QQ 邮箱输入组件
+│   │   ├── router/             # 路由配置
+│   │   ├── stores/             # Pinia 状态管理（user.js）
+│   │   ├── utils/              # 工具（request.js Axios 封装）
+│   │   └── views/              # 页面视图（15 个模块目录）
+│   ├── vite.config.js          # Vite 配置
+│   └── package.json            # Node 依赖
+├── database/                   # 数据库脚本
+├── docs/                       # 项目文档
+└── start.py                    # 一键启动脚本（前后端）
 ```
 
 ## 开发环境搭建
 
 ### 1. 克隆项目
+
 ```bash
-git clone https://github.com/your-org/mob-test-platform.git
-cd mob-test-platform
+git clone https://github.com/your-org/MobTestPlatform.git
+cd MobTestPlatform
 ```
 
 ### 2. 后端开发环境
 
 #### 创建虚拟环境
+
 ```bash
 cd backend
 python -m venv venv
@@ -52,67 +85,75 @@ source venv/bin/activate
 ```
 
 #### 安装依赖
+
 ```bash
 pip install -r requirements.txt
-pip install -r requirements-dev.txt  # 开发依赖
 ```
 
-#### 配置开发环境
-创建 `.env.development` 文件：
+#### 配置环境变量
+
+编辑 `backend/.env` 文件，根据本地环境修改数据库和邮件配置：
+
 ```env
-# 开发环境配置
+# Flask 启动
 FLASK_ENV=development
-FLASK_DEBUG=True
-DATABASE_URL=mysql://root:password@localhost:3306/mob_test_platform_dev
-REDIS_URL=redis://localhost:6379/0
-JWT_SECRET_KEY=dev-secret-key
-LOG_LEVEL=DEBUG
+PORT=5000
+
+# 数据库
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASSWORD=123456
+MYSQL_DATABASE=mobile_test_platform
+
+# 安全密钥（生产环境必须替换为随机强密钥）
+SECRET_KEY=your-secret-key-here
+
+# QQ 邮箱 SMTP（用于登录验证码、找回密码）
+SMTP_USER=your_qq@qq.com
+SMTP_PASSWORD=your_authorization_code
 ```
 
 #### 初始化数据库
-```bash
-# 运行开发数据库初始化
-python init_backend.py --env=development
 
-# 或者使用 Flask-Migrate
-flask db init
-flask db migrate -m "Initial migration"
-flask db upgrade
+```bash
+# 使用 database/ 目录下的脚本
+cd ../database
+python 03_create_tables.py       # 创建表结构
+python 05_insert_test_data.py    # 插入测试数据（可选）
 ```
 
-#### 启动开发服务器
-```bash
-# 使用 Flask 开发服务器
-flask run --host=0.0.0.0 --port=8000 --reload
+#### 启动后端服务
 
-# 或使用提供的启动脚本
+```bash
+cd ../backend
 python run.py
+# 后端服务运行在 http://localhost:5000
 ```
 
 ### 3. 前端开发环境
 
 #### 安装依赖
+
 ```bash
 cd frontend
 npm install
 ```
 
-#### 配置开发环境
-创建 `.env.development` 文件：
-```env
-# 开发环境 API 地址
-VITE_API_BASE_URL=http://localhost:8000/api
-VITE_WS_URL=ws://localhost:8000/ws
-
-# 开发环境配置
-VITE_APP_TITLE=移动测试平台 (开发)
-VITE_APP_VERSION=1.0.0-dev
-VITE_MOCK_API=false
-```
-
 #### 启动开发服务器
+
 ```bash
 npm run dev
+# 前端服务运行在 http://localhost:8081
+# Vite 代理会将 /api 请求转发到 http://localhost:5000
+```
+
+### 4. 一键启动
+
+项目根目录提供了 `start.py` 脚本，可同时启动前后端服务：
+
+```bash
+python start.py
 ```
 
 ## 代码规范
@@ -120,8 +161,8 @@ npm run dev
 ### Python 代码规范
 
 #### 遵循 PEP 8
+
 ```python
-# 好的示例
 class DeviceService:
     """设备服务类"""
     
@@ -138,31 +179,10 @@ class DeviceService:
             Device对象或None
         """
         return self.db.query(Device).filter(Device.id == device_id).first()
-    
-    def create_device(self, device_data: dict) -> Device:
-        """创建新设备
-        
-        Args:
-            device_data: 设备数据字典
-            
-        Returns:
-            创建的Device对象
-            
-        Raises:
-            ValidationError: 数据验证失败
-        """
-        # 验证数据
-        self._validate_device_data(device_data)
-        
-        # 创建设备
-        device = Device(**device_data)
-        self.db.add(device)
-        self.db.commit()
-        
-        return device
 ```
 
 #### 使用类型注解
+
 ```python
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -177,825 +197,336 @@ def process_test_results(
 ```
 
 #### 异常处理
+
 ```python
 try:
     device = device_service.get_device_by_id(device_id)
     if not device:
-        raise DeviceNotFoundError(f"Device {device_id} not found")
+        return error_response(404, "设备不存在")
     
     result = device_service.connect_device(device)
-    return {"success": True, "data": result}
+    return success_response(result, "设备连接成功")
     
-except DeviceNotFoundError as e:
-    logger.error(f"Device not found: {e}")
-    return {"success": False, "error": str(e)}
 except Exception as e:
     logger.error(f"Unexpected error: {e}")
-    return {"success": False, "error": "Internal server error"}
+    return error_response(500, "服务器内部错误")
 ```
 
-### JavaScript 代码规范
+### JavaScript/Vue 代码规范
 
-#### 使用 ESLint + Prettier
-```javascript
-// 好的示例
+#### Vue 3 Composition API（`<script setup>`）
+
+```vue
+<script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getDevices, connectDevice } from '@/api/device'
+import { getDevices } from '@/api/device'
 
-export default {
-  name: 'DeviceList',
-  setup() {
-    const devices = ref([])
-    const loading = ref(false)
-    
-    const onlineDevices = computed(() => 
-      devices.value.filter(device => device.status === 'online')
-    )
-    
-    const fetchDevices = async () => {
-      try {
-        loading.value = true
-        const response = await getDevices()
-        devices.value = response.data.items
-      } catch (error) {
-        ElMessage.error('获取设备列表失败')
-        console.error('Failed to fetch devices:', error)
-      } finally {
-        loading.value = false
-      }
-    }
-    
-    const handleConnect = async (device) => {
-      try {
-        await connectDevice(device.id)
-        ElMessage.success('设备连接成功')
-        await fetchDevices()
-      } catch (error) {
-        ElMessage.error('设备连接失败')
-      }
-    }
-    
-    onMounted(() => {
-      fetchDevices()
-    })
-    
-    return {
-      devices,
-      loading,
-      onlineDevices,
-      handleConnect
-    }
+const devices = ref([])
+const loading = ref(false)
+
+const onlineDevices = computed(() => 
+  devices.value.filter(device => device.status === 'online')
+)
+
+const fetchDevices = async () => {
+  try {
+    loading.value = true
+    const response = await getDevices()
+    devices.value = response.data.items
+  } catch (error) {
+    ElMessage.error('获取设备列表失败')
+  } finally {
+    loading.value = false
   }
 }
+
+onMounted(() => {
+  fetchDevices()
+})
+</script>
 ```
 
 #### 组件命名规范
-```javascript
-// 页面组件 - 使用 PascalCase
-DeviceManagement.vue
-TestCaseManagement.vue
 
-// 通用组件 - 使用 PascalCase，前缀表示类型
-BaseButton.vue
-BaseModal.vue
-DeviceCard.vue
-TestCaseForm.vue
+```
+# 页面组件 - PascalCase，放在对应模块目录下
+views/device/DeviceManagement.vue
+views/testCase/TestCaseManagement.vue
+views/project/ProjectManagement.vue
+
+# 公共组件 - PascalCase
+components/layout/Layout.vue
+components/MindMap.vue
+components/QqEmailInput.vue
 ```
 
 ## 数据库设计
 
-### 表结构设计原则
-1. 使用统一的命名规范 (snake_case)
-2. 每个表都有 id、created_at、updated_at 字段
+### 设计原则
+
+1. 使用统一的 `snake_case` 命名
+2. 每个表都有 `id`（主键）、`created_at`、`updated_at` 字段
 3. 使用外键约束保证数据完整性
-4. 为常用查询字段添加索引
+4. 时间字段统一使用 UTC+8 时区
+5. 逻辑删除使用 `is_deleted` 字段或 `deleted_at` 时间戳
+
+### 数据库表一览（24 张表）
+
+| 表名 | 说明 |
+|------|------|
+| `users` | 用户表（用户名、手机号、邮箱、角色、锁定状态等） |
+| `email_verify_codes` | 邮箱验证码（登录/找回密码，5 分钟有效） |
+| `role_permissions` | 角色-埋点权限配置表 |
+| `system_settings` | 系统全局设置（键值对） |
+| `user_settings` | 用户个人设置 |
+| `projects` | 项目表 |
+| `project_members` | 项目成员关联表（项目角色：owner/manager/tester/viewer） |
+| `iterations` | 迭代表 |
+| `version_requirements` | 版本需求表 |
+| `devices` | 设备表 |
+| `test_suites` | 用例集/用例文件夹（树形结构，type: folder/suite） |
+| `test_cases` | 测试用例表 |
+| `test_suite_review_tasks` | 用例集评审任务 |
+| `test_case_review_details` | 单条用例评审详情 |
+| `test_suite_review_history` | 评审历史记录 |
+| `test_case_review_history` | 用例评审历史（含用例快照） |
+| `task_folders` | 任务文件夹（按 test_case/device_script 分类） |
+| `test_tasks` | 测试任务（支持用例执行任务和设备脚本任务两种类型） |
+| `task_case_relation` | 任务-用例多对多关联表 |
+| `task_device_relation` | 任务-设备多对多关联表 |
+| `task_case_snapshots` | 任务用例快照（创建/更新任务时保存用例内容） |
+| `test_case_executions` | 用例执行结果记录 |
+| `reports` | 报告表（任务完成时的数据快照） |
+| `notifications` | 消息通知表（WebSocket 实时推送） |
+
+### 角色体系
+
+系统使用四级角色体系（`users.role` 字段）：
+
+| 角色 | 标识 | 说明 |
+|------|------|------|
+| 超级管理员 | `super` | 拥有所有权限，可管理系统设置和权限配置 |
+| 管理员 | `manager` | 可管理项目、用户，执行大部分操作 |
+| 测试人员 | `tester` | 可执行测试任务、管理用例 |
+| 普通成员 | `admin` | 基础查看权限 |
+
+功能埋点权限通过 `role_permissions` 表配置，前端通过 `useUserStore().hasPermission(code)` 判断按钮和菜单的显隐。
 
 ### 模型定义示例
+
 ```python
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Enum
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
-from datetime import datetime
-import enum
+from app.models.models import db
 
-Base = declarative_base()
-
-class DeviceStatus(enum.Enum):
-    ONLINE = "online"
-    OFFLINE = "offline"
-    ERROR = "error"
-
-class Device(Base):
-    __tablename__ = 'devices'
+class User(UserMixin, db.Model):
+    __tablename__ = 'users'
     
-    id = Column(Integer, primary_key=True)
-    name = Column(String(100), nullable=False)
-    device_id = Column(String(100), unique=True, nullable=False)
-    device_type = Column(String(20), nullable=False)  # android, ios
-    status = Column(Enum(DeviceStatus), default=DeviceStatus.OFFLINE)
-    ip_address = Column(String(45))
-    os_version = Column(String(50))
-    brand = Column(String(50))
-    model = Column(String(100))
-    screen_resolution = Column(String(20))
-    description = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # 关系
-    test_results = relationship("TestResult", back_populates="device")
-    
-    def __repr__(self):
-        return f"<Device(id={self.id}, name='{self.name}', status='{self.status.value}')>"
-```
-
-### 数据库迁移
-```bash
-# 创建迁移文件
-flask db migrate -m "Add device table"
-
-# 应用迁移
-flask db upgrade
-
-# 回滚迁移
-flask db downgrade
+    id = db.Column(db.Integer, primary_key=True, comment='用户编号')
+    username = db.Column(db.String(14), unique=True, nullable=False, comment='用户名')
+    phone = db.Column(db.String(11), unique=True, nullable=False, comment='手机号')
+    email = db.Column(db.String(128), unique=True, nullable=True, comment='邮箱')
+    real_name = db.Column(db.String(50), nullable=False, comment='真实姓名')
+    role = db.Column(db.Enum('super', 'manager', 'tester', 'admin'), default='admin')
+    is_active = db.Column(db.Boolean, default=True, comment='是否激活')
+    failed_login_attempts = db.Column(db.Integer, default=0, comment='连续登录失败次数')
+    locked_until = db.Column(db.DateTime(timezone=True), nullable=True, comment='锁定截止时间')
+    # ...
 ```
 
 ## API 开发
 
-### RESTful API 设计原则
+### 路由蓝图一览（17 个）
 
-#### URL 设计
-```
-GET    /api/devices           # 获取设备列表
-POST   /api/devices           # 创建设备
-GET    /api/devices/{id}      # 获取设备详情
-PUT    /api/devices/{id}      # 更新设备
-DELETE /api/devices/{id}      # 删除设备
+| 路由文件 | 前缀 | 说明 |
+|---------|------|------|
+| `auth.py` | `/api/auth` | 认证（登录、注册、找回密码、验证码等） |
+| `home.py` | `/api/home` | 首页数据统计 |
+| `projects.py` | `/api/projects` | 项目管理 |
+| `iterations.py` | `/api/iterations` | 迭代管理 |
+| `devices.py` | `/api/devices` | 设备管理（ADB 操作） |
+| `test_suites.py` | `/api/test-suites` | 用例集/文件夹管理 |
+| `test_cases.py` | `/api/test-cases` | 测试用例管理 |
+| `suite_case_relations.py` | `/api/suite-case` | 用例集与用例关联 |
+| `review_tasks.py` | `/api/review-tasks` | 用例评审管理 |
+| `test_tasks.py` | `/api/test-tasks` | 测试任务管理 |
+| `reports.py` | `/api/reports` | 报告管理 |
+| `notifications.py` | `/api/notifications` | 消息通知 |
+| `users.py` | `/api/users` | 用户管理 |
+| `roles.py` | `/api/roles` | 角色权限配置 |
+| `settings_routes.py` | `/api/settings` | 系统/用户设置 |
+| `files.py` | `/api/files` | 文件上传/下载 |
+| `ai_tasks.py` | `/api/ai-tasks` | AI 用例生成 |
 
-POST   /api/devices/{id}/connect     # 连接设备
-POST   /api/devices/{id}/disconnect  # 断开设备
-GET    /api/devices/{id}/screenshot  # 获取截图
-```
+### 统一响应格式
 
-#### 响应格式
+后端所有接口使用 `helpers.py` 中的统一响应函数：
+
 ```python
-from flask import jsonify
+from app.utils.helpers import success_response, error_response
 
-def success_response(data=None, message="操作成功"):
-    """成功响应格式"""
-    response = {
-        "code": 200,
-        "message": message
-    }
-    if data is not None:
-        response["data"] = data
-    return jsonify(response)
-
-def error_response(code, message, error=None):
-    """错误响应格式"""
-    response = {
-        "code": code,
-        "message": message
-    }
-    if error:
-        response["error"] = error
-    return jsonify(response), code
-```
-
-#### 路由定义
-```python
-from flask import Blueprint, request, jsonify
-from app.services.device_service import DeviceService
-from app.utils.decorators import require_auth, validate_json
-
-device_bp = Blueprint('devices', __name__, url_prefix='/api/devices')
-device_service = DeviceService()
-
-@device_bp.route('', methods=['GET'])
-@require_auth
-def get_devices():
-    """获取设备列表"""
-    page = request.args.get('page', 1, type=int)
-    size = request.args.get('size', 20, type=int)
-    status = request.args.get('status')
-    
-    devices, total = device_service.get_devices(page, size, status)
-    
-    return success_response({
-        'items': devices,
-        'pagination': {
-            'page': page,
-            'size': size,
-            'total': total,
-            'pages': (total + size - 1) // size
-        }
+# 成功响应
+def success_response(data=None, message="Operation successful"):
+    return jsonify({
+        'code': 200,
+        'message': message,
+        'data': data,
+        'timestamp': datetime.now().isoformat()
     })
 
-@device_bp.route('', methods=['POST'])
-@require_auth
-@validate_json
-def create_device():
-    """创建设备"""
-    data = request.get_json()
-    device = device_service.create_device(data)
-    return success_response(device.to_dict(), "设备创建成功")
-
-@device_bp.route('/<int:device_id>/connect', methods=['POST'])
-@require_auth
-def connect_device(device_id):
-    """连接设备"""
-    try:
-        result = device_service.connect_device(device_id)
-        return success_response(result, "设备连接成功")
-    except DeviceNotFoundError:
-        return error_response(404, "设备不存在")
-    except DeviceConnectionError as e:
-        return error_response(400, str(e))
+# 错误响应
+def error_response(code, message, data=None):
+    return jsonify({
+        'code': code,
+        'message': message,
+        'data': data,
+        'timestamp': datetime.now().isoformat()
+    }), code
 ```
 
-### 服务层设计
+### 路由定义方式
+
 ```python
-from typing import List, Tuple, Optional
-from app.models.device import Device, DeviceStatus
-from app.utils.exceptions import DeviceNotFoundError, DeviceConnectionError
+from flask import Blueprint, request
+from flask_login import login_required, current_user
+from app.utils.helpers import success_response, error_response, get_pagination_params
 
-class DeviceService:
-    def __init__(self):
-        self.db = db.session
-    
-    def get_devices(
-        self, 
-        page: int = 1, 
-        size: int = 20, 
-        status: Optional[str] = None
-    ) -> Tuple[List[Device], int]:
-        """获取设备列表"""
-        query = self.db.query(Device)
-        
-        if status:
-            query = query.filter(Device.status == status)
-        
-        total = query.count()
-        devices = query.offset((page - 1) * size).limit(size).all()
-        
-        return devices, total
-    
-    def get_device_by_id(self, device_id: int) -> Device:
-        """根据ID获取设备"""
-        device = self.db.query(Device).filter(Device.id == device_id).first()
-        if not device:
-            raise DeviceNotFoundError(f"Device {device_id} not found")
-        return device
-    
-    def connect_device(self, device_id: int) -> dict:
-        """连接设备"""
-        device = self.get_device_by_id(device_id)
-        
-        try:
-            # 实际连接逻辑
-            result = self._perform_connection(device)
-            
-            # 更新设备状态
-            device.status = DeviceStatus.ONLINE
-            device.last_seen = datetime.utcnow()
-            self.db.commit()
-            
-            return result
-        except Exception as e:
-            device.status = DeviceStatus.ERROR
-            self.db.commit()
-            raise DeviceConnectionError(f"Failed to connect device: {e}")
+device_bp = Blueprint('devices', __name__, url_prefix='/api/devices')
+
+@device_bp.route('', methods=['GET'])
+@login_required
+def get_devices():
+    """获取设备列表"""
+    page, size = get_pagination_params()
+    # ... 查询逻辑
+    return success_response({
+        'items': [d.to_dict() for d in devices],
+        'total': total,
+        'page': page,
+        'size': size
+    })
+
+@device_bp.route('/<int:device_id>', methods=['PUT'])
+@login_required
+def update_device(device_id):
+    """更新设备"""
+    data = request.get_json()
+    # ... 更新逻辑
+    return success_response(device.to_dict(), "设备更新成功")
 ```
+
+### 认证保护
+
+使用 Flask-Login 的 `@login_required` 装饰器保护需要登录的接口。未登录时返回 401。
+
+### 分页参数
+
+通过 `get_pagination_params()` 获取统一分页参数，支持 `page`、`size`/`page_size` 查询参数，默认值从系统设置表读取。
 
 ## 前端开发
 
-### 组件设计原则
-1. 单一职责原则
-2. 可复用性
-3. Props 验证
-4. 事件处理规范
+### 页面视图模块（15 个目录）
 
-### 组件示例
-```vue
-<template>
-  <div class="device-card">
-    <el-card 
-      :class="['device-status-' + device.status]" 
-      shadow="hover"
-    >
-      <template #header>
-        <div class="card-header">
-          <span class="device-name">{{ device.name }}</span>
-          <el-tag :type="statusTagType" size="small">
-            {{ statusText }}
-          </el-tag>
-        </div>
-      </template>
-      
-      <div class="device-info">
-        <div class="info-item">
-          <span class="label">设备类型:</span>
-          <span class="value">{{ device.device_type }}</span>
-        </div>
-        <div class="info-item">
-          <span class="label">IP地址:</span>
-          <span class="value">{{ device.ip_address }}</span>
-        </div>
-        <div class="info-item">
-          <span class="label">系统版本:</span>
-          <span class="value">{{ device.os_version }}</span>
-        </div>
-      </div>
-      
-      <div class="device-actions">
-        <el-button 
-          v-if="device.status === 'offline'" 
-          type="primary" 
-          size="small"
-          @click="handleConnect"
-          :loading="connecting"
-        >
-          连接
-        </el-button>
-        <el-button 
-          v-else-if="device.status === 'online'" 
-          type="danger" 
-          size="small"
-          @click="handleDisconnect"
-        >
-          断开
-        </el-button>
-        <el-button 
-          type="info" 
-          size="small"
-          @click="handleViewDetails"
-        >
-          详情
-        </el-button>
-      </div>
-    </el-card>
-  </div>
-</template>
+| 目录 | 说明 |
+|------|------|
+| `auth/` | 登录、注册、重置密码 |
+| `home/` | 首页数据统计仪表盘 |
+| `project/` | 项目管理（项目列表、项目详情、成员管理） |
+| `requirement/` | 需求管理 |
+| `device/` | 设备管理（ADB 设备列表、无线连接、投屏） |
+| `testCase/` | 用例管理（树形用例库、脑图、AI 生成、导入导出） |
+| `caseReview/` | 用例评审 |
+| `testTask/` | 测试任务管理 |
+| `report/` | 报告管理 |
+| `notification/` | 消息通知中心 |
+| `user/` | 用户管理 |
+| `system/` | 系统设置 |
+| `profile/` | 个人中心 |
+| `help/` | 帮助中心 |
+| `error/` | 错误页面（403、404） |
 
-<script setup>
-import { computed, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { connectDevice, disconnectDevice } from '@/api/device'
+### 状态管理（Pinia）
 
-const props = defineProps({
-  device: {
-    type: Object,
-    required: true
-  }
-})
+项目使用 Pinia 进行状态管理，当前主要状态存储在 `stores/user.js`：
 
-const emit = defineEmits(['refresh', 'view-details'])
-
-const connecting = ref(false)
-
-const statusTagType = computed(() => {
-  const statusMap = {
-    online: 'success',
-    offline: 'info',
-    error: 'danger'
-  }
-  return statusMap[props.device.status] || 'info'
-})
-
-const statusText = computed(() => {
-  const textMap = {
-    online: '在线',
-    offline: '离线',
-    error: '错误'
-  }
-  return textMap[props.device.status] || '未知'
-})
-
-const handleConnect = async () => {
-  try {
-    connecting.value = true
-    await connectDevice(props.device.id)
-    ElMessage.success('设备连接成功')
-    emit('refresh')
-  } catch (error) {
-    ElMessage.error('设备连接失败')
-  } finally {
-    connecting.value = false
-  }
-}
-
-const handleDisconnect = async () => {
-  try {
-    await disconnectDevice(props.device.id)
-    ElMessage.success('设备断开成功')
-    emit('refresh')
-  } catch (error) {
-    ElMessage.error('设备断开失败')
-  }
-}
-
-const handleViewDetails = () => {
-  emit('view-details', props.device)
-}
-</script>
-
-<style scoped>
-.device-card {
-  margin-bottom: 16px;
-}
-
-.device-status-online {
-  border-left: 4px solid #67c23a;
-}
-
-.device-status-offline {
-  border-left: 4px solid #909399;
-}
-
-.device-status-error {
-  border-left: 4px solid #f56c6c;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.device-name {
-  font-weight: bold;
-  font-size: 16px;
-}
-
-.device-info {
-  margin-bottom: 16px;
-}
-
-.info-item {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.label {
-  color: #909399;
-  font-size: 14px;
-}
-
-.value {
-  color: #303133;
-  font-size: 14px;
-}
-
-.device-actions {
-  display: flex;
-  gap: 8px;
-}
-</style>
-```
-
-### 状态管理
 ```javascript
-// stores/device.js
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getDevices, connectDevice, disconnectDevice } from '@/api/device'
 
-export const useDeviceStore = defineStore('device', () => {
-  const devices = ref([])
-  const loading = ref(false)
-  const selectedDevice = ref(null)
-  
-  const onlineDevices = computed(() => 
-    devices.value.filter(device => device.status === 'online')
-  )
-  
-  const offlineDevices = computed(() => 
-    devices.value.filter(device => device.status === 'offline')
-  )
-  
-  const deviceCount = computed(() => ({
-    total: devices.value.length,
-    online: onlineDevices.value.length,
-    offline: offlineDevices.value.length
-  }))
-  
-  const fetchDevices = async () => {
-    try {
-      loading.value = true
-      const response = await getDevices()
-      devices.value = response.data.items
-    } catch (error) {
-      console.error('Failed to fetch devices:', error)
-      throw error
-    } finally {
-      loading.value = false
-    }
-  }
-  
-  const connectToDevice = async (deviceId) => {
-    try {
-      await connectDevice(deviceId)
-      await fetchDevices() // 刷新列表
-    } catch (error) {
-      console.error('Failed to connect device:', error)
-      throw error
-    }
-  }
-  
-  const disconnectFromDevice = async (deviceId) => {
-    try {
-      await disconnectDevice(deviceId)
-      await fetchDevices() // 刷新列表
-    } catch (error) {
-      console.error('Failed to disconnect device:', error)
-      throw error
-    }
-  }
-  
-  const selectDevice = (device) => {
-    selectedDevice.value = device
-  }
-  
-  return {
-    devices,
-    loading,
-    selectedDevice,
-    onlineDevices,
-    offlineDevices,
-    deviceCount,
-    fetchDevices,
-    connectToDevice,
-    disconnectFromDevice,
-    selectDevice
-  }
+export const useUserStore = defineStore('user', () => {
+  const userInfo = ref(JSON.parse(sessionStorage.getItem('mob_user') || 'null'))
+  const permissions = ref(JSON.parse(sessionStorage.getItem('mob_permissions') || '[]'))
+
+  const isAuthenticated = computed(() => !!userInfo.value)
+  const userRole = computed(() => userInfo.value?.role || '')
+
+  // 登录（账号密码 / 邮箱验证码两种方式）
+  const login = async (credentials) => { /* ... */ }
+  const loginByEmail = async (payload) => { /* ... */ }
+
+  // 权限判断（基于 role_permissions 埋点编码）
+  const hasPermission = (code) => permissions.value.includes(code)
+
+  // ...
 })
 ```
 
-## 测试
+### HTTP 请求封装
 
-### 后端测试
+`utils/request.js` 基于 Axios 封装，要点：
 
-#### 单元测试
-```python
-# tests/test_device_service.py
-import pytest
-from app.services.device_service import DeviceService
-from app.models.device import Device, DeviceStatus
-from app.utils.exceptions import DeviceNotFoundError
+- `baseURL: '/api'`，由 Vite 代理转发到后端 5000 端口
+- `withCredentials: true`，自动携带 Session Cookie
+- 响应拦截器统一处理错误（401 过期提示、403 权限不足、404 资源不存在等）
+- 不需要手动管理 Token，浏览器自动处理 Session Cookie
 
-class TestDeviceService:
-    def setup_method(self):
-        self.service = DeviceService()
-        
-    def test_get_device_by_id_success(self, db_session, sample_device):
-        """测试根据ID获取设备 - 成功"""
-        device = self.service.get_device_by_id(sample_device.id)
-        assert device.id == sample_device.id
-        assert device.name == sample_device.name
-    
-    def test_get_device_by_id_not_found(self, db_session):
-        """测试根据ID获取设备 - 未找到"""
-        with pytest.raises(DeviceNotFoundError):
-            self.service.get_device_by_id(999)
-    
-    @pytest.mark.asyncio
-    async def test_connect_device_success(self, db_session, sample_device):
-        """测试连接设备 - 成功"""
-        result = await self.service.connect_device(sample_device.id)
-        assert result['status'] == 'connected'
-        
-        # 验证设备状态更新
-        updated_device = self.service.get_device_by_id(sample_device.id)
-        assert updated_device.status == DeviceStatus.ONLINE
-```
+### API 接口封装示例
 
-#### API 测试
-```python
-# tests/test_device_api.py
-import pytest
-from app import create_app
-
-class TestDeviceAPI:
-    def setup_method(self):
-        self.app = create_app('testing')
-        self.client = self.app.test_client()
-        self.app_context = self.app.app_context()
-        self.app_context.push()
-    
-    def teardown_method(self):
-        self.app_context.pop()
-    
-    def test_get_devices_success(self, auth_headers):
-        """测试获取设备列表 - 成功"""
-        response = self.client.get('/api/devices', headers=auth_headers)
-        assert response.status_code == 200
-        
-        data = response.get_json()
-        assert data['code'] == 200
-        assert 'items' in data['data']
-        assert 'pagination' in data['data']
-    
-    def test_create_device_success(self, auth_headers):
-        """测试创建设备 - 成功"""
-        device_data = {
-            'name': 'Test Device',
-            'device_id': 'TEST-001',
-            'device_type': 'android',
-            'ip_address': '192.168.1.100'
-        }
-        
-        response = self.client.post(
-            '/api/devices',
-            json=device_data,
-            headers=auth_headers
-        )
-        assert response.status_code == 200
-        
-        data = response.get_json()
-        assert data['code'] == 200
-        assert data['data']['name'] == device_data['name']
-```
-
-### 前端测试
-
-#### 组件测试
 ```javascript
-// tests/components/DeviceCard.test.js
-import { mount } from '@vue/test-utils'
-import { describe, it, expect, vi } from 'vitest'
-import DeviceCard from '@/components/DeviceCard.vue'
+// api/device.js
+import request from '@/utils/request'
 
-describe('DeviceCard.vue', () => {
-  const mockDevice = {
-    id: 1,
-    name: 'Test Device',
-    status: 'offline',
-    device_type: 'android',
-    ip_address: '192.168.1.100',
-    os_version: '10'
-  }
-  
-  it('renders device information correctly', () => {
-    const wrapper = mount(DeviceCard, {
-      props: { device: mockDevice }
-    })
-    
-    expect(wrapper.find('.device-name').text()).toBe('Test Device')
-    expect(wrapper.text()).toContain('android')
-    expect(wrapper.text()).toContain('192.168.1.100')
-  })
-  
-  it('shows connect button when device is offline', () => {
-    const wrapper = mount(DeviceCard, {
-      props: { device: mockDevice }
-    })
-    
-    const connectButton = wrapper.find('button')
-    expect(connectButton.text()).toBe('连接')
-  })
-  
-  it('emits connect event when connect button is clicked', async () => {
-    const wrapper = mount(DeviceCard, {
-      props: { device: mockDevice }
-    })
-    
-    await wrapper.find('button').trigger('click')
-    
-    // 验证事件触发
-    expect(wrapper.emitted('connect')).toBeTruthy()
-    expect(wrapper.emitted('connect')[0]).toEqual([mockDevice])
-  })
-})
+export function getDevices(params) {
+  return request({ url: '/devices', method: 'get', params })
+}
+
+export function connectDevice(deviceId) {
+  return request({ url: `/devices/${deviceId}/connect`, method: 'post' })
+}
 ```
 
-## 部署
+### WebSocket 实时推送
 
-### Docker 部署
-```dockerfile
-# backend/Dockerfile
-FROM python:3.9-slim
+前端使用 Socket.IO Client 连接后端的 Flask-SocketIO 服务，实现消息通知的实时推送：
 
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-EXPOSE 8000
-
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:8000", "run:app"]
-```
-
-```dockerfile
-# frontend/Dockerfile
-FROM node:16-alpine as build
-
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-
-COPY . .
-RUN npm run build
-
-FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/nginx.conf
-
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
-```
-
-### CI/CD 配置
-```yaml
-# .github/workflows/ci.yml
-name: CI/CD Pipeline
-
-on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  test-backend:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.9
-    
-    - name: Install dependencies
-      run: |
-        cd backend
-        pip install -r requirements.txt
-        pip install -r requirements-dev.txt
-    
-    - name: Run tests
-      run: |
-        cd backend
-        pytest --cov=app tests/
-    
-    - name: Upload coverage
-      uses: codecov/codecov-action@v1
-
-  test-frontend:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    
-    - name: Set up Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '16'
-    
-    - name: Install dependencies
-      run: |
-        cd frontend
-        npm ci
-    
-    - name: Run tests
-      run: |
-        cd frontend
-        npm run test:unit
-    
-    - name: Build
-      run: |
-        cd frontend
-        npm run build
-```
+- 新消息到达时弹出通知
+- 消息中心实时更新未读数量
 
 ## 贡献指南
 
 ### 提交规范
+
 ```
 feat: 新功能
 fix: 修复bug
 docs: 文档更新
 style: 代码格式调整
 refactor: 代码重构
-test: 测试相关
 chore: 构建过程或辅助工具的变动
 ```
 
 ### Pull Request 流程
+
 1. Fork 项目
 2. 创建功能分支
-3. 编写代码和测试
-4. 提交代码 (遵循提交规范)
+3. 编写代码
+4. 提交代码（遵循提交规范）
 5. 创建 Pull Request
 6. 代码审查
 7. 合并代码
 
 ### 代码审查清单
+
 - [ ] 代码符合项目规范
-- [ ] 包含必要的测试
 - [ ] 文档已更新
 - [ ] 没有引入安全漏洞
 - [ ] 性能影响可接受
@@ -1003,26 +534,25 @@ chore: 构建过程或辅助工具的变动
 ## 常见问题
 
 ### 开发环境问题
-1. **端口冲突**: 修改配置文件中的端口设置
-2. **数据库连接失败**: 检查数据库服务和连接配置
-3. **依赖安装失败**: 清理缓存或使用镜像源
+
+1. **端口冲突**: 前端默认 8081，后端默认 5000，修改对应配置文件中的端口设置
+2. **数据库连接失败**: 检查 `backend/.env` 中的 MySQL 配置，确保 MySQL 服务已启动
+3. **依赖安装失败**: Python 使用 `pip install -i https://pypi.tuna.tsinghua.edu.cn/simple`；Node 使用 `npm config set registry https://registry.npmmirror.com`
 
 ### 调试技巧
-1. 使用断点调试
-2. 查看日志文件
-3. 使用浏览器开发者工具
-4. 使用网络抓包工具
 
-### 性能优化
-1. 数据库查询优化
-2. 前端代码分割
-3. 缓存策略
-4. 异步处理
+1. 后端设置 `FLASK_ENV=development` 开启调试模式
+2. 查看 `backend/logs/` 下的日志文件
+3. 前端使用浏览器开发者工具查看 Network 请求和 Console 日志
+4. 使用 Vite 的 HMR（热模块替换）加速前端开发
 
 ## 资源链接
 
 - [Vue.js 官方文档](https://vuejs.org/)
 - [Flask 官方文档](https://flask.palletsprojects.com/)
 - [Element Plus 文档](https://element-plus.org/)
-- [SQLAlchemy 文档](https://docs.sqlalchemy.org/)
-- [Docker 文档](https://docs.docker.com/)
+- [Flask-SQLAlchemy 文档](https://flask-sqlalchemy.palletsprojects.com/)
+- [Flask-Login 文档](https://flask-login.readthedocs.io/)
+- [Flask-SocketIO 文档](https://flask-socketio.readthedocs.io/)
+- [Pinia 文档](https://pinia.vuejs.org/)
+- [ECharts 文档](https://echarts.apache.org/)

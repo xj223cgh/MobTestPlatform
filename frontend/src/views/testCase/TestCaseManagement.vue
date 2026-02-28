@@ -37,7 +37,6 @@
           取消
         </el-button>
 
-        <!-- 刷新脑图按钮（只在脑图视图下显示） -->
         <el-button
           v-if="viewMode === 'mindmap'"
           type="success"
@@ -48,7 +47,6 @@
           刷新脑图
         </el-button>
 
-        <!-- 脑图视图切换按钮 -->
         <el-button
           type="primary"
           icon="View"
@@ -58,7 +56,6 @@
           {{ viewMode === "list" ? "脑图视图" : "列表视图" }}
         </el-button>
 
-        <!-- 新增用例按钮 -->
         <el-button
           type="success"
           icon="Plus"
@@ -67,7 +64,6 @@
           新增用例
         </el-button>
 
-        <!-- 评审按钮 -->
         <el-button
           v-if="selectedSuite && selectedSuite.type === 'suite'"
           type="warning"
@@ -77,7 +73,6 @@
           {{ reviewButtonText }}
         </el-button>
 
-        <!-- 导入/导出用例按钮 -->
         <el-button
           type="primary"
           icon="Download"
@@ -89,7 +84,6 @@
     </div>
 
     <div class="main-content">
-      <!-- 左侧树形组件 -->
       <div
         class="left-panel"
         :class="{ collapsed: isLeftPanelCollapsed }"
@@ -170,7 +164,6 @@
                   @keyup.enter="saveEdit(data)"
                   @keyup.esc="cancelEdit"
                 />
-                <!-- 该用例集正在生成用例时显示加载图标 -->
                 <el-icon
                   v-if="data.type === 'suite' && generatingSuiteId === data.id"
                   class="tree-node-loading"
@@ -182,14 +175,12 @@
           </el-tree>
         </div>
 
-        <!-- 右键菜单 -->
         <div
           v-show="contextMenuVisible"
           ref="contextMenuRef"
           :style="contextMenuStyle"
           class="context-menu"
         >
-          <!-- 新增套件：只有在右键用例文件夹时才显示 -->
           <div
             v-if="selectedNode && selectedNode.type === 'folder'"
             class="menu-item"
@@ -197,7 +188,6 @@
           >
             <el-icon><Plus /></el-icon> 新增套件
           </div>
-          <!-- 编辑套件：只有在右键用例集时才显示 -->
           <div
             v-if="selectedNode && selectedNode.type === 'suite'"
             class="menu-item"
@@ -205,7 +195,6 @@
           >
             <el-icon><Edit /></el-icon> 编辑套件
           </div>
-          <!-- 删除套件：只有选择了用例集时才显示 -->
           <div
             v-if="selectedSuite && selectedSuite.type === 'suite'"
             class="menu-item"
@@ -216,7 +205,6 @@
         </div>
       </div>
 
-      <!-- 右侧用例列表 -->
       <div class="right-panel">
         <div class="panel-header">
           <div class="header-content">
@@ -277,10 +265,29 @@
               </div>
             </div>
           </div>
-
+          <div
+            v-if="selectedSuite && selectedSuite.type === 'suite' && viewMode === 'list'"
+            class="case-list-filter"
+          >
+            <el-input
+              v-model="caseFilterKeyword"
+              placeholder="按编号或名称筛选"
+              clearable
+              style="width: 200px"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+            <el-button
+              :icon="RefreshLeft"
+              @click="resetCaseFilter"
+            >
+              重置
+            </el-button>
+          </div>
         </div>
 
-        <!-- 缺省页面：未选择套件或选中为文件夹时显示 -->
         <div
           v-if="!selectedSuite || selectedSuite.type === 'folder'"
           class="case-list-default"
@@ -293,7 +300,6 @@
           </div>
         </div>
 
-        <!-- 用例列表：仅在选择用例集（非文件夹）时显示 -->
         <div
           v-else-if="viewMode === 'list' && selectedSuite && selectedSuite.type === 'suite'"
           class="case-list"
@@ -301,6 +307,7 @@
           <div class="table-wrapper table-scroll-viewport">
             <el-table
               ref="caseTableRef"
+              class="case-list-table"
               :data="filteredTestCases"
               style="width: 100%"
               border
@@ -334,15 +341,17 @@
                       editingCaseId === row.id && editingField === 'case_number'
                     "
                   >
-                    <el-input
-                      v-model="editingValue"
-                      autofocus
-                      style="width: 100%"
-                      clearable
-                      @blur="saveCaseEdit(row)"
-                      @keyup.enter="saveCaseEdit(row)"
-                      @keyup.esc="cancelCaseEdit"
-                    />
+                    <div class="cell-edit-wrap">
+                      <el-input
+                        v-model="editingValue"
+                        class="cell-full-edit"
+                        autofocus
+                        clearable
+                        @blur="saveCaseEdit(row)"
+                        @keyup.enter="saveCaseEdit(row)"
+                        @keyup.esc="cancelCaseEdit"
+                      />
+                    </div>
                   </template>
                   <div
                     v-else
@@ -363,15 +372,17 @@
                       editingCaseId === row.id && editingField === 'case_name'
                     "
                   >
-                    <el-input
-                      v-model="editingValue"
-                      autofocus
-                      style="width: 100%"
-                      clearable
-                      @blur="saveCaseEdit(row)"
-                      @keyup.enter="saveCaseEdit(row)"
-                      @keyup.esc="cancelCaseEdit"
-                    />
+                    <div class="cell-edit-wrap">
+                      <el-input
+                        v-model="editingValue"
+                        class="cell-full-edit"
+                        autofocus
+                        clearable
+                        @blur="saveCaseEdit(row)"
+                        @keyup.enter="saveCaseEdit(row)"
+                        @keyup.esc="cancelCaseEdit"
+                      />
+                    </div>
                   </template>
                   <div
                     v-else
@@ -430,11 +441,12 @@
                       editingCaseId === row.id && editingField === 'priority'
                     "
                   >
-                    <el-select
-                      v-model="editingValue"
-                      style="width: 100%"
-                      @change="saveCaseEdit(row)"
-                    >
+                    <div class="cell-edit-wrap">
+                      <el-select
+                        v-model="editingValue"
+                        class="cell-full-edit"
+                        @change="saveCaseEdit(row)"
+                      >
                       <el-option
                         label="P0"
                         value="P0"
@@ -456,6 +468,7 @@
                         value="P4"
                       />
                     </el-select>
+                    </div>
                   </template>
                   <el-tag
                     v-else
@@ -491,16 +504,19 @@
                       editingCaseId === row.id && editingField === 'test_data'
                     "
                   >
-                    <el-input
-                      v-model="editingValue"
-                      type="textarea"
-                      :rows="3"
-                      autofocus
-                      clearable
-                      @blur="saveCaseEdit(row)"
-                      @keyup.enter.ctrl="saveCaseEdit(row)"
-                      @keyup.esc="cancelCaseEdit"
-                    />
+                    <div class="cell-edit-wrap">
+                      <el-input
+                        v-model="editingValue"
+                        type="textarea"
+                        class="cell-full-edit"
+                        :rows="3"
+                        autofocus
+                        clearable
+                        @blur="saveCaseEdit(row)"
+                        @keyup.enter.ctrl="saveCaseEdit(row)"
+                        @keyup.esc="cancelCaseEdit"
+                      />
+                    </div>
                   </template>
                   <div
                     v-else
@@ -526,16 +542,19 @@
                         editingField === 'preconditions'
                     "
                   >
-                    <el-input
-                      v-model="editingValue"
-                      type="textarea"
-                      :rows="3"
-                      autofocus
-                      clearable
-                      @blur="saveCaseEdit(row)"
-                      @keyup.enter.ctrl="saveCaseEdit(row)"
-                      @keyup.esc="cancelCaseEdit"
-                    />
+                    <div class="cell-edit-wrap">
+                      <el-input
+                        v-model="editingValue"
+                        type="textarea"
+                        class="cell-full-edit"
+                        :rows="3"
+                        autofocus
+                        clearable
+                        @blur="saveCaseEdit(row)"
+                        @keyup.enter.ctrl="saveCaseEdit(row)"
+                        @keyup.esc="cancelCaseEdit"
+                      />
+                    </div>
                   </template>
                   <div
                     v-else
@@ -558,15 +577,18 @@
                   <template
                     v-if="editingCaseId === row.id && editingField === 'steps'"
                   >
-                    <el-input
-                      v-model="editingValue"
-                      type="textarea"
-                      :rows="5"
-                      autofocus
-                      @blur="saveCaseEdit(row)"
-                      @keyup.enter.ctrl="saveCaseEdit(row)"
-                      @keyup.esc="cancelCaseEdit"
-                    />
+                    <div class="cell-edit-wrap">
+                      <el-input
+                        v-model="editingValue"
+                        type="textarea"
+                        class="cell-full-edit"
+                        :rows="5"
+                        autofocus
+                        @blur="saveCaseEdit(row)"
+                        @keyup.enter.ctrl="saveCaseEdit(row)"
+                        @keyup.esc="cancelCaseEdit"
+                      />
+                    </div>
                   </template>
                   <div
                     v-else
@@ -592,16 +614,19 @@
                         editingField === 'expected_result'
                     "
                   >
-                    <el-input
-                      v-model="editingValue"
-                      type="textarea"
-                      :rows="3"
-                      autofocus
-                      clearable
-                      @blur="saveCaseEdit(row)"
-                      @keyup.enter.ctrl="saveCaseEdit(row)"
-                      @keyup.esc="cancelCaseEdit"
-                    />
+                    <div class="cell-edit-wrap">
+                      <el-input
+                        v-model="editingValue"
+                        type="textarea"
+                        class="cell-full-edit"
+                        :rows="3"
+                        autofocus
+                        clearable
+                        @blur="saveCaseEdit(row)"
+                        @keyup.enter.ctrl="saveCaseEdit(row)"
+                        @keyup.esc="cancelCaseEdit"
+                      />
+                    </div>
                   </template>
                   <div
                     v-else
@@ -612,7 +637,6 @@
                   </div>
                 </template>
               </el-table-column>
-              <!-- 空数据时：若该用例集正在生成则显示进度，否则显示暂无数据 -->
               <template #empty>
                 <div
                   v-if="isGeneratingCases && generatingSuiteId && selectedSuite && selectedSuite.id === generatingSuiteId"
@@ -638,7 +662,6 @@
           </div>
         </div>
 
-        <!-- 脑图视图：仅在选择用例集（非文件夹）时显示 -->
         <div
           v-if="viewMode === 'mindmap' && selectedSuite && selectedSuite.type === 'suite'"
           class="mindmap-view-wrapper"
@@ -667,7 +690,6 @@
       </div>
     </div>
 
-    <!-- 分页（只在列表视图且选择用例集时显示） -->
     <div
       v-if="viewMode === 'list' && selectedSuite && selectedSuite.type === 'suite'"
       class="pagination-container"
@@ -683,7 +705,6 @@
       />
     </div>
 
-    <!-- 新增/编辑套件对话框 -->
     <el-dialog
       v-model="suiteDialogVisible"
       :title="isEditSuite ? '编辑测试套件' : '新增测试套件'"
@@ -724,13 +745,11 @@
             />
           </el-select>
         </el-form-item>
-        <!-- 父套件字段：只有非右键菜单操作时显示 -->
         <el-form-item
           v-if="!isContextMenuAction"
           label="父套件"
         >
           <div class="parent-suite-selector">
-            <!-- 显示当前选中的父套件路径 -->
             <el-popover
               :visible="parentSuitePopoverVisible"
               placement="bottom-start"
@@ -761,7 +780,6 @@
                   </el-button>
                 </div>
               </template>
-              <!-- 弹出的套件树 -->
               <div
                 class="suite-tree-popover"
                 style="width: 100%; min-width: 543px"
@@ -935,14 +953,12 @@
       </template>
     </el-dialog>
 
-    <!-- 新增/编辑用例对话框 -->
     <el-dialog
       v-model="caseDialogVisible"
       :title="isEditCase ? '编辑测试用例' : '新增测试用例'"
       width="700px"
       @close="caseSuitePopoverVisible = false"
     >
-      <!-- 新增：创建方式选择 -->
       <div
         v-if="!isEditCase"
         class="create-type-selector"
@@ -965,7 +981,6 @@
         </el-radio-group>
       </div>
 
-      <!-- 手动创建表单 -->
       <el-form
         v-if="isEditCase || createCaseType === 'manual'"
         ref="caseFormRef"
@@ -1028,7 +1043,6 @@
           required
         >
           <div class="case-suite-selector">
-            <!-- 显示当前选中的用例集路径 -->
             <el-popover
               :visible="caseSuitePopoverVisible"
               placement="bottom-start"
@@ -1047,7 +1061,6 @@
                   @click="caseSuitePopoverVisible = !caseSuitePopoverVisible"
                 />
               </template>
-              <!-- 弹出的套件树 -->
               <div
                 class="suite-tree-popover"
                 style="width: 100%; min-width: 540px"
@@ -1161,7 +1174,6 @@
         </el-form-item>
       </el-form>
 
-      <!-- 自动生成表单 -->
       <el-form
         v-else-if="createCaseType === 'auto'"
         ref="autoCaseFormRef"
@@ -1244,7 +1256,6 @@
           required
         >
           <div class="suite-name-container">
-            <!-- 左侧：已有用例集下拉列表（仅供查看） -->
             <div class="existing-suites-selector">
               <template v-if="autoCaseForm.parent_id">
                 <el-select
@@ -1279,7 +1290,6 @@
               </div>
             </div>
             
-            <!-- 右侧：用例集名称输入框 -->
             <div class="suite-name-input">
               <el-input
                 v-model="autoCaseForm.suite_name"
@@ -1497,7 +1507,6 @@
         :model="importExportForm"
         label-width="100px"
       >
-        <!-- 类型选择 -->
         <el-form-item label="操作类型">
           <el-radio-group v-model="importExportForm.type">
             <el-radio label="import">
@@ -1509,9 +1518,7 @@
           </el-radio-group>
         </el-form-item>
 
-        <!-- 导入选项 -->
         <template v-if="importExportForm.type === 'import'">
-          <!-- 本地文件上传 -->
           <el-form-item label="本地文件">
             <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
               <el-upload
@@ -1547,10 +1554,8 @@
             </div>
           </el-form-item>
 
-          <!-- 目标位置 -->
           <el-form-item label="目标位置">
             <div class="parent-suite-selector">
-              <!-- 显示当前选中的父套件路径 -->
               <el-popover
                 :visible="importParentSuiteVisible"
                 placement="bottom-start"
@@ -1582,7 +1587,6 @@
                     </el-button>
                   </div>
                 </template>
-                <!-- 弹出的套件树 -->
                 <div
                   class="suite-tree-popover"
                   style="width: 100%; min-width: 543px"
@@ -1618,9 +1622,7 @@
           </el-form-item>
         </template>
 
-        <!-- 导出选项 -->
         <template v-else-if="importExportForm.type === 'export'">
-          <!-- 导出属性：多选，默认全选（默认导出当前用例集全部用例） -->
           <el-form-item label="导出属性">
             <div style="margin-bottom: 8px;">
               <el-button link type="primary" @click="exportColumnKeys = EXPORT_COLUMN_OPTIONS.map(o => o.key)">全选</el-button>
@@ -1636,7 +1638,6 @@
               </el-checkbox>
             </el-checkbox-group>
           </el-form-item>
-          <!-- 导出的用例集 -->
           <el-form-item label="导出的用例集">
             <div class="case-suite-selector">
               <!-- 显示当前选中的用例集路径 -->
@@ -1658,7 +1659,6 @@
                     @click="exportCaseSuiteVisible = !exportCaseSuiteVisible"
                   />
                 </template>
-                <!-- 弹出的套件树 -->
                 <div
                   class="suite-tree-popover"
                   style="width: 100%; min-width: 543px"
@@ -1731,7 +1731,6 @@
           prop="suite_id"
         >
           <div class="case-suite-selector">
-            <!-- 显示当前选中的用例集路径 -->
             <el-popover
               :visible="reviewSuitePopoverVisible"
               placement="bottom-start"
@@ -1835,7 +1834,6 @@
       :fullscreen="reviewDialogType === 'detail'"
       :width="reviewDialogType === 'message' ? '500px' : undefined"
     >
-      <!-- 提示消息类型 -->
       <div
         v-if="reviewDialogType === 'message'"
         class="review-message-content"
@@ -1850,12 +1848,10 @@
           {{ reviewDialogContent }}
         </p>
       </div>
-      <!-- 详情页面类型 -->
       <div
         v-else-if="currentReviewTask"
         class="review-detail-content"
       >
-        <!-- 评审任务基本信息 -->
         <div class="dialog-section">
           <h4>评审任务信息</h4>
           <el-descriptions
@@ -1895,7 +1891,6 @@
           </el-descriptions>
         </div>
 
-        <!-- 用例评审列表 -->
         <div class="dialog-section">
           <h4>用例评审列表</h4>
           <el-table
@@ -2047,7 +2042,6 @@
           </div>
         </div>
 
-        <!-- 整体评审意见 -->
         <div class="dialog-section">
           <h4>整体评审意见</h4>
           <div class="read-only-comments">
@@ -2068,7 +2062,6 @@
       </template>
     </el-dialog>
 
-    <!-- 隐藏的文件上传组件 -->
     <el-upload
       ref="uploadRef"
       :auto-upload="false"
@@ -2092,7 +2085,6 @@
           }
 
           excelFile.value = file;
-          // 手动处理文件
           const reader = new FileReader();
           reader.onload = async (e) => {
             try {
@@ -2100,8 +2092,6 @@
               const workbook = XLSX.read(data, { type: 'array' });
               const sheetName = workbook.SheetNames[0];
               const worksheet = workbook.Sheets[sheetName];
-
-              // 解析Excel数据
               const excelData = XLSX.utils.sheet_to_json(worksheet);
 
               if (excelData.length === 0) {
@@ -2109,7 +2099,6 @@
                 return;
               }
 
-              // 获取目标用例集详情，获取项目相关信息
               if (!importExportForm.parent_id) {
                 ElMessage.error('请选择导入的目标位置');
                 return;
@@ -2119,11 +2108,9 @@
                 importExportForm.parent_id,
               );
 
-              // 处理导入的数据
               let importedCount = 0;
               let errorCount = 0;
 
-              // 遍历处理每条数据
               for (const item of excelData) {
                 try {
                   // 用例库不维护执行状态，导入时状态留空；执行通过创建计划进行
@@ -2141,14 +2128,8 @@
                     version_requirement_id:
                       suiteDetail.data.version_requirement_id,
                     iteration_id: suiteDetail.data.iteration_id,
-                    // 其他字段根据实际需求添加
-                    // 评审人id和时间属性会由后端自动处理，这里可以根据实际情况添加
-                    // reviewer_id: ...,
-                    // created_at: new Date().toISOString(),
-                    // updated_at: new Date().toISOString()
                   };
 
-                  // 调用API创建测试用例
                   await createTestCase(caseData);
                   importedCount++;
                 } catch (error) {
@@ -2157,17 +2138,14 @@
                 }
               }
 
-              // 显示导入结果
               ElMessage.success(
                 `成功导入 ${importedCount} 条测试用例，失败 ${errorCount} 条`,
               );
 
-              // 刷新用例列表
               if (selectedSuite.value && selectedSuite.value.type === 'suite') {
                 loadTestCases(selectedSuite.value.id);
               }
 
-              // 关闭对话框
               importExportVisible.value = false;
             } catch (error) {
               console.error('导入测试用例失败:', error);
@@ -2176,7 +2154,7 @@
           };
           reader.readAsArrayBuffer(file.raw);
 
-          return false; // 阻止自动上传
+          return false;
         }
       "
       style="display: none"
@@ -2222,6 +2200,8 @@ import {
   Filter,
   Loading,
   InfoFilled,
+  Search,
+  RefreshLeft,
 } from "@element-plus/icons-vue";
 import {
   getTestSuiteTree,
@@ -2234,7 +2214,6 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { useUserStore } from "@/stores/user";
 
-// API导入
 import {
   updateTestCase,
   createTestCase,
@@ -2243,7 +2222,6 @@ import {
 } from "@/api/testCase";
 import { getTestSuiteDetail } from "@/api/testSuite";
 
-// 导出用例：可选属性列表（与用例列表一致，默认全选）
 const EXPORT_COLUMN_OPTIONS = [
   { key: "用例编号", wch: 20 },
   { key: "用例名称", wch: 30 },
@@ -2271,10 +2249,8 @@ import {
 } from "@/api/reviewTask";
 import { getUserOptions } from "@/api/user";
 
-// 脑图组件导入
 import MindMap from "@/components/MindMap.vue";
 
-// 树形组件相关
 const treeRef = ref(null);
 const treeData = ref([]);
 const searchText = ref("");
@@ -2282,19 +2258,16 @@ const defaultProps = {
   children: "children",
   label: "suite_name",
 };
-const isDraggable = ref(true); // 控制树组件拖拽功能
+const isDraggable = ref(true);
 
-// 存储用户手动展开的节点ID
 const expandedKeys = ref([]);
 // 树挂载 key：数据加载完成后递增，强制树重新挂载以正确应用 default-expanded-keys（否则刷新后展开状态会丢失）
 const treeMountKey = ref(0);
 
-// 编辑节点相关
 const editingNodeId = ref(null);
 const editingNodeName = ref("");
 const editInputRef = ref(null);
 
-// 右键菜单相关
 const contextMenuRef = ref(null);
 const contextMenuVisible = ref(false);
 const contextMenuStyle = reactive({
@@ -2303,11 +2276,9 @@ const contextMenuStyle = reactive({
 });
 const selectedNode = ref(null);
 
-// 父套件选择器相关
 const parentSuitePopoverVisible = ref(false);
 const selectedParentSuitePath = ref("");
 
-// 对话框相关
 const suiteDialogVisible = ref(false);
 const caseDialogVisible = ref(false);
 const isEditSuite = ref(false);
@@ -2315,22 +2286,18 @@ const isEditCase = ref(false);
 // 标识是否是从右键菜单触发的操作
 const isContextMenuAction = ref(false);
 
-// 表单数据
 const suiteForm = reactive({
   id: null,
   suite_name: "",
   description: "",
-  type: "folder", // 默认类型为文件夹
+  type: "folder",
   parent_id: null,
-  project_id: null, // 默认项目ID，实际应从上下文获取
+  project_id: null,
   version_requirement_id: null,
   iteration_id: null,
 });
 
-// 存储套件选项，用于父级套件选择
 const suiteOptions = ref([]);
-
-// 套件表单引用和验证规则
 const suiteFormRef = ref(null);
 
 // 标记是否正在初始化表单，用于控制观察者行为
@@ -2353,19 +2320,16 @@ const suiteFormRules = reactive({
   // iteration_id、version_requirement_id 不设必填，与 DB nullable 一致，避免迭代无需求时无法提交
 });
 
-// 项目、迭代、需求列表
 const projects = ref([]);
 const iterations = ref([]);
 const requirements = ref([]);
 
-// 搜索关键词
 const searchKeywords = reactive({
   project: "",
   iteration: "",
   requirement: "",
 });
 
-// 过滤后的列表（计算属性）
 const filteredProjects = computed(() => {
   if (!searchKeywords.project) {
     return projects.value;
@@ -2393,17 +2357,14 @@ const filteredRequirements = computed(() => {
   );
 });
 
-// 用例集选择相关
 const caseSuitePopoverVisible = ref(false);
 const selectedCaseSuitePath = ref("");
 const caseFormRef = ref(null);
 const autoCaseSuiteSelectorRef = ref(null);
 const autoCaseSuitePopoverWidth = ref(400);
 
-// 新增：创建方式选择
 const createCaseType = ref("manual");
 
-// 自动生成用例表单相关
 const autoCaseFormRef = ref(null);
 const isGeneratingCases = ref(false);
 const currentTaskId = ref(null);
@@ -2418,12 +2379,11 @@ const selectedRequirement = ref(null);
 const isLoadingProjects = ref(false);
 const isLoadingIterations = ref(false);
 const isLoadingRequirements = ref(false);
-const existingSuitesInFolder = ref([]); // 当前文件夹下已有的用例集列表
+const existingSuitesInFolder = ref([]);
 
-// 先定义 autoCaseForm
 const autoCaseForm = reactive({
   generateMode: "new", // 'new' 生成到新用例集 | 'append' 追加到已选用例集
-  append_suite_id: null, // 追加模式时选中的用例集 ID
+  append_suite_id: null,
   suite_name: "",
   parent_id: null,
   type: "suite",
@@ -2434,14 +2394,12 @@ const autoCaseForm = reactive({
   file: null,
 });
 
-// 监听创建方式变化，自动加载项目数据
 watch(createCaseType, (newType) => {
   if (newType === "auto") {
     loadProjects();
   }
 });
 
-// 切换生成方式时清空另一侧选择
 const onAutoGenerateModeChange = () => {
   if (autoCaseForm.generateMode === "new") {
     autoCaseForm.append_suite_id = null;
@@ -2453,7 +2411,6 @@ const onAutoGenerateModeChange = () => {
   selectedCaseSuitePath.value = getSelectedCaseSuitePath();
 };
 
-// 监听项目变化，自动加载迭代数据
 watch(
   () => autoCaseForm.project_id,
   (newProjectId) => {
@@ -2468,7 +2425,6 @@ watch(
   },
 );
 
-// 监听迭代变化，自动加载需求数据
 watch(
   () => autoCaseForm.iteration_id,
   (newIterationId) => {
@@ -2481,7 +2437,6 @@ watch(
   },
 );
 
-// 用例集名称重名校验
 const validateSuiteName = async (rule, value, callback) => {
   if (!value) {
     callback(new Error("请输入用例集名称"));
@@ -2534,7 +2489,6 @@ const validateSuiteName = async (rule, value, callback) => {
   }
 };
 
-// 自动生成表单校验（按生成方式：新用例集 / 追加）
 // parent_id / append_suite_id 不在 change 时校验，避免展开树节点就报错；仅在下拉关闭未选择时由逻辑触发校验
 const autoCaseFormRules = reactive({
   parent_id: [
@@ -2580,7 +2534,6 @@ const autoCaseFormRules = reactive({
   // 迭代、需求选填，与后端可空一致，迭代无需求时也可提交
 });
 
-// 需求文档上传相关
 const requirementUploadRef = ref(null);
 const requirementFileList = ref([]);
 
@@ -2599,7 +2552,6 @@ const caseForm = reactive({
   actual_result: "",
 });
 
-// 用例编号分段输入
 const caseNumberParts = reactive({
   part1: "",
   part2: "",
@@ -2607,7 +2559,6 @@ const caseNumberParts = reactive({
   part4: "",
 });
 
-// 更新用例编号
 const updateCaseNumber = () => {
   // 确保数字部分是1-999之间的整数
   let numberPart = caseNumberParts.part4 ? parseInt(caseNumberParts.part4) : 1;
@@ -2635,17 +2586,13 @@ const updateCaseNumber = () => {
   }
 };
 
-// 处理数字输入框输入
 const handleNumberInput = () => {
-  // 过滤掉非数字字符
   let inputValue = caseNumberParts.part4.replace(/[^0-9]/g, "");
 
-  // 限制输入长度为3位
   if (inputValue.length > 3) {
     inputValue = inputValue.slice(0, 3);
   }
 
-  // 确保输入的是数字，且在1-999之间
   let num = parseInt(inputValue) || 1;
   if (num < 1) {
     num = 1;
@@ -2653,14 +2600,10 @@ const handleNumberInput = () => {
     num = 999;
   }
 
-  // 格式化为3位数字，前面补0
   caseNumberParts.part4 = num.toString().padStart(3, "0");
-
-  // 更新用例编号
   updateCaseNumber();
 };
 
-// 表单验证规则
 const caseFormRules = reactive({
   case_name: [
     { required: true, message: "请输入测试用例名称", trigger: "blur" },
@@ -2669,7 +2612,6 @@ const caseFormRules = reactive({
     { required: true, message: "请输入测试用例编号", trigger: "blur" },
     {
       validator: (rule, value, callback) => {
-        // 验证用例编号格式: XXX-XXX-XXX001~XXX-XXX-XXX999
         const regex = /^.+-.+-.+\d{3}$/;
         if (!regex.test(value)) {
           callback(
@@ -2678,7 +2620,6 @@ const caseFormRules = reactive({
             ),
           );
         } else {
-          // 验证数字部分在1-999之间
           const numRegex = /\d{3}$/;
           const match = value.match(numRegex);
           if (match) {
@@ -2707,26 +2648,23 @@ const caseFormRules = reactive({
 
 // 用例列表相关
 const selectedSuite = ref(null);
-const testCases = ref([]); // 当前页数据
-const allTestCases = ref([]); // 所有数据
+const testCases = ref([]);
+const allTestCases = ref([]);
 const totalCases = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(10);
 const viewMode = ref("list");
 
-// 用例内联编辑相关
 const editingCaseId = ref(null);
 const editingField = ref(null);
 const editingValue = ref("");
 
-// 选中删除相关
 const showSelection = ref(false);
 const selectedCases = ref([]);
 const caseTableRef = ref(null);
 // 使用Set存储选中的用例ID，实现跨分页选择
 const selectedCaseIds = ref(new Set());
 
-// 发起评审相关
 const initiateReviewVisible = ref(false);
 const reviewFormRef = ref(null);
 const reviewSuitePopoverVisible = ref(false);
@@ -2742,7 +2680,6 @@ const reviewFormRules = reactive({
   ],
   reviewer_id: [{ required: true, message: "请选择评审人", trigger: "change" }],
 });
-// 评审人选项，从API获取
 const reviewerOptions = ref([]);
 
 // 评审状态相关
@@ -2791,7 +2728,7 @@ const reviewDialogContent = ref("");
 const reviewDialogType = ref("detail"); // detail: 详情页面, message: 提示消息
 const currentReviewTask = ref(null);
 
-// 获取评审人列表（排除当前用户，评审人不能为自己）。使用仅需登录的 /users/options，不依赖 user.list 权限
+// 评审人不能为自己，排除当前用户；使用 /users/options 不依赖 user.list 权限
 const loadReviewers = async () => {
   try {
     const response = await getUserOptions({ size: 1000 });
@@ -2836,7 +2773,6 @@ const getSuitePath = (suiteId, separator = " / ") => {
   return path;
 };
 
-// 处理评审用例集选择
 const handleReviewSuiteSelect = (data) => {
   if (data.type === "suite") {
     reviewForm.suite_id = data.id;
@@ -2846,7 +2782,6 @@ const handleReviewSuiteSelect = (data) => {
   }
 };
 
-// 显示发起评审对话框
 const showInitiateReviewDialog = () => {
   if (selectedSuite.value && selectedSuite.value.type === "suite") {
     reviewForm.suite_id = selectedSuite.value.id;
@@ -2858,7 +2793,6 @@ const showInitiateReviewDialog = () => {
   }
 };
 
-// 处理发起评审
 const handleInitiateReview = async () => {
   if (!reviewFormRef.value) return;
 
@@ -2884,26 +2818,22 @@ const handleInitiateReview = async () => {
   }
 };
 
-// 过滤节点方法
 const filterNode = (value, data) => {
   if (!value) return true;
   return data.suite_name.includes(value);
 };
 
-// 监听搜索文本变化
 watch(searchText, (newVal) => {
   if (treeRef.value) {
     treeRef.value.filter(newVal);
   }
 });
 
-// 允许拖拽
 const allowDrag = (node) => {
   // 可以根据需要限制某些节点不能拖拽
   return true;
 };
 
-// 允许放置
 const allowDrop = (draggingNode, dropNode, type) => {
   if (type === "inner") {
     // 限制5级深度
@@ -2921,7 +2851,6 @@ const allowDrop = (draggingNode, dropNode, type) => {
   return true;
 };
 
-// 节点展开事件处理
 const handleNodeExpand = (data) => {
   if (!expandedKeys.value.includes(data.id)) {
     expandedKeys.value.push(data.id);
@@ -2932,7 +2861,6 @@ const handleNodeExpand = (data) => {
   scrollToCurrentNode();
 };
 
-// 从树数据中按 id 查找节点（保证能拿到完整 children），若未传入树则用 treeData
 const findNodeInTree = (nodes, id) => {
   if (!nodes || !nodes.length) return null;
   for (const n of nodes) {
@@ -2943,7 +2871,6 @@ const findNodeInTree = (nodes, id) => {
   return null;
 };
 
-// 收集某节点及其所有子节点的 id（收起父级时，子级一并视为收起）
 const collectNodeAndDescendantIds = (nodeOrId) => {
   const node = typeof nodeOrId === 'object' && nodeOrId !== null
     ? nodeOrId
@@ -2961,7 +2888,6 @@ const collectNodeAndDescendantIds = (nodeOrId) => {
   return ids;
 };
 
-// 节点折叠事件处理：收起父节点时，从展开记录中移除该节点及所有子节点 id，并写入缓存
 const handleNodeCollapse = (data) => {
   const toRemove = collectNodeAndDescendantIds(data);
   const keySet = new Set(expandedKeys.value);
@@ -2992,7 +2918,6 @@ const getSuiteReviewStatusData = async (suiteId) => {
   }
 };
 
-// 更新评审按钮文本
 const updateReviewButtonText = () => {
   if (!selectedSuite.value || selectedSuite.value.type !== "suite") {
     reviewButtonText.value = "发起评审";
@@ -3048,8 +2973,6 @@ const updateReviewButtonText = () => {
   }
 };
 
-// 获取评审详情数据
-// 辅助方法：格式化日期
 const formatDate = (dateString) => {
   if (!dateString) return "";
   const date = new Date(dateString);
@@ -3063,7 +2986,6 @@ const formatDate = (dateString) => {
   });
 };
 
-// 辅助方法：获取评审任务状态标签类型
 const getStatusTagType = (status) => {
   const typeMap = {
     pending: "warning",
@@ -3075,7 +2997,6 @@ const getStatusTagType = (status) => {
   return typeMap[status] || "info";
 };
 
-// 辅助方法：获取评审任务状态文本
 const getStatusText = (status) => {
   const textMap = {
     pending: "待评审",
@@ -3087,7 +3008,6 @@ const getStatusText = (status) => {
   return textMap[status] || "未知状态";
 };
 
-// 辅助方法：获取优先级标签类型
 const getPriorityTagType = (priority) => {
   const typeMap = {
     P0: "danger",
@@ -3099,7 +3019,6 @@ const getPriorityTagType = (priority) => {
   return typeMap[priority] || "info";
 };
 
-// 辅助方法：获取用例评审状态标签类型
 const getCaseReviewStatusTagType = (status) => {
   const typeMap = {
     passed: "success",
@@ -3112,7 +3031,6 @@ const getCaseReviewStatusTagType = (status) => {
   return typeMap[status] || "info";
 };
 
-// 辅助方法：获取用例评审状态文本
 const getCaseReviewStatusText = (status) => {
   const textMap = {
     passed: "通过",
@@ -3141,7 +3059,7 @@ const fetchReviewDetail = async (taskId) => {
   }
 };
 
-// 处理评审按钮点击（先拉取最新评审状态，再根据状态执行操作，避免「暂未」与真实不符）
+// 先拉取最新评审状态再执行操作，避免「暂未」与真实不符
 const handleReviewButtonClick = async () => {
   if (!selectedSuite.value || selectedSuite.value.type !== "suite") {
     return;
@@ -3237,7 +3155,6 @@ const handleReviewButtonClick = async () => {
   }
 };
 
-// 节点点击事件
 const handleNodeClick = (data) => {
   selectedSuite.value = data;
   // 存储选中状态到localStorage
@@ -3247,7 +3164,6 @@ const handleNodeClick = (data) => {
   nextTick(() => {
     if (treeRef.value) {
       treeRef.value.setCurrentKey(data.id);
-      // 滚动到当前选中节点
       scrollToCurrentNode();
     }
   });
@@ -3266,7 +3182,6 @@ const handleNodeClick = (data) => {
   }
 };
 
-// 滚动到当前选中节点
 const scrollToCurrentNode = () => {
   nextTick(() => {
     const treeContainer = document.querySelector('.left-panel .tree-container');
@@ -3296,7 +3211,6 @@ const scrollToCurrentNode = () => {
   });
 };
 
-// 开始编辑节点名称
 const startEdit = (data) => {
   isDraggable.value = false; // 禁用拖拽功能
   editingNodeId.value = data.id;
@@ -3309,7 +3223,6 @@ const startEdit = (data) => {
   }, 100);
 };
 
-// 保存编辑
 const saveEdit = async (data) => {
   if (!editingNodeName.value.trim()) {
     ElMessage.warning("套件名称不能为空");
@@ -3330,13 +3243,11 @@ const saveEdit = async (data) => {
   }
 };
 
-// 取消编辑
 const cancelEdit = () => {
   editingNodeId.value = null;
   isDraggable.value = true; // 恢复拖拽功能
 };
 
-// 节点拖拽事件
 const handleNodeDrop = async (draggingNode, dropNode, dropType) => {
   // 处理拖拽逻辑，更新节点位置
   console.log("Node dropped:", draggingNode, dropNode, dropType);
@@ -3371,7 +3282,6 @@ const handleNodeDrop = async (draggingNode, dropNode, dropType) => {
       sortOrder = dropNode.data.sort_order + 1;
     }
 
-    // 调用API更新父级节点ID和排序
     await updateTestSuite(draggingNode.data.id, {
       parent_id: parentId,
       sort_order: sortOrder,
@@ -3387,7 +3297,6 @@ const handleNodeDrop = async (draggingNode, dropNode, dropType) => {
   }
 };
 
-// 右键菜单事件
 const handleContextMenu = (event, data, node) => {
   // 阻止默认的右键菜单
   event.preventDefault();
@@ -3411,12 +3320,10 @@ const handleContextMenu = (event, data, node) => {
   contextMenuStyle.zIndex = 10000;
 };
 
-// 关闭右键菜单
 const closeContextMenu = () => {
   contextMenuVisible.value = false;
 };
 
-// 点击页面其他地方关闭右键菜单
 onMounted(() => {
   // 使用mousedown事件而不是click事件，因为contextmenu事件会在mousedown事件之后，click事件之前触发
   // 这样可以避免右键点击时立即关闭菜单
@@ -3437,12 +3344,10 @@ onMounted(() => {
   loadReviewers();
 });
 
-// 组件销毁时移除事件监听器
 onUnmounted(() => {
   document.removeEventListener("click", handleSuitePopoverGlobalClick);
 });
 
-// 递归获取所有节点ID
 const getAllNodeIds = (nodes) => {
   let ids = [];
   if (!nodes || !nodes.length) return ids;
@@ -3456,16 +3361,13 @@ const getAllNodeIds = (nodes) => {
   return ids;
 };
 
-// 加载树形数据
 const loadTreeData = async () => {
   try {
     const response = await getTestSuiteTree();
     treeData.value = response.data;
 
-    // 更新套件选项
     suiteOptions.value = buildSuiteOptions();
 
-    // 展开状态：无缓存时默认展开根目录；有缓存则恢复
     const savedExpandedKeys = localStorage.getItem('testCaseExpandedKeys');
     if (savedExpandedKeys) {
       try {
@@ -3522,7 +3424,6 @@ const loadTreeData = async () => {
   }
 };
 
-// 根据 ID 选择用例集
 const selectSuiteById = async (suiteId) => {
   try {
     // 查找对应的用例集节点
@@ -3543,8 +3444,11 @@ const selectSuiteById = async (suiteId) => {
 
     const suiteNode = findNode(treeData.value, suiteId);
     if (suiteNode) {
-      // 选中该节点
+      // 选中该节点并与 localStorage 同步，便于刷新后恢复
       selectedSuite.value = suiteNode;
+      try {
+        localStorage.setItem("testCaseSelectedSuite", JSON.stringify(suiteNode));
+      } catch (_) {}
       caseForm.suite_id = suiteId;
 
       // 展开父节点
@@ -3571,6 +3475,8 @@ const selectSuiteById = async (suiteId) => {
         expandedKeys.value = [
           ...new Set([...expandedKeys.value, ...parentPath]),
         ];
+        // 树仅在挂载时读取 default-expanded-keys，需重挂载后展开的父级才生效
+        treeMountKey.value += 1;
       }
 
       // 使用 nextTick 确保 DOM 更新后再加载测试用例和设置高亮
@@ -3582,6 +3488,7 @@ const selectSuiteById = async (suiteId) => {
       getSuiteReviewStatusData(suiteId);
 
       // 确保树形组件高亮显示当前节点并滚动到该节点
+      await nextTick();
       if (treeRef.value) {
         treeRef.value.setCurrentKey(suiteId);
         scrollToCurrentNode();
@@ -3594,7 +3501,19 @@ const selectSuiteById = async (suiteId) => {
   }
 };
 
-// 加载项目列表
+// 消息中心等从外部带 suite_id 跳转时，若页面已打开则需根据 query 定位用例集并高亮
+watch(
+  () => route.query.suite_id,
+  (newSuiteId) => {
+    if (!newSuiteId || !route.path.includes("test-cases")) return;
+    const suiteId = parseInt(newSuiteId, 10);
+    if (Number.isNaN(suiteId)) return;
+    if (treeData.value && treeData.value.length > 0) {
+      selectSuiteById(suiteId);
+    }
+  },
+);
+
 const loadProjects = async () => {
   try {
     isLoadingProjects.value = true;
@@ -3625,7 +3544,6 @@ const loadProjects = async () => {
   }
 };
 
-// 加载迭代列表
 const loadIterations = async (projectId) => {
   if (!projectId) {
     iterations.value = [];
@@ -3705,7 +3623,6 @@ const loadIterations = async (projectId) => {
   }
 };
 
-// 加载需求列表
 const loadRequirements = async (projectId, iterationId) => {
   if (!projectId || !iterationId) {
     requirements.value = [];
@@ -3807,7 +3724,6 @@ const loadRequirements = async (projectId, iterationId) => {
   }
 };
 
-// 加载测试用例
 const loadTestCases = async (suiteId) => {
   try {
     const response = await getSuiteCases(suiteId, {
@@ -3831,7 +3747,6 @@ const loadTestCases = async (suiteId) => {
       }
     }, 100);
 
-    // 加载所有测试用例用于统计
     loadAllTestCases(suiteId);
   } catch (error) {
     ElMessage.error("加载测试用例失败");
@@ -3839,7 +3754,6 @@ const loadTestCases = async (suiteId) => {
   }
 };
 
-// 加载所有测试用例用于统计
 const loadAllTestCases = async (suiteId) => {
   try {
     // 加载所有数据，page_size设置为较大值
@@ -3855,7 +3769,6 @@ const loadAllTestCases = async (suiteId) => {
   }
 };
 
-// 新增套件
 const handleAddSuite = () => {
   isEditSuite.value = false;
   isContextMenuAction.value = false;
@@ -3871,7 +3784,6 @@ const handleAddSuite = () => {
   loadProjects();
 };
 
-// 从右键菜单新增套件
 const handleAddSuiteFromMenu = () => {
   isEditSuite.value = false;
   isContextMenuAction.value = true;
@@ -3894,7 +3806,6 @@ const handleAddSuiteFromMenu = () => {
   loadProjects();
 };
 
-// 编辑套件
 const handleEditSuite = () => {
   if (!selectedNode.value) return;
   isEditSuite.value = true;
@@ -3946,7 +3857,6 @@ const handleEditSuite = () => {
   loadDataAsync();
 };
 
-// 删除套件
 const handleDeleteSuite = async () => {
   if (!selectedNode.value) return;
 
@@ -3990,7 +3900,6 @@ const handleDeleteSuite = async () => {
     });
 };
 
-// 取消套件操作
 const handleCancelSuite = () => {
   suiteDialogVisible.value = false;
   parentSuitePopoverVisible.value = false;
@@ -3998,10 +3907,8 @@ const handleCancelSuite = () => {
   isContextMenuAction.value = false;
 };
 
-// 保存套件
 const handleSaveSuite = async () => {
   try {
-    // 表单验证
     await suiteFormRef.value.validate();
 
     if (isEditSuite.value) {
@@ -4015,7 +3922,6 @@ const handleSaveSuite = async () => {
     }
     suiteDialogVisible.value = false;
     parentSuitePopoverVisible.value = false;
-    // 重置右键菜单操作标志
     isContextMenuAction.value = false;
     loadTreeData();
   } catch (error) {
@@ -4030,33 +3936,28 @@ const handleSaveSuite = async () => {
   }
 };
 
-// 重置套件表单
 const resetSuiteForm = () => {
   suiteForm.id = null;
   suiteForm.suite_name = "";
   suiteForm.description = "";
-  suiteForm.type = "folder"; // 默认类型为文件夹
+  suiteForm.type = "folder";
   suiteForm.parent_id = null;
-  suiteForm.project_id = null; // 默认项目ID，实际应从上下文获取
+  suiteForm.project_id = null;
   suiteForm.version_requirement_id = null;
   suiteForm.iteration_id = null;
 
-  // 重置表单验证状态
   if (suiteFormRef.value) {
     suiteFormRef.value.resetFields();
   }
 };
 
-// 刷新树形数据
 const handleRefresh = () => {
   loadTreeData();
   ElMessage.success("已刷新测试套件");
 };
 
-// 过滤只显示文件夹类型的节点
 const getFolderTreeData = () => {
   const filterFolderNodes = (nodes) => {
-    // 添加调试日志，查看节点类型
     const folderNodes = nodes.filter((node) => {
       const isFolder = node.type === "folder";
       return isFolder;
@@ -4072,7 +3973,6 @@ const getFolderTreeData = () => {
   return folderTreeData;
 };
 
-// 获取选中的父套件路径
 const getSelectedParentPath = () => {
   if (!suiteForm.parent_id) return "";
 
@@ -4096,7 +3996,6 @@ const getSelectedParentPath = () => {
   return path ? path.join(" / ") : "";
 };
 
-// 获取选中的用例集路径
 const getSelectedCaseSuitePath = () => {
   let selectedId;
   if (createCaseType.value === "manual" || isEditCase.value) {
@@ -4112,8 +4011,7 @@ const getSelectedCaseSuitePath = () => {
   const findNodePath = (nodes, id, path = []) => {
     for (const node of nodes) {
       if (node.id === id) {
-        // 对于自动生成用例，返回包含当前文件夹名称的完整路径
-        return [...path, node.suite_name];
+  return [...path, node.suite_name];
       }
       if (node.children) {
         const result = findNodePath(node.children, id, [
@@ -4130,13 +4028,10 @@ const getSelectedCaseSuitePath = () => {
   return path ? path.join(" / ") : "";
 };
 
-// 获取用例集树数据
 const getSuiteTreeData = () => {
-  // 返回完整的树形数据，让前端模板来过滤显示
   return treeData.value;
 };
 
-// 监听父套件ID变化，更新显示路径
 watch(
   () => suiteForm.parent_id,
   () => {
@@ -4144,7 +4039,6 @@ watch(
   },
 );
 
-// 监听用例集ID变化，更新显示路径
 watch(
   () => caseForm.suite_id,
   () => {
@@ -4152,7 +4046,6 @@ watch(
   },
 );
 
-// 监听自动生成用例父ID或追加用例集ID变化，更新显示路径
 watch(
   () => [autoCaseForm.parent_id, autoCaseForm.append_suite_id, autoCaseForm.generateMode],
   () => {
@@ -4193,7 +4086,6 @@ watch(
   },
 );
 
-// 监听项目ID变化，加载迭代列表
 watch(
   () => suiteForm.project_id,
   (newProjectId, oldProjectId) => {
@@ -4217,7 +4109,6 @@ watch(
   },
 );
 
-// 监听迭代ID变化，加载需求列表
 watch(
   () => suiteForm.iteration_id,
   (newIterationId, oldIterationId) => {
@@ -4239,7 +4130,6 @@ watch(
   },
 );
 
-// 清除父套件选择
 const clearParentSuiteSelection = () => {
   suiteForm.parent_id = null;
   selectedParentSuitePath.value = "";
@@ -4247,13 +4137,11 @@ const clearParentSuiteSelection = () => {
   parentSuitePopoverVisible.value = false;
 };
 
-// 清除用例集选择
 const clearCaseSuiteSelection = () => {
   caseForm.suite_id = null;
   selectedCaseSuitePath.value = "";
 };
 
-// 处理父套件选择
 const handleParentSuiteSelect = (data) => {
   suiteForm.parent_id = data.id;
   selectedParentSuitePath.value = getSelectedParentPath();
@@ -4261,7 +4149,6 @@ const handleParentSuiteSelect = (data) => {
   parentSuitePopoverVisible.value = false;
 };
 
-// 处理用例集选择
 const handleCaseSuiteSelect = (data) => {
   if (createCaseType.value === "manual" || isEditCase.value) {
     if (data.type === "suite") {
@@ -4345,16 +4232,13 @@ const checkSuiteNameDuplicate = async () => {
   }
 };
 
-// 新增：处理需求文档文件变化
 const handleRequirementFileChange = (file) => {
-  // 验证文件
   if (!file || !file.raw) {
     ElMessage.error("文件选择失败，请重试");
     return;
   }
 
-  // 验证文件大小（最大10MB）
-  const maxSize = 10 * 1024 * 1024; // 10MB
+  const maxSize = 10 * 1024 * 1024;
   if (file.raw.size > maxSize) {
     ElMessage.error("文件大小不能超过 10MB");
     requirementFileList.value = [];
@@ -4362,7 +4246,6 @@ const handleRequirementFileChange = (file) => {
     return;
   }
 
-  // 验证文件大小不能为0
   if (file.raw.size === 0) {
     ElMessage.error("文件大小为0，请选择有效的文件");
     requirementFileList.value = [];
@@ -4370,7 +4253,6 @@ const handleRequirementFileChange = (file) => {
     return;
   }
 
-  // 验证文件类型
   const fileName = file.name.toLowerCase();
   const validExtensions = [".docx", ".pdf", ".txt"];
   const isValidType = validExtensions.some((ext) => fileName.endsWith(ext));
@@ -4382,7 +4264,6 @@ const handleRequirementFileChange = (file) => {
     return;
   }
 
-  // 特别提示：DOC格式不支持
   if (fileName.endsWith(".doc") && !fileName.endsWith(".docx")) {
     ElMessage.error("不支持旧版 .doc 格式，请使用 Word 另存为 .docx 格式");
     requirementFileList.value = [];
@@ -4390,29 +4271,20 @@ const handleRequirementFileChange = (file) => {
     return;
   }
 
-  console.log("需求文档选择成功:", {
-    name: file.name,
-    size: file.raw.size,
-    type: file.raw.type,
-  });
-
   autoCaseForm.file = file.raw;
   requirementFileList.value = [file];
   ElMessage.success(`文件 ${file.name} 选择成功`);
 };
 
-// 新增：处理需求文档文件移除
 const handleRequirementFileRemove = () => {
   autoCaseForm.file = null;
   requirementFileList.value = [];
 };
 
-// 新增：处理需求文档文件超出限制
 const handleRequirementFileExceed = () => {
   ElMessage.warning("只能上传一个需求文档文件");
 };
 
-// 新增：生成用例按钮点击事件（支持生成到新用例集 / 追加到已选用例集）
 const handleGenerateCase = async () => {
   try {
     await autoCaseFormRef.value.validate();
@@ -4606,15 +4478,12 @@ const buildSuiteOptions = () => {
   return options;
 };
 
-// 新增用例
 const handleAddCase = () => {
   isEditCase.value = false;
   resetCaseForm();
 
-  // 新增：重置创建方式为手动创建
   createCaseType.value = "manual";
 
-  // 新增：重置自动生成用例表单
   Object.assign(autoCaseForm, {
     generateMode: "new",
     append_suite_id: null,
@@ -4628,7 +4497,6 @@ const handleAddCase = () => {
     file: null,
   });
 
-  // 新增：重置需求文档文件列表
   requirementFileList.value = [];
 
   // 如果有选中的套件且类型为用例集，设置为默认值
@@ -4703,7 +4571,6 @@ const generateNextCaseNumber = async (suiteId) => {
   }
 };
 
-// 编辑用例
 const handleEditCase = (row) => {
   isEditCase.value = true;
   Object.assign(caseForm, row);
@@ -4742,7 +4609,6 @@ const parseCaseNumber = (caseNumber) => {
   }
 };
 
-// 删除用例
 const handleDeleteCase = async (row) => {
   ElMessageBox.confirm("确定要删除该测试用例吗？删除后将无法恢复。", "警告", {
     confirmButtonText: "确定",
@@ -4765,16 +4631,13 @@ const handleDeleteCase = async (row) => {
     });
 };
 
-// 取消用例操作
 const handleCancelCase = () => {
   caseDialogVisible.value = false;
   caseSuitePopoverVisible.value = false;
 };
 
-// 保存用例
 const handleSaveCase = async () => {
   try {
-    // 表单验证
     await caseFormRef.value.validate();
 
     // 获取测试套件详情，获取项目相关信息
@@ -4789,11 +4652,9 @@ const handleSaveCase = async () => {
     };
 
     if (isEditCase.value) {
-      // 编辑用例
       await updateTestCase(caseForm.id, caseData);
       ElMessage.success("测试用例已更新");
     } else {
-      // 新增用例
       await createTestCase(caseData);
       ElMessage.success("测试用例已创建");
     }
@@ -4812,7 +4673,6 @@ const handleSaveCase = async () => {
   }
 };
 
-// 重置用例表单
 const resetCaseForm = () => {
   caseForm.id = null;
   caseForm.case_number = "";
@@ -4827,7 +4687,6 @@ const resetCaseForm = () => {
   caseForm.test_data = "";
   caseForm.actual_result = "";
 
-  // 重置用例编号分段输入
   caseNumberParts.part1 = "";
   caseNumberParts.part2 = "";
   caseNumberParts.part3 = "";
@@ -4851,7 +4710,6 @@ const toggleViewMode = async () => {
   }
 };
 
-// 脑图相关数据和方法
 const mindMapData = ref({});
 
 // 生成脑图数据
@@ -5006,15 +4864,12 @@ const handleMindMapContentChange = (data) => {
   // 可以在这里实现自动保存脑图数据到后端
 };
 
-// 左侧面板收起/展开状态
 const isLeftPanelCollapsed = ref(false);
 
-// 切换左侧面板显示状态
 const toggleLeftPanel = () => {
   isLeftPanelCollapsed.value = !isLeftPanelCollapsed.value;
 };
 
-// 文件上传相关
 const uploadRef = ref(null);
 const excelFile = ref(null);
 
@@ -5449,7 +5304,6 @@ const handleImportExportAction = async () => {
                 iteration_id: parentIterationId,
               };
 
-              // 调用API创建测试用例
               await createTestCase(caseData);
               importedCount++;
               // 添加延迟，避免请求过于频繁
@@ -5629,7 +5483,6 @@ const saveCaseEdit = async (row) => {
   }
 };
 
-// 取消用例编辑
 const cancelCaseEdit = () => {
   editingCaseId.value = null;
   editingField.value = "";
@@ -5649,6 +5502,9 @@ const cancelCaseEdit = () => {
     window.__editMouseUpHandler = null;
   }
 };
+
+// 用例列表顶部筛选：关键词（编号/名称）
+const caseFilterKeyword = ref("");
 
 // 优先级筛选状态
 const priorityFilterAll = ref(false);
@@ -5676,14 +5532,24 @@ const filteredTestCases = computed(() => {
   if (!testCases.value || testCases.value.length === 0) {
     return [];
   }
-  
+
   let result = [...testCases.value];
-  
-  // 优先级筛选 - 如果有选中的筛选项，则进行筛选；没有选中则显示全部
-  if (priorityFilterValues.value.length > 0) {
-    result = result.filter(item => priorityFilterValues.value.includes(item.priority));
+
+  // 关键词筛选（编号、名称）
+  const kw = (caseFilterKeyword.value || "").trim().toLowerCase();
+  if (kw) {
+    result = result.filter(
+      (item) =>
+        (item.case_number && String(item.case_number).toLowerCase().includes(kw)) ||
+        (item.case_name && String(item.case_name).toLowerCase().includes(kw))
+    );
   }
-  
+
+  // 优先级筛选
+  if (priorityFilterValues.value.length > 0) {
+    result = result.filter((item) => priorityFilterValues.value.includes(item.priority));
+  }
+
   return result;
 });
 
@@ -5709,7 +5575,14 @@ const handlePriorityFilterChange = (values) => {
 // 优先级重置
 const handlePriorityReset = () => {
   priorityFilterAll.value = true;
-  priorityFilterValues.value = ['P0', 'P1', 'P2', 'P3', 'P4'];
+  priorityFilterValues.value = ["P0", "P1", "P2", "P3", "P4"];
+};
+
+// 用例列表顶部筛选重置
+const resetCaseFilter = () => {
+  caseFilterKeyword.value = "";
+  priorityFilterAll.value = true;
+  priorityFilterValues.value = ["P0", "P1", "P2", "P3", "P4"];
 };
 
 const handleCellClick = () => {
@@ -6480,12 +6353,14 @@ const handleCurrentChange = (page) => {
       border-bottom: 1px solid var(--el-border-color-light, #e4e7ed);
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
+      align-items: center;
       gap: 20px;
       background-color: var(--el-bg-color, white);
+      min-height: 0;
 
       .header-content {
         flex: 1;
+        min-width: 0;
       }
 
       h3 {
@@ -6530,6 +6405,13 @@ const handleCurrentChange = (page) => {
           cursor: default;
           color: var(--el-text-color-secondary, #909399);
         }
+      }
+
+      .case-list-filter {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
       }
     }
 
@@ -6871,6 +6753,68 @@ const handleCurrentChange = (page) => {
 .el-table .cell {
   font-size: 12px;
   line-height: 1.4;
+}
+
+/* 用例列表：编辑边界 = 列表单元格边界（绝对定位铺满单元格） */
+.case-list-table .cell {
+  position: relative;
+}
+.case-list-table .cell .cell-edit-wrap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+}
+.case-list-table .cell .cell-edit-wrap .cell-full-edit {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100%;
+  display: block;
+  box-sizing: border-box;
+}
+.case-list-table .cell .cell-edit-wrap .cell-full-edit :deep(.el-input__wrapper) {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  padding: 10px;
+  border-radius: 0;
+  box-shadow: inset 0 0 0 1px var(--el-border-color, #dcdfe6);
+  box-sizing: border-box;
+}
+.case-list-table .cell .cell-edit-wrap .cell-full-edit :deep(.el-input__wrapper:hover) {
+  box-shadow: inset 0 0 0 1px var(--el-border-color-hover, #c0c4cc);
+}
+.case-list-table .cell .cell-edit-wrap .cell-full-edit :deep(.el-input__wrapper.is-focus) {
+  box-shadow: inset 0 0 0 1px var(--el-color-primary, #409eff);
+}
+.case-list-table .cell .cell-edit-wrap .cell-full-edit :deep(.el-input__inner) {
+  height: 100%;
+  min-height: 0;
+}
+.case-list-table .cell .cell-edit-wrap .cell-full-edit :deep(.el-textarea__inner) {
+  width: 100%;
+  height: 100% !important;
+  min-height: 100%;
+  padding: 10px;
+  border-radius: 0;
+  box-shadow: inset 0 0 0 1px var(--el-border-color, #dcdfe6);
+  border: none;
+  box-sizing: border-box;
+  resize: none;
+}
+.case-list-table .cell .cell-edit-wrap .cell-full-edit :deep(.el-textarea__inner:hover) {
+  box-shadow: inset 0 0 0 1px var(--el-border-color-hover, #c0c4cc);
+}
+.case-list-table .cell .cell-edit-wrap .cell-full-edit :deep(.el-textarea__inner:focus) {
+  box-shadow: inset 0 0 0 1px var(--el-color-primary, #409eff);
+}
+.case-list-table .cell .cell-edit-wrap .cell-full-edit.el-select {
+  width: 100% !important;
+}
+.case-list-table .cell .cell-edit-wrap .cell-full-edit.el-select :deep(.el-input__wrapper) {
+  min-height: 0;
 }
 
 /* 调整标签样式 */

@@ -40,6 +40,7 @@ def clear_table_data():
             # 按照外键依赖关系倒序清空表数据
             tables = [
                 'reports',
+                'notifications',
                 'user_settings',
                 'system_settings',
                 'test_case_review_history',
@@ -59,6 +60,8 @@ def clear_table_data():
                 'project_members',
                 'projects',
                 'devices',
+                'role_permissions',
+                'email_verify_codes',
                 'users'
             ]
             

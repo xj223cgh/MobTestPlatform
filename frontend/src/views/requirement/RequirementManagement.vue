@@ -69,7 +69,7 @@
             <el-option
               v-for="user in assigneeOptions"
               :key="user.id"
-              :label="user.real_name"
+              :label="user.real_name || user.username"
               :value="user.id"
             />
           </el-select>
@@ -238,7 +238,6 @@
       </div>
     </div>
 
-    <!-- 分页 - 固定在右侧区域底部 -->
     <div class="fixed-pagination">
       <el-pagination
         :current-page="pagination.currentPage"
@@ -251,7 +250,6 @@
       />
     </div>
 
-    <!-- 创建/编辑需求对话框 -->
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
@@ -518,7 +516,7 @@ import {
   updateVersionRequirement,
   deleteVersionRequirement,
 } from "@/api/project";
-import { getUserList } from "@/api/user";
+import { getUserOptions } from "@/api/user";
 import { useSystemSettingsStore } from "@/stores/systemSettings";
 import dayjs from "dayjs";
 
@@ -539,10 +537,8 @@ const getRowClassName = ({ row }) => {
   return "";
 };
 
-// 加载状态
 const loading = ref(false);
 
-// 搜索和筛选
 // 时间筛选范围，默认当前年月的前后两个月
 const currentDate = dayjs();
 const timeRangeFilter = ref([
@@ -553,21 +549,17 @@ const projectFilter = ref([]);
 const iterationFilter = ref([]);
 const assigneeFilter = ref([]);
 
-// 搜索表单
 const searchForm = reactive({});
 
-// 选项数据
 const projectOptions = ref([]);
 const iterationOptions = ref([]);
 /** 弹窗内「所属迭代」下拉数据（按选中项目单独加载） */
 const dialogIterationOptions = ref([]);
-/** 弹窗内迭代下拉加载中 */
 const iterationLoading = ref(false);
 const userOptions = ref([]);
 const creatorOptions = ref([]);
 const assigneeOptions = ref([]);
 
-// 需求列表
 const requirementList = ref([]);
 const requirementTableRef = ref(null);
 
@@ -579,16 +571,13 @@ const pagination = reactive({
   total: 0,
 });
 
-// 创建/编辑需求对话框
 const dialogVisible = ref(false);
 const dialogTitle = ref("");
 const dialogLoading = ref(false);
 const editingRequirementId = ref(null);
 
-// 表单引用
 const requirementFormRef = ref(null);
 
-// 表单数据
 const requirementForm = reactive({
   requirement_name: "",
   description: "",
@@ -604,7 +593,6 @@ const requirementForm = reactive({
   end_date: "",
 });
 
-// 筛选后的迭代选项
 const filteredIterationOptions = computed(() => {
   if (!requirementForm.project_id) {
     return [];
@@ -614,7 +602,6 @@ const filteredIterationOptions = computed(() => {
   });
 });
 
-// 表单验证规则
 const requirementRules = {
   requirement_name: [
     { required: true, message: "请输入需求名称", trigger: "blur" },
@@ -639,11 +626,9 @@ const requirementRules = {
   end_date: [{ required: true, message: "请选择结束时间", trigger: "change" }],
 };
 
-// 获取需求列表
 const getRequirementList = async () => {
   loading.value = true;
   try {
-    // 使用新的API获取所有需求列表
     const response = await getAllVersionRequirements();
 
     if (response.code === 200) {
@@ -656,22 +641,18 @@ const getRequirementList = async () => {
         return dateB - dateA;
       });
 
-      // 2. 应用筛选条件
-      // 按所属项目筛选
       if (projectFilter.value && projectFilter.value.length > 0) {
         allItems = allItems.filter((item) =>
           projectFilter.value.includes(item.project_id),
         );
       }
 
-      // 按所属迭代筛选
       if (iterationFilter.value && iterationFilter.value.length > 0) {
         allItems = allItems.filter((item) =>
           iterationFilter.value.includes(item.iteration_id),
         );
       }
 
-      // 按负责人筛选
       if (assigneeFilter.value && assigneeFilter.value.length > 0) {
         allItems = allItems.filter((item) =>
           assigneeFilter.value.includes(item.assigned_to),
@@ -689,7 +670,6 @@ const getRequirementList = async () => {
             Math.floor(idx / pagination.pageSize) + 1;
       }
 
-      // 3. 前端分页处理
       const startIndex = (pagination.currentPage - 1) * pagination.pageSize;
       const endIndex = startIndex + pagination.pageSize;
       requirementList.value = allItems.slice(startIndex, endIndex);
@@ -704,7 +684,6 @@ const getRequirementList = async () => {
   }
 };
 
-// 状态类型映射
 const getStatusType = (status) => {
   const statusMap = {
     new: "info",
@@ -715,7 +694,6 @@ const getStatusType = (status) => {
   return statusMap[status] || "info";
 };
 
-// 状态文本映射
 const getStatusText = (status) => {
   const statusMap = {
     new: "新建",
@@ -726,7 +704,6 @@ const getStatusText = (status) => {
   return statusMap[status] || status;
 };
 
-// 优先级类型映射（P0-P4）
 const getPriorityType = (priority) => {
   const priorityMap = {
     P0: "danger",
@@ -738,10 +715,8 @@ const getPriorityType = (priority) => {
   return priorityMap[priority] || "info";
 };
 
-// 优先级直接显示 P0-P4
 const getPriorityText = (priority) => priority || "P1";
 
-// 环境类型映射
 const getEnvironmentType = (environment) => {
   const envMap = {
     test: "info",
@@ -751,7 +726,6 @@ const getEnvironmentType = (environment) => {
   return envMap[environment] || "info";
 };
 
-// 环境文本映射
 const getEnvironmentText = (environment) => {
   const envMap = {
     test: "测试环境",
@@ -761,9 +735,7 @@ const getEnvironmentText = (environment) => {
   return envMap[environment] || environment;
 };
 
-// 重置筛选条件
 const resetFilters = () => {
-  // 重置时间范围为当前年月的前后两个月
   const currentDate = dayjs();
   timeRangeFilter.value = [
     currentDate.subtract(2, "month").format("YYYY-MM"),
@@ -773,31 +745,23 @@ const resetFilters = () => {
   iterationFilter.value = [];
   assigneeFilter.value = [];
   pagination.currentPage = 1;
-  getOptionData(); // 重新获取选项数据
+  getOptionData();
   getRequirementList();
 };
 
-// 时间范围变化处理函数
 const handleTimeRangeChange = async () => {
-  // 当时间范围变化时，只重新获取项目选项，不影响其他筛选
   try {
-    // 1. 获取所有项目（不分页）
-    const projectsResponse = await getProjects({ page: 1, size: 10000 }); // 下拉用全量项目
+    const projectsResponse = await getProjects({ page: 1, size: 10000 });
     let allProjects = projectsResponse.data?.items || [];
 
-    // 2. 根据时间范围筛选项目
     const filteredProjects = allProjects.filter((project) => {
       if (!timeRangeFilter.value || timeRangeFilter.value.length !== 2)
         return true;
 
-      // 获取项目创建时间的年月部分 (YYYY-MM)
       const projectYearMonth = project.created_at?.substring(0, 7);
       if (!projectYearMonth) return true;
 
-      // 获取筛选范围的年月
       const [startYearMonth, endYearMonth] = timeRangeFilter.value;
-
-      // 直接比较年月字符串，确保在范围内
       return (
         projectYearMonth >= startYearMonth && projectYearMonth <= endYearMonth
       );
@@ -805,8 +769,6 @@ const handleTimeRangeChange = async () => {
 
     projectOptions.value = filteredProjects;
 
-    // 3. 不清空项目筛选和迭代筛选，因为创建者和负责人不受时间筛选影响
-    // 只更新迭代选项，根据当前选中的项目
     if (projectFilter.value && projectFilter.value.length > 0) {
       const selectedIterations = [];
       for (const projectId of projectFilter.value) {
@@ -821,8 +783,6 @@ const handleTimeRangeChange = async () => {
       iterationOptions.value = selectedIterations;
     }
 
-    // 4. 不更新用户选项，创建者和负责人不受时间筛选影响
-    // 5. 不刷新需求列表，只更新项目和迭代选项
     console.log("时间范围筛选已更新，只影响项目和迭代下拉列表");
   } catch (error) {
     console.error("更新项目选项失败:", error);
@@ -830,22 +790,17 @@ const handleTimeRangeChange = async () => {
   }
 };
 
-// 项目筛选变化处理函数
 const handleProjectFilterChange = async () => {
   try {
-    // 如果没有选中项目，清空迭代选项并禁用迭代选择器
     if (!projectFilter.value || projectFilter.value.length === 0) {
       iterationOptions.value = [];
       iterationFilter.value = [];
     } else {
-      // 只显示选中项目的迭代，不受时间筛选影响
       const selectedIterations = [];
       for (const projectId of projectFilter.value) {
         try {
           const iterationsResponse = await getProjectIterations(projectId);
           const projectIterations = iterationsResponse.data?.items || [];
-
-          // 不根据年月筛选迭代，只根据项目筛选
           selectedIterations.push(...projectIterations);
         } catch (error) {
           console.error(`获取项目${projectId}的迭代失败:`, error);
@@ -854,7 +809,6 @@ const handleProjectFilterChange = async () => {
 
       iterationOptions.value = selectedIterations;
 
-      // 如果当前迭代筛选不在新的迭代列表中，清空迭代筛选
       if (iterationFilter.value && iterationFilter.value.length > 0) {
         const validIterationIds = selectedIterations.map((iter) => iter.id);
         const validFilters = iterationFilter.value.filter((id) =>
@@ -864,10 +818,7 @@ const handleProjectFilterChange = async () => {
       }
     }
 
-    // 更新用户选项
     await updateUserOptions();
-
-    // 刷新需求列表
     getRequirementList();
   } catch (error) {
     console.error("更新迭代选项失败:", error);
@@ -875,13 +826,9 @@ const handleProjectFilterChange = async () => {
   }
 };
 
-// 迭代筛选变化处理函数
 const handleIterationFilterChange = async () => {
   try {
-    // 更新用户选项
     await updateUserOptions();
-
-    // 刷新需求列表
     getRequirementList();
   } catch (error) {
     console.error("更新用户选项失败:", error);
@@ -889,123 +836,23 @@ const handleIterationFilterChange = async () => {
   }
 };
 
-// 更新用户选项函数
+// 更新用户选项函数（使用仅需登录的 getUserOptions，不依赖 user.list 权限）
 const updateUserOptions = async () => {
-  console.log("开始更新用户选项");
-
   let allUsers = [];
-
-  // 首先获取所有用户，这是基础数据
   try {
-    console.log("开始调用 getUserList API");
-    const usersResponse = await getUserList({ page: 1, size: 1000 });
-    console.log("获取用户列表响应:", JSON.stringify(usersResponse, null, 2));
-
-    // 确保数据结构正确，allUsers 必须是数组
-    let items = [];
-
-    // 检查响应结构，处理不同的返回格式
-    if (usersResponse) {
-      // 检查响应是否直接是数组
-      if (Array.isArray(usersResponse)) {
-        console.log("响应直接是数组");
-        items = usersResponse;
-      }
-      // 检查响应是否包含 data 字段
-      else if (usersResponse.data) {
-        console.log("响应包含 data 字段");
-        // 检查 data 是否直接是数组
-        if (Array.isArray(usersResponse.data)) {
-          console.log("data 直接是数组");
-          items = usersResponse.data;
-        }
-        // 检查 data 是否包含 users 字段，且 users 是数组
-        else if (
-          usersResponse.data.users &&
-          Array.isArray(usersResponse.data.users)
-        ) {
-          console.log("data.users 是数组");
-          items = usersResponse.data.users;
-        }
-        // 检查 data 是否包含 items 字段，且 items 是数组
-        else if (
-          usersResponse.data.items &&
-          Array.isArray(usersResponse.data.items)
-        ) {
-          console.log("data.items 是数组");
-          items = usersResponse.data.items;
-        }
-        // 检查 data 是否包含 list 字段，且 list 是数组
-        else if (
-          usersResponse.data.list &&
-          Array.isArray(usersResponse.data.list)
-        ) {
-          console.log("data.list 是数组");
-          items = usersResponse.data.list;
-        }
-        // 检查 data 是否包含 records 字段，且 records 是数组
-        else if (
-          usersResponse.data.records &&
-          Array.isArray(usersResponse.data.records)
-        ) {
-          console.log("data.records 是数组");
-          items = usersResponse.data.records;
-        } else {
-          console.log("data 不是数组，也没有 users/items/list/records 字段");
-          console.log("data 的类型:", typeof usersResponse.data);
-          console.log(
-            "data 的内容:",
-            JSON.stringify(usersResponse.data, null, 2),
-          );
-        }
-      }
-      // 检查响应是否直接包含 users 字段，且 users 是数组
-      else if (usersResponse.users && Array.isArray(usersResponse.users)) {
-        console.log("响应直接包含 users 数组");
-        items = usersResponse.users;
-      } else {
-        console.log("响应不包含 data 字段，也不直接包含 users 字段");
-        console.log("响应的类型:", typeof usersResponse);
-        console.log("响应的内容:", JSON.stringify(usersResponse, null, 2));
-      }
-    } else {
-      console.log("响应为空");
-    }
-
-    // 确保 items 是数组
-    allUsers = Array.isArray(items) ? items : [];
-
-    console.log("处理后的用户列表:", JSON.stringify(allUsers, null, 2));
-    console.log("用户列表长度:", allUsers.length);
+    const usersResponse = await getUserOptions({ size: 1000 });
+    allUsers = usersResponse?.data?.items || [];
   } catch (error) {
     console.error("获取用户列表失败:", error);
-    // 只在无法获取用户列表时显示错误信息
     ElMessage.error("获取用户列表失败");
-    // 使用空数组继续执行，避免崩溃
-    allUsers = [];
   }
 
-  // 默认显示所有用户
   userOptions.value = allUsers;
   creatorOptions.value = allUsers;
   assigneeOptions.value = allUsers;
-  console.log("设置用户选项:", JSON.stringify(userOptions.value, null, 2));
-  console.log("用户选项长度:", userOptions.value.length);
-  console.log("设置创建者选项:", JSON.stringify(creatorOptions.value, null, 2));
-  console.log("创建者选项长度:", creatorOptions.value.length);
-  console.log(
-    "设置负责人选项:",
-    JSON.stringify(assigneeOptions.value, null, 2),
-  );
-  console.log("负责人选项长度:", assigneeOptions.value.length);
 
-  // 如果没有用户数据，直接返回
-  if (allUsers.length === 0) {
-    console.log("没有用户数据，直接返回");
-    return;
-  }
+  if (allUsers.length === 0) return;
 
-  // 如果有选中项目或迭代，根据筛选条件过滤用户
   if (
     (projectFilter.value && projectFilter.value.length > 0) ||
     (iterationFilter.value && iterationFilter.value.length > 0)
@@ -1013,16 +860,12 @@ const updateUserOptions = async () => {
     console.log("有选中的项目或迭代，开始过滤用户");
 
     try {
-      // 获取需求列表，根据当前筛选条件
       const response = await getAllVersionRequirements();
       if (response.code === 200) {
         const allRequirements = response.data?.items || [];
         console.log("获取到的需求列表:", allRequirements);
-
-        // 筛选符合条件的需求
         let filteredRequirements = allRequirements;
 
-        // 按项目筛选
         if (projectFilter.value && projectFilter.value.length > 0) {
           filteredRequirements = filteredRequirements.filter((req) =>
             projectFilter.value.includes(req.project_id),
@@ -1030,7 +873,6 @@ const updateUserOptions = async () => {
           console.log("按项目筛选后的需求:", filteredRequirements);
         }
 
-        // 按迭代筛选
         if (iterationFilter.value && iterationFilter.value.length > 0) {
           filteredRequirements = filteredRequirements.filter((req) =>
             iterationFilter.value.includes(req.iteration_id),
@@ -1038,7 +880,6 @@ const updateUserOptions = async () => {
           console.log("按迭代筛选后的需求:", filteredRequirements);
         }
 
-        // 提取创建者ID
         const creatorIds = new Set();
         filteredRequirements.forEach((req) => {
           if (req.created_by) {
@@ -1047,7 +888,6 @@ const updateUserOptions = async () => {
         });
         console.log("提取到的创建者ID:", creatorIds);
 
-        // 提取负责人ID
         const assigneeIds = new Set();
         filteredRequirements.forEach((req) => {
           if (req.assigned_to) {
@@ -1056,7 +896,6 @@ const updateUserOptions = async () => {
         });
         console.log("提取到的负责人ID:", assigneeIds);
 
-        // 筛选创建者选项
         if (creatorIds.size > 0) {
           const filteredCreators = allUsers.filter((user) =>
             creatorIds.has(user.id),
@@ -1065,7 +904,6 @@ const updateUserOptions = async () => {
           creatorOptions.value = filteredCreators;
         }
 
-        // 筛选负责人选项
         if (assigneeIds.size > 0) {
           const filteredAssignees = allUsers.filter((user) =>
             assigneeIds.has(user.id),
@@ -1076,32 +914,23 @@ const updateUserOptions = async () => {
       }
     } catch (error) {
       console.error("根据项目/迭代筛选用户失败:", error);
-      // 这里不需要显示错误信息，因为我们已经有了默认的用户列表
-      // 继续显示所有用户即可
     }
   }
 };
 
-// 获取选项数据
 const getOptionData = async () => {
   try {
-    // 1. 获取所有项目（不分页）
-    const projectsResponse = await getProjects({ page: 1, size: 10000 }); // 下拉用全量项目
+    const projectsResponse = await getProjects({ page: 1, size: 10000 });
     let allProjects = projectsResponse.data?.items || [];
 
-    // 2. 根据时间范围筛选项目
     const filteredProjects = allProjects.filter((project) => {
       if (!timeRangeFilter.value || timeRangeFilter.value.length !== 2)
         return true;
 
-      // 获取项目创建时间的年月部分 (YYYY-MM)
       const projectYearMonth = project.created_at?.substring(0, 7);
       if (!projectYearMonth) return true;
 
-      // 获取筛选范围的年月
       const [startYearMonth, endYearMonth] = timeRangeFilter.value;
-
-      // 直接比较年月字符串，确保在范围内
       return (
         projectYearMonth >= startYearMonth && projectYearMonth <= endYearMonth
       );
@@ -1109,24 +938,19 @@ const getOptionData = async () => {
 
     projectOptions.value = filteredProjects;
 
-    // 3. 获取迭代列表，根据当前选中的项目筛选
     let iterationsToLoad = filteredProjects;
 
-    // 如果有选中的项目，只加载选中项目的迭代
     if (projectFilter.value && projectFilter.value.length > 0) {
       iterationsToLoad = filteredProjects.filter((project) =>
         projectFilter.value.includes(project.id),
       );
     }
 
-    // 获取所有需要加载的迭代
     const allIterations = [];
     for (const project of iterationsToLoad) {
       try {
         const iterationsResponse = await getProjectIterations(project.id);
         const projectIterations = iterationsResponse.data?.items || [];
-
-        // 不根据年月筛选迭代，只根据项目筛选
         allIterations.push(...projectIterations);
       } catch (error) {
         console.error(`获取项目${project.project_name}的迭代失败:`, error);
@@ -1135,115 +959,19 @@ const getOptionData = async () => {
 
     iterationOptions.value = allIterations;
 
-    // 4. 更新用户选项 - 创建者和负责人不受时间筛选影响
-    // 直接调用 updateUserOptions，它会处理用户数据的获取和筛选
     await updateUserOptions();
   } catch (error) {
     console.error("获取选项数据失败:", error);
     ElMessage.error("获取选项数据失败");
 
-    // 出错时显示所有用户
     try {
-      const usersResponse = await getUserList({ page: 1, size: 1000 });
-      console.log(
-        "错误情况下获取用户列表响应:",
-        JSON.stringify(usersResponse, null, 2),
-      );
-
-      // 确保用户数据是数组
-      let userItems = [];
-
-      // 检查响应结构，处理不同的返回格式
-      if (usersResponse) {
-        // 检查响应是否直接是数组
-        if (Array.isArray(usersResponse)) {
-          console.log("响应直接是数组");
-          userItems = usersResponse;
-        }
-        // 检查响应是否包含 data 字段
-        else if (usersResponse.data) {
-          console.log("响应包含 data 字段");
-          // 检查 data 是否直接是数组
-          if (Array.isArray(usersResponse.data)) {
-            console.log("data 直接是数组");
-            userItems = usersResponse.data;
-          }
-          // 检查 data 是否包含 users 字段，且 users 是数组
-          else if (
-            usersResponse.data.users &&
-            Array.isArray(usersResponse.data.users)
-          ) {
-            console.log("data.users 是数组");
-            userItems = usersResponse.data.users;
-          }
-          // 检查 data 是否包含 items 字段，且 items 是数组
-          else if (
-            usersResponse.data.items &&
-            Array.isArray(usersResponse.data.items)
-          ) {
-            console.log("data.items 是数组");
-            userItems = usersResponse.data.items;
-          }
-          // 检查 data 是否包含 list 字段，且 list 是数组
-          else if (
-            usersResponse.data.list &&
-            Array.isArray(usersResponse.data.list)
-          ) {
-            console.log("data.list 是数组");
-            userItems = usersResponse.data.list;
-          }
-          // 检查 data 是否包含 records 字段，且 records 是数组
-          else if (
-            usersResponse.data.records &&
-            Array.isArray(usersResponse.data.records)
-          ) {
-            console.log("data.records 是数组");
-            userItems = usersResponse.data.records;
-          } else {
-            console.log("data 不是数组，也没有 users/items/list/records 字段");
-            console.log("data 的类型:", typeof usersResponse.data);
-            console.log(
-              "data 的内容:",
-              JSON.stringify(usersResponse.data, null, 2),
-            );
-          }
-        }
-        // 检查响应是否直接包含 users 字段，且 users 是数组
-        else if (usersResponse.users && Array.isArray(usersResponse.users)) {
-          console.log("响应直接包含 users 数组");
-          userItems = usersResponse.users;
-        } else {
-          console.log("响应不包含 data 字段，也不直接包含 users 字段");
-          console.log("响应的类型:", typeof usersResponse);
-          console.log("响应的内容:", JSON.stringify(usersResponse, null, 2));
-        }
-      } else {
-        console.log("响应为空");
-      }
-
-      // 确保 userItems 是数组
-      const finalUserItems = Array.isArray(userItems) ? userItems : [];
-
-      // 设置所有用户选项
-      userOptions.value = finalUserItems;
-      creatorOptions.value = finalUserItems;
-      assigneeOptions.value = finalUserItems;
-
-      console.log("错误情况下设置的用户选项:", userOptions.value);
-      console.log("错误情况下设置的用户选项长度:", userOptions.value.length);
-      console.log("错误情况下设置的创建者选项:", creatorOptions.value);
-      console.log(
-        "错误情况下设置的创建者选项长度:",
-        creatorOptions.value.length,
-      );
-      console.log("错误情况下设置的负责人选项:", assigneeOptions.value);
-      console.log(
-        "错误情况下设置的负责人选项长度:",
-        assigneeOptions.value.length,
-      );
+      const usersResponse = await getUserOptions({ size: 1000 });
+      const items = usersResponse?.data?.items || [];
+      userOptions.value = items;
+      creatorOptions.value = items;
+      assigneeOptions.value = items;
     } catch (userError) {
       console.error("获取用户列表失败:", userError);
-      // 如果获取用户列表也失败，使用空数组
       userOptions.value = [];
       creatorOptions.value = [];
       assigneeOptions.value = [];
@@ -1251,20 +979,17 @@ const getOptionData = async () => {
   }
 };
 
-// 处理分页大小变化
 const handleSizeChange = (size) => {
   pagination.pageSize = size;
   pagination.currentPage = 1;
   getRequirementList();
 };
 
-// 处理当前页变化
 const handleCurrentChange = (current) => {
   pagination.currentPage = current;
   getRequirementList();
 };
 
-// 重置表单
 const resetForm = () => {
   if (requirementFormRef.value) {
     requirementFormRef.value.resetFields();
@@ -1287,7 +1012,6 @@ const resetForm = () => {
   });
 };
 
-// 弹窗内按项目加载迭代列表（带 loading）
 const loadDialogIterations = async (projectId) => {
   if (!projectId) {
     dialogIterationOptions.value = [];
@@ -1306,7 +1030,6 @@ const loadDialogIterations = async (projectId) => {
   }
 };
 
-// 项目选择变化处理函数
 const handleProjectChange = () => {
   requirementForm.iteration_id = "";
   if (requirementForm.project_id) {
@@ -1316,19 +1039,16 @@ const handleProjectChange = () => {
   }
 };
 
-// 创建需求
 const handleCreateRequirement = () => {
   dialogTitle.value = "创建需求";
   resetForm();
   dialogVisible.value = true;
 };
 
-// 编辑需求
 const handleEditRequirement = (row) => {
   dialogTitle.value = "编辑需求";
   editingRequirementId.value = row.id;
 
-  // 设置表单数据
   Object.assign(requirementForm, {
     requirement_name: row.requirement_name || "",
     description: row.requirement_description || "",
@@ -1343,7 +1063,6 @@ const handleEditRequirement = (row) => {
     start_date: row.start_date || "",
     end_date: row.end_date || "",
   });
-  // 加载所属项目的迭代列表，便于下拉有数据且可切换
   if (requirementForm.project_id) {
     loadDialogIterations(requirementForm.project_id);
   } else {
@@ -1352,13 +1071,11 @@ const handleEditRequirement = (row) => {
   dialogVisible.value = true;
 };
 
-// 保存需求
 const handleSaveRequirement = async () => {
   if (!requirementFormRef.value) return;
 
   await requirementFormRef.value.validate();
 
-  // 构建保存数据
   const saveData = {
     requirement_name: requirementForm.requirement_name,
     description: requirementForm.description,
@@ -1378,7 +1095,6 @@ const handleSaveRequirement = async () => {
   try {
     let response;
     if (editingRequirementId.value) {
-      // 编辑需求
       response = await updateVersionRequirement(
         requirementForm.project_id,
         editingRequirementId.value,
@@ -1386,7 +1102,6 @@ const handleSaveRequirement = async () => {
       );
       ElMessage.success("需求更新成功");
     } else {
-      // 创建需求
       response = await createVersionRequirement(
         requirementForm.project_id,
         saveData,
@@ -1395,7 +1110,7 @@ const handleSaveRequirement = async () => {
     }
 
     dialogVisible.value = false;
-    getRequirementList(); // 重新获取需求列表
+    getRequirementList();
   } catch (error) {
     console.error("保存需求失败:", error);
     ElMessage.error(
@@ -1406,7 +1121,6 @@ const handleSaveRequirement = async () => {
   }
 };
 
-// 删除需求
 const handleDeleteRequirement = (row) => {
   ElMessageBox.confirm(
     `确定要删除需求「${row.requirement_name}」吗？`,
@@ -1419,21 +1133,17 @@ const handleDeleteRequirement = (row) => {
   )
     .then(async () => {
       try {
-        // 调用删除需求API
         await deleteVersionRequirement(row.project_id, row.id);
         ElMessage.success("需求删除成功");
         getRequirementList();
       } catch (error) {
         console.error("删除需求失败:", error);
-        // 400 等校验提示已由 request 拦截器统一展示，此处仅处理无 response 的情况
         if (!error.response?.data?.message) {
           ElMessage.error("删除需求失败");
         }
       }
     })
-    .catch(() => {
-      // 用户取消删除
-    });
+    .catch(() => {});
 };
 
 // 页面加载时：需求列表立即请求，选项数据并行加载，避免列表等待下拉数据
@@ -1476,7 +1186,7 @@ watch(
     if (!id || !requirementList.value.length) return;
     const hasRow = requirementList.value.some((r) => r.id === id);
     if (!hasRow) return;
-    if (flashClearTimer) return; // 已启动过
+    if (flashClearTimer) return;
     flashClearTimer = setTimeout(() => {
       flashRowId.value = null;
       const q = { ...route.query };

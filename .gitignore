@@ -14,6 +14,9 @@ ENV/
 flask_session/
 instance/
 
+# 日志
+backend/logs/
+
 # 设备脚本按日期存储的目录（运行时生成）
 backend/storage/device_scripts/
 

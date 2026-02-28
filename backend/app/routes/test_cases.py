@@ -20,10 +20,8 @@ def get_test_cases():
     status = request.args.get('status', '').strip()
     suite_id = request.args.get('suite_id', '').strip()
     
-    # 构建查询
     query = TestCase.query
     
-    # 搜索过滤
     if search:
         query = query.filter(
             TestCase.case_name.contains(search) |
@@ -31,21 +29,15 @@ def get_test_cases():
             TestCase.preconditions.contains(search)
         )
     
-    # 优先级过滤
     if priority:
         query = query.filter(TestCase.priority == priority)
     
-    # 状态过滤
     if status:
         query = query.filter(TestCase.status == status)
     
-    # 模块过滤已移除，模块信息通过套件关联获取
-    
-    # 套件过滤
     if suite_id:
         query = query.filter(TestCase.suite_id == suite_id)
     
-    # 分页
     pagination = query.paginate(
         page=page, per_page=size, error_out=False
     )
@@ -67,16 +59,13 @@ def get_test_cases():
 @login_required
 def get_test_cases_by_suite(suite_id):
     """根据测试套件获取测试用例"""
-    # 复用get_test_cases逻辑，将suite_id作为查询参数传递
     page, size = get_pagination_params()
     search = request.args.get('search', '').strip()
     priority = request.args.get('priority', '').strip()
     status = request.args.get('status', '').strip()
     
-    # 构建查询
     query = TestCase.query
     
-    # 搜索过滤
     if search:
         query = query.filter(
             TestCase.case_name.contains(search) |
@@ -84,18 +73,14 @@ def get_test_cases_by_suite(suite_id):
             TestCase.preconditions.contains(search)
         )
     
-    # 优先级过滤
     if priority:
         query = query.filter(TestCase.priority == priority)
     
-    # 状态过滤
     if status:
         query = query.filter(TestCase.status == status)
     
-    # 套件过滤
     query = query.filter(TestCase.suite_id == suite_id)
     
-    # 分页
     pagination = query.paginate(
         page=page, per_page=size, error_out=False
     )
@@ -130,7 +115,6 @@ def create_test_case():
     """创建测试用例"""
     data = request.get_json()
     
-    # 验证套件是否存在
     suite = None
     if data.get('suite_id'):
         suite = TestSuite.query.get(data['suite_id'])
@@ -196,7 +180,6 @@ def update_test_case(case_id):
     test_case = TestCase.query.get_or_404(case_id)
     data = request.get_json()
     
-    # 更新字段
     if 'case_number' in data:
         case_number = data['case_number']
         if case_number:
@@ -237,9 +220,7 @@ def update_test_case(case_id):
     
     if 'status' in data:
         test_case.status = data['status']
-        # 当状态变化时，更新最后执行时间
         from datetime import datetime, timezone, timedelta
-        # 使用UTC+8本地时间
         local_timezone = timezone(timedelta(hours=8))
         test_case.executed_at = datetime.now(local_timezone)
     
@@ -254,7 +235,6 @@ def update_test_case(case_id):
         test_case.iteration_id = data['iteration_id']
     
     if 'suite_id' in data:
-        # 验证套件是否存在
         if data['suite_id'] is not None:
             suite = TestSuite.query.get(data['suite_id'])
             if not suite:
@@ -344,9 +324,6 @@ def get_status_options():
     })
 
 
-# 模块列表功能已移除，模块信息通过套件关联获取
-
-
 @bp.route('/batch-delete', methods=['POST'])
 @login_required
 def batch_delete_test_cases():
@@ -358,7 +335,6 @@ def batch_delete_test_cases():
         return error_response(400, "请提供要删除的测试用例ID列表")
     
     try:
-        # 删除所有指定ID的测试用例
         TestCase.query.filter(TestCase.id.in_(case_ids)).delete(synchronize_session=False)
         db.session.commit()
         

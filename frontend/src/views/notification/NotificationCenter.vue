@@ -4,7 +4,6 @@
       <h2>消息中心</h2>
     </div>
     <el-card>
-      <!-- 筛选与操作 -->
       <div class="toolbar">
         <el-select v-model="filters.type" placeholder="消息类型" clearable style="width: 140px">
           <el-option
@@ -26,7 +25,8 @@
           <el-option label="更早" value="older" />
         </el-select>
         <el-button type="primary" :loading="loading" @click="loadList(1)">查询</el-button>
-        <el-button @click="handleReadAll" :loading="readAllLoading">全部已读</el-button>
+        <el-button plain class="toolbar-batch-btn" @click="handleReadAll" :loading="readAllLoading">全部已读</el-button>
+        <el-button plain class="toolbar-batch-btn" @click="handleUnreadAll" :loading="unreadAllLoading">全部未读</el-button>
         <el-select v-model="clearTimeRange" placeholder="清理已读" style="width: 120px" clearable>
           <el-option label="24小时内已读" value="1d" />
           <el-option label="7天内已读" value="1w" />
@@ -36,7 +36,6 @@
         </el-select>
         <el-button v-if="clearTimeRange" type="warning" @click="handleClearRead">清理</el-button>
       </div>
-      <!-- 列表 -->
       <el-table
         v-loading="loading"
         :data="items"
@@ -106,7 +105,7 @@
 import { ref, reactive, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
-import { getNotifications, markRead, markReadAll, clearRead, deleteNotification, pinNotification } from "@/api/notifications";
+import { getNotifications, markRead, markReadAll, markUnreadAll, clearRead, deleteNotification, pinNotification } from "@/api/notifications";
 import { useNotificationStore } from "@/stores/notification";
 import { getNotificationRoute, NOTIFICATION_TYPE_LABELS, formatNotificationDisplay } from "@/utils/notificationLink";
 import { Delete, CircleCheck, CircleClose, Top } from "@element-plus/icons-vue";
@@ -117,6 +116,7 @@ const notificationStore = useNotificationStore();
 const typeLabels = NOTIFICATION_TYPE_LABELS;
 const loading = ref(false);
 const readAllLoading = ref(false);
+const unreadAllLoading = ref(false);
 const items = ref([]);
 const total = ref(0);
 const page = ref(1);
@@ -187,6 +187,20 @@ async function handleReadAll() {
   }
 }
 
+async function handleUnreadAll() {
+  unreadAllLoading.value = true;
+  try {
+    await markUnreadAll();
+    ElMessage.success("已全部标记为未读");
+    notificationStore.fetchUnreadCount();
+    loadList(page.value);
+  } catch (e) {
+    ElMessage.error(e?.message || "操作失败");
+  } finally {
+    unreadAllLoading.value = false;
+  }
+}
+
 async function handleClearRead() {
   if (!clearTimeRange.value) return;
   try {
@@ -227,6 +241,10 @@ watch([() => filters.type, () => filters.is_read, () => filters.time_range], () 
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 16px;
+  align-items: center;
+}
+.toolbar .toolbar-batch-btn {
+  font-size: 14px;
 }
 .pagination {
   margin-top: 16px;

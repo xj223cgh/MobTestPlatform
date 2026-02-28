@@ -2,19 +2,22 @@
 
 ## 概述
 
-移动测试平台 API 提供完整的设备管理、测试用例管理、任务执行和报告生成功能。所有 API 都基于 RESTful 设计原则，使用 JSON 格式进行数据交换。
+移动测试平台 API 提供设备管理、测试用例管理、测试任务执行、报告生成等功能。所有 API 基于 RESTful 设计，使用 JSON 格式进行数据交换。
 
 ## 基础信息
 
-- **Base URL**: `http://localhost:8000/api`
-- **API 版本**: v1
-- **认证方式**: JWT Token
+- **Base URL**: `http://localhost:8081/api`（开发模式，Vite 代理到后端）
+- **后端直连**: `http://127.0.0.1:5000/api`
+- **认证方式**: 基于 Session 的 Cookie 认证（Flask-Login）
 - **数据格式**: JSON
 - **字符编码**: UTF-8
 
-## 认证
+## 认证机制
 
-### 登录获取 Token
+本系统使用 Flask-Login 基于 Session 的认证方式，登录成功后服务端通过 `Set-Cookie` 设置会话 Cookie，后续请求浏览器自动携带 Cookie 完成身份验证。
+
+### 登录
+
 ```http
 POST /api/auth/login
 Content-Type: application/json
@@ -31,27 +34,46 @@ Content-Type: application/json
   "code": 200,
   "message": "登录成功",
   "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "user": {
       "id": 1,
       "username": "admin",
-      "email": "admin@example.com",
-      "role": "admin"
+      "real_name": "管理员",
+      "phone": "13800138000",
+      "email": "admin@qq.com",
+      "role": "super",
+      "gender": "male",
+      "department": "技术部",
+      "is_active": true
     },
-    "expires_in": 3600
+    "permissions": ["user.list", "user.create", "project.list", "..."]
   }
 }
 ```
 
-### 使用 Token 访问 API
-```http
-GET /api/devices
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+### 登录失败示例
+
+```json
+{
+  "code": 401,
+  "message": "用户名或密码错误"
+}
 ```
+
+### 使用 Cookie 访问 API
+
+登录成功后，后续请求自动携带 Cookie，无需额外设置 Header：
+
+```http
+GET /api/users
+Cookie: session=<自动携带>
+```
+
+未登录访问需认证的接口会返回 401。
 
 ## 通用响应格式
 
 ### 成功响应
+
 ```json
 {
   "code": 200,
@@ -63,23 +85,22 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
 ### 错误响应
+
 ```json
 {
   "code": 400,
-  "message": "请求参数错误",
-  "error": "详细错误信息"
+  "message": "请求参数错误"
 }
 ```
 
 ### 分页响应
+
 ```json
 {
   "code": 200,
-  "message": "获取成功",
+  "message": "success",
   "data": {
-    "items": [
-      // 数据列表
-    ],
+    "items": [],
     "pagination": {
       "page": 1,
       "size": 20,
@@ -90,41 +111,152 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 }
 ```
 
-## 设备管理 API
+## 错误代码
 
-### 获取设备列表
+| 错误代码 | 说明 |
+|---------|------|
+| 200 | 成功 |
+| 400 | 请求参数错误 |
+| 401 | 未认证 / 登录失败 |
+| 403 | 权限不足 |
+| 404 | 资源不存在 |
+| 500 | 服务器内部错误 |
+
+---
+
+## 认证相关 API
+
+**前缀**: `/api/auth`
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| POST/GET | `/login` | 用户登录 | 否 |
+| POST | `/register` | 用户注册 | 否 |
+| POST/GET | `/logout` | 用户登出 | 否 |
+| GET | `/current-user` | 获取当前登录用户信息 | 是 |
+| GET | `/check-session` | 检查会话状态 | 否 |
+| POST | `/change-password` | 修改密码 | 是 |
+| POST | `/forgot-password` | 忘记密码（发送重置邮件） | 否 |
+| POST | `/reset-password` | 重置密码（使用令牌） | 否 |
+| GET | `/permissions` | 获取当前用户权限列表 | 是 |
+
+### 邮箱登录
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| POST | `/send-login-code` | 发送 QQ 邮箱登录验证码 | 否 |
+| POST | `/login-by-email` | 邮箱验证码登录 | 否 |
+
+### 邮箱绑定/解绑
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| POST | `/send-bind-email-code` | 发送邮箱绑定验证码 | 否 |
+| POST | `/confirm-email-binding` | 确认邮箱绑定 | 是 |
+| POST | `/send-unbind-email-code` | 发送解绑邮箱验证码 | 是 |
+| POST | `/unbind-email` | 解除邮箱绑定 | 是 |
+
+### 双因素认证（2FA）
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| POST | `/enable-2fa` | 启用双因素认证 | 是 |
+| POST | `/verify-2fa` | 验证双因素认证 | 是 |
+| POST | `/disable-2fa` | 禁用双因素认证 | 是 |
+
+### 注册
+
 ```http
-GET /api/devices?page=1&size=20&status=online&device_type=android
+POST /api/auth/register
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "phone": "13800138001",
+  "password": "123456",
+  "real_name": "测试用户",
+  "gender": "male",
+  "department": "测试部"
+}
 ```
 
-**查询参数:**
-- `page`: 页码 (默认: 1)
-- `size`: 每页数量 (默认: 20)
-- `status`: 设备状态 (online/offline/error)
-- `device_type`: 设备类型 (android/ios)
-- `search`: 搜索关键词
+### 修改密码
+
+```http
+POST /api/auth/change-password
+Content-Type: application/json
+
+{
+  "old_password": "旧密码",
+  "new_password": "新密码"
+}
+```
+
+### 忘记密码
+
+```http
+POST /api/auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "123456789@qq.com"
+}
+```
+
+### 重置密码
+
+```http
+POST /api/auth/reset-password
+Content-Type: application/json
+
+{
+  "token": "重置令牌",
+  "password": "新密码"
+}
+```
+
+---
+
+## 用户管理 API
+
+**前缀**: `/api/users`
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| GET | `/` | 获取用户列表（支持搜索、角色、状态筛选） | user.list |
+| GET | `/options` | 获取用户选项列表（下拉用，仅需登录） | 仅登录 |
+| GET | `/<user_id>` | 获取用户详情 | user.list |
+| POST | `/` | 创建用户 | user.create |
+| PUT | `/<user_id>` | 更新用户信息 | user.edit |
+| DELETE | `/<user_id>` | 删除用户 | user.delete |
+| POST | `/<user_id>/reset-password` | 重置用户密码 | user.edit |
+| POST | `/<user_id>/toggle-status` | 切换用户启用/禁用状态 | user.edit |
+| POST | `/<user_id>/confirm-email` | 管理员为用户绑定邮箱 | user.edit |
+| GET | `/roles` | 获取角色列表 | 仅登录 |
+
+### 获取用户列表
+
+```http
+GET /api/users?page=1&size=20&search=test&role=tester&is_active=true
+```
 
 **响应:**
 ```json
 {
   "code": 200,
-  "message": "获取成功",
+  "message": "success",
   "data": {
-    "items": [
+    "users": [
       {
         "id": 1,
-        "name": "iPhone 12",
-        "device_id": "iPhone12-001",
-        "device_type": "ios",
-        "status": "online",
-        "os_version": "15.0",
-        "brand": "Apple",
-        "model": "iPhone12",
-        "screen_resolution": "1170x2532",
-        "ip_address": "192.168.1.100",
-        "last_seen": "2023-12-01T10:30:00Z",
-        "created_at": "2023-11-01T08:00:00Z",
-        "updated_at": "2023-12-01T10:30:00Z"
+        "username": "admin",
+        "real_name": "管理员",
+        "phone": "13800138000",
+        "email": "admin@qq.com",
+        "role": "super",
+        "gender": "male",
+        "department": "技术部",
+        "is_active": true
       }
     ],
     "pagination": {
@@ -137,697 +269,468 @@ GET /api/devices?page=1&size=20&status=online&device_type=android
 }
 ```
 
-### 获取设备详情
-```http
-GET /api/devices/{device_id}
-```
-
-**响应:**
-```json
-{
-  "code": 200,
-  "message": "获取成功",
-  "data": {
-    "id": 1,
-    "name": "iPhone 12",
-    "device_id": "iPhone12-001",
-    "device_type": "ios",
-    "status": "online",
-    "os_version": "15.0",
-    "brand": "Apple",
-    "model": "iPhone12",
-    "screen_resolution": "1170x2532",
-    "ip_address": "192.168.1.100",
-    "cpu_usage": 15.5,
-    "memory_usage": 68.2,
-    "battery_level": 85,
-    "storage_info": {
-      "total": 256000000000,
-      "used": 128000000000,
-      "available": 128000000000
-    },
-    "installed_apps": [
-      {
-        "package_name": "com.example.app",
-        "version": "1.0.0",
-        "size": 50000000
-      }
-    ],
-    "last_seen": "2023-12-01T10:30:00Z",
-    "created_at": "2023-11-01T08:00:00Z",
-    "updated_at": "2023-12-01T10:30:00Z"
-  }
-}
-```
-
-### 添加设备
-```http
-POST /api/devices
-Content-Type: application/json
-
-{
-  "name": "Samsung Galaxy S21",
-  "device_id": "S21-001",
-  "device_type": "android",
-  "ip_address": "192.168.1.101",
-  "port": 5555,
-  "description": "测试设备"
-}
-```
-
-### 更新设备
-```http
-PUT /api/devices/{device_id}
-Content-Type: application/json
-
-{
-  "name": "Samsung Galaxy S21 Updated",
-  "description": "更新后的描述"
-}
-```
-
-### 删除设备
-```http
-DELETE /api/devices/{device_id}
-```
-
-### 连接设备
-```http
-POST /api/devices/{device_id}/connect
-```
-
-### 断开设备
-```http
-POST /api/devices/{device_id}/disconnect
-```
-
-### 获取设备截图
-```http
-GET /api/devices/{device_id}/screenshot
-```
-
-**响应:**
-```json
-{
-  "code": 200,
-  "message": "截图成功",
-  "data": {
-    "screenshot_url": "/api/devices/1/screenshot.png",
-    "timestamp": "2023-12-01T10:30:00Z"
-  }
-}
-```
-
-### 安装应用
-```http
-POST /api/devices/{device_id}/install-app
-Content-Type: multipart/form-data
-
-file: [应用文件路径]
-package_name: com.example.app (可选)
-```
-
-### 卸载应用
-```http
-DELETE /api/devices/{device_id}/apps/{package_name}
-```
-
-## 测试用例管理 API
-
-### 获取测试用例列表
-```http
-GET /api/testcases?page=1&size=20&module=login&priority=high
-```
-
-**查询参数:**
-- `page`: 页码
-- `size`: 每页数量
-- `module`: 模块名称
-- `priority`: 优先级 (high/medium/low)
-- `status`: 状态 (draft/active/archived)
-- `search`: 搜索关键词
-
-### 获取测试用例详情
-```http
-GET /api/testcases/{case_id}
-```
-
-**响应:**
-```json
-{
-  "code": 200,
-  "message": "获取成功",
-  "data": {
-    "id": 1,
-    "title": "用户登录功能测试",
-    "description": "测试用户登录功能的各种场景",
-    "module": "authentication",
-    "priority": "high",
-    "status": "active",
-    "preconditions": "用户已注册",
-    "steps": [
-      {
-        "step_number": 1,
-        "action": "打开登录页面",
-        "expected": "显示登录表单"
-      },
-      {
-        "step_number": 2,
-        "action": "输入用户名和密码",
-        "expected": "输入框显示正确内容"
-      },
-      {
-        "step_number": 3,
-        "action": "点击登录按钮",
-        "expected": "登录成功，跳转到首页"
-      }
-    ],
-    "tags": ["登录", "核心功能"],
-    "author": {
-      "id": 1,
-      "username": "admin",
-      "email": "admin@example.com"
-    },
-    "created_at": "2023-11-01T08:00:00Z",
-    "updated_at": "2023-12-01T10:30:00Z"
-  }
-}
-```
-
-### 创建测试用例
-```http
-POST /api/testcases
-Content-Type: application/json
-
-{
-  "title": "用户注册功能测试",
-  "description": "测试用户注册流程",
-  "module": "authentication",
-  "priority": "medium",
-  "preconditions": "用户未注册",
-  "steps": [
-    {
-      "step_number": 1,
-      "action": "打开注册页面",
-      "expected": "显示注册表单"
-    },
-    {
-      "step_number": 2,
-      "action": "填写注册信息",
-      "expected": "表单验证通过"
-    },
-    {
-      "step_number": 3,
-      "action": "提交注册",
-      "expected": "注册成功，显示成功提示"
-    }
-  ],
-  "tags": ["注册", "用户管理"]
-}
-```
-
-### 更新测试用例
-```http
-PUT /api/testcases/{case_id}
-Content-Type: application/json
-
-{
-  "title": "更新后的测试用例标题",
-  "priority": "high"
-}
-```
-
-### 删除测试用例
-```http
-DELETE /api/testcases/{case_id}
-```
-
-### 执行测试用例
-```http
-POST /api/testcases/{case_id}/execute
-Content-Type: application/json
-
-{
-  "device_ids": [1, 2],
-  "execution_config": {
-    "timeout": 300,
-    "retry_count": 3,
-    "capture_screenshot": true
-  }
-}
-```
-
-## 测试任务管理 API
-
-### 获取测试任务列表
-```http
-GET /api/test-tasks?page=1&size=20&status=running
-```
-
-### 获取测试任务详情
-```http
-GET /api/test-tasks/{task_id}
-```
-
-**响应:**
-```json
-{
-  "code": 200,
-  "message": "获取成功",
-  "data": {
-    "id": 1,
-    "name": "回归测试任务",
-    "description": "每月回归测试",
-    "status": "running",
-    "progress": {
-      "total": 100,
-      "completed": 45,
-      "failed": 5,
-      "pending": 50,
-      "percentage": 45.0
-    },
-    "test_cases": [
-      {
-        "id": 1,
-        "title": "用户登录测试",
-        "status": "completed",
-        "result": "passed"
-      }
-    ],
-    "devices": [
-      {
-        "id": 1,
-        "name": "iPhone 12",
-        "status": "online"
-      }
-    ],
-    "schedule": {
-      "type": "cron",
-      "expression": "0 2 1 * *",
-      "next_run": "2023-12-01T02:00:00Z"
-    },
-    "created_at": "2023-11-01T08:00:00Z",
-    "updated_at": "2023-12-01T10:30:00Z"
-  }
-}
-```
-
-### 创建测试任务
-```http
-POST /api/test-tasks
-Content-Type: application/json
-
-{
-  "name": "新功能测试任务",
-  "description": "测试新功能",
-  "test_case_ids": [1, 2, 3],
-  "device_ids": [1, 2],
-  "schedule": {
-    "type": "manual"
-  },
-  "notification_config": {
-    "email": true,
-    "webhook": "https://example.com/webhook"
-  }
-}
-```
-
-### 启动测试任务
-```http
-POST /api/test-tasks/{task_id}/start
-```
-
-### 停止测试任务
-```http
-POST /api/test-tasks/{task_id}/stop
-```
-
-### 重新执行测试任务
-```http
-POST /api/test-tasks/{task_id}/rerun
-```
-
-## 报告管理 API
-
-### 获取报告列表
-```http
-GET /api/reports?page=1&size=20&task_id=1
-```
-
-### 获取报告详情
-```http
-GET /api/reports/{report_id}
-```
-
-**响应:**
-```json
-{
-  "code": 200,
-  "message": "获取成功",
-  "data": {
-    "id": 1,
-    "task_id": 1,
-    "task_name": "回归测试任务",
-    "status": "completed",
-    "summary": {
-      "total_cases": 100,
-      "passed_cases": 85,
-      "failed_cases": 10,
-      "skipped_cases": 5,
-      "pass_rate": 85.0,
-      "execution_time": 3600
-    },
-    "devices": [
-      {
-        "device_id": 1,
-        "device_name": "iPhone 12",
-        "passed": 42,
-        "failed": 5,
-        "skipped": 3
-      }
-    ],
-    "test_results": [
-      {
-        "case_id": 1,
-        "case_title": "用户登录测试",
-        "status": "passed",
-        "execution_time": 15,
-        "error_message": null,
-        "screenshots": [
-          "/uploads/screenshots/login_1.png"
-        ]
-      }
-    ],
-    "charts": {
-      "pass_rate_chart": {
-        "labels": ["登录", "注册", "主页"],
-        "data": [90, 85, 80]
-      },
-      "execution_time_chart": {
-        "labels": ["设备1", "设备2"],
-        "data": [1800, 2400]
-      }
-    },
-    "created_at": "2023-12-01T12:00:00Z",
-    "updated_at": "2023-12-01T12:30:00Z"
-  }
-}
-```
-
-### 生成报告
-```http
-POST /api/reports/generate
-Content-Type: application/json
-
-{
-  "task_id": 1,
-  "format": "pdf",
-  "template": "standard",
-  "include_charts": true,
-  "include_screenshots": true
-}
-```
-
-### 下载报告
-```http
-GET /api/reports/{report_id}/download?format=pdf
-```
-
-### 分享报告
-```http
-POST /api/reports/{report_id}/share
-Content-Type: application/json
-
-{
-  "share_type": "link",
-  "expires_in": 86400,
-  "password": "optional_password"
-}
-```
-
-## 用户管理 API
-
-### 获取用户列表
-```http
-GET /api/users?page=1&size=20&role= tester
-```
-
-### 获取用户详情
-```http
-GET /api/users/{user_id}
-```
-
 ### 创建用户
+
 ```http
 POST /api/users
 Content-Type: application/json
 
 {
   "username": "newuser",
-  "email": "newuser@example.com",
-  "password": "password123",
+  "phone": "13800138002",
+  "password": "123456",
+  "real_name": "新用户",
   "role": "tester",
-  "permissions": ["device:read", "testcase:read", "testcase:execute"]
+  "gender": "male",
+  "department": "测试部"
 }
 ```
 
-### 更新用户
+### 角色类型
+
+| 角色值 | 说明 |
+|--------|------|
+| super | 超级管理员 |
+| manager | 管理员 |
+| tester | 测试人员 |
+| admin | 普通成员 |
+
+---
+
+## 项目管理 API
+
+**前缀**: `/api/projects`
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| GET | `/` | 获取项目列表（支持搜索、状态、优先级筛选） | project.list |
+| GET | `/<project_id>` | 获取项目详情 | 仅登录 |
+| POST | `/` | 创建项目 | project.create |
+| PUT | `/<project_id>` | 更新项目 | project.edit |
+| DELETE | `/<project_id>` | 删除项目 | project.delete |
+| GET | `/<project_id>/members` | 获取项目成员列表 | 仅登录 |
+| POST | `/<project_id>/members` | 添加项目成员 | 仅登录 |
+| DELETE | `/<project_id>/members/<member_id>` | 移除项目成员 | 仅登录 |
+
+### 版本需求
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| GET | `/<project_id>/version-requirements` | 获取项目版本需求列表 | requirement.list |
+| GET | `/version-requirements` | 获取所有版本需求列表 | requirement.list |
+| POST | `/<project_id>/version-requirements` | 创建版本需求 | requirement.create |
+| PUT | `/<project_id>/version-requirements/<id>` | 更新版本需求 | requirement.edit |
+| DELETE | `/<project_id>/version-requirements/<id>` | 删除版本需求 | requirement.delete |
+
+### 项目迭代
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| GET | `/<project_id>/iterations` | 获取项目迭代列表 | iteration.list |
+
+### 创建项目
+
 ```http
-PUT /api/users/{user_id}
+POST /api/projects/
 Content-Type: application/json
 
 {
-  "email": "updated@example.com",
-  "role": "admin"
+  "project_name": "测试项目",
+  "description": "项目描述（不超过100字）",
+  "start_date": "2025-01-01",
+  "end_date": "2025-06-30",
+  "owner_id": 1,
+  "priority": "medium",
+  "status": "not_started",
+  "tags": ["标签1", "标签2"],
+  "members": [
+    {"user_id": 2, "role": "developer"},
+    {"user_id": 3, "role": "tester"}
+  ]
 }
 ```
 
-### 删除用户
+---
+
+## 迭代管理 API
+
+**前缀**: `/api/iterations`
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| POST | `/` | 创建迭代 | iteration.create |
+| POST | `/projects/<project_id>/iterations` | 在指定项目下创建迭代 | iteration.create |
+| GET | `/projects/<project_id>/iterations` | 获取项目迭代列表 | iteration.list |
+| GET | `/<iteration_id>` | 获取迭代详情 | 仅登录 |
+| PUT | `/<iteration_id>` | 更新迭代 | iteration.edit |
+| DELETE | `/<iteration_id>` | 删除迭代 | iteration.delete |
+| POST | `/<iteration_id>/copy` | 复制迭代 | iteration.create |
+| GET | `/<iteration_id>/stats` | 获取迭代统计 | 仅登录 |
+| GET | `/<iteration_id>/requirements` | 获取迭代关联需求 | 仅登录 |
+
+---
+
+## 设备管理 API
+
+**前缀**: `/api/devices`
+
+### 设备 CRUD
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| GET | `/` | 获取设备列表（支持搜索、系统类型、状态筛选） | 是 |
+| GET | `/<device_id>` | 获取设备详情 | 是 |
+| POST | `/` | 创建设备 | 是 |
+| PUT | `/<device_id>` | 更新设备信息 | 是 |
+| DELETE | `/<device_id>` | 删除设备 | 是 |
+
+### 设备状态与选项
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| GET | `/<device_id>/status` | 获取设备 ADB 连接状态 | 是 |
+| GET | `/os-types` | 获取操作系统类型选项 | 是 |
+| GET | `/status-options` | 获取设备状态选项 | 是 |
+
+### ADB 操作
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| GET | `/adb/devices` | 获取当前 ADB 连接的设备列表 | 是 |
+| POST | `/adb/command` | 执行 ADB 命令（含投屏 scrcpy） | 是 |
+
+### 任务执行
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| POST | `/<device_id>/tasks` | 在指定设备上执行任务（shell/python/install） | 是 |
+| POST | `/batch-tasks` | 批量执行测试任务 | 是 |
+| POST | `/schedule-batch-tasks` | 定时批量执行测试任务 | 是 |
+
+### 获取设备列表
+
 ```http
-DELETE /api/users/{user_id}
+GET /api/devices?page=1&size=20&search=pixel&os_type=android&status=online
 ```
+
+### 创建设备
+
+```http
+POST /api/devices
+Content-Type: application/json
+
+{
+  "device_name": "Pixel 6",
+  "device_model": "Pixel 6",
+  "os_type": "android",
+  "os_version": "14",
+  "device_id": "设备序列号",
+  "status": "offline",
+  "owner_id": 1
+}
+```
+
+### 执行 ADB 命令
+
+```http
+POST /api/devices/adb/command
+Content-Type: application/json
+
+{
+  "command": "-s 设备序列号 shell pm list packages"
+}
+```
+
+---
+
+## 测试用例管理 API
+
+**前缀**: `/api/test-cases`
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| GET | `/` | 获取测试用例列表 | testcase.list |
+| GET | `/suite/<suite_id>` | 获取指定套件下的用例列表 | testcase.list |
+| GET | `/<case_id>` | 获取测试用例详情 | testcase.list |
+| POST | `/` | 创建测试用例 | testcase.create |
+| PUT | `/<case_id>` | 更新测试用例 | testcase.edit |
+| DELETE | `/<case_id>` | 删除测试用例 | testcase.delete |
+| POST | `/batch-delete` | 批量删除测试用例 | testcase.delete |
+| GET | `/priority-options` | 获取优先级选项 | 仅登录 |
+| GET | `/status-options` | 获取状态选项 | 仅登录 |
+
+---
+
+## 测试套件管理 API
+
+**前缀**: `/api/test-suites`
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| GET | `/` | 获取测试套件列表 | 是 |
+| GET | `/<suite_id>` | 获取测试套件详情 | 是 |
+| POST | `/` | 创建测试套件 | 是 |
+| PUT | `/<suite_id>` | 更新测试套件 | 是 |
+| DELETE | `/<suite_id>` | 删除测试套件 | 是 |
+| GET | `/tree` | 获取套件树结构 | 是 |
+| GET | `/<suite_id>/tree` | 获取指定套件子树 | 是 |
+| GET | `/options` | 获取套件选项列表 | 是 |
+| GET | `/<suite_id>/test-cases` | 获取套件下的用例列表 | 是 |
+
+---
+
+## 套件-用例关联 API
+
+**前缀**: `/api/suite-case-relations`
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| GET | `/<suite_id>/cases` | 获取套件关联的用例列表 | 是 |
+| POST | `/<suite_id>/add-cases` | 向套件添加用例 | 是 |
+| POST | `/<suite_id>/remove-cases` | 从套件移除用例 | 是 |
+| GET | `/<suite_id>/available-cases` | 获取可添加到套件的用例 | 是 |
+| POST | `/<suite_id>/move-cases` | 移动用例到其他套件 | 是 |
+
+---
+
+## 测试任务管理 API
+
+**前缀**: `/api/test-tasks`
+
+### 任务 CRUD
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| GET | `/` | 获取测试任务列表 | 是 |
+| GET | `/<task_id>` | 获取测试任务详情 | 是 |
+| POST | `/` | 创建测试任务 | 是 |
+| PUT | `/<task_id>` | 更新测试任务 | 是 |
+| DELETE | `/<task_id>` | 删除测试任务 | 是 |
+| GET | `/options` | 获取任务选项列表 | 是 |
+
+### 任务目录
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| GET | `/task-folders` | 获取任务目录列表 | 是 |
+| POST | `/task-folders` | 创建任务目录 | 是 |
+| PATCH | `/task-folders/<folder_id>` | 更新任务目录 | 是 |
+| DELETE | `/task-folders/<folder_id>` | 删除任务目录 | 是 |
+
+### 任务执行流程
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| POST | `/<task_id>/execute` | 开始执行任务 | 是 |
+| POST | `/<task_id>/pause` | 暂停任务 | 是 |
+| POST | `/<task_id>/resume` | 恢复任务 | 是 |
+| POST | `/<task_id>/complete` | 完成任务 | 是 |
+| POST | `/<task_id>/cancel` | 取消任务 | 是 |
+
+### 任务关联数据
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| GET | `/<task_id>/executions` | 获取任务用例执行记录 | 是 |
+| POST | `/<task_id>/executions/<case_id>` | 提交用例执行结果 | 是 |
+| GET | `/<task_id>/statistics` | 获取任务统计数据 | 是 |
+| GET | `/<task_id>/devices` | 获取任务关联设备 | 是 |
+| GET | `/<task_id>/test-cases` | 获取任务关联用例 | 是 |
+
+---
+
+## 报告管理 API
+
+**前缀**: `/api/reports`
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| GET | `/` | 获取报告列表 | 是 |
+| GET | `/record/<report_id>` | 获取报告详情 | 是 |
+| DELETE | `/<report_id>` | 删除报告 | 是 |
+| POST | `/batch-delete` | 批量删除报告 | 是 |
+| POST | `/generate/<task_id>` | 生成测试报告 | 是 |
+| GET | `/task/<task_id>/data` | 获取任务报告数据 | 是 |
+| GET | `/<task_id>/data` | 获取任务报告数据（别名） | 是 |
+
+---
+
+## 评审任务管理 API
+
+**前缀**: `/api/review-tasks`
+
+### 评审操作
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| POST | `/test-suites/<suite_id>/initiate-review` | 发起用例集评审 | 是 |
+| GET | `/<task_id>` | 获取评审任务详情 | 是 |
+| PUT | `/<task_id>/case-reviews/<case_id>` | 提交单条用例评审结果 | 是 |
+| POST | `/<task_id>/complete` | 完成评审 | 是 |
+| GET | `/<task_id>/case-reviews` | 获取评审任务下的用例评审列表 | 是 |
+| POST | `/<task_id>/restart-review` | 重新开始评审 | 是 |
+| POST | `/<task_id>/reinitiate-review` | 重新发起评审 | 是 |
+| POST | `/<task_id>/reject-review` | 驳回评审 | 是 |
+| GET | `/test-suites/<suite_id>/review-status` | 获取套件评审状态 | 是 |
+
+### 评审中心
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| GET | `/review-center/my-tasks` | 我的待评审任务 | 是 |
+| GET | `/review-center/my-initiated` | 我发起的评审 | 是 |
+| GET | `/review-center/recent-history` | 最近评审历史 | 是 |
+
+### 评审历史
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| GET | `/<task_id>/review-history` | 获取评审任务历史记录 | 是 |
+| GET | `/review-history/<history_id>` | 获取评审历史详情 | 是 |
+
+---
+
+## 通知管理 API
+
+**前缀**: `/api/notifications`
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| GET | `/` | 获取通知列表 | 是 |
+| GET | `/unread-count` | 获取未读通知数量 | 是 |
+| PATCH/PUT | `/<notification_id>/read` | 标记单条通知为已读 | 是 |
+| DELETE | `/<notification_id>` | 删除通知 | 是 |
+| PATCH/PUT | `/<notification_id>/pin` | 置顶/取消置顶通知 | 是 |
+| PUT | `/read` | 批量标记已读 | 是 |
+| POST | `/read-all` | 全部标记已读 | 是 |
+| POST | `/unread-all` | 全部标记未读 | 是 |
+| POST/DELETE | `/clear` | 清空通知 | 是 |
+
+---
+
+## 角色权限管理 API
+
+**前缀**: `/api/roles`
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| GET | `/permissions` | 获取所有权限定义 | 是 |
+| GET | `/<role>/permissions` | 获取指定角色的权限列表 | 是 |
+| PUT | `/<role>/permissions` | 更新指定角色的权限 | 是 |
+| GET | `/list` | 获取角色列表 | 是 |
+
+---
 
 ## 系统设置 API
 
-### 获取系统设置
-```http
-GET /api/system/settings
+**前缀**: `/api/settings`
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| GET | `/system` | 获取系统设置 | 是 |
+| PUT | `/system` | 更新系统设置 | 是 |
+| GET | `/user` | 获取用户个人设置 | 是 |
+| PUT | `/user` | 更新用户个人设置 | 是 |
+
+---
+
+## 首页数据 API
+
+**前缀**: `/api/home`
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| GET | `/stats` | 获取首页统计数据 | 是 |
+| GET | `/activities` | 获取最近活动记录 | 是 |
+| GET | `/task-trend` | 获取任务趋势数据 | 是 |
+| GET | `/device-status` | 获取设备状态统计 | 是 |
+| GET | `/recent-projects` | 获取最近项目 | 是 |
+| GET | `/task-status-distribution` | 获取任务状态分布 | 是 |
+
+---
+
+## AI 用例生成 API
+
+**前缀**: `/api/ai-tasks`
+
+| 方法 | 路径 | 说明 | 需认证 |
+|------|------|------|--------|
+| POST | `/generate-cases` | AI 生成测试用例 | 是 |
+| GET | `/task-status/<task_id>` | 查询 AI 任务状态 | 是 |
+| GET | `/tasks` | 获取 AI 任务列表 | 是 |
+
+---
+
+## 文件管理 API
+
+**前缀**: `/api/files`
+
+用于设备脚本文件、系统 Logo 等文件的上传和管理。
+
+---
+
+## WebSocket
+
+本系统使用 Flask-SocketIO 实现实时通信，客户端通过 Socket.IO 协议连接。
+
+### 连接地址
+
+开发模式下通过 Vite 代理：
+
+```
+http://localhost:8081/socket.io
 ```
 
-**响应:**
-```json
-{
-  "code": 200,
-  "message": "获取成功",
-  "data": {
-    "basic": {
-      "system_name": "移动测试平台",
-      "version": "1.0.0",
-      "timezone": "Asia/Shanghai",
-      "language": "zh-CN"
-    },
-    "security": {
-      "password_min_length": 8,
-      "session_timeout": 3600,
-      "max_login_attempts": 5
-    },
-    "email": {
-      "smtp_server": "smtp.gmail.com",
-      "smtp_port": 587,
-      "sender_email": "noreply@example.com"
-    },
-    "storage": {
-      "upload_path": "/uploads",
-      "max_file_size": 10485760,
-      "allowed_extensions": [".apk", ".ipa", ".zip"]
-    }
-  }
-}
+直连后端：
+
+```
+http://127.0.0.1:5000/socket.io
 ```
 
-### 更新系统设置
-```http
-PUT /api/system/settings
-Content-Type: application/json
+### 功能
 
-{
-  "basic": {
-    "system_name": "更新后的系统名称"
-  },
-  "security": {
-    "password_min_length": 10
-  }
-}
-```
+- 实时通知推送
+- 设备状态更新
+- 任务进度更新
 
-### 获取系统信息
-```http
-GET /api/system/info
-```
+---
 
-**响应:**
-```json
-{
-  "code": 200,
-  "message": "获取成功",
-  "data": {
-    "version": "1.0.0",
-    "build_time": "2023-12-01T08:00:00Z",
-    "python_version": "3.9.0",
-    "database_version": "MySQL 8.0",
-    "uptime": 86400,
-    "memory_usage": {
-      "total": 8589934592,
-      "used": 4294967296,
-      "percentage": 50.0
-    },
-    "cpu_usage": 25.5,
-    "disk_usage": {
-      "total": 107374182400,
-      "used": 53687091200,
-      "percentage": 50.0
-    }
-  }
-}
-```
+## cURL 示例
 
-## WebSocket API
+### 登录
 
-### 连接 WebSocket
-```
-ws://localhost:8000/ws
-```
-
-### 认证
-连接时需要在查询参数中提供 token：
-```
-ws://localhost:8000/ws?token=your_jwt_token
-```
-
-### 消息格式
-
-**设备状态更新:**
-```json
-{
-  "type": "device_status",
-  "data": {
-    "device_id": 1,
-    "status": "online",
-    "timestamp": "2023-12-01T10:30:00Z"
-  }
-}
-```
-
-**任务进度更新:**
-```json
-{
-  "type": "task_progress",
-  "data": {
-    "task_id": 1,
-    "progress": 75.5,
-    "current_case": "用户登录测试",
-    "timestamp": "2023-12-01T10:30:00Z"
-  }
-}
-```
-
-**系统通知:**
-```json
-{
-  "type": "notification",
-  "data": {
-    "title": "测试完成",
-    "message": "回归测试任务已完成",
-    "level": "info",
-    "timestamp": "2023-12-01T10:30:00Z"
-  }
-}
-```
-
-## 错误代码
-
-| 错误代码 | 说明 |
-|---------|------|
-| 200 | 成功 |
-| 400 | 请求参数错误 |
-| 401 | 未认证 |
-| 403 | 权限不足 |
-| 404 | 资源不存在 |
-| 409 | 资源冲突 |
-| 422 | 数据验证失败 |
-| 429 | 请求频率限制 |
-| 500 | 服务器内部错误 |
-| 503 | 服务不可用 |
-
-## 速率限制
-
-- 普通用户: 100 请求/分钟
-- 高级用户: 500 请求/分钟
-- 管理员: 1000 请求/分钟
-
-## SDK 和示例代码
-
-### Python SDK
-```python
-from mob_test_platform import MobTestClient
-
-client = MobTestClient(
-    base_url="http://localhost:8000/api",
-    token="your_jwt_token"
-)
-
-# 获取设备列表
-devices = client.devices.list()
-
-# 执行测试用例
-result = client.test_cases.execute(1, device_ids=[1, 2])
-```
-
-### JavaScript SDK
-```javascript
-import { MobTestClient } from 'mob-test-platform-js';
-
-const client = new MobTestClient({
-  baseURL: 'http://localhost:8000/api',
-  token: 'your_jwt_token'
-});
-
-// 获取设备列表
-const devices = await client.devices.list();
-
-// 执行测试用例
-const result = await client.testCases.execute(1, [1, 2]);
-```
-
-### cURL 示例
 ```bash
-# 登录获取 token
-curl -X POST http://localhost:8000/api/auth/login \
+curl -X POST http://localhost:8081/api/auth/login \
   -H "Content-Type: application/json" \
+  -c cookies.txt \
   -d '{"username":"admin","password":"password123"}'
-
-# 获取设备列表
-curl -X GET http://localhost:8000/api/devices \
-  -H "Authorization: Bearer your_jwt_token"
 ```
 
-## 更新日志
+### 获取用户列表（携带 Cookie）
 
-### v1.0.0 (2023-12-01)
-- 初始版本发布
-- 支持设备管理、测试用例管理、任务执行、报告生成
-- 提供 RESTful API 和 WebSocket 实时通信
-- 支持多用户权限管理
+```bash
+curl -X GET "http://localhost:8081/api/users?page=1&size=20" \
+  -b cookies.txt
+```
 
-### v1.1.0 (计划中)
-- 增加性能测试 API
-- 支持测试用例版本控制
-- 增强报告定制功能
-- 添加更多设备操作 API
+### 获取设备列表
 
-## 支持
+```bash
+curl -X GET "http://localhost:8081/api/devices?page=1&size=20" \
+  -b cookies.txt
+```
 
-如有问题或建议，请联系：
-- 邮箱: api-support@mobtestplatform.com
-- 文档: https://docs.mobtestplatform.com
-- GitHub: https://github.com/your-org/mob-test-platform/issues
+### 创建项目
+
+```bash
+curl -X POST http://localhost:8081/api/projects/ \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{
+    "project_name": "测试项目",
+    "description": "项目描述",
+    "start_date": "2025-01-01",
+    "end_date": "2025-06-30",
+    "owner_id": 1
+  }'
+```

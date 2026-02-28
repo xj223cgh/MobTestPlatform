@@ -17,7 +17,6 @@
       </div>
     </div>
 
-    <!-- 选择角色 + 可配置角色（三个选项，仅展示当前用户拥有哪些） -->
     <div class="filter-section">
       <el-form inline class="filter-form">
         <el-form-item label="选择角色">
@@ -38,7 +37,7 @@
       </el-form>
     </div>
 
-    <!-- 权限分组列表：所有角色均展示，超级管理员或无可配置权限时为全选且禁用 -->
+    <!-- 超级管理员或无可配置权限时，权限分组为全选且禁用 -->
     <div class="content-section">
       <div
         v-for="group in permissionGroups"
@@ -256,7 +255,6 @@ onMounted(() => {
   background-color: var(--el-bg-color-page, #f5f7fa);
 }
 
-/* 与用户管理页面统一的头部 */
 .page-header {
   flex-shrink: 0;
   display: flex;
@@ -296,7 +294,6 @@ onMounted(() => {
   }
 }
 
-/* 选择角色区域，与用户管理 search-section 一致 */
 .filter-section {
   flex-shrink: 0;
   background: var(--el-bg-color, #fff);
@@ -326,7 +323,6 @@ onMounted(() => {
   align-items: center;
 }
 
-/* 内容区卡片，与用户管理 table-section 一致；小屏时在容器内滚动 */
 .content-section {
   flex: 1;
   min-height: 0;

@@ -11,23 +11,19 @@ from app.config.config import config
 from app.models.models import db, User
 
 
-# 创建登录管理器
 login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 login_manager.login_message = 'Please login first'
 login_manager.login_message_category = 'info'
 
 
-# 自定义未授权处理器，针对API请求直接返回401而不是重定向
 @login_manager.unauthorized_handler
 def unauthorized_handler():
+    """API 请求直接返回 401，非 API 请求走 Flask-Login 默认重定向"""
     from flask import request
     from app.utils.helpers import error_response
-    # 检查是否是API请求
     if request.path.startswith('/api/'):
-        # API请求直接返回401
         return error_response(401, "Unauthorized")
-    # 非API请求返回重定向
     return login_manager.unauthorized()
 
 
@@ -54,32 +50,21 @@ def create_app(config_name='default'):
     app.config['JSON_AS_ASCII'] = False
     app.config['JSONIFY_MIMETYPE'] = 'application/json; charset=utf-8'
     
-    # 加载配置
     app.config.from_object(config[config_name])
     config[config_name].init_app(app)
     
-    # 初始化扩展
     db.init_app(app)
     login_manager.init_app(app)
     CORS(app, origins=app.config['CORS_ORIGINS'], supports_credentials=True)
-    
-    # 配置Session
     Session(app)
-    
-    # 配置日志
     setup_logging(app)
     
-    # 初始化定时任务调度器
     from app.utils.scheduler import init_scheduler
     init_scheduler()
     
-    # 注册蓝图
     register_blueprints(app)
-    
-    # 注册错误处理器
     register_error_handlers(app)
     
-    # 创建数据库表
     with app.app_context():
         db.create_all()
     
@@ -117,11 +102,9 @@ def create_app(config_name='default'):
 def setup_logging(app):
     """配置日志"""
     if not app.debug and not app.testing:
-        # 确保日志目录存在
         if not os.path.exists('logs'):
             os.mkdir('logs')
         
-        # 配置文件日志处理器
         file_handler = RotatingFileHandler(
             app.config['LOG_FILE'],
             maxBytes=10240000,  # 10MB

@@ -65,18 +65,13 @@ import { ArrowLeft } from "@element-plus/icons-vue";
 
 const router = useRouter();
 
-// 表单引用
 const forgotFormRef = ref(null);
-
-// 加载状态
 const loading = ref(false);
 
-// 忘记密码表单
 const forgotForm = reactive({
   email: "",
 });
 
-// 表单验证规则
 const forgotRules = {
   email: [
     { required: true, message: "请输入邮箱地址", trigger: "blur" },
@@ -84,7 +79,6 @@ const forgotRules = {
   ],
 };
 
-// 处理忘记密码
 const handleForgotPassword = async () => {
   if (!forgotFormRef.value) return;
 
@@ -112,7 +106,6 @@ const handleForgotPassword = async () => {
   }
 };
 
-// 跳转到登录页面
 const goToLogin = () => {
   router.push("/login");
 };
@@ -202,7 +195,6 @@ const goToLogin = () => {
   }
 }
 
-// 响应式
 @media (max-width: 480px) {
   .forgot-password-card {
     padding: 30px 20px;

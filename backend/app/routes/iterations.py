@@ -19,7 +19,6 @@ def create_iteration_new():
     try:
         data = request.get_json()
         
-        # 验证必要字段
         if 'project_id' not in data:
             return jsonify({'error': '缺少必要字段: project_id'}), 400
         
@@ -29,24 +28,20 @@ def create_iteration_new():
         if not project:
             return jsonify({'error': '项目不存在'}), 404
         
-        # 验证必要字段
         required_fields = ['iteration_name', 'start_date', 'end_date', 'version']
         for field in required_fields:
             if field not in data or not data[field]:
                 return jsonify({'error': f'缺少必要字段: {field}'}), 400
         
-        # 验证日期格式
         try:
             start_date = datetime.strptime(data['start_date'], '%Y-%m-%d')
             end_date = datetime.strptime(data['end_date'], '%Y-%m-%d')
         except ValueError as e:
             return jsonify({'error': f'日期格式错误，请使用YYYY-MM-DD格式: {str(e)}'}), 400
         
-        # 验证日期逻辑
         if start_date > end_date:
             return jsonify({'error': '开始日期不能晚于结束日期'}), 400
         
-        # 验证迭代日期是否在项目日期范围内（只比较日期部分，避免时间/时区影响）
         if project.start_date and project.end_date:
             ps = project.start_date.date() if hasattr(project.start_date, 'date') else project.start_date
             pe = project.end_date.date() if hasattr(project.end_date, 'date') else project.end_date
@@ -54,7 +49,6 @@ def create_iteration_new():
                 range_str = f"{ps.strftime('%Y-%m-%d')} 至 {pe.strftime('%Y-%m-%d')}"
                 return jsonify({'error': f'迭代的开始、结束日期需在项目日期范围内（{range_str}），请调整后重试'}), 400
         
-        # 创建迭代
         new_iteration = Iteration(
             project_id=project_id,
             iteration_name=data['iteration_name'],
@@ -92,25 +86,21 @@ def create_iteration(project_id):
         if not project:
             return jsonify({'error': '项目不存在'}), 404
         
-        # 验证必要字段
         data = request.get_json()
         required_fields = ['iteration_name', 'start_date', 'end_date', 'version']
         for field in required_fields:
             if field not in data:
                 return jsonify({'error': f'缺少必要字段: {field}'}), 400
         
-        # 验证日期格式
         try:
             start_date = datetime.strptime(data['start_date'], '%Y-%m-%d')
             end_date = datetime.strptime(data['end_date'], '%Y-%m-%d')
         except ValueError:
             return jsonify({'error': '日期格式错误，请使用YYYY-MM-DD格式'}), 400
         
-        # 验证日期逻辑
         if start_date > end_date:
             return jsonify({'error': '开始日期不能晚于结束日期'}), 400
         
-        # 验证迭代日期是否在项目日期范围内（只比较日期部分）
         if project.start_date and project.end_date:
             ps = project.start_date.date() if hasattr(project.start_date, 'date') else project.start_date
             pe = project.end_date.date() if hasattr(project.end_date, 'date') else project.end_date
@@ -118,7 +108,6 @@ def create_iteration(project_id):
                 range_str = f"{ps.strftime('%Y-%m-%d')} 至 {pe.strftime('%Y-%m-%d')}"
                 return jsonify({'error': f'迭代的开始、结束日期需在项目日期范围内（{range_str}），请调整后重试'}), 400
         
-        # 创建迭代
         new_iteration = Iteration(
             project_id=project_id,
             iteration_name=data['iteration_name'],
@@ -134,7 +123,6 @@ def create_iteration(project_id):
         
         db.session.add(new_iteration)
         db.session.commit()
-        # 通知项目负责人（若非当前用户）
         if project.owner_id and project.owner_id != current_user.id:
             from app.services.notification_service import notify_users
             notify_users([project.owner_id], 'iteration_created', '新建迭代', f'项目「{project.project_name}」下已创建迭代「{new_iteration.iteration_name}」', 'iteration', new_iteration.id, exclude_user_id=current_user.id)
@@ -153,16 +141,8 @@ def create_iteration(project_id):
 def get_iterations(project_id):
     """获取项目的迭代列表"""
     try:
-        # 不需要检查用户是否有权限访问该项目，所有用户都可以查看
-
-        # 获取迭代列表
         iterations = Iteration.query.filter_by(project_id=project_id).order_by(Iteration.start_date.desc()).all()
-        
-        # 转换为字典列表
         iteration_list = [iteration.to_dict() for iteration in iterations]
-        
-        # 调试信息：打印当前项目的迭代数量
-
         
         return jsonify({
             'code': 200,
@@ -180,19 +160,9 @@ def get_iterations(project_id):
 def get_iteration(iteration_id):
     """获取迭代详情"""
     try:
-        # 获取迭代
         iteration = Iteration.query.get(iteration_id)
         if not iteration:
             return jsonify({'error': '迭代不存在'}), 404
-        
-        # 不需要检查用户是否有权限访问该项目，所有用户都可以查看
-        # project_member = ProjectMember.query.filter_by(
-        #     project_id=iteration.project_id,
-        #     user_id=current_user.id
-        # ).first()
-        # 
-        # if not project_member:
-        #     return jsonify({'error': '无权访问该迭代'}), 403
         
         return jsonify({
             'code': 200,
@@ -309,7 +279,6 @@ def delete_iteration(iteration_id):
 def copy_iteration(iteration_id):
     """复制迭代"""
     try:
-        # 获取要复制的迭代
         source_iteration = Iteration.query.get(iteration_id)
         if not source_iteration:
             return jsonify({'error': '源迭代不存在'}), 404
@@ -318,28 +287,21 @@ def copy_iteration(iteration_id):
         if not project:
             return jsonify({'error': '项目不存在'}), 404
         
-        # 获取复制参数
         data = request.get_json() or {}
         new_iteration_name = data.get('iteration_name', f'{source_iteration.iteration_name} (副本)')
         
-        # 计算新的日期范围（向后偏移）
-        # 计算迭代时长
         iteration_duration = (source_iteration.end_date - source_iteration.start_date).days + 1
-        # 获取最近的迭代结束日期
         latest_iteration = Iteration.query.filter_by(
             project_id=source_iteration.project_id
         ).order_by(Iteration.end_date.desc()).first()
         
         if latest_iteration:
-            # 从最近迭代结束日期的后一天开始
             new_start_date = latest_iteration.end_date + datetime.timedelta(days=1)
         else:
-            # 使用原迭代的开始日期
             new_start_date = source_iteration.start_date
         
         new_end_date = new_start_date + datetime.timedelta(days=iteration_duration - 1)
 
-        # 验证新的迭代日期是否在项目日期范围内（只比较日期部分）
         if project.start_date and project.end_date:
             ps = project.start_date.date() if hasattr(project.start_date, 'date') else project.start_date
             pe = project.end_date.date() if hasattr(project.end_date, 'date') else project.end_date
@@ -348,7 +310,6 @@ def copy_iteration(iteration_id):
             if ns < ps or ne > pe:
                 return jsonify({'error': '新迭代日期必须在项目日期范围内，请手动设置日期'}), 400
         
-        # 创建新迭代
         new_iteration = Iteration(
             project_id=source_iteration.project_id,
             iteration_name=new_iteration_name,
@@ -378,21 +339,10 @@ def copy_iteration(iteration_id):
 def get_iteration_stats(iteration_id):
     """获取迭代统计信息"""
     try:
-        # 获取迭代
         iteration = Iteration.query.get(iteration_id)
         if not iteration:
             return jsonify({'error': '迭代不存在'}), 404
         
-        # 不需要检查用户是否有权限访问该项目，所有用户都可以查看
-        # project_member = ProjectMember.query.filter_by(
-        #     project_id=iteration.project_id,
-        #     user_id=current_user.id
-        # ).first()
-        # 
-        # if not project_member:
-        #     return jsonify({'error': '无权访问该迭代'}), 403
-        
-        # 返回迭代的统计信息
         return jsonify({
             'code': 200,
             'message': 'success',
@@ -412,17 +362,11 @@ def get_iteration_stats(iteration_id):
 def get_iteration_requirements(iteration_id):
     """获取迭代下的需求列表"""
     try:
-        # 获取迭代
         iteration = Iteration.query.get(iteration_id)
         if not iteration:
             return jsonify({'error': '迭代不存在'}), 404
         
-        # 不需要检查用户是否有权限访问该项目，所有用户都可以查看
-        
-        # 获取迭代下的需求列表
         requirements = VersionRequirement.query.filter_by(iteration_id=iteration_id).all()
-        
-        # 转换为字典列表
         requirement_list = [req.to_dict() for req in requirements]
         
         return jsonify({

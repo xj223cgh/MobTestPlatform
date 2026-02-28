@@ -26,7 +26,6 @@
       </div>
     </div>
 
-    <!-- 迭代卡片列表 -->
     <div
       v-loading="pageLoading"
       class="iteration-timeline-container"
@@ -37,7 +36,6 @@
         :key="iteration.id"
         class="iteration-timeline-item"
       >
-        <!-- 左侧时间线 -->
         <div class="timeline-line">
           <div class="timeline-date">
             {{ formatDate(iteration.start_date) }}
@@ -52,7 +50,6 @@
           />
         </div>
 
-        <!-- 右侧迭代卡片 -->
         <div
           class="iteration-card"
           :class="[
@@ -61,7 +58,6 @@
             { 'notification-flash-card': flashId && iteration.id === flashId }
           ]"
         >
-          <!-- 卡片头部 - 左侧区域 -->
           <div class="card-section card-main">
             <div class="card-title-section">
               <h3 class="iteration-title">
@@ -95,7 +91,6 @@
             </div>
           </div>
 
-          <!-- 卡片中部 - 中间区域 -->
           <div class="card-section card-meta">
             <div class="meta-item">
               <i class="el-icon-calendar" />
@@ -155,7 +150,6 @@
             </div>
           </div>
 
-          <!-- 卡片尾部 - 右侧区域 -->
           <div class="card-section card-actions">
             <el-button
               type="primary"
@@ -192,7 +186,6 @@
       </div>
     </div>
 
-    <!-- 创建/编辑迭代对话框 -->
     <el-dialog
       v-model="iterationDialogVisible"
       :title="iterationDialogTitle"
@@ -341,7 +334,6 @@ export default {
   name: "IterationManagement",
   data() {
     return {
-      // 项目相关
       projects: [],
       selectedProjectId: null,
       currentProject: null, // 当前选中的项目完整信息
@@ -352,7 +344,6 @@ export default {
       flashId: null,
       flashClearTimer: null,
 
-      // 迭代列表数据
       iterations: [],
       iterationsData: [],
 
@@ -491,8 +482,7 @@ export default {
       }
       return false;
     },
-    
-    // 初始化项目列表
+
     async initProjects() {
       try {
         const response = await getProjects({ page: 1, size: 10000 });
@@ -536,7 +526,6 @@ export default {
       }
     },
 
-    // 加载迭代列表
     async loadIterations() {
       if (!this.selectedProjectId) {
         this.pageLoading = false;
@@ -610,7 +599,6 @@ export default {
       this.iterationDialogVisible = true;
     },
 
-    // 重置迭代表单
     resetIterationForm() {
       this.iterationForm = {
         id: null,
@@ -628,7 +616,6 @@ export default {
       }
     },
 
-    // 关闭迭代对话框
     closeIterationDialog() {
       this.iterationDialogVisible = false;
       this.resetIterationForm();
@@ -660,7 +647,6 @@ export default {
       return `${y}-${m}-${day}`;
     },
 
-    // 提交迭代表单
     async submitIterationForm() {
       if (!this.$refs.iterationForm) return;
 
@@ -679,11 +665,9 @@ export default {
         };
 
         if (this.iterationForm.id) {
-          // 更新迭代
           await updateIteration(this.iterationForm.id, iterationData);
           ElMessage.success("迭代更新成功");
         } else {
-          // 创建迭代
           await createIteration(iterationData);
           ElMessage.success("迭代创建成功");
         }
@@ -703,7 +687,6 @@ export default {
       }
     },
 
-    // 编辑迭代
     editIteration(iteration) {
       this.iterationDialogTitle = "编辑迭代";
       this.iterationForm = {
@@ -716,7 +699,6 @@ export default {
       this.iterationDialogVisible = true;
     },
 
-    // 删除迭代
     async deleteIteration(iteration) {
       try {
         await ElMessageBox.confirm("确定要删除这个迭代吗？", "警告", {
@@ -740,13 +722,11 @@ export default {
       }
     },
 
-    // 显示迭代详情
     showIterationDetail(iteration) {
       console.log("点击了详情按钮，跳转到迭代详情页面:", iteration.id);
       this.$router.push(`/iterations/${iteration.id}`);
     },
 
-    // 根据状态获取标签类型
     getTagTypeByStatus(status) {
       const statusMap = {
         planning: "info",
@@ -757,7 +737,6 @@ export default {
       return statusMap[status] || "info";
     },
 
-    // 根据状态获取文本
     getStatusText(status) {
       const statusMap = {
         planning: "待开始",
@@ -768,7 +747,6 @@ export default {
       return statusMap[status] || status;
     },
 
-    // 根据状态获取进度条颜色
     getProgressColor(status) {
       const colorMap = {
         planning: "#909399",
@@ -779,21 +757,17 @@ export default {
       return colorMap[status] || "#409eff";
     },
 
-    // 格式化完整时间，将ISO格式中的T替换为空格
     formatDateTime(dateTime) {
       if (!dateTime) return "";
       return dateTime.replace("T", " ");
     },
 
-    // 格式化日期，只显示年月日
     formatDate(dateTime) {
       if (!dateTime) return "";
-      // 提取年月日部分
       const dateStr = dateTime.split("T")[0];
       return dateStr;
     },
 
-    // 计算需求进度百分比
     calculateRequirementProgress(requirementStats) {
       if (!requirementStats || !requirementStats.total) return 0;
 
@@ -955,7 +929,6 @@ export default {
   gap: 12px;
 }
 
-/* 左侧主信息区 - 35%宽度 */
 .card-main {
   flex: 1 1 35%;
   flex-direction: column;

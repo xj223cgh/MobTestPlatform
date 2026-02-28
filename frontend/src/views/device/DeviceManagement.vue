@@ -245,7 +245,7 @@
               <el-option
                 v-for="user in userList"
                 :key="user.id"
-                :label="user.real_name"
+                :label="user.real_name || user.username"
                 :value="user.id"
               />
             </el-select>
@@ -386,7 +386,6 @@ import {
 } from "@/utils/deviceStatus";
 import { isPermissionError } from "@/utils/request";
 
-// 导入设备相关组件
 import DevicePopover from "./components/DevicePopover.vue";
 import ConnectAction from "./components/ConnectAction.vue";
 import ViewAction from "./components/ViewAction.vue";
@@ -397,7 +396,6 @@ import RemoveAction from "./components/RemoveAction.vue";
 import WirelessGroup from "./components/WirelessGroup.vue";
 import TaskDialog from "./components/TaskDialog.vue";
 import DeviceDetailDialog from "./components/DeviceDetailDialog.vue";
-// 导入设备控制栏组件
 import ControlBar from "@/components/ControlBar/index.vue";
 
 const loading = ref(false);
@@ -448,7 +446,6 @@ const scrollToHighlightRow = () => {
   });
 };
 
-// 获取电池颜色
 const getBatteryColor = (percentage) => {
   if (percentage < 20) {
     return "#f56c6c";
@@ -459,7 +456,6 @@ const getBatteryColor = (percentage) => {
   }
 };
 
-// 转换ADB状态到数据库状态
 const convertAdbStatusToDbStatus = (adbStatus) => {
   const statusMap = {
     device: "online",
@@ -469,7 +465,6 @@ const convertAdbStatusToDbStatus = (adbStatus) => {
   return statusMap[adbStatus] || "offline";
 };
 
-// 获取设备电池信息
 const getDeviceBatteryInfo = async (deviceId) => {
   try {
     const response = await deviceApi.executeAdbCommand(
@@ -483,7 +478,6 @@ const getDeviceBatteryInfo = async (deviceId) => {
   }
 };
 
-// 解析电池信息
 const parseBatteryInfo = (output) => {
   const battery = {
     batteryPercentage: null,
@@ -495,15 +489,12 @@ const parseBatteryInfo = (output) => {
   for (const line of lines) {
     const trimmedLine = line.trim();
 
-    // 解析电池电量
     if (trimmedLine.startsWith("level:")) {
       const match = trimmedLine.match(/level:\s*(\d+)/);
       if (match) {
         battery.batteryPercentage = parseInt(match[1]);
       }
-    }
-    // 解析充电状态
-    else if (trimmedLine.startsWith("status:")) {
+    } else if (trimmedLine.startsWith("status:")) {
       const match = trimmedLine.match(/status:\s*(\d+)/);
       if (match) {
         const status = parseInt(match[1]);
@@ -515,19 +506,15 @@ const parseBatteryInfo = (output) => {
   return battery;
 };
 
-// 获取设备列表
 const getDevices = async () => {
   loading.value = true;
   try {
-    // 获取ADB设备列表
     const adbResponse = await deviceApi.getAdbDevices();
     const adbDevices = adbResponse.data.devices || [];
 
-    // 获取数据库中的设备列表
     const dbResponse = await deviceApi.getDeviceList({ page: 1, size: 1000 });
     const dbDevices = dbResponse.data.devices || [];
 
-    // 创建设备ID到ADB设备的映射
     const adbDeviceMap = new Map();
     adbDevices.forEach((adbDevice) => {
       adbDeviceMap.set(adbDevice.id, adbDevice);
@@ -536,16 +523,13 @@ const getDevices = async () => {
     // 检查哪些设备从ADB中断开了，更新数据库状态
     for (const dbDevice of dbDevices) {
       const adbDevice = adbDeviceMap.get(dbDevice.device_id);
-      // 如果设备之前是online状态，但现在ADB中没有，说明断开了
       if (dbDevice.status === "online" && !adbDevice) {
         try {
           await deviceApi.updateDevice(dbDevice.id, { status: "offline" });
         } catch (error) {
           console.warn(`更新设备 ${dbDevice.device_id} 状态失败:`, error);
         }
-      }
-      // 如果设备之前不是online状态，但现在ADB中有，说明连接了
-      else if (dbDevice.status !== "online" && adbDevice) {
+      } else if (dbDevice.status !== "online" && adbDevice) {
         try {
           await deviceApi.updateDevice(dbDevice.id, { status: "online" });
         } catch (error) {
@@ -559,7 +543,6 @@ const getDevices = async () => {
     for (const adbDevice of adbDevices) {
       if (!dbDeviceIdSet.has(adbDevice.id) && adbDevice.status === "device") {
         try {
-          // 自动创建设备记录
           const response = await deviceApi.createDevice({
             device_name: adbDevice.name || adbDevice.id,
             device_model: adbDevice.name || "Unknown",
@@ -575,27 +558,22 @@ const getDevices = async () => {
       }
     }
 
-    // 重新获取数据库设备列表（包含新创建的设备）
     const dbResponseAfterCreate = await deviceApi.getDeviceList({
       page: 1,
       size: 1000,
     });
     const dbDevicesAfterCreate = dbResponseAfterCreate.data.devices || [];
 
-    // 合并数据库设备和ADB设备信息
     const mergedDevices = await Promise.all(
       dbDevicesAfterCreate.map(async (dbDevice) => {
         const adbDevice = adbDeviceMap.get(dbDevice.device_id);
 
-        // 获取电池信息（只有ADB连接的设备才能获取）
         let batteryInfo = null;
         if (adbDevice && adbDevice.status === "device") {
           batteryInfo = await getDeviceBatteryInfo(dbDevice.device_id);
         }
 
-        // 合并设备信息
         return {
-          // 基础信息优先使用数据库的
           id: dbDevice.device_id,
           device_id: dbDevice.device_id,
           name: dbDevice.device_name || adbDevice?.name || dbDevice.device_id,
@@ -604,14 +582,10 @@ const getDevices = async () => {
           os_version: dbDevice.os_version,
           // 状态：如果ADB有连接则使用online，否则使用数据库状态
           status: adbDevice ? "online" : dbDevice.status,
-          // WiFi标识
           wifi: adbDevice ? adbDevice.wifi : false,
-          // 电池信息
           battery: batteryInfo,
-          // 负责人信息
           owner_id: dbDevice.owner_id,
           owner_name: dbDevice.owner_name,
-          // 保存数据库设备ID,用于更新
           db_id: dbDevice.id,
         };
       }),
@@ -637,23 +611,21 @@ const getDevices = async () => {
   }
 };
 
-// 获取用户列表
+// 获取用户列表（仅需登录的 options 接口，用于负责人下拉）
 const getUserList = async () => {
   try {
-    const response = await userApi.getUserList({ page: 1, size: 1000 });
-    userList.value = response.data.users || [];
+    const response = await userApi.getUserOptions({ size: 1000 });
+    userList.value = response.data?.items || [];
   } catch (error) {
     console.error("获取用户列表失败：", error);
   }
 };
 
-// 开始编辑设备名称
 const startDeviceNameEdit = (device) => {
   editingDeviceId.value = device.id;
   editingDeviceName.value = device.name || "";
 };
 
-// 保存设备名称编辑
 const saveDeviceNameEdit = async (device) => {
   try {
     if (!editingDeviceName.value.trim()) {
@@ -663,13 +635,11 @@ const saveDeviceNameEdit = async (device) => {
     }
 
     if (device.db_id) {
-      // 更新数据库中的设备名称
       await deviceApi.updateDevice(device.db_id, {
         device_name: editingDeviceName.value,
       });
       ElMessage.success("设备名称更新成功");
     } else {
-      // 创建新的设备记录
       const response = await deviceApi.createDevice({
         device_name: editingDeviceName.value,
         device_model: device.name || "Unknown",
@@ -679,7 +649,6 @@ const saveDeviceNameEdit = async (device) => {
         status: convertAdbStatusToDbStatus(device.status),
       });
 
-      // 更新设备的db_id
       const index = deviceList.value.findIndex((item) => item.id === device.id);
       if (index !== -1) {
         deviceList.value[index].db_id = response.data.device.id;
@@ -688,7 +657,6 @@ const saveDeviceNameEdit = async (device) => {
       ElMessage.success("设备名称保存成功");
     }
 
-    // 更新本地设备名称
     const index = deviceList.value.findIndex((item) => item.id === device.id);
     if (index !== -1) {
       deviceList.value[index].name = editingDeviceName.value;
@@ -704,21 +672,17 @@ const saveDeviceNameEdit = async (device) => {
   }
 };
 
-// 取消设备名称编辑
 const cancelDeviceNameEdit = () => {
   editingDeviceId.value = null;
   editingDeviceName.value = "";
 };
 
-// 处理负责人变更
 const handleOwnerChange = async (device) => {
   try {
     if (device.db_id) {
-      // 更新现有设备的负责人
       await deviceApi.updateDevice(device.db_id, { owner_id: device.owner_id });
       ElMessage.success("设备负责人更新成功");
     } else {
-      // 创建新设备记录
       const response = await deviceApi.createDevice({
         device_name: device.name || device.id,
         device_model: device.name || "Unknown",
@@ -729,7 +693,6 @@ const handleOwnerChange = async (device) => {
         owner_id: device.owner_id,
       });
 
-      // 更新设备的db_id
       device.db_id = response.data.device.id;
       ElMessage.success("设备信息保存成功");
     }
@@ -741,7 +704,6 @@ const handleOwnerChange = async (device) => {
   }
 };
 
-// 刷新设备列表
 const refreshDevices = () => {
   getDevices();
 };
@@ -751,12 +713,10 @@ const selectable = (row) => {
   return row.status === "online" || row.status === "offline";
 };
 
-// 选择设备变化
 const onSelectionChange = (rows) => {
   selectionRows.value = rows;
 };
 
-// 批量删除设备
 const handleBatchDelete = async () => {
   if (selectionRows.value.length === 0) {
     ElMessage.warning('请先选择要删除的设备');
@@ -793,7 +753,6 @@ const handleBatchDelete = async () => {
   }
 };
 
-// 获取MirrorAction引用
 const getMirrorActionRefs = (ref) => {
   if (!ref?.row?.id) {
     return false;
@@ -809,25 +768,20 @@ const getMirrorActionRefs = (ref) => {
   mirrorActionRefs.value.push(ref);
 };
 
-// 切换行展开/收起
 const toggleRowExpansion = (...args) => {
   proxy.$refs.tableRef.toggleRowExpansion(...args);
 };
 
-// 连接设备
 const handleConnect = (...args) => {
   proxy.$refs.wirelessGroupRef?.connect?.(...args);
 };
 
-// 打开任务对话框
 const openTaskDialog = () => {
   taskDialogRef.value?.open();
 };
 
-// 自动连接成功
 const onAutoConnected = () => {};
 
-// 启动自动刷新
 const startAutoRefresh = () => {
   if (!autoRefreshEnabled.value) {
     return;
@@ -840,7 +794,6 @@ const startAutoRefresh = () => {
   }, autoRefreshInterval.value);
 };
 
-// 停止自动刷新
 const stopAutoRefresh = () => {
   if (autoRefreshTimer.value) {
     clearInterval(autoRefreshTimer.value);
@@ -848,9 +801,7 @@ const stopAutoRefresh = () => {
   }
 };
 
-// 处理自动刷新开关变化
 const handleAutoRefreshChange = (enabled) => {
-  // 保存到 localStorage
   localStorage.setItem("deviceAutoRefreshEnabled", enabled.toString());
 
   if (enabled) {
@@ -860,12 +811,10 @@ const handleAutoRefreshChange = (enabled) => {
   }
 };
 
-// 检查是否在设备相关页面
 const isDevicePage = () => {
   return route.name === "Devices" || route.name === "DeviceDetail";
 };
 
-// 监听路由变化
 watch(
   () => route.name,
   (newName, oldName) => {
@@ -886,13 +835,10 @@ watch(
   { flush: "post" },
 );
 
-// 组件挂载时获取设备列表
 onMounted(() => {
-  // 从 localStorage 读取自动刷新状态
   const savedAutoRefresh = localStorage.getItem("deviceAutoRefreshEnabled");
   if (savedAutoRefresh !== null) {
     autoRefreshEnabled.value = savedAutoRefresh === "true";
-    // 如果自动刷新是开启状态，则启动自动刷新
     if (autoRefreshEnabled.value) {
       startAutoRefresh();
     }
@@ -902,7 +848,6 @@ onMounted(() => {
   getUserList();
 });
 
-// 组件卸载时停止自动刷新
 onUnmounted(() => {
   stopAutoRefresh();
 });

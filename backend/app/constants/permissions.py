@@ -8,7 +8,6 @@
 5. 用户管理：入口、增、删、改、编辑用户
 """
 
-# 仅包含需要权限配置的 5 个模块
 PERMISSION_GROUPS = [
     {
         "module": "project",

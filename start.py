@@ -70,14 +70,12 @@ def run_frontend():
 
 def main():
     """主函数，同时启动后端和前端服务"""
-    # 保存当前工作目录
     original_dir = os.getcwd()
     
     print("🚀 正在启动移动端测试平台服务...")
     print(f"📁 当前工作目录: {original_dir}")
     print("=" * 50)
     
-    # 检查目录是否存在
     project_root = Path(__file__).parent
     frontend_dir = project_root / "frontend"
     backend_dir = project_root / "backend"
@@ -91,22 +89,18 @@ def main():
         return
     
     try:
-        # 创建并启动后端进程
         backend_process = Process(target=run_backend)
         backend_process.daemon = True
         backend_process.start()
 
         time.sleep(3)  # 等待后端服务启动
         
-        # 创建并启动前端进程
         frontend_process = Process(target=run_frontend)
         frontend_process.daemon = True
         frontend_process.start()
         
-        # 等待前端启动
         time.sleep(3)
         
-        # 服务已全部启动
         print("\n✅ 服务已全部启动！")
         print("=" * 50)
 
@@ -119,7 +113,6 @@ def main():
     except Exception as e:
         print(f"❌ 运行服务时发生错误: {e}")
     finally:
-        # 确保所有进程都被终止
         try:
             if 'backend_process' in locals() and backend_process.is_alive():
                 backend_process.terminate()

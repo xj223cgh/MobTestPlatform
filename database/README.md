@@ -1,145 +1,175 @@
 # 数据库操作说明
 
-本文档说明本项目中与数据库相关的脚本、执行顺序及造数方式，便于在新设备或新环境中快速建库与造数。
+本文档说明数据库脚本的用途、执行顺序及造数方式，便于在新环境中快速完成数据库初始化。
 
 ---
 
 ## 1. 环境与配置
 
-- **Python**：建议 3.8+
+- **Python**：3.8+
 - **依赖**：`pymysql`、`werkzeug`（造数脚本中用于密码哈希）
 - **数据库**：MySQL 5.7+ / MariaDB 10.2+，字符集 `utf8mb4`
 
-连接配置在 `database/config.py` 中修改：
+连接配置位于 `database/config.py`：
 
 ```python
 DB_CONFIG = {
-    'host': 'localhost',      # 数据库主机
+    'host': 'localhost',
     'user': 'root',
-    'password': '123456',      # 密码
+    'password': '123456',
     'database': 'mobile_test_platform',
     'charset': 'utf8mb4'
 }
 ```
 
-新设备上请根据实际环境修改 `host`、`user`、`password`。
+新环境请根据实际情况修改 `host`、`user`、`password`。
 
 ---
 
-## 2. 脚本说明与执行顺序
+## 2. 脚本说明
 
 | 脚本 | 说明 |
 |------|------|
 | `01_create_database.py` | 创建数据库（若不存在） |
-| `02_drop_database.py` | 删除整个数据库（慎用） |
-| `03_create_tables.py` | 创建所有表结构 |
-| `04_drop_tables.py` | 删除所有表（不删库） |
-| `05_insert_test_data.py` | **造数**：清空后插入测试数据（用户/项目/迭代/需求/用例集/用例/任务等） |
-| `06_clear_table_data.py` | 仅清空所有表数据（不删表） |
+| `02_drop_database.py` | 删除整个数据库（需确认，慎用） |
+| `03_create_tables.py` | 创建全部 24 张数据表 |
+| `04_drop_tables.py` | 删除所有表（需确认，慎用） |
+| `05_insert_test_data.py` | 通用测试数据：多项目、多迭代、多需求、用例库、测试任务、评审等 |
+| `06_clear_table_data.py` | 清空所有表数据（保留表结构，需确认） |
 | `07_test_connection.py` | 测试数据库连接 |
-
-**说明**：`03_create_tables.py` 已包含完整表结构（含主键、枚举 rejected、executor_id 可空、reports 表任务快照字段 status/iteration_name/suite_id/suite_name/requirement_name 等），新环境只需按顺序执行 01 → 03 → 05 即可，无需额外迁移脚本。执行 `05_insert_test_data.py` 时若检测到 `version_requirements.priority` 曾被改为 high/medium/low，会先自动改回 P0-P4 再插入数据，避免创建需求时报 Data truncated。
-
-**推荐执行顺序：**
-
-1. **首次在新设备/新环境建库并造数：**
-   ```bash
-   # 在项目根目录执行
-   python database/01_create_database.py
-   python database/03_create_tables.py
-   python database/05_insert_test_data.py
-   ```
-
-2. **仅重新造数（表已存在）：**
-   ```bash
-   python database/05_insert_test_data.py
-   ```
-   会先清空相关表再插入测试数据。
-
-3. **只清空数据、不插数据：**
-   ```bash
-   python database/06_clear_table_data.py
-   ```
-
-4. **重建表结构（慎用，会丢数据）：**
-   ```bash
-   python database/04_drop_tables.py
-   python database/03_create_tables.py
-   ```
+| `08_seed_wps_email_data.py` | WPS 邮箱业务模拟数据（保留用户，替换业务数据） |
+| `config.py` | 数据库连接配置 |
+| `init_database.py` | 一键初始化（依次执行 01 → 03 → 05） |
 
 ---
 
-## 3. 造数内容说明（05_insert_test_data.py）
+## 3. 推荐执行顺序
 
-### 3.1 清空范围
+### 新环境首次建库
 
-造数前会 **TRUNCATE** 以下表（含 `reports`）：
+```bash
+# 在项目根目录执行
+python database/01_create_database.py
+python database/03_create_tables.py
+python database/05_insert_test_data.py
+```
 
-- 用户、项目、项目成员、迭代、版本需求、需求标准
-- 设备、测试套件、测试用例、测试任务
-- 任务-用例关联、任务-设备关联、用例执行记录
-- 评审相关表、系统/用户设置、**报告表 reports**
+或使用一键初始化：
 
-即每次执行 05 都会清空测试报告数据；报告表会 **TRUNCATE** 并确保表结构（含 assignee_id），**不插入报告造数**，由用户在平台上通过「完成任务」或「生成报告」手动创建。
+```bash
+python database/init_database.py
+```
 
-### 3.2 测试报告与自动生成
+### 仅重新造数（表已存在）
 
-- **报告表**：`reports` 在造数时会被清空；表结构含 assignee_id 及任务快照字段（status、iteration_name、suite_id、suite_name、requirement_name），脚本不插入报告数据，请在平台上通过完成任务或生成报告创建。
-- **自动生成规则**：仅当 **任务状态变更为「已完成」** 且当前用户设置了 **「自动生成报告」** 时，系统才会在该任务完成时自动生成一条报告并落库。
-- 若未开启自动生成，可通过任务详情页的「生成报告」按钮手动生成。
+```bash
+python database/05_insert_test_data.py
+```
 
-### 3.3 插入数据概览
+脚本会先清空相关表再插入测试数据。
+
+### 切换到 WPS 邮箱业务数据
+
+```bash
+python database/08_seed_wps_email_data.py
+```
+
+该脚本保留用户数据，仅替换业务数据（项目、迭代、需求、用例、任务、评审、报告等）。
+
+### 清空数据（不插数据）
+
+```bash
+python database/06_clear_table_data.py
+```
+
+### 重建表结构（慎用，会丢数据）
+
+```bash
+python database/04_drop_tables.py
+python database/03_create_tables.py
+```
+
+---
+
+## 4. 数据表一览
+
+`03_create_tables.py` 创建以下 24 张表：
+
+| 表名 | 说明 |
+|------|------|
+| `users` | 用户表 |
+| `email_verify_codes` | 邮箱验证码表 |
+| `role_permissions` | 角色权限配置表 |
+| `projects` | 项目表 |
+| `project_members` | 项目成员表 |
+| `devices` | 设备表 |
+| `iterations` | 迭代表 |
+| `version_requirements` | 版本需求表 |
+| `test_suites` | 测试套件表（文件夹 + 用例集） |
+| `test_cases` | 测试用例表 |
+| `task_folders` | 任务文件夹表 |
+| `test_tasks` | 测试任务表（用例执行 + 设备脚本） |
+| `test_case_executions` | 用例执行记录表 |
+| `task_case_relation` | 任务-用例关联表 |
+| `task_device_relation` | 任务-设备关联表 |
+| `task_case_snapshots` | 任务用例快照表 |
+| `test_suite_review_tasks` | 用例集评审任务表 |
+| `test_case_review_details` | 用例评审详情表 |
+| `test_suite_review_history` | 评审历史记录表 |
+| `test_case_review_history` | 用例评审历史表 |
+| `system_settings` | 系统设置表 |
+| `user_settings` | 用户设置表 |
+| `reports` | 报告表 |
+| `notifications` | 消息通知表 |
+
+---
+
+## 5. 造数内容说明
+
+### 通用测试数据（05_insert_test_data.py）
 
 | 数据类型 | 说明 |
 |----------|------|
-| **用户** | 特殊账号（保留）：Lethe(超级管理员)、Manager(项目经理)、Tester(测试主管)、Admin(系统管理员)；测试用户真实人名：赵敏、陈静、杨帆、周杰、吴磊、郑丽、孙浩；密码统一为 `123321`。系统中创建人、负责人、更新人均关联上述用户，展示为真实姓名。 |
-| **项目/成员/迭代/需求** | 多项目（移动端应用测试，如电商/金融/社交/游戏等）；每项目 **4～6 个迭代**、**5～8 个版本需求**，用于挂接用例与任务。 |
-| **测试套件** | 每项目：根文件夹 → 子文件夹「功能测试」「专项测试」→ 各子文件夹下 2 个用例集（功能测试：登录与权限、核心流程；专项测试：兼容性测试、性能测试）。不涉及「自动化」字眼，业务为移动端应用测试。 |
-| **测试用例** | 按用例集类型生成：登录与权限 35 条、核心流程 50 条、兼容性测试 40 条、性能测试 35 条，步骤/预期/前置等字段完整。 |
-| **任务目录** | 用例任务目录：回归测试、冒烟测试、专项测试、功能验证、版本发布；设备脚本目录：设备巡检、性能采集、兼容性脚本、信息采集。 |
-| **用例执行任务** | 每个用例集一条「用例执行」任务，关联项目、迭代、用例集；**计划/开始/完成时间分散在约 8～90 天内**；创建人/负责人轮换使用所有用户；状态含待执行/执行中/已完成。 |
-| **任务-用例关联** | 按任务关联的用例集，将该套件下全部用例写入 `task_case_relation`。 |
-| **用例执行记录** | 对状态为「已完成」的任务，写入 `test_case_executions`，**执行时间按任务与用例分散**；并回写用例状态。 |
-| **评审任务与评审历史** | **所有用户**均作为发起人或评审人出现；为多组用例集插入评审任务（test_suite_review_tasks）、评审详情（test_case_review_details）及评审历史（test_suite_review_history、test_case_review_history）；**评审开始/结束时间分散在近 60 天内**。 |
+| **用户** | 特殊账号：Lethe（超级管理员）、Manager（管理员）、Tester（测试人员）、Admin（普通成员）；测试用户：赵敏、陈静、杨帆、周杰、吴磊、郑丽、孙浩。密码统一 `123321` |
+| **项目** | 12 个移动端应用测试项目（电商、金融、社交、游戏等） |
+| **迭代** | 每项目 4~6 个迭代，状态覆盖 planning / active / completed / cancelled |
+| **需求** | 每项目 5~8 个版本需求，优先级 P0~P4 |
+| **用例库** | 每项目：根文件夹 → 功能测试/专项测试 → 登录与权限/核心流程/兼容性测试/性能测试用例集 |
+| **测试用例** | 按用例集类型生成 35~50 条，步骤/预期/前置等字段完整 |
+| **测试任务** | 用例执行任务 + 设备脚本任务，状态含待执行/执行中/已完成 |
+| **评审** | 所有用户均有发起与参与评审记录，含完整评审历史 |
+| **设备** | 9 台 Android 模拟设备（华为/小米/OPPO/vivo/三星等） |
 
-### 3.4 造数注意点（数据重构时需满足）
+### WPS 邮箱业务数据（08_seed_wps_email_data.py）
 
-对造数脚本进行维护或数据重构时，请遵循以下要求；**当前 05_insert_test_data.py 已按此实现**：
-
-1. **数据量**：迭代、需求、用例库目录/用例、任务目录、任务等数据不宜过少，需保证一定规模，便于联调与演示（如多迭代、多需求、多套件与用例、多任务目录与任务）。
-2. **评审覆盖**：所有用户均需有参与评审、发起评审以及评审历史相关数据，避免仅部分用户有评审记录。
-3. **时间字段**：涉及时间的字段（创建时间、计划时间、完成时间、评审时间等）要合理、有分散度，并具备一定时间广度（如跨多周/多月），避免集中在同一时刻或同一天。
+单一 WPS 邮箱业务项目，包含 6 个迭代、16 条需求、14 个功能模块用例集、用例评审、测试任务及报告。
 
 ---
 
-## 4. 新设备快捷造数步骤
+## 6. 表依赖关系
 
-1. 安装 MySQL/MariaDB，并创建好用于连接的账号。
-2. 在项目根目录下修改 `database/config.py` 中的 `host`、`user`、`password`（如需）。
-3. 在项目根目录依次执行：
-   ```bash
-   python database/01_create_database.py
-   python database/03_create_tables.py
-   python database/05_insert_test_data.py
-   ```
-4. 使用任意造数账号登录（如 Lethe 或 赵敏 / 123321），即可在系统中看到完整测试数据；报告需在完成任务或手动生成后才会出现。
+清空或删除表时需考虑外键依赖（脚本中已处理），主要依赖链：
 
----
-
-## 5. 表依赖顺序（清空/删除时参考）
-
-清空或删除表时需考虑外键，脚本中已按依赖顺序处理。主要依赖关系：
-
-- `users` 无依赖
-- `projects` → users
-- `project_members` → projects, users
-- `iterations` → projects, users
-- `version_requirements` → projects, iterations, users
-- `devices` 无依赖
-- `test_suites` → projects, users, version_requirements
-- `test_cases` → test_suites, projects, users, version_requirements, iterations
-- `test_tasks` → users, projects, iterations, test_suites, version_requirements
-- `task_case_relation` → test_tasks, test_cases
-- `test_case_executions` → test_tasks, test_cases, projects, iterations, users
-- `reports` → test_tasks
-- 评审、设置等表见 `04_drop_tables.py` / `06_clear_table_data.py` 中的表列表
+```
+users（无依赖）
+├── projects → users
+│   ├── project_members → projects, users
+│   ├── iterations → projects, users
+│   ├── version_requirements → projects, iterations, users
+│   ├── test_suites → projects, users, version_requirements
+│   │   ├── test_cases → test_suites, projects, users
+│   │   ├── test_suite_review_tasks → test_suites, users
+│   │   │   ├── test_case_review_details → review_tasks, test_cases, users
+│   │   │   └── test_suite_review_history → review_tasks, test_suites, users
+│   │   │       └── test_case_review_history → review_history, test_cases, users
+│   │   └── test_tasks → projects, iterations, test_suites, users
+│   │       ├── task_case_relation → test_tasks, test_cases
+│   │       ├── task_device_relation → test_tasks, devices
+│   │       ├── task_case_snapshots → test_tasks, test_cases
+│   │       ├── test_case_executions → test_tasks, test_cases, users
+│   │       └── reports → test_tasks, users
+├── devices → users
+├── notifications → users
+├── email_verify_codes（无外键）
+└── role_permissions（无外键）
+```

@@ -238,7 +238,7 @@
               <el-option
                 v-for="user in users"
                 :key="user.id"
-                :label="user.real_name"
+                :label="user.real_name || user.username"
                 :value="user.id"
               />
             </el-select>
@@ -378,7 +378,6 @@
         prop="test_cases"
       >
         <div class="suite-selector-wrapper">
-          <!-- 编辑模式：只读展示，不可选择/删除 -->
           <template v-if="isEdit">
             <template v-if="taskDetail?.suite_id">
               <div class="suite-link-wrapper suite-readonly">
@@ -396,7 +395,6 @@
             </template>
             <span v-else class="no-suite">未关联用例集（仅创建时可设置）</span>
           </template>
-          <!-- 新建模式：可选择用例集 -->
           <template v-else>
             <template v-if="taskDetail?.suite_id">
               <div class="suite-link-wrapper">
@@ -616,7 +614,7 @@ import {
 import { getTestSuiteList, getTestSuiteTree } from "@/api/testSuite";
 import { getProjectVersionRequirements } from "@/api/project";
 import * as testCaseApi from "@/api/testCase";
-import { getUserList } from "@/api/user";
+import { getUserOptions } from "@/api/user";
 import deviceApi from "@/api/device";
 import { uploadFile } from "@/api/files";
 
@@ -641,7 +639,6 @@ const suitePopoverVisible = ref(false);
 const selectedSuiteName = ref("");
 const users = ref([]);
 const folderOptions = ref([]);
-// 任务目录选择（树形）
 const folderPopoverVisible = ref(false);
 const selectedFolderPath = ref("");
 const taskFolderTreeData = ref([]);
@@ -662,7 +659,6 @@ const form = reactive({
   documentation_url: "",
   scheduled_time: "",
   test_cases: "",
-  // 设备脚本任务专用字段
   script_file: "",
   file_path: "",
   file_hash: "",
@@ -670,7 +666,6 @@ const form = reactive({
   device_ids: [],
 });
 
-// 设备列表
 const devices = ref([]);
 
 const rules = {
@@ -678,7 +673,6 @@ const rules = {
   task_type: [{ required: true, message: "请选择任务类型", trigger: "change" }],
   project_id: [],
   priority: [{ required: true, message: "请选择优先级", trigger: "change" }],
-  // 设备脚本任务验证规则（编辑时脚本文件为只读展示，不做必填校验）
   script_file: [
     {
       trigger: "change",
@@ -787,14 +781,13 @@ const loadProjects = async () => {
 
 const loadUsers = async () => {
   try {
-    const response = await getUserList({ page: 1, size: 1000 });
-    users.value = response.data?.users || [];
+    const response = await getUserOptions({ size: 1000 });
+    users.value = response.data?.items || [];
   } catch (error) {
     console.error("加载用户列表失败:", error);
   }
 };
 
-// 加载设备列表
 const loadDevices = async () => {
   try {
     const response = await deviceApi.getDeviceList();
@@ -804,7 +797,6 @@ const loadDevices = async () => {
   }
 };
 
-// 选择脚本文件
 const selectedFile = ref(null);
 
 const selectScriptFile = () => {
@@ -824,7 +816,6 @@ const selectScriptFile = () => {
   input.click();
 };
 
-// 删除脚本文件
 const handleDeleteScriptFile = () => {
   form.script_file = "";
   form.file_path = "";
@@ -913,7 +904,6 @@ const handleSuiteSelect = async (data, node) => {
   }
 
   form.test_cases = data.id;
-  // 显示用例集存放路径：从根到当前节点的名称用 " / " 拼接
   const pathParts = [];
   let p = node;
   while (p) {
@@ -923,7 +913,6 @@ const handleSuiteSelect = async (data, node) => {
   selectedSuiteName.value = pathParts.length ? pathParts.join(" / ") : data.suite_name;
   suitePopoverVisible.value = false;
 
-  // 编辑已有任务时通过接口更新关联；新建任务时仅更新表单，提交时一并带上 suite_id
   if (taskId.value) {
     try {
       await testTaskApi.updateTestTask(taskId.value, { suite_id: data.id });
@@ -969,7 +958,6 @@ const handleDeleteSuite = async () => {
   }
 };
 
-// 点击关联用例集：在新标签页打开用例执行页（展示快照数据）；若任务已完成则不显示「完成任务」按钮
 const handleSuiteClick = () => {
   if (!taskId.value) return;
   handleClose();
@@ -985,7 +973,6 @@ const loadTaskDetail = async () => {
     const response = await testTaskApi.getTestTaskDetail(taskId.value);
     taskDetail.value = response.data.test_task;
 
-    // 处理时间范围：将开始和结束时间组合成数组
     const scheduledTimeArray = [];
     if (taskDetail.value.scheduled_time) {
       scheduledTimeArray.push(taskDetail.value.scheduled_time);
@@ -1007,7 +994,6 @@ const loadTaskDetail = async () => {
       scheduled_time: scheduledTimeArray.length > 0 ? scheduledTimeArray : "",
       test_cases: taskDetail.value.suite_id || "",
       executor_id: taskDetail.value.executor_id,
-      // 设备脚本任务专用字段
       script_file: taskDetail.value.script_file || "",
       file_path: taskDetail.value.file_path || "",
       file_hash: taskDetail.value.file_hash || "",
@@ -1038,7 +1024,6 @@ const loadTaskDetail = async () => {
     initialFolderPath.value = selectedFolderPath.value || "全部";
   } catch (error) {
     console.error("加载任务详情失败:", error);
-    // 若用户已在加载完成前关闭弹窗，不再提示，避免误报
     if (visible.value) {
       ElMessage.error("加载任务详情失败");
     }
@@ -1061,7 +1046,6 @@ const handleTaskTypeChange = () => {
     form.test_cases = "";
     selectedSuiteName.value = "";
   }
-  // 切换任务类型时不清空已选执行设备，避免误清空
   loadTaskFolderTree(form.task_type);
 };
 
@@ -1177,10 +1161,8 @@ const handleSubmit = async () => {
 
     submitting.value = true;
 
-    // 处理表单数据，根据任务类型处理时间字段
     const submitData = { ...form };
 
-    // 处理空字符串字段，将其转换为null或删除
     if (!submitData.project_id || submitData.project_id === "") {
       delete submitData.project_id;
     }
@@ -1203,16 +1185,12 @@ const handleSubmit = async () => {
       delete submitData.command;
     }
 
-    // 处理设备脚本任务的文件字段
     if (form.task_type === "device_script") {
-      // 设备脚本任务：只需要开始时间
       if (submitData.scheduled_time) {
-        // 直接使用单个时间值
       } else {
         delete submitData.scheduled_time;
       }
 
-      // 确保设备ID字段名正确
       if (submitData.device_ids && submitData.device_ids.length > 0) {
         submitData.devices = submitData.device_ids;
       } else {
@@ -1220,13 +1198,11 @@ const handleSubmit = async () => {
       }
       delete submitData.device_ids;
 
-      // 如果有选中的文件，上传文件到服务器
       if (selectedFile.value) {
         try {
           const response = await uploadFile(selectedFile.value);
           const fileData = response.data;
 
-          // 更新提交数据中的文件信息
           submitData.script_file = fileData.filename;
           submitData.file_path = fileData.file_path;
           submitData.file_hash = fileData.file_hash;
@@ -1238,9 +1214,7 @@ const handleSubmit = async () => {
         }
       }
     } else {
-      // 测试用例任务：需要开始时间和结束时间
       if (submitData.scheduled_time && submitData.scheduled_time.length === 2) {
-        // 将数组转换为开始时间和结束时间
         const [startTime, endTime] = submitData.scheduled_time;
         submitData.scheduled_time = startTime;
         submitData.scheduled_end_time = endTime;
@@ -1248,7 +1222,6 @@ const handleSubmit = async () => {
         delete submitData.scheduled_time;
       }
 
-      // 非设备脚本任务，删除设备和文件相关字段
       delete submitData.device_ids;
       delete submitData.script_file;
       delete submitData.file_path;
@@ -1281,9 +1254,6 @@ const handleUpdate = async () => {
 
     submitting.value = true;
 
-
-
-    // 只发送需要更新的字段，避免发送空字符串导致验证错误
     const updateData = {
       task_name: form.task_name,
       task_description: form.task_description,
@@ -1298,7 +1268,6 @@ const handleUpdate = async () => {
       updateData.folder_id = null;
     }
 
-    // 处理可选字段，只有非空时才添加到updateData
     if (form.project_id && form.project_id !== "") {
       updateData.project_id = form.project_id;
     }
@@ -1309,37 +1278,30 @@ const handleUpdate = async () => {
       updateData.iteration_id = form.iteration_id;
     }
 
-    // 处理时间字段
     if (form.task_type === "device_script") {
-      // 设备脚本任务：只需要开始时间（详情加载后可能是单元素数组）
       if (form.scheduled_time) {
         updateData.scheduled_time = Array.isArray(form.scheduled_time)
           ? form.scheduled_time[0]
           : form.scheduled_time;
       }
     } else {
-      // 测试用例任务：需要开始时间和结束时间
       if (form.scheduled_time && form.scheduled_time.length === 2) {
         updateData.scheduled_time = form.scheduled_time[0];
         updateData.scheduled_end_time = form.scheduled_time[1];
       }
     }
 
-    // 根据任务类型添加不同的字段
     if (form.task_type === "test_case") {
-      // 仅新建时提交用例集；编辑时关联用例集不可修改，不传 suite_id
       if (!isEdit.value && form.test_cases && form.test_cases !== "") {
         updateData.suite_id = form.test_cases;
       }
 
-      // 非设备脚本任务，清空设备和文件相关字段
       updateData.devices = [];
       updateData.script_file = null;
       updateData.file_path = null;
       updateData.file_hash = null;
       updateData.command = null;
     } else if (form.task_type === "device_script") {
-      // 设备脚本任务专用字段
       if (form.script_file && form.script_file !== "") {
         updateData.script_file = form.script_file;
       }
@@ -1358,7 +1320,6 @@ const handleUpdate = async () => {
         updateData.devices = [];
       }
 
-      // 设备脚本任务，清空用例集关联
       updateData.suite_id = null;
     }
 
@@ -1366,7 +1327,6 @@ const handleUpdate = async () => {
 
     ElMessage.success("测试任务更新成功");
 
-    // 编辑模式下，更新后重新加载任务详情而不是关闭对话框
     if (isEdit.value) {
       await loadTaskDetail();
     } else {
@@ -1375,7 +1335,6 @@ const handleUpdate = async () => {
 
     emit("refresh");
   } catch (error) {
-    // 表单校验失败时 error 可能无 response，需单独提示
     if (error === false || (error && !error.response)) {
       ElMessage.warning("请检查表单必填项与填写格式");
       return;
@@ -1392,7 +1351,6 @@ const handleUpdate = async () => {
   }
 };
 
-/** 设备脚本任务详情：跳转到设备脚本执行页 */
 const goToDeviceScriptExecution = () => {
   if (!taskId.value) return;
   visible.value = false;
@@ -1438,7 +1396,6 @@ const handleClosed = () => {
   initialFolderId.value = null;
   initialFolderPath.value = "";
 
-  // 关闭对话框时刷新列表
   emit("refresh");
 };
 
@@ -1467,25 +1424,15 @@ const open = (id = null, options = {}) => {
   }
 };
 
-// 刷新页面数据
 const refreshDevices = async () => {
-  // 加载项目列表
   await loadProjects();
-
-  // 加载用户列表
   await loadUsers();
-
-  // 加载测试套件树
   await loadSuites();
-
-  // 加载设备列表
   await loadDevices();
 
-  // 如果有选择项目，加载迭代列表
   if (form.project_id) {
     await loadIterations();
 
-    // 如果有选择迭代，加载需求列表
     if (form.iteration_id) {
       await loadRequirements();
     }
@@ -1494,14 +1441,10 @@ const refreshDevices = async () => {
   ElMessage.success("页面数据已刷新");
 };
 
-// 下载脚本文件
 const downloadScriptFile = () => {
   if (form.file_path) {
-    // 构建完整的下载URL，包含原始文件名作为查询参数
     const downloadUrl = `/api/files/${form.file_path}?filename=${encodeURIComponent(form.script_file || "script_file")}`;
 
-
-    // 创建下载链接并触发下载
     const a = document.createElement("a");
     a.href = downloadUrl;
     a.download = form.script_file || "script_file";

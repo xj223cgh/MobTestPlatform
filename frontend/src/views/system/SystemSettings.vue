@@ -1,6 +1,5 @@
 <template>
   <div class="system-settings">
-    <!-- 页面标题与返回 -->
     <div class="page-header">
       <h2>系统设置</h2>
       <el-button class="back-btn" @click="handleBack">
@@ -9,13 +8,11 @@
       </el-button>
     </div>
 
-    <!-- 设置选项卡 -->
     <el-card>
       <el-tabs
         v-model="activeTab"
         tab-position="left"
       >
-        <!-- 基础设置 -->
         <el-tab-pane
           label="基础设置"
           name="basic"
@@ -107,7 +104,6 @@
           </div>
         </el-tab-pane>
 
-        <!-- 功能设置 -->
         <el-tab-pane
           label="功能设置"
           name="feature"
@@ -152,7 +148,6 @@
           </div>
         </el-tab-pane>
 
-        <!-- 消息通知（用户个人设置） -->
         <el-tab-pane
           label="消息通知"
           name="notification"
@@ -180,7 +175,6 @@
           </div>
         </el-tab-pane>
 
-        <!-- 安全设置 -->
         <el-tab-pane
           label="安全设置"
           name="security"
@@ -281,7 +275,6 @@ const logoDisplayUrl = computed(
   () => logoPreviewUrl.value || basicSettings.systemLogo || defaultFaviconUrl
 );
 
-// 基础设置
 const basicSettings = reactive({
   systemName: "移动测试平台",
   systemDescription: "专业的移动应用自动化测试平台",
@@ -489,7 +482,6 @@ const loadSettings = async () => {
         const v = Number(d.default_page_size);
         if (!Number.isNaN(v) && v >= 5 && v <= 100) featureSettings.defaultPageSize = v;
       }
-      // 安全设置
       if (d.session_timeout_minutes !== undefined && d.session_timeout_minutes !== null && d.session_timeout_minutes !== "") {
         const v = Number(d.session_timeout_minutes);
         if (!Number.isNaN(v) && v >= 30 && v <= 10080) securitySettings.sessionTimeout = v;
@@ -535,7 +527,6 @@ watch(
   },
 );
 
-// 生命周期
 onMounted(() => {
   loadSettings();
 });

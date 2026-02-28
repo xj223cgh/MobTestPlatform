@@ -1,8 +1,6 @@
 <template>
   <div class="iteration-detail">
-    <!-- 主体内容 -->
     <div class="main-content">
-      <!-- 基本信息卡片 -->
       <el-card
         shadow="hover"
         class="info-card"
@@ -31,62 +29,50 @@
           :column="2"
           border
         >
-          <!-- 左边列 -->
           <el-descriptions-item label="状态">
             <el-tag :type="getStatusType(iterationDetail.status)">
               {{ getStatusText(iterationDetail.status) || "-" }}
             </el-tag>
           </el-descriptions-item>
 
-          <!-- 右边列 -->
           <el-descriptions-item label="所属项目">
             {{ iterationDetail.project_name || "-" }}
           </el-descriptions-item>
 
-          <!-- 左边列 -->
           <el-descriptions-item label="测试版本">
             {{ iterationDetail.version || "-" }}
           </el-descriptions-item>
 
-          <!-- 右边列 -->
           <el-descriptions-item label="开始日期">
             {{ formatDateTime(iterationDetail.start_date) || "-" }}
           </el-descriptions-item>
 
-          <!-- 左边列 -->
           <el-descriptions-item label="创建人">
             {{ iterationDetail.created_by_name || "-" }}
           </el-descriptions-item>
 
-          <!-- 右边列 -->
           <el-descriptions-item label="结束日期">
             {{ formatDateTime(iterationDetail.end_date) || "-" }}
           </el-descriptions-item>
 
-          <!-- 左边列 -->
           <el-descriptions-item label="更新人">
             {{ iterationDetail.updated_by_name || "-" }}
           </el-descriptions-item>
 
-          <!-- 右边列 -->
           <el-descriptions-item label="创建时间">
             {{ formatDateTime(iterationDetail.created_at) || "-" }}
           </el-descriptions-item>
 
-          <!-- 左边列 -->
           <el-descriptions-item label="迭代描述">
             {{ iterationDetail.description || "-" }}
           </el-descriptions-item>
 
-          <!-- 右边列 -->
           <el-descriptions-item label="更新时间">
             {{ formatDateTime(iterationDetail.updated_at) || "-" }}
           </el-descriptions-item>
         </el-descriptions>
       </el-card>
 
-      <!-- 统计图表区域 -->
-      <!-- 迭代进度日历 -->
       <el-row
         :gutter="20"
         class="chart-section"
@@ -159,7 +145,6 @@
       </el-row>
     </div>
 
-    <!-- 编辑对话框 -->
     <el-dialog
       v-model="editDialogVisible"
       title="编辑迭代"
@@ -294,12 +279,9 @@ import { isPermissionError } from "@/utils/request";
 import { ElMessage } from "element-plus";
 import { Edit, ArrowLeft } from "@element-plus/icons-vue";
 import VChart from "vue-echarts";
-// 导入ECharts核心模块和渲染器
 import * as echarts from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
-// 导入柱状图组件
 import { BarChart } from "echarts/charts";
-// 导入必要的组件
 import {
   TitleComponent,
   TooltipComponent,
@@ -308,7 +290,6 @@ import {
   TransformComponent,
 } from "echarts/components";
 
-// 注册必须的组件
 echarts.use([
   CanvasRenderer,
   BarChart,
@@ -331,11 +312,9 @@ export default {
     const router = useRouter();
     const iterationId = computed(() => route.params.id);
 
-    // 迭代详情数据
     const iterationDetail = ref({});
     const loading = ref(false);
 
-    // 编辑对话框
     const editDialogVisible = ref(false);
     const iterationFormRef = ref(null);
     const iterationForm = reactive({
@@ -396,7 +375,6 @@ export default {
       status: [{ required: true, message: "请选择状态", trigger: "change" }],
     };
 
-    // 获取迭代详情
     const fetchIterationDetail = async () => {
       if (!iterationId.value) return;
       loading.value = true;
@@ -414,7 +392,6 @@ export default {
       }
     };
 
-    // 返回列表
     const handleBack = () => {
       router.push("/iterations");
     };
@@ -433,7 +410,6 @@ export default {
       editDialogVisible.value = true;
     };
 
-    // 重置表单
     const resetForm = () => {
       iterationForm.id = null;
       iterationForm.iteration_name = "";
@@ -457,7 +433,6 @@ export default {
       return String(v).slice(0, 10);
     };
 
-    // 提交表单
     const submitForm = async () => {
       if (!iterationFormRef.value) return;
       try {
@@ -485,7 +460,6 @@ export default {
       }
     };
 
-    // 根据状态获取标签类型
     const getStatusType = (status) => {
       const statusMap = {
         planning: "info",
@@ -496,7 +470,6 @@ export default {
       return statusMap[status] || "info";
     };
 
-    // 根据状态获取文本
     const getStatusText = (status) => {
       const statusMap = {
         planning: "计划中",
@@ -507,13 +480,11 @@ export default {
       return statusMap[status] || status;
     };
 
-    // 格式化时间
     const formatDateTime = (dateTime) => {
       if (!dateTime) return "-";
       return dateTime.replace("T", " ");
     };
 
-    // 计算需求进度百分比
     const calculateRequirementProgress = (requirementStats) => {
       if (!requirementStats || !requirementStats.total) return 0;
 
@@ -536,11 +507,9 @@ export default {
       return diffDays;
     };
 
-    // 柱状图配置项
     const barChartOption = computed(() => {
       const requirementStats = iterationDetail.value.requirement_stats || {};
 
-      // 准备数据
       const categories = ["未开始", "进行中", "已完成", "已取消"];
       const data = [
         requirementStats.new || 0,
@@ -549,7 +518,6 @@ export default {
         requirementStats.cancelled || 0,
       ];
 
-      // 颜色配置
       const colors = ["#909399", "#409eff", "#67c23a", "#f56c6c"];
 
       return {
@@ -603,7 +571,6 @@ export default {
       };
     });
 
-    // 组件挂载时获取数据
     onMounted(() => {
       fetchIterationDetail();
     });
@@ -721,17 +688,14 @@ export default {
   padding: 40px 0;
 }
 
-/* 标签页样式 */
 .el-tabs__header {
   margin-bottom: 20px;
 }
 
-/* 表格样式 */
 .el-table {
   margin-top: 16px;
 }
 
-/* 日历样式 */
 .calendar-container {
   padding: 20px;
 }
@@ -782,7 +746,6 @@ export default {
   font-size: 18px;
 }
 
-/* 响应式设计 */
 @media (max-width: 768px) {
   .info-card .card-header {
     flex-direction: column;

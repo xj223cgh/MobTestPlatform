@@ -42,6 +42,7 @@ def create_tables():
                 id INT AUTO_INCREMENT PRIMARY KEY COMMENT '用户编号',
                 username VARCHAR(14) NOT NULL UNIQUE COMMENT '用户名（3-14个字节长度限制）',
                 phone VARCHAR(11) NOT NULL UNIQUE COMMENT '手机号（需要格式验证）',
+                email VARCHAR(128) NULL UNIQUE COMMENT '邮箱（用于QQ邮箱验证登录与找回密码）',
                 real_name VARCHAR(50) NOT NULL COMMENT '真实姓名',
                 gender ENUM('male', 'female', 'other') DEFAULT 'other' COMMENT '性别',
                 department VARCHAR(100) DEFAULT '' COMMENT '所属部门',
@@ -54,20 +55,21 @@ def create_tables():
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                 INDEX idx_username (username),
                 INDEX idx_phone (phone),
+                INDEX idx_email (email),
                 INDEX idx_role (role)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表'""")
 
-            # 兼容旧库：若 users 表已存在但缺少登录锁定相关列，则追加
-            cursor.execute("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'")
-            if cursor.fetchone():
-                for col_name, alter_sql in [
-                    ('failed_login_attempts', "ADD COLUMN failed_login_attempts INT DEFAULT 0 COMMENT '连续登录失败次数（用于安全设置中的登录失败锁定）' AFTER is_active"),
-                    ('locked_until', "ADD COLUMN locked_until DATETIME NULL COMMENT '账户锁定时长至该时间（登录失败超阈值时设置）' AFTER failed_login_attempts"),
-                ]:
-                    cursor.execute("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = %s", (col_name,))
-                    if not cursor.fetchone():
-                        cursor.execute(f"ALTER TABLE users {alter_sql}")
-                        print(f"已为 users 表添加列: {col_name}")
+            # 创建 email_verify_codes 表
+            cursor.execute("""CREATE TABLE IF NOT EXISTS email_verify_codes (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                email VARCHAR(128) NOT NULL COMMENT '邮箱',
+                code VARCHAR(10) NOT NULL COMMENT '验证码',
+                purpose VARCHAR(20) NOT NULL DEFAULT 'login' COMMENT '用途：login',
+                expires_at DATETIME NOT NULL COMMENT '过期时间',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_email (email),
+                INDEX idx_expires_at (expires_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='邮箱验证码表'""")
 
             # 创建role_permissions表（角色-埋点配置）
             cursor.execute("""CREATE TABLE IF NOT EXISTS role_permissions (
@@ -329,27 +331,6 @@ def create_tables():
                 INDEX idx_folder_id (folder_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='测试任务表'""")
 
-            # 兼容已有库：若 test_tasks 已存在但无 folder_id 列，则追加（与任务文件夹功能合并到基础建表）
-            cursor.execute("SHOW TABLES LIKE 'test_tasks'")
-            if cursor.fetchone():
-                cursor.execute("SHOW COLUMNS FROM test_tasks LIKE 'folder_id'")
-                if cursor.fetchone() is None:
-                    cursor.execute("ALTER TABLE test_tasks ADD COLUMN folder_id INT NULL COMMENT '所属任务文件夹ID' AFTER task_description")
-                    cursor.execute("ALTER TABLE test_tasks ADD INDEX idx_folder_id (folder_id)")
-                    try:
-                        cursor.execute("ALTER TABLE test_tasks ADD CONSTRAINT fk_test_tasks_folder FOREIGN KEY (folder_id) REFERENCES task_folders(id) ON DELETE SET NULL")
-                    except Exception:
-                        pass
-                # 兼容已有库：若缺少用例集快照相关列，则追加
-                for col_name, alter_sql in [
-                    ('suite_name_snapshot', "ADD COLUMN suite_name_snapshot VARCHAR(200) NULL COMMENT '创建/更新任务时用例集名称快照（历史追溯）' AFTER suite_id"),
-                    ('case_snapshot_at', "ADD COLUMN case_snapshot_at DATETIME NULL COMMENT '用例快照时间' AFTER suite_name_snapshot"),
-                ]:
-                    cursor.execute("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'test_tasks' AND COLUMN_NAME = %s", (col_name,))
-                    if not cursor.fetchone():
-                        cursor.execute(f"ALTER TABLE test_tasks {alter_sql}")
-                        print(f"已为 test_tasks 表添加列: {col_name}")
-            
             # 创建test_case_executions表
             cursor.execute("""CREATE TABLE IF NOT EXISTS test_case_executions (
                 id INT AUTO_INCREMENT PRIMARY KEY COMMENT '执行记录ID',
@@ -555,22 +536,7 @@ def create_tables():
                 INDEX idx_status (status)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='报告表'""")
 
-            # 兼容旧库：若 reports 表已存在但缺少快照相关列，则追加
-            cursor.execute("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'reports'")
-            if cursor.fetchone():
-                for col_name, alter_sql in [
-                    ('status', "ADD COLUMN status VARCHAR(20) NULL COMMENT '任务状态快照（生成报告时）' AFTER assignee_id"),
-                    ('iteration_name', "ADD COLUMN iteration_name VARCHAR(200) NULL COMMENT '迭代名称快照' AFTER status"),
-                    ('suite_id', "ADD COLUMN suite_id INT NULL COMMENT '用例集ID快照' AFTER iteration_name"),
-                    ('suite_name', "ADD COLUMN suite_name VARCHAR(200) NULL COMMENT '用例集名称快照' AFTER suite_id"),
-                    ('requirement_name', "ADD COLUMN requirement_name VARCHAR(200) NULL COMMENT '需求名称快照' AFTER suite_name"),
-                ]:
-                    cursor.execute("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'reports' AND COLUMN_NAME = %s", (col_name,))
-                    if not cursor.fetchone():
-                        cursor.execute(f"ALTER TABLE reports {alter_sql}")
-                        print(f"已为 reports 表添加列: {col_name}")
-
-            # 创建notifications表（消息通知，含置顶字段）
+            # 创建notifications表
             cursor.execute("""CREATE TABLE IF NOT EXISTS notifications (
                 id INT AUTO_INCREMENT PRIMARY KEY COMMENT '通知ID',
                 user_id INT NOT NULL COMMENT '接收人用户ID',
@@ -590,51 +556,8 @@ def create_tables():
                 INDEX idx_user_deleted (user_id, deleted_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消息通知表'""")
 
-            # 兼容旧库：若 notifications 表已存在但缺少列，则追加（与上方 CREATE 定义一致）
-            cursor.execute("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'notifications'")
-            if cursor.fetchone():
-                for col_name, alter_sql in [
-                    ('is_pinned', "ADD COLUMN is_pinned TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否置顶' AFTER is_read"),
-                    ('related_type', "ADD COLUMN related_type VARCHAR(50) NULL COMMENT '关联实体类型' AFTER is_pinned"),
-                    ('related_id', "ADD COLUMN related_id INT NULL COMMENT '关联实体ID' AFTER related_type"),
-                    ('extra', "ADD COLUMN extra JSON NULL COMMENT '扩展信息' AFTER related_id"),
-                    ('deleted_at', "ADD COLUMN deleted_at DATETIME NULL COMMENT '软删除时间' AFTER created_at"),
-                ]:
-                    cursor.execute("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'notifications' AND COLUMN_NAME = %s", (col_name,))
-                    if not cursor.fetchone():
-                        try:
-                            cursor.execute(f"ALTER TABLE notifications {alter_sql}")
-                            print(f"已为 notifications 表添加列: {col_name}")
-                        except Exception as e:
-                            print(f"添加 notifications.{col_name} 跳过: {e}")
-            
             connection.commit()
             print("所有数据表创建成功！")
-
-            # 修复用例/需求/快照优先级：误存为任务优先级(high/medium/low)时改为 P1，避免 LookupError
-            try:
-                for table in ('task_case_snapshots', 'test_cases', 'version_requirements'):
-                    try:
-                        cursor.execute(f"""
-                            UPDATE {table} SET priority = 'P1'
-                            WHERE priority NOT IN ('P0','P1','P2','P3','P4')
-                        """)
-                        if cursor.rowcount and cursor.rowcount > 0:
-                            print(f"已修复 {table} 非法优先级 {cursor.rowcount} 条")
-                    except Exception as t:
-                        print(f"修复 {table} 跳过: {t}")
-                connection.commit()
-            except Exception as repair_e:
-                print(f"优先级修复跳过（可忽略）: {repair_e}")
-
-            # 角色展示统一：原「实习生」改为「普通成员」（仅更新展示用 real_name，role 仍为 admin）
-            try:
-                cursor.execute("UPDATE users SET real_name = '普通成员' WHERE role = 'admin' AND real_name = '实习生'")
-                if cursor.rowcount and cursor.rowcount > 0:
-                    print(f"已更新用户角色展示：{cursor.rowcount} 条 real_name 实习生 → 普通成员")
-                connection.commit()
-            except Exception as role_e:
-                print(f"用户角色展示更新跳过（可忽略）: {role_e}")
 
             return True
             

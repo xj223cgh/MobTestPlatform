@@ -13,7 +13,6 @@ from app.utils.helpers import (
     validate_json_data
 )
 
-# 创建Blueprint
 bp = Blueprint('test_tasks', __name__, url_prefix='/api/test-tasks')
 
 # 本地时区（与 models 一致）
@@ -216,10 +215,9 @@ def get_test_tasks():
     executor_id = request.args.get('executor_id', '').strip()
     folder_id = request.args.get('folder_id', '').strip()  # 可选，任务文件夹ID；空或未传则不过滤
 
-    # 构建查询
     query = TestTask.query
 
-    # 文件夹过滤（传 "null" 或 0 表示未归类，传正整数表示该文件夹下）
+    # 文件夹过滤："null"/0 表示未归类，正整数表示该文件夹
     if folder_id not in ('', None):
         if folder_id == 'null' or folder_id == '0':
             query = query.filter(TestTask.folder_id.is_(None))
@@ -230,34 +228,27 @@ def get_test_tasks():
             except ValueError:
                 pass
 
-    # 搜索过滤
     if search:
         query = query.filter(
             TestTask.task_name.contains(search) |
             TestTask.task_description.contains(search)
         )
     
-    # 状态过滤
     if status:
         query = query.filter(TestTask.status == status)
     
-    # 优先级过滤
     if priority:
         query = query.filter(TestTask.priority == priority)
     
-    # 任务类型过滤
     if task_type:
         query = query.filter(TestTask.task_type == task_type)
     
-    # 项目过滤
     if project_id:
         query = query.filter(TestTask.project_id == int(project_id))
     
-    # 迭代过滤
     if iteration_id:
         query = query.filter(TestTask.iteration_id == int(iteration_id))
     
-    # 负责人过滤
     if executor_id:
         query = query.filter(TestTask.executor_id == int(executor_id))
     
@@ -475,7 +466,6 @@ def update_test_task(task_id):
     if 'test_cases' in data and not data.get('suite_id'):
         data['suite_id'] = data['test_cases']
     
-    # 更新字段
     if 'task_name' in data:
         test_task.task_name = data['task_name']
     
@@ -500,8 +490,7 @@ def update_test_task(task_id):
     if 'task_type' in data:
         test_task.task_type = data['task_type']
     
-    # 更新任务相关信息
-    # 关联用例集在创建任务时固定，更新任务时不允许修改/删除
+    # 关联用例集在创建任务时固定，更新任务时不允许修改
     if 'suite_id' in data and test_task.task_type == 'test_case':
         pass  # 忽略 suite_id 更新，保持创建时的关联
     elif 'suite_id' in data:
@@ -554,7 +543,6 @@ def update_test_task(task_id):
         else:
             test_task.folder_id = None
 
-    # 设备脚本任务专用字段更新
     if 'script_file' in data:
         test_task.script_file = data['script_file']
     
@@ -661,10 +649,8 @@ def get_task_executions(task_id):
     try:
         task = TestTask.query.get_or_404(task_id)
         
-        # 基础查询
         query = TestCaseExecution.query.filter_by(task_id=task_id)
         
-        # 处理状态筛选
         if request.args.get('status'):
             query = query.filter_by(status=request.args['status'])
         
@@ -692,7 +678,6 @@ def update_case_execution(task_id, case_id):
         if 'status' not in data or data['status'] not in TEST_EXECUTION_STATUS:
             return error_response(400, '无效的执行状态')
         
-        # 查找或创建执行记录
         execution = TestCaseExecution.query.filter_by(
             task_id=task_id,
             case_id=case_id
@@ -920,7 +905,6 @@ def cancel_test_task(task_id):
         return error_response(400, "只能取消待执行、运行中或暂停中的测试任务")
     
     try:
-        # 保存原始状态
         original_status = test_task.status
         test_task.status = 'pending'
         test_task.started_time = None

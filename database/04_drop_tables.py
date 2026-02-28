@@ -40,6 +40,7 @@ def drop_tables():
             # 按照外键依赖关系倒序删除表
             tables = [
                 'reports',
+                'notifications',
                 'user_settings',
                 'system_settings',
                 'test_case_review_history',
@@ -59,6 +60,8 @@ def drop_tables():
                 'project_members',
                 'projects',
                 'devices',
+                'role_permissions',
+                'email_verify_codes',
                 'users'
             ]
             

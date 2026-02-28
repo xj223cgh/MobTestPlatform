@@ -6,7 +6,6 @@
           class="slide-track"
           :class="{ register: mode === 'register' }"
         >
-          <!-- 登录：左侧图片，右侧表单 -->
           <div class="slide-page">
             <div class="side-image">
               <img
@@ -18,7 +17,18 @@
             </div>
             <div class="side-form form-login">
               <h2>登录</h2>
+              <div class="login-tabs">
+                <span
+                  :class="{ active: loginType === 'password' }"
+                  @click="loginType = 'password'"
+                >密码登录</span>
+                <span
+                  :class="{ active: loginType === 'email' }"
+                  @click="loginType = 'email'"
+                >邮箱登录</span>
+              </div>
               <form
+                v-if="loginType === 'password'"
                 class="form"
                 @submit.prevent="handleLogin"
               >
@@ -68,10 +78,57 @@
                   >立即注册</a>
                 </p>
               </form>
+              <form
+                v-else
+                class="form"
+                @submit.prevent="handleEmailLogin"
+              >
+                <div class="field field-email-suffix">
+                  <div class="email-input-wrap">
+                    <input
+                      :value="emailLoginForm.email"
+                      type="text"
+                      placeholder="请输入 QQ 号"
+                      autocomplete="email"
+                      @input="onEmailLocalInput"
+                    />
+                    <span class="email-suffix">@qq.com</span>
+                  </div>
+                </div>
+                <div class="field field-code">
+                  <input
+                    v-model="emailLoginForm.code"
+                    type="text"
+                    placeholder="验证码"
+                    maxlength="6"
+                    @keyup.enter="handleEmailLogin"
+                  />
+                  <button
+                    type="button"
+                    class="btn-code"
+                    :disabled="codeCountdown > 0 || codeSending"
+                    @click="sendCode"
+                  >
+                    {{ codeCountdown > 0 ? `${codeCountdown}s 后重发` : codeSending ? "发送中…" : "获取验证码" }}
+                  </button>
+                </div>
+                <button
+                  type="submit"
+                  class="btn-primary"
+                  :disabled="loginLoading"
+                >
+                  {{ loginLoading ? "登录中…" : "登录" }}
+                </button>
+                <p class="switch-tip">
+                  还没有账号？<a
+                    href="#"
+                    @click.prevent="mode = 'register'"
+                  >立即注册</a>
+                </p>
+              </form>
             </div>
           </div>
 
-          <!-- 注册：左侧表单，右侧图片 -->
           <div class="slide-page">
             <div class="side-form form-register">
               <h2>注册</h2>
@@ -154,7 +211,6 @@
       <p>&copy; 2025 移动测试平台. All rights reserved.</p>
     </div>
 
-    <!-- 用户协议弹窗 -->
     <el-dialog
       v-model="agreementDialogVisible"
       title="用户协议"
@@ -176,7 +232,6 @@
       </div>
     </el-dialog>
 
-    <!-- 隐私政策弹窗 -->
     <el-dialog
       v-model="privacyDialogVisible"
       title="隐私政策"
@@ -204,7 +259,7 @@
 import { ref, reactive, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
-import { register } from "@/api/auth";
+import { register, sendLoginCode } from "@/api/auth";
 import { ElMessage } from "element-plus";
 
 const router = useRouter();
@@ -214,12 +269,20 @@ const mode = ref("login");
 const formImageUrl =
   "https://images.unsplash.com/photo-1639322537228-f710d846310a?w=800&q=80";
 
+const loginType = ref("password"); // 'password' | 'email'
 const loginForm = reactive({
   username: "",
   password: "",
   remember: false,
 });
+const emailLoginForm = reactive({
+  email: "",
+  code: "",
+});
 const loginLoading = ref(false);
+const codeSending = ref(false);
+const codeCountdown = ref(0);
+let codeTimer = null;
 
 const registerForm = reactive({
   username: "",
@@ -284,6 +347,89 @@ async function handleLogin() {
       username: loginForm.username.trim(),
       password: loginForm.password,
       remember: loginForm.remember,
+    });
+    if (success) router.push("/home");
+  } catch (e) {
+    console.error("登录失败:", e);
+  } finally {
+    loginLoading.value = false;
+  }
+}
+
+function getFullEmail() {
+  const local = emailLoginForm.email?.trim() ?? "";
+  return local + "@qq.com";
+}
+
+function onEmailLocalInput(e) {
+  let v = e.target.value;
+  if (v.includes("@")) {
+    const idx = v.indexOf("@");
+    v = v.slice(0, idx).trim();
+  }
+  emailLoginForm.email = v;
+}
+
+function validateEmailLogin() {
+  const fullEmail = getFullEmail();
+  const code = emailLoginForm.code?.trim();
+  if (!emailLoginForm.email?.trim()) {
+    ElMessage.warning("请输入 QQ 号");
+    return false;
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fullEmail)) {
+    ElMessage.warning("请输入有效的 QQ 号");
+    return false;
+  }
+  if (!code || code.length !== 6) {
+    ElMessage.warning("请输入 6 位验证码");
+    return false;
+  }
+  return true;
+}
+
+async function sendCode() {
+  const fullEmail = getFullEmail();
+  if (!emailLoginForm.email?.trim()) {
+    ElMessage.warning("请先输入 QQ 号");
+    return;
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fullEmail)) {
+    ElMessage.warning("请输入有效的 QQ 号");
+    return;
+  }
+  codeSending.value = true;
+  try {
+    const res = await sendLoginCode({ email: fullEmail });
+    if (res.code === 200) {
+      ElMessage.success("验证码已发送，请查收邮件");
+      codeCountdown.value = 60;
+      codeTimer = setInterval(() => {
+        codeCountdown.value -= 1;
+        if (codeCountdown.value <= 0 && codeTimer) {
+          clearInterval(codeTimer);
+          codeTimer = null;
+        }
+      }, 1000);
+    } else {
+      ElMessage.error(res.message || "发送失败");
+    }
+  } catch (e) {
+    if (!e._messageShown) {
+      ElMessage.error(e.response?.data?.message || "发送失败");
+    }
+  } finally {
+    codeSending.value = false;
+  }
+}
+
+async function handleEmailLogin() {
+  if (!validateEmailLogin()) return;
+  loginLoading.value = true;
+  try {
+    const success = await userStore.loginByEmail({
+      email: getFullEmail(),
+      code: emailLoginForm.code.trim(),
     });
     if (success) router.push("/home");
   } catch (e) {
@@ -452,6 +598,23 @@ function showPrivacy() {
   box-sizing: border-box;
 }
 
+.login-tabs {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #909399;
+  span {
+    cursor: pointer;
+    &.active {
+      color: #409eff;
+      font-weight: 500;
+    }
+    &:hover:not(.active) {
+      color: #606266;
+    }
+  }
+}
 .side-form.form-login {
   justify-content: center;
 }
@@ -460,6 +623,75 @@ function showPrivacy() {
 }
 .side-form.form-login .form .btn-primary {
   margin-top: 16px;
+}
+/* 邮箱登录：输入区+后缀一体框，交界处必须直角，避免被 .form .field input 的圆角覆盖 */
+.field-email-suffix .email-input-wrap {
+  display: flex;
+  align-items: stretch;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #dcdfe6;
+  transition: border-color 0.2s;
+}
+.field-email-suffix .email-input-wrap:focus-within {
+  border-color: #409eff;
+}
+.field-email-suffix .email-input-wrap input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  padding-right: 8px;
+  background: #fff;
+  /* 仅左侧圆角，右侧严格直角，覆盖 .form .field input 的 border-radius */
+  border-radius: 6px 0 0 6px !important;
+  -webkit-appearance: none;
+  appearance: none;
+  /* 右侧多 1px 与后缀重叠，压住交界处可能出现的圆角 */
+  margin-right: -1px;
+}
+.field-email-suffix .email-input-wrap input:focus {
+  outline: none;
+}
+.field-email-suffix .email-suffix {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  height: 38px;
+  font-size: 14px;
+  color: #606266;
+  background: #f5f7fa;
+  border-left: 1px solid #dcdfe6;
+  /* 仅右侧圆角，左侧严格直角 */
+  border-radius: 0 6px 6px 0;
+  flex-shrink: 0;
+}
+.field-code {
+  display: flex;
+  gap: 8px;
+  input {
+    flex: 1;
+    min-width: 0;
+  }
+}
+.btn-code {
+  flex-shrink: 0;
+  height: 38px;
+  padding: 0 12px;
+  font-size: 13px;
+  color: #409eff;
+  background: #ecf5ff;
+  border: 1px solid #b3d8ff;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover:not(:disabled) {
+    color: #66b1ff;
+    background: #d9ecff;
+  }
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
 }
 
 .side-form h2 {

@@ -19,7 +19,6 @@
       </div>
     </div>
 
-    <!-- 搜索和筛选 -->
     <div class="search-section">
       <el-form
         :model="searchForm"
@@ -116,7 +115,6 @@
       </el-form>
     </div>
 
-    <!-- 项目列表 -->
     <div class="table-section">
       <div class="table-scroll-viewport">
         <el-table
@@ -190,7 +188,6 @@
                 style="width: 90%"
                 @change="handleCreatorChange(scope.row)"
               >
-                <!-- 先显示创建者选项 -->
                 <el-option
                   v-if="scope.row.creator_id && scope.row.creator_name"
                   :key="scope.row.creator_id"
@@ -279,7 +276,6 @@
       </div>
     </div>
 
-    <!-- 分页 - 固定在右侧区域底部 -->
     <div class="fixed-pagination">
       <el-pagination
         :current-page="pagination.currentPage"
@@ -292,7 +288,6 @@
       />
     </div>
 
-    <!-- 创建/编辑项目对话框 -->
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
@@ -398,7 +393,6 @@
           </el-select>
         </el-form-item>
 
-        <!-- 项目成员 -->
         <el-form-item label="项目成员">
           <el-select
             v-model="projectForm.selectedUsers"
@@ -477,7 +471,6 @@
       </template>
     </el-dialog>
 
-    <!-- 删除项目确认对话框 -->
     <el-dialog
       v-model="deleteDialogVisible"
       title="删除项目"
@@ -510,7 +503,7 @@ import {
   updateProject,
   deleteProject,
 } from "@/api/project";
-import { getUserList } from "@/api/user";
+import { getUserOptions } from "@/api/user";
 import { useRouter, useRoute } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { useSystemSettingsStore } from "@/stores/systemSettings";
@@ -518,11 +511,9 @@ import dayjs from "dayjs";
 
 const systemSettingsStore = useSystemSettingsStore();
 
-// 响应式数据
 const loading = ref(false);
 const projectList = ref([]);
 
-// 路由实例
 const router = useRouter();
 const route = useRoute();
 const projectTableRef = ref(null);
@@ -538,12 +529,10 @@ const getRowClassName = ({ row }) => {
   return "";
 };
 
-// 搜索和筛选
 const searchQuery = ref("");
 const statusFilter = ref("");
 const priorityFilter = ref("");
 
-// 搜索表单
 const searchForm = reactive({});
 
 // 分页（每页条数使用系统设置，默认 10）
@@ -553,12 +542,10 @@ const pagination = reactive({
   total: 0,
 });
 
-// 时间格式化函数
 const formatDateTime = (dateTime) => {
   return dateTime ? dayjs(dateTime).format("YYYY-MM-DD HH:mm:ss") : "-";
 };
 
-// 状态类型映射
 const getStatusType = (status) => {
   const statusMap = {
     not_started: "info",
@@ -570,7 +557,6 @@ const getStatusType = (status) => {
   return statusMap[status] || "info";
 };
 
-// 状态文本映射
 const getStatusText = (status) => {
   const statusMap = {
     not_started: "未开始",
@@ -582,7 +568,6 @@ const getStatusText = (status) => {
   return statusMap[status] || status || "-";
 };
 
-// 优先级类型映射
 const getPriorityType = (priority) => {
   const priorityMap = {
     high: "danger",
@@ -592,7 +577,6 @@ const getPriorityType = (priority) => {
   return priorityMap[priority] || "info";
 };
 
-// 优先级文本映射
 const getPriorityText = (priority) => {
   const priorityMap = {
     high: "高",
@@ -602,65 +586,56 @@ const getPriorityText = (priority) => {
   return priorityMap[priority] || priority;
 };
 
-// 创建/编辑项目对话框
 const dialogVisible = ref(false);
 const dialogTitle = ref("");
 const dialogLoading = ref(false);
 const editingProjectId = ref(null);
 
-// 删除项目对话框
 const deleteDialogVisible = ref(false);
 const deleteProjectId = ref(null);
 const deleteProjectName = ref("");
 
-// 表单引用
 const projectFormRef = ref(null);
 
-// 表单数据
 const projectForm = reactive({
   project_name: "",
   description: "",
   status: "not_started",
   priority: "medium",
-  owner_id: "", // 项目负责人ID
+  owner_id: "",
   start_date: "",
   end_date: "",
   doc_url: "",
   pipeline_url: "",
-  selectedUsers: [], // 多选用户ID数组
+  selectedUsers: [],
 });
 
-// 所有用户列表，用于选择项目成员
 const allUsers = ref([]);
 
-// 获取所有用户列表
+// 获取所有用户列表（仅需登录的 options 接口，用于项目成员/负责人下拉）
 const getAllUsers = async () => {
   try {
-    const response = await getUserList();
-    allUsers.value = response.data?.users || [];
+    const response = await getUserOptions({ size: 1000 });
+    allUsers.value = response.data?.items || [];
   } catch (error) {
     console.error("获取用户列表失败:", error);
     ElMessage.error("获取用户列表失败");
   }
 };
 
-// 监听项目负责人变化
 watch(
   () => projectForm.owner_id,
   (newOwnerId, oldOwnerId) => {
     if (!newOwnerId) return;
 
-    // 先过滤掉旧的负责人ID（如果存在），然后添加新的负责人ID
     const updatedUsers = projectForm.selectedUsers.filter(
       (id) => id !== oldOwnerId,
     );
 
-    // 确保新的负责人ID被添加到列表中
     if (!updatedUsers.includes(newOwnerId)) {
       updatedUsers.push(newOwnerId);
     }
 
-    // 更新项目成员列表
     projectForm.selectedUsers = updatedUsers;
   },
 );
@@ -669,11 +644,8 @@ watch(
 const handleMembersChange = () => {
   if (!projectForm.owner_id) return;
 
-  // 检查当前负责人是否在项目成员列表中
   if (!projectForm.selectedUsers.includes(projectForm.owner_id)) {
-    // 如果不在，自动添加回列表
     projectForm.selectedUsers.push(projectForm.owner_id);
-    // 显示提示信息
     ElMessage.warning("当前项目负责人无法从成员列表中删除");
   }
 };
@@ -682,10 +654,8 @@ const handleMembersChange = () => {
 const getSortedUsers = () => {
   if (!projectForm.owner_id) return allUsers.value;
 
-  // 创建用户列表的副本，避免修改原始数据
   const sortedUsers = [...allUsers.value];
 
-  // 排序：将项目负责人排在最前面
   return sortedUsers.sort((a, b) => {
     if (a.id == projectForm.owner_id) return -1;
     if (b.id == projectForm.owner_id) return 1;
@@ -693,7 +663,6 @@ const getSortedUsers = () => {
   });
 };
 
-// 表单验证规则
 const projectRules = {
   project_name: [
     { required: true, message: "请输入项目名称", trigger: "blur" },
@@ -718,7 +687,6 @@ const projectRules = {
   end_date: [{ required: true, message: "请选择结束日期", trigger: "change" }],
 };
 
-// 获取项目列表
 const getProjectList = async () => {
   loading.value = true;
   try {
@@ -765,7 +733,6 @@ const getProjectList = async () => {
   }
 };
 
-// 重置筛选条件
 const resetFilters = () => {
   searchQuery.value = "";
   statusFilter.value = "";
@@ -774,20 +741,17 @@ const resetFilters = () => {
   getProjectList();
 };
 
-// 分页大小变化
 const handleSizeChange = (size) => {
   pagination.pageSize = size;
   pagination.currentPage = 1;
   getProjectList();
 };
 
-// 当前页码变化
 const handleCurrentChange = (current) => {
   pagination.currentPage = current;
   getProjectList();
 };
 
-// 重置表单
 const resetForm = () => {
   if (projectFormRef.value) {
     projectFormRef.value.resetFields();
@@ -806,7 +770,6 @@ const resetForm = () => {
   });
 };
 
-// 打开创建项目对话框
 const handleCreateProject = () => {
   dialogTitle.value = "创建项目";
   resetForm();
@@ -814,16 +777,13 @@ const handleCreateProject = () => {
   dialogVisible.value = true;
 };
 
-// 打开编辑项目对话框
 const handleEditProject = (row) => {
   dialogTitle.value = "编辑项目";
   editingProjectId.value = row.id;
 
-  // 转换项目成员数据为多选格式
   const members = row.members || [];
   const selectedUsers = members.map((member) => member.user_id);
 
-  // 设置表单数据
   Object.assign(projectForm, {
     project_name: row.project_name || "",
     description: row.description || "",
@@ -840,49 +800,41 @@ const handleEditProject = (row) => {
   dialogVisible.value = true;
 };
 
-// 保存项目
 const handleSaveProject = async () => {
   if (!projectFormRef.value) return;
 
   await projectFormRef.value.validate();
 
-  // 引入useUserStore获取当前登录用户信息
   const userStore = useUserStore();
   const currentUserId = userStore.userInfo.id;
 
-  // 构建保存数据，将selectedUsers转换为members数组格式
   const saveData = { ...projectForm };
 
   // 只有创建项目时才设置creator_id，编辑时不修改创建者
   if (!editingProjectId.value) {
-    // 添加创建者ID为当前登录用户ID
     saveData.creator_id = currentUserId;
   }
 
-  // 转换多选用户为members数组格式，固定使用tester角色
   saveData.members = saveData.selectedUsers.map((userId) => ({
     user_id: userId,
-    role: "tester", // 固定默认角色为tester
+    role: "tester",
   }));
 
-  // 删除不需要发送给后端的字段
   delete saveData.selectedUsers;
 
   dialogLoading.value = true;
   try {
     let response;
     if (editingProjectId.value) {
-      // 编辑项目
       response = await updateProject(editingProjectId.value, saveData);
       ElMessage.success("项目更新成功");
     } else {
-      // 创建项目
       response = await createProject(saveData);
       ElMessage.success("项目创建成功");
     }
 
     dialogVisible.value = false;
-    getProjectList(); // 重新获取项目列表
+    getProjectList();
   } catch (error) {
     console.error("保存项目失败:", error);
     ElMessage.error(editingProjectId.value ? "项目更新失败" : "项目创建失败");
@@ -891,14 +843,12 @@ const handleSaveProject = async () => {
   }
 };
 
-// 打开删除项目对话框
 const handleDeleteProject = (row) => {
   deleteProjectId.value = row.id;
   deleteProjectName.value = row.project_name || "未知项目";
   deleteDialogVisible.value = true;
 };
 
-// 确认删除项目
 const handleConfirmDelete = async () => {
   if (!deleteProjectId.value) return;
 
@@ -907,7 +857,7 @@ const handleConfirmDelete = async () => {
     await deleteProject(deleteProjectId.value);
     ElMessage.success("项目删除成功");
     deleteDialogVisible.value = false;
-    getProjectList(); // 重新获取项目列表
+    getProjectList();
   } catch (error) {
     console.error("删除项目失败:", error);
     // 400 等校验提示已由 request 拦截器统一展示，此处仅处理无 response 的情况
@@ -919,20 +869,15 @@ const handleConfirmDelete = async () => {
   }
 };
 
-// 查看项目
 const handleViewProject = (row) => {
-  // 跳转到项目详情页面
   router.push(`/projects/${row.id}`);
 };
 
-// 获取创建者选项列表 - 直接使用后端返回的项目成员数据
 const getCreatorOptions = (row) => {
-  // 确保使用项目成员表的数据
   if (row.members && row.members.length > 0) {
     return row.members;
   }
 
-  // 如果没有成员数据，至少包含当前创建者
   if (row.creator_id && row.creator_name) {
     return [
       {
@@ -947,7 +892,6 @@ const getCreatorOptions = (row) => {
 
 // 处理创建者变更 - 恢复原始值，实现可展开但不可选择
 const handleCreatorChange = (row) => {
-  // 恢复_displayUserId为creator_id，而不是修改原始creator_id
   row._displayUserId = row.creator_id;
 };
 
@@ -1006,7 +950,6 @@ watch(
   { flush: "post" }
 );
 
-// 生命周期钩子 - 组件挂载时获取项目列表
 onMounted(() => {
   getProjectList();
 });

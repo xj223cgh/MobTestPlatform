@@ -17,7 +17,6 @@ export function getNotifications(params) {
   });
 }
 
-/** 未读数量 */
 export function getUnreadCount() {
   return request({
     url: `${BASE}/unread-count`,
@@ -30,7 +29,7 @@ export function markRead(id, body) {
   return request({
     url: `${BASE}/${id}/read`,
     method: "patch",
-    data: body,
+    data: body !== undefined ? body : {},
   });
 }
 
@@ -51,7 +50,6 @@ export function pinNotification(id, body) {
   });
 }
 
-/** 批量已读 */
 export function markReadBatch(ids) {
   return request({
     url: `${BASE}/read`,
@@ -60,10 +58,16 @@ export function markReadBatch(ids) {
   });
 }
 
-/** 全部已读 */
 export function markReadAll() {
   return request({
     url: `${BASE}/read-all`,
+    method: "post",
+  });
+}
+
+export function markUnreadAll() {
+  return request({
+    url: `${BASE}/unread-all`,
     method: "post",
   });
 }

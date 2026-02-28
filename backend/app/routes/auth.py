@@ -1,16 +1,19 @@
-from datetime import timedelta
+import random
+import string
+from datetime import timedelta, datetime
 
 from flask import Blueprint, request, session, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 
-from app.models.models import User, db, SystemSetting
+from app.models.models import User, db, SystemSetting, EmailVerifyCode, LOCAL_TIMEZONE
 from app.utils.helpers import (
     success_response, error_response, log_user_action,
-    validate_json_data, validate_phone, validate_username
+    validate_json_data, validate_phone, validate_username, validate_qq_email,
 )
 from app.utils.auth_utils import SessionManager, PasswordManager, TwoFactorAuth
 from app.utils.auth import rate_limiter
 from app.services.permission_service import get_user_permission_codes
+from app.services.email_service import send_login_code, send_reset_password_link, send_bind_verify_code, send_unbind_verify_code
 
 bp = Blueprint('auth', __name__)
 
@@ -53,19 +56,15 @@ def login():
     """用户登录"""
     # 处理GET请求（Flask-Login重定向过来的）
     if request.method == 'GET':
-        # 如果已经登录，返回已登录状态
         if current_user.is_authenticated:
             return success_response({"message": "Already logged in"}, "Already logged in")
         # 未登录返回未授权错误，使用英文消息避免UnicodeEncodeError
         return error_response(401, "Please login")
     
-    # 处理POST请求（正常登录）
-    # 检查请求是否有JSON数据
     if not request.is_json:
         return error_response(400, "请求必须是JSON格式")
     
     data = request.get_json()
-    # 验证必要字段
     if not all(key in data for key in ['username', 'password']):
         return error_response(400, "缺少必要字段")
     
@@ -75,7 +74,6 @@ def login():
     if not username or not password:
         return error_response(400, "用户名和密码不能为空")
     
-    # 查找用户
     user = User.query.filter(
         (User.username == username) | (User.phone == username)
     ).first()
@@ -95,7 +93,6 @@ def login():
             lock_time = locked_until if locked_until.tzinfo else locked_until.replace(tzinfo=LOCAL_TIMEZONE)
             if lock_time > now:
                 return error_response(401, "账户已锁定，请稍后再试或联系管理员")
-            # 已过锁定期，清空锁定状态
             user.failed_login_attempts = 0
             user.locked_until = None
             try:
@@ -103,7 +100,6 @@ def login():
             except Exception:
                 db.session.rollback()
 
-    # 检查密码
     if not user.check_password(password):
         if lock_threshold > 0:
             user.failed_login_attempts = getattr(user, "failed_login_attempts", 0) + 1
@@ -117,7 +113,6 @@ def login():
                 return error_response(401, "登录失败次数过多，账户已锁定30分钟，请稍后再试")
         return error_response(401, "用户名或密码错误")
 
-    # 登录成功：清空失败次数与锁定状态
     if lock_threshold > 0 and (getattr(user, "failed_login_attempts", 0) or getattr(user, "locked_until", None)):
         user.failed_login_attempts = 0
         user.locked_until = None
@@ -129,8 +124,8 @@ def login():
     if not user.is_active:
         return error_response(401, "账户已被禁用，请联系管理员解除禁制")
     
-    # 从系统设置读取会话超时时间（分钟），默认 24 小时
-    session_timeout_minutes = 24 * 60  # 1440
+    # 从系统设置读取会话超时时间（分钟），无则用 .env 的 SESSION_TIMEOUT_MINUTES 默认值
+    session_timeout_minutes = current_app.config.get('SESSION_TIMEOUT_MINUTES', 1440)
     setting = SystemSetting.query.filter_by(setting_key="session_timeout_minutes").first()
     if setting and setting.setting_value:
         try:
@@ -145,13 +140,212 @@ def login():
     login_user(user, remember=True)
     session.permanent = True
     
-    # 记录登录日志
     log_user_action("登录", f"IP: {request.remote_addr}")
     
     return success_response({
         'user': user.to_dict(),
         'permissions': get_user_permission_codes(user)
     }, "登录成功")
+
+
+@bp.route('/send-login-code', methods=['POST'])
+@rate_limiter.rate_limit(limit=5, window=60)  # 同一 IP 1 分钟内最多 5 次
+def send_login_code_route():
+    """发送 QQ 邮箱登录验证码（6 位数字，5 分钟有效）"""
+    if not request.is_json:
+        return error_response(400, "请求必须是 JSON 格式")
+    data = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip().lower()
+    if not email:
+        return error_response(400, "请输入邮箱")
+    if not validate_qq_email(email):
+        return error_response(400, "仅支持 QQ 邮箱（格式：QQ号@qq.com，如 123456789@qq.com）")
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return error_response(400, "该邮箱未绑定账号，请使用密码登录或先在用户设置中绑定邮箱")
+    code = ''.join(random.choices(string.digits, k=6))
+    expires_at = datetime.now(LOCAL_TIMEZONE) + timedelta(minutes=5)
+    try:
+        EmailVerifyCode.query.filter_by(email=email, purpose='login').delete()
+        record = EmailVerifyCode(email=email, code=code, purpose='login', expires_at=expires_at)
+        db.session.add(record)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return error_response(500, "发送失败，请稍后重试")
+    ok, send_err = send_login_code(email, code)
+    if not ok:
+        if send_err == "recipient_refused":
+            return error_response(400, "该邮箱无法接收邮件，请检查邮箱是否正确或在用户设置中重新绑定为有效 QQ 邮箱")
+        return error_response(500, "邮件发送失败，请稍后重试")
+    return success_response(message="验证码已发送到您的邮箱，5 分钟内有效")
+
+
+@bp.route('/login-by-email', methods=['POST'])
+@rate_limiter.rate_limit(limit=5, window=60)
+def login_by_email():
+    """邮箱验证码登录"""
+    if not request.is_json:
+        return error_response(400, "请求必须是 JSON 格式")
+    data = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip().lower()
+    code = (data.get('code') or '').strip()
+    if not email:
+        return error_response(400, "请输入邮箱")
+    if not validate_qq_email(email):
+        return error_response(400, "仅支持 QQ 邮箱（格式：QQ号@qq.com）")
+    if not code or len(code) != 6:
+        return error_response(400, "请输入 6 位验证码")
+    now = datetime.now(LOCAL_TIMEZONE)
+    record = EmailVerifyCode.query.filter_by(
+        email=email, purpose='login', code=code
+    ).filter(EmailVerifyCode.expires_at > now).order_by(EmailVerifyCode.created_at.desc()).first()
+    if not record:
+        return error_response(400, "验证码错误或已过期，请重新获取")
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return error_response(401, "该邮箱未绑定账号")
+    if not user.is_active:
+        return error_response(401, "账户已被禁用，请联系管理员")
+    try:
+        EmailVerifyCode.query.filter_by(id=record.id).delete()
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    session_timeout_minutes = current_app.config.get('SESSION_TIMEOUT_MINUTES', 1440)
+    setting = SystemSetting.query.filter_by(setting_key="session_timeout_minutes").first()
+    if setting and setting.setting_value:
+        try:
+            v = int(setting.setting_value)
+            if 30 <= v <= 10080:
+                session_timeout_minutes = v
+        except (ValueError, TypeError):
+            pass
+    current_app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=session_timeout_minutes)
+    login_user(user, remember=True)
+    session.permanent = True
+    log_user_action("邮箱验证码登录", f"IP: {request.remote_addr}")
+    return success_response({
+        'user': user.to_dict(),
+        'permissions': get_user_permission_codes(user)
+    }, "登录成功")
+
+
+@bp.route('/send-bind-email-code', methods=['POST'])
+@rate_limiter.rate_limit(limit=5, window=60)
+def send_bind_email_code():
+    """发送邮箱绑定验证码（配置邮箱时验证真实性，不要求已登录）"""
+    if not request.is_json:
+        return error_response(400, "请求必须是 JSON 格式")
+    data = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip().lower()
+    if not email:
+        return error_response(400, "请输入邮箱")
+    if not validate_qq_email(email):
+        return error_response(400, "仅支持 QQ 邮箱（格式：QQ号@qq.com）")
+    code = ''.join(random.choices(string.digits, k=6))
+    expires_at = datetime.now(LOCAL_TIMEZONE) + timedelta(minutes=5)
+    try:
+        EmailVerifyCode.query.filter_by(email=email, purpose='bind_verify').delete()
+        record = EmailVerifyCode(email=email, code=code, purpose='bind_verify', expires_at=expires_at)
+        db.session.add(record)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return error_response(500, "发送失败，请稍后重试")
+    ok, send_err = send_bind_verify_code(email, code)
+    if not ok:
+        if send_err == "recipient_refused":
+            return error_response(400, "该邮箱无法接收邮件，请检查是否为有效 QQ 邮箱")
+        return error_response(500, "邮件发送失败，请稍后重试")
+    return success_response(message="验证码已发送到该邮箱，5 分钟内有效")
+
+
+@bp.route('/confirm-email-binding', methods=['POST'])
+@login_required
+def confirm_email_binding():
+    """当前用户确认邮箱绑定（验证码通过后写入当前用户邮箱）"""
+    if not request.is_json:
+        return error_response(400, "请求必须是 JSON 格式")
+    data = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip().lower()
+    code = (data.get('code') or '').strip()
+    if not email:
+        return error_response(400, "请输入邮箱")
+    if not validate_qq_email(email):
+        return error_response(400, "仅支持 QQ 邮箱")
+    if not code or len(code) != 6:
+        return error_response(400, "请输入 6 位验证码")
+    now = datetime.now(LOCAL_TIMEZONE)
+    record = EmailVerifyCode.query.filter_by(
+        email=email, purpose='bind_verify', code=code
+    ).filter(EmailVerifyCode.expires_at > now).order_by(EmailVerifyCode.created_at.desc()).first()
+    if not record:
+        return error_response(400, "验证码错误或已过期，请重新获取")
+    existing = User.query.filter_by(email=email).first()
+    if existing and existing.id != current_user.id:
+        return error_response(400, "该邮箱已被其他用户使用")
+    try:
+        EmailVerifyCode.query.filter_by(id=record.id).delete()
+        current_user.email = email
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return error_response(500, "保存失败，请稍后重试")
+    return success_response(message="邮箱绑定成功")
+
+
+@bp.route('/send-unbind-email-code', methods=['POST'])
+@login_required
+@rate_limiter.rate_limit(limit=5, window=60)
+def send_unbind_email_code():
+    """向当前用户已绑定邮箱发送解除绑定验证码"""
+    email = (current_user.email or '').strip()
+    if not email:
+        return error_response(400, "当前未绑定邮箱，无需解除")
+    if not validate_qq_email(email):
+        return error_response(400, "当前绑定邮箱格式异常")
+    code = ''.join(random.choices(string.digits, k=6))
+    expires_at = datetime.now(LOCAL_TIMEZONE) + timedelta(minutes=5)
+    EmailVerifyCode.query.filter_by(email=email, purpose='unbind_verify').delete()
+    record = EmailVerifyCode(email=email, code=code, purpose='unbind_verify', expires_at=expires_at)
+    db.session.add(record)
+    db.session.commit()
+    ok, send_err = send_unbind_verify_code(email, code)
+    if not ok:
+        if send_err == "recipient_refused":
+            return error_response(400, "该邮箱无法接收邮件，请检查邮箱是否有效")
+        return error_response(500, "验证码发送失败，请稍后重试")
+    return success_response(message="验证码已发送到您的邮箱，5 分钟内有效")
+
+
+@bp.route('/unbind-email', methods=['POST'])
+@login_required
+def unbind_email():
+    """当前用户解除邮箱绑定（需传入验证码）"""
+    if not request.is_json:
+        return error_response(400, "请求必须是 JSON 格式")
+    data = request.get_json(silent=True) or {}
+    code = (data.get('code') or '').strip()
+    if not code or len(code) != 6:
+        return error_response(400, "请输入 6 位验证码")
+    email = (current_user.email or '').strip()
+    if not email:
+        return error_response(400, "当前未绑定邮箱")
+    now = datetime.now(LOCAL_TIMEZONE)
+    record = EmailVerifyCode.query.filter_by(
+        email=email, purpose='unbind_verify', code=code
+    ).filter(EmailVerifyCode.expires_at > now).order_by(EmailVerifyCode.created_at.desc()).first()
+    if not record:
+        return error_response(400, "验证码错误或已过期，请重新获取")
+    try:
+        EmailVerifyCode.query.filter_by(id=record.id).delete()
+        current_user.email = None
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return error_response(500, "操作失败，请稍后重试")
+    return success_response(message="已解除邮箱绑定")
 
 
 @bp.route('/logout', methods=['POST', 'GET'])
@@ -199,7 +393,6 @@ def register():
     gender = data.get('gender', 'other')
     department = data.get('department', '').strip()
     
-    # 验证输入
     if not validate_username(username):
         return error_response(400, "用户名长度必须在3-14个字节之间")
     
@@ -217,15 +410,12 @@ def register():
     if not real_name:
         return error_response(400, "真实姓名不能为空")
     
-    # 检查用户名是否已存在
     if User.query.filter_by(username=username).first():
         return error_response(400, "用户名已存在")
     
-    # 检查手机号是否已存在
     if User.query.filter_by(phone=phone).first():
         return error_response(400, "手机号已注册")
     
-    # 创建新用户（默认为admin角色）
     user = User(
         username=username,
         phone=phone,
@@ -240,7 +430,6 @@ def register():
         db.session.add(user)
         db.session.commit()
         log_user_action("注册", f"新用户: {username}")
-        # 通知所有 super、manager 角色用户
         admin_users = User.query.filter(User.role.in_(['super', 'manager'])).all()
         if admin_users:
             from app.services.notification_service import notify_users
@@ -282,11 +471,9 @@ def change_password():
     if not valid:
         return error_response(400, msg)
     
-    # 验证原密码
     if not current_user.check_password(old_password):
         return error_response(400, "原密码错误")
     
-    # 更新密码
     current_user.set_password(new_password)
     
     try:
@@ -323,21 +510,22 @@ def check_session():
 def forgot_password():
     """忘记密码"""
     data = request.get_json()
-    email = data['email'].strip()
-    
+    email = (data['email'] or '').strip().lower()
+    if not validate_qq_email(email):
+        return error_response(400, "仅支持 QQ 邮箱（格式：QQ号@qq.com）")
     user = User.query.filter_by(email=email).first()
     if not user:
-        return error_response(404, "邮箱不存在")
-    
-    # 生成重置令牌
-    reset_token = PasswordManager.generate_reset_token(user.id)
-    
-    # TODO: 发送重置邮件
-    # 这里应该发送包含重置链接的邮件
-    
+        return error_response(404, "该邮箱未绑定账号")
+    reset_token = PasswordManager.generate_reset_token(user.id, expires_in=1800)
+    base_url = current_app.config.get('FRONTEND_RESET_PASSWORD_URL', 'http://localhost:8080/reset-password')
+    reset_link = f"{base_url.rstrip('/')}?token={reset_token}"
+    ok, send_err = send_reset_password_link(email, reset_link)
+    if not ok:
+        if send_err == "recipient_refused":
+            return error_response(400, "该邮箱无法接收邮件，请检查邮箱是否正确或联系管理员重新绑定")
+        return error_response(500, "邮件发送失败，请稍后重试")
     log_user_action("请求密码重置", f"邮箱: {email}")
-    
-    return success_response(message="密码重置邮件已发送")
+    return success_response(message="密码重置邮件已发送，请查收")
 
 
 @bp.route('/reset-password', methods=['POST'])
@@ -348,8 +536,7 @@ def reset_password():
     token = data['token']
     password = data['password']
     
-    # 验证令牌
-    user_id = PasswordManager.verify_reset_token(token)
+    user_id = PasswordManager.verify_reset_token(token, max_age=1800)
     if not user_id:
         return error_response(400, "无效或过期的重置令牌")
 
@@ -361,7 +548,6 @@ def reset_password():
     if not is_valid:
         return error_response(400, message)
     
-    # 更新密码
     user = User.query.get(user_id)
     user.set_password(password)
     
@@ -378,13 +564,8 @@ def reset_password():
 @login_required
 def enable_2fa():
     """启用双因素认证"""
-    # 生成密钥
     secret = TwoFactorAuth.generate_secret()
-    
-    # 生成二维码
     qr_code = TwoFactorAuth.generate_qr_code(current_user.email, secret)
-    
-    # 临时保存密钥（等待验证）
     session['2fa_secret'] = secret
     
     return success_response({
@@ -406,7 +587,6 @@ def verify_2fa():
         return error_response(400, "请先启用双因素认证")
     
     if TwoFactorAuth.verify_token(secret, token):
-        # 保存密钥到用户记录
         current_user.two_factor_secret = secret
         current_user.two_factor_enabled = True
         
@@ -432,15 +612,12 @@ def disable_2fa():
     password = data['password']
     token = data['token']
     
-    # 验证密码
     if not current_user.check_password(password):
         return error_response(400, "密码错误")
     
-    # 验证2FA令牌
     if not TwoFactorAuth.verify_token(current_user.two_factor_secret, token):
         return error_response(400, "验证码错误")
     
-    # 禁用2FA
     current_user.two_factor_enabled = False
     current_user.two_factor_secret = None
     

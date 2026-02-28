@@ -1,6 +1,5 @@
 <template>
   <div class="help-center">
-    <!-- 顶部区域：与其他功能页保持一致的容器样式 -->
     <div class="page-header">
       <div class="header-content">
         <h1>帮助中心</h1>
@@ -29,7 +28,6 @@
       </div>
     </div>
 
-    <!-- 视频教程 -->
     <el-card class="video-tutorials">
       <template #header>
         <div class="card-header">
@@ -84,7 +82,6 @@
       </div>
     </el-card>
 
-    <!-- 帮助分类：左右两列，展开互不影响 -->
     <div class="help-categories">
       <div class="help-categories-column">
         <el-card
@@ -176,7 +173,6 @@
       </div>
     </div>
 
-    <!-- 常见问题 -->
     <el-card class="faq">
       <template #header>
         <div class="card-header">
@@ -224,7 +220,6 @@
       </div>
     </el-card>
 
-    <!-- 开发者联系 -->
     <el-card class="developer-contact">
       <template #header>
         <div class="card-header">
@@ -242,7 +237,6 @@
       </div>
     </el-card>
 
-    <!-- 帮助详情对话框 -->
     <el-dialog
       v-model="helpDetailVisible"
       :title="currentHelpItem?.title"
@@ -276,7 +270,6 @@
       </div>
     </el-dialog>
 
-    <!-- 视频播放对话框 -->
     <el-dialog
       v-model="videoDialogVisible"
       :title="currentVideo?.title"
@@ -323,7 +316,6 @@ import {
   Key,
 } from "@element-plus/icons-vue";
 
-// 响应式数据
 const searchKeyword = ref("");
 /** 实际参与过滤的关键字（点击搜索后生效） */
 const appliedSearchKeyword = ref("");
@@ -610,19 +602,16 @@ const rightCategories = computed(() => {
   return list.slice(mid);
 });
 
-// 去除 HTML 标签，用于内容匹配
 function stripHtml(html) {
   if (!html) return "";
   return String(html).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-// 判断文本是否包含关键字（忽略大小写）
 function matchKeyword(text, keyword) {
   if (!keyword || !text) return false;
   return stripHtml(String(text)).toLowerCase().includes(keyword.toLowerCase());
 }
 
-// 按关键字过滤后的分类（仅保留标题或内容包含关键字的条目）
 const filteredCategories = computed(() => {
   const kw = appliedSearchKeyword.value.trim();
   const list = categories.value;
@@ -654,7 +643,6 @@ const filteredRightCategories = computed(() => {
   return list.slice(mid);
 });
 
-// 按关键字过滤后的视频列表（标题、描述、标签）
 const filteredVideoList = computed(() => {
   const kw = appliedSearchKeyword.value.trim();
   const list = videoList.value;
@@ -667,7 +655,6 @@ const filteredVideoList = computed(() => {
   );
 });
 
-// 按关键字过滤后的常见问题（问题、答案）
 const filteredFaqList = computed(() => {
   const kw = appliedSearchKeyword.value.trim();
   const list = faqList.value;
@@ -677,7 +664,6 @@ const filteredFaqList = computed(() => {
   );
 });
 
-// 常见问题
 const faqList = ref([
   {
     id: "faq-1",
@@ -854,12 +840,10 @@ const videoList = ref([
   },
 ]);
 
-// 方法：点击搜索时应用当前关键字进行过滤
 const handleSearch = () => {
   appliedSearchKeyword.value = searchKeyword.value.trim();
 };
 
-// 重置：清空搜索条件并恢复全部内容
 const handleReset = () => {
   searchKeyword.value = "";
   appliedSearchKeyword.value = "";
@@ -909,10 +893,7 @@ const dislikeHelpItem = () => {
   ElMessage.info("我们会继续改进，感谢您的反馈！");
 };
 
-// 生命周期
-onMounted(() => {
-  // 初始化数据
-});
+onMounted(() => {});
 </script>
 
 <style scoped>
@@ -970,7 +951,6 @@ onMounted(() => {
   width: 280px;
 }
 
-/* 左右两列布局，左侧/右侧卡片展开时互不影响 */
 .help-categories {
   display: flex;
   gap: 24px;
@@ -1121,7 +1101,6 @@ onMounted(() => {
   font-size: 14px;
 }
 
-/* 视频教程卡片区域 */
 .video-tutorials :deep(.el-card__body) {
   padding: 24px;
 }

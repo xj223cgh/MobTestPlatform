@@ -20,41 +20,32 @@ bp = Blueprint('projects', __name__)
 def create_project():
     """创建新项目"""
     try:
-        # 获取请求数据
         data = request.get_json()
         
-        # 验证必要字段
         required_fields = ['project_name', 'description', 'start_date', 'end_date', 'owner_id']
         for field in required_fields:
             if field not in data:
                 return jsonify({'code': 400, 'message': f'缺少必要字段: {field}'}), 400
         
-        # 验证项目负责人是否存在
         owner = User.query.get(data['owner_id'])
         if not owner:
             return jsonify({'code': 400, 'message': '项目负责人不存在'}), 400
         
-        # 验证项目描述字数限制
         if len(data['description']) > 100:
             return jsonify({'code': 400, 'message': '项目描述不能超过100个字符'}), 400
         
-        # 验证日期格式
         try:
-            # 支持多种日期格式，包括YYYY-MM-DD和YYYY-MM-DD HH:MM:SS
             start_date = datetime.fromisoformat(data['start_date'].replace('Z', '+00:00'))
             end_date = datetime.fromisoformat(data['end_date'].replace('Z', '+00:00'))
         except ValueError:
             return jsonify({'code': 400, 'message': '日期格式错误，请使用有效的日期格式'}), 400
         
-        # 验证日期逻辑
         if start_date > end_date:
             return jsonify({'code': 400, 'message': '开始日期不能晚于结束日期'}), 400
         
-        # 处理标签字段
         import json
         tags = json.dumps(data.get('tags', [])) if data.get('tags') else None
         
-        # 创建项目
         new_project = Project(
             project_name=data['project_name'],
             description=data['description'],
@@ -69,9 +60,8 @@ def create_project():
             creator_id=current_user.id  # 始终使用当前登录用户作为创建人
         )
         db.session.add(new_project)
-        db.session.flush()  # 获取项目ID
+        db.session.flush()
         
-        # 添加创建者为项目成员
         project_member = ProjectMember(
             project_id=new_project.id,
             user_id=current_user.id,
@@ -79,14 +69,11 @@ def create_project():
         )
         db.session.add(project_member)
         
-        # 添加其他成员
         if 'members' in data:
             for member in data['members']:
                 if 'user_id' in member and 'role' in member:
-                    # 检查用户是否存在
                     user = User.query.get(member['user_id'])
                     if user:
-                        # 检查是否已经是项目成员
                         existing_member = ProjectMember.query.filter_by(
                             project_id=new_project.id,
                             user_id=member['user_id']
@@ -131,32 +118,24 @@ def get_projects():
         status = request.args.get('status', '', type=str)
         priority = request.args.get('priority', '', type=str)
         
-        # 构建基础查询，返回所有项目
         query = Project.query
         
-        # 应用搜索条件，使用二进制比较实现严格区分大小写
         if search:
-            # 使用参数化查询避免SQL注入，同时实现区分大小写搜索
+            # BINARY 实现区分大小写搜索
             query = query.filter(db.text("BINARY project_name LIKE :search_pattern")).params(search_pattern=f"%{search}%")
         
-        # 应用状态筛选
         if status and status in PROJECT_STATUS:
             query = query.filter(Project.status == status)
         
-        # 应用优先级筛选
         if priority:
             query = query.filter(Project.priority == priority)
         
         # 默认排序：最近更新在前，符合用户「最近在用的项目」习惯
         query = query.order_by(Project.updated_at.desc(), Project.id.desc())
         
-        # 执行分页查询
         pagination = query.paginate(page=page, per_page=size, error_out=False)
-        
-        # 转换为字典列表
         project_list = [project.to_dict() for project in pagination.items]
         
-        # 返回包含分页信息的结果
         return jsonify({
             'code': 200,
             'message': 'success',
@@ -175,7 +154,6 @@ def get_projects():
 def get_project(project_id):
     """获取项目详情"""
     try:
-        # 获取项目详情
         project = Project.query.get(project_id)
         if not project:
             return jsonify({'error': '项目不存在'}), 404
@@ -196,20 +174,14 @@ def get_project(project_id):
 def update_project(project_id):
     """更新项目信息"""
     try:
-        # 移除权限限制，允许所有登录用户更新项目
-        # 注意：这是根据用户要求移除权限限制，实际生产环境应该保留权限检查
-        
-        # 获取项目
         project = Project.query.get(project_id)
         if not project:
             return jsonify({'code': 404, 'message': '项目不存在'}), 404
         
-        # 更新项目信息
         data = request.get_json()
         if 'project_name' in data:
             project.project_name = data['project_name']
         if 'description' in data:
-            # 验证项目描述字数限制
             if len(data['description']) > 100:
                 return jsonify({'code': 400, 'message': '项目描述不能超过100个字符'}), 400
             project.description = data['description']
@@ -217,13 +189,11 @@ def update_project(project_id):
             project.status = data['status']
         if 'start_date' in data:
             try:
-                # 支持多种日期格式，包括ISO格式
                 project.start_date = datetime.fromisoformat(data['start_date'].replace('Z', '+00:00'))
             except ValueError:
                 return jsonify({'code': 400, 'message': '开始日期格式错误，请使用有效的日期格式'}), 400
         if 'end_date' in data:
             try:
-                # 支持多种日期格式，包括ISO格式
                 project.end_date = datetime.fromisoformat(data['end_date'].replace('Z', '+00:00'))
             except ValueError:
                 return jsonify({'code': 400, 'message': '结束日期格式错误，请使用有效的日期格式'}), 400
@@ -233,7 +203,6 @@ def update_project(project_id):
         if 'priority' in data:
             project.priority = data['priority']
         if 'owner_id' in data:
-            # 验证项目负责人是否存在
             owner = User.query.get(data['owner_id'])
             if owner:
                 new_owner_id = data['owner_id']
@@ -248,7 +217,6 @@ def update_project(project_id):
         if 'pipeline_url' in data:
             project.pipeline_url = data['pipeline_url']
         if 'creator_id' in data:
-            # 检查新的创建者是否是项目成员
             new_creator = ProjectMember.query.filter_by(
                 project_id=project_id,
                 user_id=data['creator_id']
@@ -258,44 +226,33 @@ def update_project(project_id):
             else:
                 return jsonify({'code': 400, 'message': '新创建者必须是项目成员'}), 400
         
-        # 更新项目成员
         if 'members' in data:
-            # 获取当前项目负责人ID，确保不能被删除
             current_owner_id = project.owner_id
-            
-            # 先获取当前所有项目成员
             current_members = ProjectMember.query.filter_by(project_id=project_id).all()
             current_member_ids = {member.user_id: member for member in current_members}
             
-            # 处理新的成员列表
             for member in data['members']:
                 user_id = member.get('user_id')
                 role = member.get('role')
                 
                 if user_id and role:
-                    # 检查用户是否存在
                     user = User.query.get(user_id)
                     if user:
-                        # 如果用户已经是项目成员，更新角色
                         if user_id in current_member_ids:
                             current_member = current_member_ids[user_id]
                             current_member.role = role
                             del current_member_ids[user_id]  # 标记为已处理
                         else:
-                            # 添加新成员
                             project_member = ProjectMember(
                                 project_id=project_id,
                                 user_id=user_id,
                                 role=role
                             )
                             db.session.add(project_member)
-                            # 通知新成员
                             from app.services.notification_service import notify_users
                             notify_users([user_id], 'project_member_added', '加入项目', f'你已被加入项目「{project.project_name}」', 'project', project_id, exclude_user_id=current_user.id)
             
-            # 删除不再存在的成员，但保留项目负责人
             for member in current_member_ids.values():
-                # 不能删除项目负责人（无论角色是什么）
                 if member.user_id != current_owner_id:
                     db.session.delete(member)
         
@@ -361,7 +318,6 @@ def get_project_members(project_id):
     try:
         members = ProjectMember.query.filter_by(project_id=project_id).all()
         
-        # 转换为字典列表
         member_list = []
         for member in members:
             member_dict = {
@@ -386,17 +342,14 @@ def add_project_member(project_id):
         if not project:
             return jsonify({'error': '项目不存在'}), 404
         
-        # 添加成员
         data = request.get_json()
         if 'user_id' not in data or 'role' not in data:
             return jsonify({'error': '缺少必要字段: user_id, role'}), 400
         
-        # 检查用户是否存在
         user = User.query.get(data['user_id'])
         if not user:
             return jsonify({'error': '用户不存在'}), 404
         
-        # 检查是否已经是项目成员
         existing_member = ProjectMember.query.filter_by(
             project_id=project_id,
             user_id=data['user_id']
@@ -405,7 +358,6 @@ def add_project_member(project_id):
         if existing_member:
             return jsonify({'error': '该用户已经是项目成员'}), 400
         
-        # 添加成员
         new_member = ProjectMember(
             project_id=project_id,
             user_id=data['user_id'],
@@ -424,10 +376,6 @@ def add_project_member(project_id):
 def remove_project_member(project_id, member_id):
     """移除项目成员"""
     try:
-        # 移除权限限制，允许所有登录用户移除成员
-        # 注意：这是根据用户要求移除权限限制，实际生产环境应该保留权限检查
-        
-        # 获取要移除的成员
         member_to_remove = ProjectMember.query.filter_by(
             id=member_id,
             project_id=project_id
@@ -436,16 +384,13 @@ def remove_project_member(project_id, member_id):
         if not member_to_remove:
             return jsonify({'code': 404, 'message': '成员不存在或不属于该项目'}), 404
         
-        # 获取项目信息，检查成员是否是项目负责人
         project = Project.query.get(project_id)
         if not project:
             return jsonify({'code': 404, 'message': '项目不存在'}), 404
         
-        # 不能移除项目负责人
         if member_to_remove.user_id == project.owner_id:
             return jsonify({'code': 403, 'message': '不能移除项目负责人'}), 403
         
-        # 移除成员
         db.session.delete(member_to_remove)
         db.session.commit()
         
@@ -454,17 +399,13 @@ def remove_project_member(project_id, member_id):
         db.session.rollback()
         return jsonify({'code': 500, 'message': f'移除项目成员失败: {str(e)}'}), 500
 
-# 版本需求相关路由
-
 @bp.route('/<int:project_id>/version-requirements', methods=['GET'])
 @login_required
 @permission_required('requirement.list')
 def get_project_version_requirements(project_id):
     """获取项目的版本需求列表"""
     try:
-        # 不需要检查用户是否有权限访问该项目，所有用户都可以查看
-        
-        # 获取项目的版本需求：先按优先级 P0→P4，再按最近更新
+        # 按优先级 P0→P4，再按最近更新排序
         requirements = (
             VersionRequirement.query.filter_by(project_id=project_id)
             .order_by(
@@ -477,7 +418,6 @@ def get_project_version_requirements(project_id):
             .all()
         )
         
-        # 转换为字典列表
         requirement_list = [req.to_dict() for req in requirements]
         
         return jsonify({
@@ -497,7 +437,6 @@ def get_project_version_requirements(project_id):
 def get_all_version_requirements():
     """获取所有版本需求列表"""
     try:
-        # 获取所有版本需求：先按优先级 P0→P4，再按最近更新
         requirements = (
             VersionRequirement.query
             .order_by(
@@ -510,7 +449,6 @@ def get_all_version_requirements():
             .all()
         )
         
-        # 转换为字典列表
         requirement_list = [req.to_dict() for req in requirements]
         
         return jsonify({
@@ -532,13 +470,11 @@ def create_project_version_requirement(project_id):
     try:
         data = request.get_json()
         
-        # 验证必要字段
         required_fields = ['requirement_name', 'description']
         for field in required_fields:
             if field not in data:
                 return jsonify({'code': 400, 'message': f'缺少必要字段: {field}'}), 400
         
-        # 创建版本需求
         new_requirement = VersionRequirement(
             requirement_name=data['requirement_name'],
             requirement_description=data['description'],
@@ -553,7 +489,6 @@ def create_project_version_requirement(project_id):
             assigned_to=data.get('assigned_to')
         )
         
-        # 处理开始时间和结束时间
         if 'start_date' in data and data['start_date']:
             try:
                 new_requirement.start_date = datetime.fromisoformat(data['start_date'].replace('Z', '+00:00'))
@@ -590,7 +525,6 @@ def update_project_version_requirement(project_id, requirement_id):
         if not requirement:
             return jsonify({'code': 404, 'message': '版本需求不存在或不属于该项目'}), 404
         
-        # 更新需求信息
         data = request.get_json()
         
         if 'requirement_name' in data:
@@ -685,18 +619,12 @@ def delete_project_version_requirement(project_id, requirement_id):
 def get_project_iterations(project_id):
     """获取项目的迭代列表"""
     try:
-        # 获取分页参数
         page = request.args.get('page', 1, type=int)
         page_size = request.args.get('page_size', 10, type=int)
         
-        # 获取项目的迭代，添加分页
         project_iterations = Iteration.query.filter_by(project_id=project_id)
         total = project_iterations.count()
-        
-        # 分页查询
         paginated_iterations = project_iterations.offset((page - 1) * page_size).limit(page_size).all()
-        
-        # 转换为字典列表
         iteration_list = [iteration.to_dict() for iteration in paginated_iterations]
         
         return jsonify({

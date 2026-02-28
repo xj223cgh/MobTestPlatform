@@ -62,6 +62,7 @@ declare module 'vue' {
     ElUpload: typeof import('element-plus/es')['ElUpload']
     Layout: typeof import('./src/components/layout/Layout.vue')['default']
     MindMap: typeof import('./src/components/MindMap.vue')['default']
+    QqEmailInput: typeof import('./src/components/QqEmailInput.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }

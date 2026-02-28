@@ -11,7 +11,6 @@ import requests
 import json
 import os
 
-# 创建Blueprint
 bp = Blueprint('ai_tasks', __name__, url_prefix='/api/ai-tasks')
 
 
@@ -34,34 +33,29 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
     
     with app.app_context():
         try:
-            # 更新进度：开始解析文档
             task_manager.update_task_status(
                 task_id,
                 message='正在解析需求文档...',
                 progress=10
             )
             
-            # 1. 解析需求文档内容（从前端传来的documentContent）
             document_content = params.get('documentContent', '')
             
-            # 更新进度：构建提示词
             task_manager.update_task_status(
                 task_id,
                 message='正在构建AI提示词...',
                 progress=20
             )
             
-            # 2. 构建AI提示词
             prompt = build_test_case_prompt(params, document_content)
             
-            # 更新进度：调用AI接口
             task_manager.update_task_status(
                 task_id,
                 message='正在调用AI生成用例...',
                 progress=30
             )
             
-            # 3. 调用AI接口生成测试用例（长文档时提高 max_tokens 避免结果被截断）
+            # 长文档时动态提高 max_tokens 避免结果被截断
             ai_config = get_ai_config()
             doc_len = len(document_content or '')
             base_max = ai_config.get('maxTokens', 4096)
@@ -69,27 +63,23 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
             dynamic_max_tokens = min(16384, base_max + extra_tokens)
             ai_response = call_ai_api(prompt, ai_config, max_tokens_override=dynamic_max_tokens)
             
-            # 更新进度：解析AI返回结果
             task_manager.update_task_status(
                 task_id,
                 message='正在解析AI返回结果...',
                 progress=50
             )
             
-            # 4. 解析AI返回的用例数据
             test_cases = parse_ai_response(ai_response)
             
             if not test_cases:
                 raise Exception("AI未生成任何测试用例")
             
-            # 更新进度：准备保存用例
             task_manager.update_task_status(
                 task_id,
                 message=f'正在保存测试用例，共{len(test_cases)}条...',
                 progress=60
             )
             
-            # 5. 加载用例集并取 project_id/iteration_id/version_requirement_id
             suite = TestSuite.query.get(suite_id)
             if not suite:
                 raise Exception("用例集不存在")
@@ -105,12 +95,10 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
             # 7. 获取当前用例集中最大编号的尾号（格式 xxx-xxx-xxx001，取最后 3 位数字 001～999）
             max_index = get_max_case_index(suite_id)
             
-            # 8. 批量保存测试用例
             saved_cases = []
             total_cases = len(test_cases)
             
             for i, case_item in enumerate(test_cases):
-                # 更新进度
                 current_progress = 60 + int((i / total_cases) * 35)
                 task_manager.update_task_status(
                     task_id,
@@ -127,7 +115,6 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
                     suffix = "999"  # API 仅允许 001-999
                 case_number = f"{case_number_prefix}{suffix}"
                 
-                # 构建用例数据（project_id 必填，从 params 或 suite 取）
                 case_data = {
                     'suite_id': suite_id,
                     'case_number': case_number,
@@ -145,15 +132,12 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
                     'creator_id': params.get('creatorId'),
                 }
                 
-                # 保存用例到数据库
                 test_case = TestCase(**case_data)
                 db.session.add(test_case)
                 saved_cases.append(case_data)
             
-            # 提交事务
             db.session.commit()
             
-            # 更新进度：完成
             task_manager.update_task_status(
                 task_id,
                 message=f'成功生成并保存{len(saved_cases)}条测试用例',
@@ -285,7 +269,6 @@ def parse_ai_response(ai_response: dict) -> list:
     try:
         content = ai_response['choices'][0]['message']['content']
         
-        # 清理可能的markdown代码块标记
         content = content.strip()
         if content.startswith('```json'):
             content = content[7:]
@@ -293,7 +276,6 @@ def parse_ai_response(ai_response: dict) -> list:
             content = content[:-3]
         content = content.strip()
         
-        # 解析JSON
         parsed = json.loads(content)
         return parsed.get('test_cases', [])
     except Exception as e:
@@ -487,17 +469,15 @@ def generate_cases():
     try:
         data = request.get_json()
         
-        # 验证必填参数
         suite_id = data.get('suite_id')
         if not suite_id:
             return error_response('缺少用例集ID', 400)
         
-        # 验证用例集是否存在
         suite = TestSuite.query.get(suite_id)
         if not suite:
             return error_response('用例集不存在', 404)
         
-        # 准备任务参数（传入 app 供后台线程使用应用上下文）
+        # 传入 app 供后台线程推入应用上下文
         params = {
             '_app': current_app._get_current_object(),
             'projectId': data.get('projectId'),
@@ -511,7 +491,6 @@ def generate_cases():
             'creatorId': current_user.id,
         }
         
-        # 创建异步任务
         task_id = task_manager.create_task(
             task_name=f'AI生成测试用例 - {suite.suite_name}',
             task_func=generate_test_cases_task,
@@ -573,10 +552,7 @@ def get_all_tasks():
     }
     """
     try:
-        # 获取所有任务
         all_tasks = list(task_manager.tasks.values())
-        
-        # 按创建时间倒序排序
         all_tasks.sort(key=lambda x: x.get('created_at', ''), reverse=True)
         
         return success_response(all_tasks)

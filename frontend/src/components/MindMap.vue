@@ -24,12 +24,10 @@
 import { ref, onMounted, watch, onBeforeUnmount } from "vue";
 
 const props = defineProps({
-  // 脑图数据
   data: {
     type: Object,
     default: () => ({}),
   },
-  // 是否显示脑图
   visible: {
     type: Boolean,
     default: true,
@@ -131,11 +129,9 @@ function applyRightLayout() {
   setTimeout(tryLayout, 150);
 }
 
-// 初始化脑图
 const initMindMap = () => {
   if (!mindmapRef.value || !window.kityminder) return;
 
-  // 销毁现有实例
   if (minder) {
     try {
       // 手动添加 clearSelect 方法，避免销毁时出错
@@ -153,13 +149,11 @@ const initMindMap = () => {
   minder = new window.kityminder.Minder({
     renderTo: mindmapRef.value,
     enableSvgBackground: true,
-    // 禁用编辑功能
     enableHotbox: false,
     enableContextMenu: false,
     editable: false,
   });
 
-  // 加载数据
   if (props.data && Object.keys(props.data).length > 0) {
     minder.importData("json", JSON.stringify(props.data));
   }
@@ -181,7 +175,6 @@ const initMindMap = () => {
   });
 };
 
-// 监听数据变化
 watch(
   () => props.data,
   (newData) => {
@@ -193,25 +186,21 @@ watch(
   { deep: true },
 );
 
-// 监听显示状态变化
 watch(
   () => props.visible,
   (newVisible) => {
     if (newVisible) {
-      // 延迟初始化，确保DOM已渲染
       setTimeout(initMindMap, 100);
     }
   },
 );
 
-// 组件挂载时初始化
 onMounted(() => {
   if (props.visible) {
     setTimeout(initMindMap, 100);
   }
 });
 
-// 组件卸载时清理
 onBeforeUnmount(() => {
   if (minder) {
     try {

@@ -16,11 +16,9 @@ from app import create_app
 _env_path = Path(__file__).resolve().parent / '.env'
 load_dotenv(dotenv_path=_env_path)
 
-# 创建应用实例
 app = create_app()
 
 if __name__ == '__main__':
-    # 获取配置
     config_name = os.getenv('FLASK_ENV', 'development')
     port = int(os.getenv('PORT', 5000))
     # 使用 SocketIO 启动，与 Flask 同进程，支持 WebSocket 推送

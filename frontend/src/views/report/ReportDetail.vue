@@ -363,7 +363,6 @@
             </div>
           </template>
 
-          <!-- 设备明细 -->
           <div v-if="currentReport?.task_type === 'device_script'" class="device-details-section">
             <h4 class="section-title">设备明细</h4>
             <div class="table-toolbar">
@@ -505,7 +504,6 @@
       </el-button>
     </div>
 
-    <!-- 执行输出弹窗 -->
     <el-dialog
       v-model="outputDialogVisible"
       :title="`执行输出 - ${currentOutputDetail?.device_name || ''}`"
@@ -703,7 +701,6 @@ const testCasePieOption = computed(() => {
   };
 });
 
-// 测试用例柱状图
 const testCaseBarOption = computed(() => ({
   tooltip: { trigger: 'axis' },
   xAxis: { type: 'category', data: ['通过', '失败', '阻塞', '不适用'] },
@@ -719,7 +716,6 @@ const testCaseBarOption = computed(() => ({
   }]
 }));
 
-// 设备饼图
 const devicePieOption = computed(() => ({
   tooltip: { trigger: 'item' },
   legend: { bottom: 0, textStyle: { color: chartTextColor.value } },
@@ -737,7 +733,6 @@ const devicePieOption = computed(() => ({
   }]
 }));
 
-// 设备执行时间柱状图
 const deviceBarOption = computed(() => {
   const details = deviceReportDetails.value;
   const topDevices = [...details]
@@ -757,9 +752,6 @@ const deviceBarOption = computed(() => {
   };
 });
 
-
-
-// 筛选后的设备数据
 const filteredDeviceDetails = computed(() => {
   let list = [...deviceReportDetails.value];
   if (quickFilter.value === 'failed') {
@@ -788,7 +780,6 @@ watch([quickFilter, deviceStatusFilter, deviceSearchKeyword], () => {
   deviceCurrentPage.value = 1;
 });
 
-// 输出弹窗 - 合并输出
 const mergedOutput = computed(() => {
   if (!currentOutputDetail.value) return '';
   const out = currentOutputDetail.value.output || '';
@@ -796,8 +787,6 @@ const mergedOutput = computed(() => {
   if (!err) return out;
   return `=== 标准输出 ===\n${out}\n\n=== 错误输出 ===\n${err}`;
 });
-
-// 搜索关键词功能已移除，直接显示原始输出
 
 const fetchReportData = async () => {
   try {
@@ -869,7 +858,6 @@ const goToDevice = (deviceId) => {
   router.push({ path: "/devices", query: { highlight_device_id: deviceId || "" } });
 };
 
-// 设备脚本报告：下载脚本文件
 const handleDownloadReportScript = () => {
   const report = currentReport.value;
   if (!report?.file_path || !report?.script_file) return;
@@ -980,14 +968,11 @@ async function exportExcel() {
   }
   
   try {
-    // 生成 Excel 文件数据
     const fileName = `报告_${currentReport.value.task_name}_${dayjs().format('YYYYMMDDHHmmss')}.xlsx`;
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    
-    // 检查是否支持 File System Access API
+
     if ('showSaveFilePicker' in window) {
-      // 使用本地文件保存窗口
       const fileHandle = await window.showSaveFilePicker({
         suggestedName: fileName,
         types: [
@@ -999,15 +984,13 @@ async function exportExcel() {
           }
         ]
       });
-      
-      // 写入文件
+
       const writableStream = await fileHandle.createWritable();
       await writableStream.write(blob);
       await writableStream.close();
-      
+
       ElMessage.success('Excel 导出成功');
     } else {
-      // 降级方案：使用浏览器保存对话框
       saveAs(blob, fileName);
       ElMessage.success('Excel 导出成功');
     }
@@ -1039,10 +1022,8 @@ async function exportHtml() {
   try {
     const fileName = `报告_${taskInfo.task_name}_${dayjs().format('YYYYMMDDHHmmss')}.html`;
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    
-    // 检查是否支持 File System Access API
+
     if ('showSaveFilePicker' in window) {
-      // 使用本地文件保存窗口
       const fileHandle = await window.showSaveFilePicker({
         suggestedName: fileName,
         types: [
@@ -1054,15 +1035,13 @@ async function exportHtml() {
           }
         ]
       });
-      
-      // 写入文件
+
       const writableStream = await fileHandle.createWritable();
       await writableStream.write(blob);
       await writableStream.close();
-      
+
       ElMessage.success('HTML 导出成功');
     } else {
-      // 降级方案：使用浏览器保存对话框
       saveAs(blob, fileName);
       ElMessage.success('HTML 导出成功');
     }
@@ -1171,14 +1150,11 @@ watch(
   }
 }
 
-/* 标签页组件已移除 */
-
 .overview-section,
 .script-section {
   margin-bottom: 24px;
 }
 
-/* 脚本信息区域样式 */
 .script-section .script-info-content {
   display: flex;
   flex-direction: column;
@@ -1321,7 +1297,6 @@ watch(
   flex-wrap: wrap;
 }
 
-/* 设备明细表格：内容居中，操作列「查看输出」字号与表格一致 */
 .device-details-table :deep(.el-table__body-wrapper .cell) {
   text-align: center;
 }

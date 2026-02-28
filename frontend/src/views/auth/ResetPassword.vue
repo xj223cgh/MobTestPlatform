@@ -81,23 +81,16 @@ import { ArrowLeft } from "@element-plus/icons-vue";
 const router = useRouter();
 const route = useRoute();
 
-// 表单引用
 const resetFormRef = ref(null);
-
-// 加载状态
 const loading = ref(false);
 
-// 重置密码表单
 const resetForm = reactive({
   password: "",
   confirmPassword: "",
 });
 
-// 邮箱和token
-const email = ref("");
 const token = ref("");
 
-// 密码验证器
 const validatePassword = (rule, value, callback) => {
   if (value === "") {
     callback(new Error("请输入新密码"));
@@ -113,7 +106,6 @@ const validatePassword = (rule, value, callback) => {
   }
 };
 
-// 确认密码验证器
 const validateConfirmPassword = (rule, value, callback) => {
   if (value === "") {
     callback(new Error("请再次输入密码"));
@@ -124,13 +116,11 @@ const validateConfirmPassword = (rule, value, callback) => {
   }
 };
 
-// 表单验证规则
 const resetRules = {
   password: [{ validator: validatePassword, trigger: "blur" }],
   confirmPassword: [{ validator: validateConfirmPassword, trigger: "blur" }],
 };
 
-// 处理重置密码
 const handleResetPassword = async () => {
   if (!resetFormRef.value) return;
 
@@ -139,7 +129,6 @@ const handleResetPassword = async () => {
     loading.value = true;
 
     const response = await resetPassword({
-      email: email.value,
       token: token.value,
       password: resetForm.password,
     });
@@ -160,18 +149,14 @@ const handleResetPassword = async () => {
   }
 };
 
-// 跳转到登录页面
 const goToLogin = () => {
   router.push("/login");
 };
 
-// 初始化
 onMounted(() => {
-  // 从查询参数获取邮箱和token
-  email.value = route.query.email || "";
   token.value = route.query.token || "";
 
-  if (!email.value || !token.value) {
+  if (!token.value) {
     ElMessage.error("重置链接无效，请重新申请");
     router.push("/forgot-password");
   }
@@ -261,7 +246,6 @@ onMounted(() => {
   }
 }
 
-// 响应式
 @media (max-width: 480px) {
   .reset-password-card {
     padding: 30px 20px;

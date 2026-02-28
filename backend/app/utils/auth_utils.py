@@ -3,7 +3,6 @@ import hashlib
 import time
 from datetime import datetime, timedelta, timezone
 
-# 设置本地时区为UTC+8
 LOCAL_TIMEZONE = timezone(timedelta(hours=8))
 from itsdangerous import URLSafeTimedSerializer
 import pyotp

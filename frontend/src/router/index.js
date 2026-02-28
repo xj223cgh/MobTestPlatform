@@ -5,7 +5,6 @@ import "nprogress/nprogress.css";
 
 import TestAIPage from "@/views/TestAIPage.vue";
 
-// 配置NProgress
 NProgress.configure({ showSpinner: false });
 
 const routes = [
@@ -213,18 +212,15 @@ const router = createRouter({
   routes,
 });
 
-// 全局前置守卫
 router.beforeEach(async (to, from, next) => {
   NProgress.start();
 
   const userStore = useUserStore();
 
-  // 设置页面标题
   document.title = to.meta.title
     ? `${to.meta.title} - 移动端测试平台`
     : "移动端测试平台";
 
-  // 检查是否需要认证
   if (to.meta.requiresAuth !== false) {
     const isAuthenticated = userStore.isAuthenticated;
 
@@ -235,23 +231,20 @@ router.beforeEach(async (to, from, next) => {
         try {
           const isAuthValid = await userStore.checkAuth();
           if (!isAuthValid) {
-            // 认证失效，跳转到登录页
             next("/login");
             return;
           }
         } catch (error) {
-          // 检查失败，跳转到登录页
           next("/login");
           return;
         }
       }
     } else {
-      // 未登录，跳转到登录页
       next("/login");
       return;
     }
   } else {
-    // 不需要认证的页面，如果已登录则跳转到首页（排除 404/403）
+    // 已登录访问免认证页时跳转首页，排除 404/403
     if (
       userStore.isAuthenticated &&
       to.path !== "/404" &&
@@ -262,7 +255,7 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  // 已登录且目标路由要求权限时，校验埋点
+  // 目标路由要求埋点权限时，校验用户是否具备任一权限
   if (userStore.isAuthenticated && to.meta?.permissions?.length) {
     const hasAny = to.meta.permissions.some((p) => userStore.hasPermission(p));
     if (!hasAny) {
@@ -274,7 +267,6 @@ router.beforeEach(async (to, from, next) => {
   next();
 });
 
-// 全局后置钩子
 router.afterEach(() => {
   NProgress.done();
 });

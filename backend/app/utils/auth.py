@@ -10,8 +10,6 @@ class APIKeyAuth:
     @staticmethod
     def validate_api_key(api_key):
         """验证API密钥"""
-        # TODO: 实现API密钥验证逻辑
-        # 这里可以从数据库或配置中验证API密钥
         valid_keys = current_app.config.get('VALID_API_KEYS', [])
         return api_key in valid_keys
     
@@ -30,7 +28,6 @@ class APIKeyAuth:
             return f(*args, **kwargs)
         return decorated_function
 
-# API认证装饰器 - 使用Flask-Login的current_user
 def token_required(f):
     """API接口认证装饰器，确保用户已登录"""
     @wraps(f)
@@ -40,7 +37,6 @@ def token_required(f):
         return f(*args, **kwargs)
     return decorated
 
-# 获取用户信息函数
 def get_user_info():
     """获取当前登录用户信息"""
     if not current_user.is_authenticated:
@@ -51,10 +47,8 @@ def get_user_info():
         'role': current_user.role
     }
 
-# 角色权限装饰器
 def role_required(roles):
     """检查用户是否具有指定角色的装饰器，支持单个角色或角色列表"""
-    # 确保roles始终是列表形式
     if isinstance(roles, str):
         roles = [roles]
     
@@ -86,17 +80,14 @@ class RateLimiter:
         if key not in self.requests:
             self.requests[key] = []
         
-        # 清理过期的请求记录
         self.requests[key] = [
             req_time for req_time in self.requests[key]
             if now - req_time < window
         ]
         
-        # 检查是否超过限制
         if len(self.requests[key]) >= limit:
             return False
         
-        # 记录当前请求
         self.requests[key].append(now)
         return True
     
@@ -105,7 +96,6 @@ class RateLimiter:
         def decorator(f):
             @wraps(f)
             def decorated_function(*args, **kwargs):
-                # 使用IP地址作为限制键
                 key = request.remote_addr
                 
                 if not self.is_allowed(key, limit, window):
@@ -116,5 +106,4 @@ class RateLimiter:
         return decorator
 
 
-# 全局速率限制器实例
 rate_limiter = RateLimiter()

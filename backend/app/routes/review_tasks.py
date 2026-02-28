@@ -4,7 +4,6 @@ from datetime import datetime, timezone, timedelta
 from app.models.models import db, TestSuite, TestSuiteReviewTask, TestCaseReviewDetail, TestCase, User, TestSuiteReviewHistory, TestCaseReviewHistory
 from app.utils.helpers import success_response, error_response, get_pagination_params
 
-# 设置本地时区
 LOCAL_TIMEZONE = timezone(timedelta(hours=8))
 
 # 评审结果枚举值 -> 通知/展示用中文
@@ -19,7 +18,6 @@ REVIEW_STATUS_LABEL = {
 def _review_status_label(value):
     return REVIEW_STATUS_LABEL.get(value, value) if value else value
 
-# 创建Blueprint
 bp = Blueprint('review_tasks', __name__, url_prefix='/api/review-tasks')
 
 
@@ -28,18 +26,14 @@ bp = Blueprint('review_tasks', __name__, url_prefix='/api/review-tasks')
 def initiate_review(suite_id):
     """发起用例集评审"""
     try:
-        # 获取用例集
         suite = TestSuite.query.get_or_404(suite_id)
         
-        # 验证用例集类型
         if suite.type != 'suite':
             return error_response(400, '只有用例集才能发起评审')
         
-        # 获取请求数据
         data = request.get_json()
         reviewer_id = data.get('reviewer_id')
         
-        # 验证评审人
         if not reviewer_id:
             return error_response(400, '评审人不能为空')
         if reviewer_id == current_user.id:
@@ -49,12 +43,10 @@ def initiate_review(suite_id):
         if not reviewer:
             return error_response(400, '评审人不存在')
         
-        # 获取用例集下的所有用例
         cases = TestCase.query.filter_by(suite_id=suite_id).all()
         if not cases:
             return error_response(400, '用例集下没有测试用例，无法发起评审')
         
-        # 创建评审任务，初始状态为待评审
         review_task = TestSuiteReviewTask(
             suite_id=suite_id,
             initiator_id=current_user.id,
@@ -97,23 +89,16 @@ def initiate_review(suite_id):
 def get_review_task(task_id):
     """获取评审任务详情"""
     try:
-        # 获取评审任务
         review_task = TestSuiteReviewTask.query.get_or_404(task_id)
         
-        # 验证权限：只有评审人、发起人或已完成的评审允许查看
-        # 如果评审任务已完成，允许所有登录用户查看
         if review_task.status != 'completed' and current_user.id != review_task.reviewer_id and current_user.id != review_task.initiator_id:
             return error_response(403, '没有权限查看该评审任务')
         
-        # 获取该任务下的所有用例评审详情
         case_reviews = TestCaseReviewDetail.query.filter_by(review_task_id=task_id).all()
-        
-        # 构建响应数据
         task_dict = review_task.to_dict()
         task_dict['case_reviews'] = [case_review.to_dict() for case_review in case_reviews]
         task_dict['suite'] = review_task.suite.to_dict()
         
-        # 计算评审进度
         total_cases = len(case_reviews)
         reviewed_cases = sum(1 for cr in case_reviews if cr.review_status != 'pending')
         task_dict['review_progress'] = {
@@ -195,8 +180,6 @@ def complete_review(task_id):
         has_rejected = any(cr.review_status == 'rejected' for cr in case_reviews)
         suite_review_status = 'rejected' if has_rejected else 'approved'
         
-        # 1. 创建评审历史记录
-        # 获取当前评审历史的最大版本号
         max_version = db.session.query(db.func.max(TestSuiteReviewHistory.version))\
             .filter_by(review_task_id=task_id)\
             .scalar() or 0
@@ -277,18 +260,12 @@ def complete_review(task_id):
 def get_case_reviews(task_id):
     """获取评审任务下的所有用例评审详情"""
     try:
-        # 获取评审任务
         review_task = TestSuiteReviewTask.query.get_or_404(task_id)
         
-        # 验证权限：只有评审人、发起人或已完成的评审允许查看
-        # 如果评审任务已完成，允许所有登录用户查看
         if review_task.status != 'completed' and current_user.id != review_task.reviewer_id and current_user.id != review_task.initiator_id:
             return error_response(403, '没有权限查看该评审任务')
         
-        # 获取该任务下的所有用例评审详情
         case_reviews = TestCaseReviewDetail.query.filter_by(review_task_id=task_id).all()
-        
-        # 构建响应数据
         case_reviews_list = []
         for case_review in case_reviews:
             cr_dict = case_review.to_dict()
@@ -308,13 +285,9 @@ def get_case_reviews(task_id):
 def get_my_review_tasks():
     """获取当前用户的评审任务"""
     try:
-        # 解析分页参数
         page, per_page = get_pagination_params()
-        
-        # 查询当前用户作为评审人的任务
         query = TestSuiteReviewTask.query.filter_by(reviewer_id=current_user.id)
         
-        # 处理筛选条件
         if request.args.get('status'):
             query = query.filter_by(status=request.args['status'])
         if request.args.get('suite_name'):
@@ -332,23 +305,19 @@ def get_my_review_tasks():
             except ValueError:
                 pass
         
-        # 执行分页查询
         pagination = query.order_by(TestSuiteReviewTask.created_at.desc()).paginate(
             page=page, per_page=per_page, error_out=False
         )
         
-        # 构造响应数据
         items = []
         for task in pagination.items:
             task_dict = task.to_dict()
             task_dict['suite_name'] = task.suite.suite_name
             task_dict['initiator_name'] = task.initiator.real_name if task.initiator else None
-            # 添加项目、迭代和需求信息
             task_dict['project_name'] = task.suite.project.project_name if task.suite.project else None
             task_dict['iteration_name'] = task.suite.iteration.iteration_name if task.suite.iteration else None
             task_dict['requirement_name'] = task.suite.version_requirement.requirement_name if task.suite.version_requirement else None
             
-            # 计算评审进度
             case_reviews = TestCaseReviewDetail.query.filter_by(review_task_id=task.id).all()
             total_cases = len(case_reviews)
             reviewed_cases = sum(1 for cr in case_reviews if cr.review_status != 'pending')
@@ -377,13 +346,9 @@ def get_my_review_tasks():
 def get_my_initiated_reviews():
     """获取当前用户发起的评审"""
     try:
-        # 解析分页参数
         page, per_page = get_pagination_params()
-        
-        # 查询当前用户作为发起人的任务
         query = TestSuiteReviewTask.query.filter_by(initiator_id=current_user.id)
         
-        # 处理筛选条件
         if request.args.get('status'):
             query = query.filter_by(status=request.args['status'])
         if request.args.get('suite_name'):
@@ -401,23 +366,19 @@ def get_my_initiated_reviews():
             except ValueError:
                 pass
         
-        # 执行分页查询
         pagination = query.order_by(TestSuiteReviewTask.created_at.desc()).paginate(
             page=page, per_page=per_page, error_out=False
         )
         
-        # 构造响应数据
         items = []
         for task in pagination.items:
             task_dict = task.to_dict()
             task_dict['suite_name'] = task.suite.suite_name
             task_dict['reviewer_name'] = task.reviewer.real_name if task.reviewer else None
-            # 添加项目、迭代和需求信息
             task_dict['project_name'] = task.suite.project.project_name if task.suite.project else None
             task_dict['iteration_name'] = task.suite.iteration.iteration_name if task.suite.iteration else None
             task_dict['requirement_name'] = task.suite.version_requirement.requirement_name if task.suite.version_requirement else None
             
-            # 计算评审进度
             case_reviews = TestCaseReviewDetail.query.filter_by(review_task_id=task.id).all()
             total_cases = len(case_reviews)
             reviewed_cases = sum(1 for cr in case_reviews if cr.review_status != 'pending')
@@ -446,24 +407,20 @@ def get_my_initiated_reviews():
 def restart_review(task_id):
     """重新评审：评审人修改已完成的评审"""
     try:
-        # 获取评审任务
         review_task = TestSuiteReviewTask.query.get_or_404(task_id)
         
-        # 验证权限：只有评审人可以重新评审
         if current_user.id != review_task.reviewer_id:
             return error_response(403, '只有评审人可以重新评审')
         
-        # 验证评审任务状态：已完成或已拒绝的评审均可重新评审（评审人可重新打开继续评）
+        # 已完成或已拒绝的评审均可重新打开
         if review_task.status not in ('completed', 'rejected'):
             return error_response(400, '只有已完成或已拒绝的评审才能重新评审')
         
-        # 重新评审，将状态改为评审中
         review_task.status = 'in_review'
         review_task.updated_at = datetime.now(LOCAL_TIMEZONE)
         
         db.session.commit()
         
-        # 通知发起人：评审人已重新开始评审
         if review_task.initiator_id and review_task.initiator_id != current_user.id:
             from app.services.notification_service import notify_users
             suite_name = review_task.suite.suite_name if review_task.suite else '用例集'
@@ -490,25 +447,21 @@ def restart_review(task_id):
 def reinitiate_review(task_id):
     """重新发起评审：发起人重新发起已拒绝的评审"""
     try:
-        # 获取评审任务
         review_task = TestSuiteReviewTask.query.get_or_404(task_id)
         
-        # 验证权限：只有发起人可以重新发起评审
         if current_user.id != review_task.initiator_id:
             return error_response(403, '只有评审发起人可以重新发起评审')
         
-        # 验证评审任务状态：已完成或已拒绝的评审均可重新发起（发起人可再发起一轮）
+        # 已完成或已拒绝的评审均可重新发起
         if review_task.status not in ('completed', 'rejected'):
             return error_response(400, '只有已完成或已拒绝的评审才能重新发起')
         
-        # 重新发起评审，将状态改为待处理，清除结束时间
         review_task.status = 'pending'
         review_task.end_time = None
         review_task.updated_at = datetime.now(LOCAL_TIMEZONE)
         
         db.session.commit()
         
-        # 通知评审人：发起人已重新发起，请处理
         if review_task.reviewer_id and review_task.reviewer_id != current_user.id:
             from app.services.notification_service import notify_users
             suite_name = review_task.suite.suite_name if review_task.suite else '用例集'
@@ -535,23 +488,17 @@ def reinitiate_review(task_id):
 def reject_review(task_id):
     """打回评审"""
     try:
-        # 获取评审任务
         review_task = TestSuiteReviewTask.query.get_or_404(task_id)
         
-        # 验证权限：只有评审人才可以打回评审
         if current_user.id != review_task.reviewer_id:
             return error_response(403, '没有权限打回评审')
         
-        # 验证评审任务状态：允许打回处于评审中或已完成状态的评审
         if review_task.status not in ['in_review', 'completed']:
             return error_response(400, '只有评审中或已完成的评审才能被打回')
         
-        # 获取请求数据
         data = request.get_json()
         overall_comments = data.get('overall_comments', review_task.overall_comments)
         
-        # 1. 创建评审历史记录
-        # 获取当前评审历史的最大版本号
         max_version = db.session.query(db.func.max(TestSuiteReviewHistory.version))\
             .filter_by(review_task_id=task_id)\
             .scalar() or 0
@@ -575,14 +522,10 @@ def reject_review(task_id):
         db.session.add(review_history)
         db.session.flush()  # 获取review_history.id
         
-        # 2. 获取该任务下的所有用例评审详情
         case_reviews = TestCaseReviewDetail.query.filter_by(review_task_id=task_id).all()
         
-        # 3. 为每条用例创建评审历史记录
         for case_review in case_reviews:
             case = case_review.test_case
-            
-            # 创建用例评审历史记录
             case_review_history = TestCaseReviewHistory(
                 review_history_id=review_history.id,
                 review_task_id=task_id,
@@ -603,16 +546,11 @@ def reject_review(task_id):
             )
             db.session.add(case_review_history)
         
-        # 4. 更新评审任务：将状态改为已拒绝，保留所有评审数据，更新时间属性
         review_task.status = 'rejected'
-        # 保留结束时间，因为评审已经结束
         if not review_task.end_time:
             review_task.end_time = now
         review_task.overall_comments = overall_comments
         review_task.updated_at = now
-        
-        # 不需要更新用例集状态，评审状态由评审任务管理
-        # 不需要重置用例的评审结果，只需要将评审任务状态改为待评审
         
         db.session.commit()
         if review_task.initiator_id and review_task.initiator_id != current_user.id:
@@ -632,16 +570,11 @@ def reject_review(task_id):
 def get_suite_review_status(suite_id):
     """获取用例集的评审状态和历史"""
     try:
-        # 获取用例集
         suite = TestSuite.query.get_or_404(suite_id)
         
-        # 获取该用例集的所有评审任务
         review_tasks = TestSuiteReviewTask.query.filter_by(suite_id=suite_id).all()
-        
-        # 获取所有评审任务的ID
         task_ids = [task.id for task in review_tasks]
         
-        # 获取所有评审历史记录，按版本号降序排序
         all_review_histories = TestSuiteReviewHistory.query.filter(
             TestSuiteReviewHistory.review_task_id.in_(task_ids)
         ).order_by(
@@ -649,7 +582,6 @@ def get_suite_review_status(suite_id):
             TestSuiteReviewHistory.version.desc()
         ).all()
         
-        # 构建响应数据
         review_history = []
         for history in all_review_histories:
             history_dict = history.to_dict()
@@ -671,7 +603,6 @@ def get_suite_review_status(suite_id):
                 'pending': pending_count
             }
             
-            # 添加评审任务信息
             if history.review_task:
                 history_dict['task_id'] = history.review_task.id
                 history_dict['task_status'] = history.review_task.status
@@ -687,16 +618,13 @@ def get_suite_review_status(suite_id):
             else:
                 latest_task = review_tasks[0]
         
-        # 构建响应数据，从最新评审任务中获取当前状态和评审人
         response_data = {
             'review_history': review_history
         }
         
         if latest_task:
-            # 根据最新评审任务状态确定用例集当前状态
             current_status = None
             if latest_task.status == 'completed':
-                # 评审完成，检查是否有拒绝的用例
                 case_reviews = TestCaseReviewDetail.query.filter_by(review_task_id=latest_task.id).all()
                 has_rejected = any(cr.review_status == 'rejected' for cr in case_reviews)
                 current_status = 'rejected' if has_rejected else 'approved'
@@ -714,7 +642,6 @@ def get_suite_review_status(suite_id):
                 'latest_task_id': latest_task.id,
             })
         else:
-            # 如果没有评审任务，返回默认状态
             response_data.update({
                 'current_status': 'not_submitted',
                 'current_reviewer_id': None,
@@ -732,19 +659,15 @@ def get_suite_review_status(suite_id):
 def get_review_history_list(task_id):
     """获取评审任务的历史记录列表"""
     try:
-        # 获取评审任务
         review_task = TestSuiteReviewTask.query.get_or_404(task_id)
         
-        # 验证权限：只有评审人或发起人可以查看评审历史
         if current_user.id != review_task.reviewer_id and current_user.id != review_task.initiator_id:
             return error_response(403, '没有权限查看评审历史')
         
-        # 获取该评审任务的所有历史记录
         review_history_list = TestSuiteReviewHistory.query.filter_by(review_task_id=task_id)\
             .order_by(TestSuiteReviewHistory.version.desc())\
             .all()
         
-        # 构建响应数据
         history_list = [history.to_dict() for history in review_history_list]
         
         return success_response({
@@ -793,28 +716,22 @@ def get_recent_review_history():
 def get_review_history_detail(history_id):
     """获取评审历史详情"""
     try:
-        # 获取评审历史记录
         review_history = TestSuiteReviewHistory.query.get_or_404(history_id)
         
-        # 不需要验证权限，允许所有登录用户查看评审历史详情
-        # 因为评审历史是公开的信息，其他用户也需要查看
+        # 评审历史对所有登录用户公开，不做权限校验
         
-        # 获取该历史记录下的所有用例评审历史
         case_review_history_list = TestCaseReviewHistory.query.filter_by(review_history_id=history_id)\
             .order_by(TestCaseReviewHistory.case_number)\
             .all()
         
-        # 构建响应数据
         history_dict = review_history.to_dict()
         
-        # 添加套件名称
         if review_history.suite:
             history_dict['suite_name'] = review_history.suite.suite_name
             history_dict['suite'] = {
                 'suite_name': review_history.suite.suite_name
             }
         
-        # 添加用例评审历史
         history_dict['case_reviews'] = [case_history.to_dict() for case_history in case_review_history_list]
         
         return success_response(history_dict)

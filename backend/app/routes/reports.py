@@ -17,7 +17,6 @@ from app.utils.helpers import (
     success_response, error_response, get_pagination_params, log_user_action,
 )
 
-# 创建Blueprint
 bp = Blueprint('reports', __name__, url_prefix='/api/reports')
 
 
@@ -84,11 +83,9 @@ def list_reports():
         page, per_page = get_pagination_params()
         query = Report.query.order_by(Report.created_at.desc())
         
-        # 报告类型筛选
         if request.args.get('report_type'):
             query = query.filter_by(report_type=request.args['report_type'])
 
-        # 按任务 ID 筛选（用于从任务执行页跳转查看报告）
         task_id_arg = request.args.get('task_id')
         if task_id_arg:
             try:
@@ -96,7 +93,6 @@ def list_reports():
             except ValueError:
                 pass
 
-        # 任务名称搜索
         search = request.args.get('search')
         if search:
             query = query.filter(Report.task_name.ilike(f'%{search}%'))
@@ -109,7 +105,6 @@ def list_reports():
                 or_(Report.status == status, and_(Report.status.is_(None), TestTask.status == status))
             )
         
-        # 创建人筛选（需要关联User表）
         creator = request.args.get('creator')
         if creator:
             query = query.join(User, Report.creator_id == User.id).filter(User.real_name.ilike(f'%{creator}%'))

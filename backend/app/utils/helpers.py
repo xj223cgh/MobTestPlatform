@@ -1,7 +1,7 @@
 import re
 import json
 from functools import wraps
-from flask import request, jsonify, session, abort
+from flask import request, jsonify, session, abort, current_app
 from flask_login import current_user
 from app.models.models import User, SystemSetting
 
@@ -17,6 +17,17 @@ def validate_username(username):
     if not username or len(username.encode('utf-8')) < 3 or len(username.encode('utf-8')) > 14:
         return False
     return True
+
+
+# QQ 邮箱格式：仅支持 @qq.com，本地部分为 5～11 位数字（QQ 号规则）
+QQ_EMAIL_PATTERN = re.compile(r"^[1-9]\d{4,10}@qq\.com$", re.IGNORECASE)
+
+
+def validate_qq_email(email):
+    """验证是否为合法的 QQ 邮箱格式（不验证邮箱是否真实存在）。"""
+    if not email or not isinstance(email, str):
+        return False
+    return QQ_EMAIL_PATTERN.match(email.strip().lower()) is not None
 
 
 def success_response(data=None, message="Operation successful"):
@@ -50,27 +61,27 @@ def error_response(code, message, data=None):
 
 
 def _get_default_page_size():
-    """从系统设置读取默认每页条数，默认 10"""
+    """从系统设置读取默认每页条数，无则用 .env 的 DEFAULT_PAGE_SIZE（默认 20）"""
     try:
         s = SystemSetting.query.filter_by(setting_key='default_page_size').first()
         if s and s.setting_value:
             v = int(s.setting_value)
-            if 5 <= v <= 100:
+            max_size = current_app.config.get('MAX_PAGE_SIZE', 100)
+            if 5 <= v <= max_size:
                 return v
     except (ValueError, TypeError):
         pass
-    return 10
+    return current_app.config.get('DEFAULT_PAGE_SIZE', 20)
 
 
 def get_pagination_params():
     """获取分页参数"""
     page = request.args.get('page', 1, type=int)
-    # 同时支持 size 和 page_size 参数；未传时使用系统设置「默认每页条数」，默认 10
     size_param = request.args.get('size', type=int)
     page_size_param = request.args.get('page_size', type=int)
     default_size = _get_default_page_size()
     size = size_param if size_param is not None else (page_size_param if page_size_param is not None else default_size)
-    size = min(size, 100)
+    size = min(size, current_app.config.get('MAX_PAGE_SIZE', 100))
     page = max(page, 1)
     return page, size
 

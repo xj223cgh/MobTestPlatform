@@ -44,10 +44,8 @@ def get_devices():
     os_type = request.args.get('os_type', '').strip()
     status = request.args.get('status', '').strip()
     
-    # 构建查询
     query = Device.query
     
-    # 搜索过滤
     if search:
         query = query.filter(
             Device.device_name.contains(search) |
@@ -55,15 +53,12 @@ def get_devices():
             Device.device_id.contains(search)
         )
     
-    # 操作系统类型过滤
     if os_type:
         query = query.filter(Device.os_type == os_type)
     
-    # 状态过滤
     if status:
         query = query.filter(Device.status == status)
     
-    # 分页
     pagination = query.paginate(
         page=page, per_page=size, error_out=False
     )
@@ -98,7 +93,6 @@ def create_device():
     """创建设备"""
     data = request.get_json()
     
-    # 检查设备ID是否已存在
     if Device.query.filter_by(device_id=data['device_id']).first():
         return error_response(400, "设备ID已存在")
     
@@ -134,7 +128,6 @@ def update_device(device_id):
     device = Device.query.get_or_404(device_id)
     data = request.get_json()
     
-    # 更新字段
     if 'device_name' in data:
         device.device_name = data['device_name']
     

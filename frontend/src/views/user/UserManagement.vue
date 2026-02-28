@@ -16,7 +16,6 @@
       </div>
     </div>
 
-    <!-- 搜索和筛选 -->
     <div class="search-section">
       <el-form
         :model="searchForm"
@@ -103,7 +102,6 @@
       </el-form>
     </div>
 
-    <!-- 用户表格 -->
     <div class="table-section">
       <div class="table-scroll-viewport">
         <el-table
@@ -120,7 +118,7 @@
         <el-table-column
           prop="id"
           label="ID"
-          min-width="60"
+          min-width="55"
           align="center"
         >
           <template #default="{ row }">
@@ -150,7 +148,7 @@
         <el-table-column
           prop="phone"
           label="手机号"
-          min-width="130"
+          min-width="110"
           align="center"
         >
           <template #default="{ row }">
@@ -165,6 +163,16 @@
         >
           <template #default="{ row }">
             {{ row.department || "-" }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="email"
+          label="邮箱"
+          min-width="150"
+          align="center"
+        >
+          <template #default="{ row }">
+            {{ row.email || "-" }}
           </template>
         </el-table-column>
         <el-table-column
@@ -200,7 +208,7 @@
         <el-table-column
           prop="created_at"
           label="创建时间"
-          min-width="140"
+          min-width="110"
           align="center"
         >
           <template #default="{ row }">
@@ -265,7 +273,6 @@
       </div>
     </div>
 
-    <!-- 分页 - 固定在右侧区域底部 -->
     <div class="fixed-pagination">
       <el-pagination
         :current-page="pagination.page"
@@ -278,7 +285,6 @@
       />
     </div>
 
-    <!-- 用户表单对话框 -->
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
@@ -287,6 +293,7 @@
     >
       <el-form
         ref="userFormRef"
+        :key="userFormDialogKey"
         :model="userForm"
         :rules="userRules"
         label-width="80px"
@@ -318,6 +325,62 @@
             v-model="userForm.phone"
             placeholder="请输入手机号"
           />
+        </el-form-item>
+        <el-form-item
+          label="邮箱"
+          prop="email"
+        >
+          <div
+            v-if="isEdit && boundEmailDisplay"
+            class="email-bound-row"
+          >
+            <span class="email-bound-text">{{ boundEmailDisplay }}</span>
+            <el-tag
+              size="small"
+              type="success"
+              effect="plain"
+              class="email-bound-tag"
+            >
+              已绑定
+            </el-tag>
+            <div class="email-bound-actions">
+              <el-button
+                type="primary"
+                plain
+                size="small"
+                @click="startChangeEmail"
+              >
+                更换邮箱
+              </el-button>
+              <el-button
+                type="danger"
+                plain
+                size="small"
+                @click="handleUnbindEmail"
+              >
+                解除绑定
+              </el-button>
+            </div>
+          </div>
+          <div
+            v-else
+            class="email-field-with-verify"
+          >
+            <QqEmailInput
+              v-model="userForm.email"
+              placeholder="选填，QQ 号"
+              class="email-input"
+            />
+            <el-button
+              type="primary"
+              plain
+              size="default"
+              :loading="emailCodeSending"
+              @click="openEmailVerifyDialog"
+            >
+              验证邮箱
+            </el-button>
+          </div>
         </el-form-item>
         <el-form-item
           v-if="!isEdit"
@@ -413,6 +476,12 @@
         <span class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
           <el-button
+            v-if="isEdit"
+            @click="resetEditForm"
+          >
+            重置
+          </el-button>
+          <el-button
             type="primary"
             :loading="submitLoading"
             @click="handleSubmit"
@@ -420,6 +489,37 @@
             确定
           </el-button>
         </span>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="emailVerifyDialogVisible"
+      title="验证邮箱"
+      width="400px"
+      :close-on-click-modal="false"
+      @close="closeEmailVerifyDialog"
+    >
+      <div class="email-verify-dialog">
+        <p v-if="emailVerifyTarget" class="verify-tip">
+          验证码已发送至 <strong>{{ emailVerifyTarget }}</strong>，请输入 6 位验证码完成验证（只有能收到验证码的邮箱才会绑定成功）。
+        </p>
+        <el-input
+          v-model="emailVerifyCode"
+          placeholder="请输入 6 位验证码"
+          maxlength="6"
+          clearable
+          class="verify-code-input"
+        />
+      </div>
+      <template #footer>
+        <el-button @click="closeEmailVerifyDialog">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="emailVerifyConfirming"
+          @click="confirmEmailVerify"
+        >
+          确认绑定
+        </el-button>
       </template>
     </el-dialog>
   </div>
@@ -436,12 +536,19 @@ import {
   updateUser,
   deleteUser,
   toggleUserStatus,
+  confirmUserEmail,
 } from "@/api/user";
+import { sendBindEmailCode } from "@/api/auth";
+import QqEmailInput from "@/components/QqEmailInput.vue";
 import dayjs from "dayjs";
+
+function getFullQqEmail(localPart) {
+  const s = (localPart || "").trim();
+  return s ? s + "@qq.com" : "";
+}
 import { isPermissionError } from "@/utils/request";
 import { useUserStore } from "@/stores/user";
 
-// 响应式数据
 const loading = ref(false);
 const submitLoading = ref(false);
 const dialogVisible = ref(false);
@@ -460,13 +567,24 @@ const getRowClassName = ({ row }) => {
   return "";
 };
 
-// 用户store
 const userStore = useUserStore();
-
-// 计算属性：当前登录用户ID
 const currentUserId = computed(() => userStore.userInfo?.id);
 
-// 搜索表单
+const emailVerifyDialogVisible = ref(false);
+const emailVerifyTarget = ref("");
+const emailVerifyCode = ref("");
+const emailCodeSending = ref(false);
+const emailVerifyConfirming = ref(false);
+/** 新增用户时：验证通过后暂存的邮箱与验证码，提交时一并提交 */
+const verifiedEmailForCreate = ref("");
+const verifiedCodeForCreate = ref("");
+/** 编辑时：已绑定的邮箱（有值时显示「已绑定」+ 更换邮箱，不显示输入框） */
+const boundEmailDisplay = ref("");
+/** 编辑时打开弹窗时的表单快照，用于「重置」恢复原值 */
+const editFormSnapshot = ref(null);
+/** 弹窗表单 key，新增时递增使表单重新挂载，避免残留上次数据 */
+const userFormDialogKey = ref(0);
+
 const searchForm = reactive({
   username: "",
   phone: "",
@@ -474,12 +592,12 @@ const searchForm = reactive({
   status: "",
 });
 
-// 用户表单
 const userForm = reactive({
   id: null,
   username: "",
   real_name: "",
   phone: "",
+  email: "",
   password: "",
   role: "",
   is_active: true,
@@ -487,7 +605,6 @@ const userForm = reactive({
   department: "",
 });
 
-// 表单验证规则
 const userRules = {
   username: [
     { required: true, message: "请输入用户名", trigger: "blur" },
@@ -517,20 +634,34 @@ const userRules = {
   department: [
     { max: 100, message: "部门名称不能超过100个字符", trigger: "blur" },
   ],
+  email: [
+    {
+      validator: (_rule, value, callback) => {
+        if (!value || !String(value).trim()) {
+          callback();
+          return;
+        }
+        const full = getFullQqEmail(value);
+        if (!/^[1-9]\d{4,10}@qq\.com$/.test(full)) {
+          callback(new Error("仅支持 QQ 邮箱，QQ 号为 5～11 位数字"));
+        } else {
+          callback();
+        }
+      },
+      trigger: "blur",
+    },
+  ],
 };
 
-// 用户列表
 const userList = ref([]);
 const userTableRef = ref(null);
 
-// 分页
 const pagination = reactive({
   page: 1,
   size: 10,
   total: 0,
 });
 
-// 获取用户列表
 const fetchUserList = async () => {
   try {
     loading.value = true;
@@ -578,16 +709,11 @@ const fetchUserList = async () => {
   }
 };
 
-// 搜索 - 点击搜索按钮时才会应用所有筛选条件
 const handleSearch = () => {
-  // 重置页码为1，确保从第一页开始显示筛选结果
   pagination.page = 1;
-
-  // 调用fetchUserList函数，该函数内部会根据各筛选条件的值来决定是否添加对应的筛选参数
   fetchUserList();
 };
 
-// 重置搜索
 const handleReset = () => {
   Object.assign(searchForm, {
     username: "",
@@ -598,35 +724,121 @@ const handleReset = () => {
   handleSearch();
 };
 
-// 新增用户
 const handleAdd = () => {
   isEdit.value = false;
   dialogTitle.value = "新增用户";
+  editFormSnapshot.value = null;
+  boundEmailDisplay.value = "";
+  verifiedEmailForCreate.value = "";
+  verifiedCodeForCreate.value = "";
+  Object.assign(userForm, {
+    id: null,
+    username: "",
+    real_name: "",
+    phone: "",
+    email: "",
+    password: "",
+    role: "",
+    is_active: true,
+    gender: "other",
+    department: "",
+  });
+  userFormDialogKey.value += 1;
   dialogVisible.value = true;
-  resetForm();
 };
 
-// 编辑用户
+function toEmailLocal(fullEmail) {
+  if (!fullEmail || typeof fullEmail !== "string") return "";
+  return fullEmail.trim().replace(/@qq\.com$/i, "");
+}
+
 const handleEdit = (row) => {
   isEdit.value = true;
   dialogTitle.value = "编辑用户";
   dialogVisible.value = true;
+  const fullEmail = (row.email || "").trim();
+  boundEmailDisplay.value = fullEmail || "";
   Object.assign(userForm, {
     id: row.id,
     username: row.username,
     real_name: row.real_name,
     phone: row.phone,
+    email: toEmailLocal(row.email),
     password: "",
     role: row.role,
     is_active: row.is_active,
     gender: row.gender || "other",
     department: row.department || "",
   });
+  editFormSnapshot.value = {
+    id: row.id,
+    username: row.username,
+    real_name: row.real_name,
+    phone: row.phone,
+    email: toEmailLocal(row.email),
+    role: row.role,
+    is_active: row.is_active,
+    gender: row.gender || "other",
+    department: row.department || "",
+    boundEmailDisplay: fullEmail || "",
+  };
 };
 
-// 删除用户
+const resetEditForm = () => {
+  if (!editFormSnapshot.value) return;
+  const snap = editFormSnapshot.value;
+  Object.assign(userForm, {
+    id: snap.id,
+    username: snap.username,
+    real_name: snap.real_name,
+    phone: snap.phone,
+    email: snap.email,
+    role: snap.role,
+    is_active: snap.is_active,
+    gender: snap.gender,
+    department: snap.department,
+  });
+  boundEmailDisplay.value = snap.boundEmailDisplay;
+  userFormRef.value?.clearValidate();
+};
+
+const startChangeEmail = () => {
+  boundEmailDisplay.value = "";
+  userForm.email = "";
+  verifiedEmailForCreate.value = "";
+  verifiedCodeForCreate.value = "";
+};
+
+const handleUnbindEmail = () => {
+  ElMessageBox.confirm(
+    "解除绑定后，该用户将无法使用邮箱验证码登录与找回密码，确定要解除吗？",
+    "解除邮箱绑定",
+    {
+      confirmButtonText: "确定解除",
+      cancelButtonText: "取消",
+      type: "warning",
+    }
+  ).then(async () => {
+    try {
+      const res = await updateUser(userForm.id, {
+        real_name: userForm.real_name,
+        gender: userForm.gender,
+        phone: userForm.phone,
+        department: userForm.department,
+        email: "",
+      });
+      if (res.code === 200 || res.success) {
+        ElMessage.success("已解除邮箱绑定");
+        boundEmailDisplay.value = "";
+        userForm.email = "";
+      }
+    } catch (e) {
+      if (!e._messageShown) ElMessage.error(e.response?.data?.message || "操作失败");
+    }
+  }).catch(() => {});
+};
+
 const handleDelete = (row) => {
-  // 防止用户删除自己的账户
   if (row.id === currentUserId.value) {
     ElMessage.warning("无法删除自己的账户");
     return;
@@ -647,14 +859,12 @@ const handleDelete = (row) => {
         ElMessage.success("删除成功");
         fetchUserList();
       } else {
-        // 有后端返回的提示时不再重复「删除失败」
-        if (!response.message) {
+      if (!response.message) {
           ElMessage.error("删除失败");
         }
       }
     } catch (error) {
       if (isPermissionError(error)) return;
-      // 校验类（如 400 关联引用）已由拦截器提示，不再重复「删除失败」
       if (!error.response?.data?.message) {
         ElMessage.error("删除失败");
       }
@@ -662,9 +872,7 @@ const handleDelete = (row) => {
   });
 };
 
-// 切换用户状态
 const handleToggleStatus = (row) => {
-  // 防止用户禁用/启用自己的账户
   if (row.id === currentUserId.value) {
     ElMessage.warning("无法操作自己的账户状态");
     return;
@@ -682,7 +890,6 @@ const handleToggleStatus = (row) => {
   ).then(async () => {
     try {
       const response = await toggleUserStatus(row.id);
-      // 直接使用响应，不再检查response.success
       ElMessage.success(`${action}成功`);
       fetchUserList();
     } catch (error) {
@@ -694,21 +901,94 @@ const handleToggleStatus = (row) => {
   });
 };
 
-// 提交表单
+const openEmailVerifyDialog = async () => {
+  const fullEmail = getFullQqEmail(userForm.email);
+  if (!fullEmail || fullEmail === "@qq.com") {
+    ElMessage.warning("请先输入 QQ 号");
+    return;
+  }
+  if (!/^[1-9]\d{4,10}@qq\.com$/.test(fullEmail)) {
+    ElMessage.warning("QQ 号需为 5～11 位数字");
+    return;
+  }
+  emailCodeSending.value = true;
+  try {
+    const res = await sendBindEmailCode({ email: fullEmail });
+    if (res.code === 200 || res.success) {
+      emailVerifyTarget.value = fullEmail;
+      emailVerifyCode.value = "";
+      emailVerifyDialogVisible.value = true;
+      ElMessage.success("验证码已发送，请到邮箱查收并输入");
+    }
+  } catch (e) {
+    if (!e._messageShown) ElMessage.error(e.response?.data?.message || "发送失败");
+  } finally {
+    emailCodeSending.value = false;
+  }
+};
+
+const closeEmailVerifyDialog = () => {
+  emailVerifyDialogVisible.value = false;
+  emailVerifyTarget.value = "";
+  emailVerifyCode.value = "";
+};
+
+const confirmEmailVerify = async () => {
+  const code = (emailVerifyCode.value || "").trim();
+  if (!code || code.length !== 6) {
+    ElMessage.warning("请输入 6 位验证码");
+    return;
+  }
+  const fullEmail = emailVerifyTarget.value;
+  if (!fullEmail) return;
+  emailVerifyConfirming.value = true;
+  try {
+    if (isEdit.value) {
+      const res = await confirmUserEmail(userForm.id, { email: fullEmail, code });
+      if (res.code === 200 || res.success) {
+        ElMessage.success("邮箱绑定成功");
+        userForm.email = toEmailLocal(fullEmail);
+        boundEmailDisplay.value = fullEmail;
+        closeEmailVerifyDialog();
+      }
+    } else {
+      verifiedEmailForCreate.value = fullEmail;
+      verifiedCodeForCreate.value = code;
+      ElMessage.success("验证通过，请点击「确定」保存用户");
+      closeEmailVerifyDialog();
+    }
+  } catch (e) {
+    if (!e._messageShown) ElMessage.error(e.response?.data?.message || "验证失败");
+  } finally {
+    emailVerifyConfirming.value = false;
+  }
+};
+
 const handleSubmit = async () => {
   if (!userFormRef.value) return;
   const isValid = await userFormRef.value.validate();
   if (!isValid) return;
-  
-  // 防止用户修改自己的账户状态
+
+  const fullEmail = getFullQqEmail(userForm.email);
+  if (fullEmail && fullEmail !== "@qq.com") {
+    if (!isEdit.value) {
+      if (!verifiedEmailForCreate.value || !verifiedCodeForCreate.value) {
+        ElMessage.warning("填写邮箱后请先点击「验证邮箱」并输入验证码");
+        return;
+      }
+      if (verifiedEmailForCreate.value !== fullEmail) {
+        ElMessage.warning("邮箱已变更，请重新点击「验证邮箱」");
+        return;
+      }
+    }
+  }
+
   if (isEdit.value && userForm.id === currentUserId.value) {
-    // 如果用户试图修改自己的状态，强制保持启用
     userForm.is_active = true;
   }
-  
+
   submitLoading.value = true;
   try {
-    // 构建提交数据
     const submitData = {
       username: userForm.username,
       real_name: userForm.real_name,
@@ -718,10 +998,11 @@ const handleSubmit = async () => {
       gender: userForm.gender,
       department: userForm.department,
     };
-
-    // 如果是新增用户且有密码，则添加密码
-    if (!isEdit.value && userForm.password) {
-      submitData.password = userForm.password;
+    // 编辑时邮箱不通过页面保存，仅通过「验证邮箱」「解除绑定」单独生效
+    if (!isEdit.value) {
+      submitData.email = verifiedEmailForCreate.value || "";
+      if (userForm.password) submitData.password = userForm.password;
+      if (verifiedEmailForCreate.value) submitData.email_verify_code = verifiedCodeForCreate.value;
     }
 
     let response;
@@ -742,7 +1023,6 @@ const handleSubmit = async () => {
     }
   } catch (error) {
     if (isPermissionError(error)) return;
-    // 校验类错误（如手机号重复、真实姓名为空等）已由请求拦截器统一提示，此处不再重复
     const hasShown = error?.response?.data?.message || (error?.response?.data?.errors && Object.keys(error.response.data.errors).length > 0);
     if (!hasShown) {
       ElMessage.error("操作失败");
@@ -752,25 +1032,27 @@ const handleSubmit = async () => {
   }
 };
 
-// 重置表单
 const resetForm = () => {
   Object.assign(userForm, {
     id: null,
     username: "",
     real_name: "",
     phone: "",
+    email: "",
     password: "",
     role: "",
     is_active: true,
     gender: "other",
     department: "",
   });
+  boundEmailDisplay.value = "";
+  verifiedEmailForCreate.value = "";
+  verifiedCodeForCreate.value = "";
   if (userFormRef.value) {
     userFormRef.value.resetFields();
   }
 };
 
-// 分页处理
 const handleSizeChange = (size) => {
   pagination.size = size;
   pagination.page = 1;
@@ -782,8 +1064,6 @@ const handleCurrentChange = (page) => {
   fetchUserList();
 };
 
-// 工具函数
-// 获取角色标签
 const getRoleLabel = (role) => {
   const roleMap = {
     super: "超级管理员",
@@ -794,7 +1074,6 @@ const getRoleLabel = (role) => {
   return roleMap[role] || role;
 };
 
-// 获取性别标签
 const getGenderLabel = (gender) => {
   const genderMap = {
     male: "男",
@@ -804,7 +1083,6 @@ const getGenderLabel = (gender) => {
   return genderMap[gender] || "其他";
 };
 
-// 获取角色标签类型
 const getRoleTagType = (role) => {
   const typeMap = {
     super: "danger",
@@ -848,7 +1126,6 @@ watch(
   { flush: "post" }
 );
 
-// 页面加载
 onMounted(() => {
   fetchUserList();
 });
@@ -1013,5 +1290,48 @@ onMounted(() => {
   font-size: 12px;
   margin: 0;
   white-space: nowrap;
+}
+
+.email-field-with-verify {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+.email-field-with-verify .email-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.email-bound-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.email-bound-text {
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+}
+.email-bound-tag {
+  flex-shrink: 0;
+}
+.email-bound-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 4px;
+}
+.email-bound-actions .el-button {
+  margin: 0;
+}
+
+.email-verify-dialog .verify-tip {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+}
+.email-verify-dialog .verify-code-input {
+  width: 100%;
 }
 </style>

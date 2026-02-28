@@ -3,7 +3,6 @@ from flask_login import login_required, current_user
 from app.models.models import db, TestSuite, User, TestCase, TestTask, TestSuiteReviewTask
 from app.utils.helpers import success_response, error_response, get_pagination_params
 
-# 创建Blueprint
 bp = Blueprint('test_suites', __name__, url_prefix='/api/test-suites')
 
 
@@ -12,14 +11,11 @@ bp = Blueprint('test_suites', __name__, url_prefix='/api/test-suites')
 def get_test_suites():
     """获取测试套件列表，支持分页、筛选和树形结构"""
     try:
-        # 检查是否需要返回树形结构
         with_children = request.args.get('with_children', 'false').lower() == 'true'
         
         if with_children:
-            # 返回完整的树形结构
             root_suites = TestSuite.query.filter_by(parent_id=None).all()
             
-            # 递归构建树
             def build_tree(suite):
                 suite_dict = suite.to_dict()
                 children = []
@@ -31,13 +27,9 @@ def get_test_suites():
             tree_data = [build_tree(suite) for suite in root_suites]
             return success_response(tree_data)
         else:
-            # 解析分页参数
             page, per_page = get_pagination_params()
-            
-            # 基础查询
             query = TestSuite.query
             
-            # 处理筛选条件
             if request.args.get('status'):
                 query = query.filter_by(status=request.args['status'])
             
@@ -48,12 +40,9 @@ def get_test_suites():
                 # 默认只返回顶级套件（parent_id为空）
                 query = query.filter_by(parent_id=None)
             
-            # 执行分页查询
             pagination = query.order_by(TestSuite.created_at.desc()).paginate(
                 page=page, per_page=per_page, error_out=False
             )
-            
-            # 构造响应数据
             items = [suite.to_dict() for suite in pagination.items]
             
             return success_response({
@@ -94,18 +83,15 @@ def create_test_suite():
     try:
         data = request.get_json()
         
-        # 验证必需字段
         if not data.get('suite_name'):
             return error_response(400, '套件名称不能为空')
         
-        # 验证type字段
         suite_type = data.get('type', 'folder')
         if suite_type not in ['folder', 'suite']:
             return error_response(400, '套件类型无效，只能是folder或suite')
         
         parent_id = data.get('parent_id')
         
-        # 计算深度
         depth = 0
         if parent_id is not None:
             parent_suite = TestSuite.query.get(parent_id)
@@ -127,8 +113,6 @@ def create_test_suite():
             if depth == 4 and suite_type != 'suite':
                 return error_response(400, '最深一层只能创建用例集')
         
-        # 计算新节点的sort_order，默认添加到尾部
-        # 查找同级别最大的sort_order值
         max_sort_order = db.session.query(db.func.max(TestSuite.sort_order))
         if parent_id is not None:
             max_sort_order = max_sort_order.filter_by(parent_id=parent_id)
@@ -138,7 +122,6 @@ def create_test_suite():
         max_sort_order = max_sort_order.scalar() or 0
         new_sort_order = max_sort_order + 1
         
-        # 创建新套件
         new_suite = TestSuite(
             suite_name=data['suite_name'],
             description=data.get('description', ''),
@@ -169,12 +152,10 @@ def update_test_suite(suite_id):
         suite = TestSuite.query.get_or_404(suite_id)
         data = request.get_json()
         
-        # 记录原始值，用于后续排序调整
         original_parent_id = suite.parent_id
         original_sort_order = suite.sort_order
         original_type = suite.type
         
-        # 更新字段
         if 'suite_name' in data:
             suite.suite_name = data['suite_name']
         if 'description' in data:
@@ -240,7 +221,6 @@ def update_test_suite(suite_id):
         
         # 移除评审相关字段的直接更新，评审状态由评审任务管理
         
-        # 更新项目相关信息
         if 'project_id' in data:
             suite.project_id = data['project_id']
         if 'version_requirement_id' in data:
@@ -365,7 +345,6 @@ def delete_test_suite(suite_id):
             # 5. 删除套件本身
             db.session.delete(suite_obj)
 
-        # 执行递归删除
         recursive_delete(suite)
         
         db.session.commit()
@@ -383,7 +362,6 @@ def get_suite_tree():
     try:
         root_suites = TestSuite.query.filter_by(parent_id=None).order_by(TestSuite.sort_order).all()
         
-        # 递归构建树
         def build_tree(suite):
             suite_dict = suite.to_dict()
             children = []
@@ -427,7 +405,6 @@ def get_suite_tree_by_id(suite_id):
 def get_suite_options():
     """获取测试套件选项列表，用于下拉选择"""
     try:
-        # 递归构建选项树
         def build_options(suite, prefix=''):
             result = [{
                 'value': suite.id,
@@ -454,13 +431,8 @@ def get_suite_test_cases(suite_id):
         from app.models.models import TestCase
         from app.utils.helpers import get_pagination_params
         
-        # 解析分页参数
         page, size = get_pagination_params()
-        
-        # 构建查询
         query = TestCase.query.filter_by(suite_id=suite_id)
-        
-        # 分页
         pagination = query.paginate(
             page=page, per_page=size, error_out=False
         )

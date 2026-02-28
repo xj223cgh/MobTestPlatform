@@ -1,6 +1,5 @@
 <template>
   <div class="project-detail">
-    <!-- 项目基本信息 -->
     <div class="info-section">
       <el-card
         shadow="hover"
@@ -61,7 +60,6 @@
       </el-card>
     </div>
 
-    <!-- 编辑项目对话框 -->
     <el-dialog
       v-model="dialogVisible"
       title="编辑项目"
@@ -167,7 +165,6 @@
           </el-select>
         </el-form-item>
 
-        <!-- 项目成员 -->
         <el-form-item label="项目成员">
           <el-select
             v-model="projectForm.selectedUsers"
@@ -246,12 +243,10 @@
       </template>
     </el-dialog>
 
-    <!-- 项目描述和链接 -->
     <el-row
       :gutter="20"
       class="info-section-row"
     >
-      <!-- 项目链接 -->
       <el-col :span="12">
         <div class="info-section">
           <el-card
@@ -291,7 +286,6 @@
         </div>
       </el-col>
 
-      <!-- 项目描述 -->
       <el-col :span="12">
         <div class="info-section">
           <el-card
@@ -314,7 +308,6 @@
       </el-col>
     </el-row>
 
-    <!-- 项目统计 -->
     <div class="info-section">
       <el-card
         shadow="hover"
@@ -326,12 +319,10 @@
           </div>
         </template>
 
-        <!-- 统计概览 -->
         <el-row
           :gutter="20"
           class="stats-overview"
         >
-          <!-- 用例统计 -->
           <el-col :span="8">
             <div class="stat-item-with-chart">
               <div class="stat-header">
@@ -369,7 +360,6 @@
             </div>
           </el-col>
 
-          <!-- 迭代统计 -->
           <el-col :span="8">
             <div class="stat-item-with-chart">
               <div class="stat-header">
@@ -407,7 +397,6 @@
             </div>
           </el-col>
 
-          <!-- 版本需求统计 -->
           <el-col :span="8">
             <div class="stat-item-with-chart">
               <div class="stat-header">
@@ -456,7 +445,7 @@ import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { Edit, ArrowLeft } from "@element-plus/icons-vue";
 import { getProject, updateProject } from "@/api/project";
-import { getUserList } from "@/api/user";
+import { getUserOptions } from "@/api/user";
 import { useUserStore } from "@/stores/user";
 import { useSystemSettingsStore } from "@/stores/systemSettings";
 import dayjs from "dayjs";
@@ -471,7 +460,6 @@ import {
 } from "echarts/components";
 import VChart from "vue-echarts";
 
-// 注册必要的组件
 use([
   CanvasRenderer,
   PieChart,
@@ -482,20 +470,17 @@ use([
   GridComponent,
 ]);
 
-// 响应式数据
 const loading = ref(false);
 const projectDetail = ref({});
 const route = useRoute();
 const router = useRouter();
 
-// 编辑对话框相关数据
 const dialogVisible = ref(false);
 const dialogTitle = ref("");
 const dialogLoading = ref(false);
 const projectFormRef = ref(null);
 const editingProjectId = ref(null);
 
-// 所有用户列表，用于选择项目成员
 const allUsers = ref([]);
 
 // 系统设置（用于图表图例深色模式文字颜色）
@@ -518,7 +503,6 @@ function applyLegendTheme() {
   requirementChartOption.value.legend = { ...requirementChartOption.value.legend, textStyle, inactiveColor };
 }
 
-// 表单数据
 const projectForm = reactive({
   project_name: "",
   description: "",
@@ -532,18 +516,17 @@ const projectForm = reactive({
   selectedUsers: [],
 });
 
-// 获取所有用户列表
+// 获取所有用户列表（仅需登录的 options 接口，用于项目成员/负责人下拉）
 const getAllUsers = async () => {
   try {
-    const response = await getUserList();
-    allUsers.value = response.data?.users || [];
+    const response = await getUserOptions({ size: 1000 });
+    allUsers.value = response.data?.items || [];
   } catch (error) {
     console.error("获取用户列表失败:", error);
     ElMessage.error("获取用户列表失败");
   }
 };
 
-// 监听项目负责人变化
 watch(
   () => projectForm.owner_id,
   (newOwnerId, oldOwnerId) => {
@@ -554,42 +537,32 @@ watch(
       (id) => id !== oldOwnerId,
     );
 
-    // 确保新的负责人ID被添加到列表中
     if (!updatedUsers.includes(newOwnerId)) {
       updatedUsers.push(newOwnerId);
     }
 
-    // 更新项目成员列表
     projectForm.selectedUsers = updatedUsers;
   },
 );
 
-// 处理项目负责人变化，确保项目成员列表正确
 const handleOwnerChange = () => {
-  // 这个函数会被watch函数自动处理，这里保留为空函数以保持与项目列表页面的一致性
+  // 会被 watch 自动处理，保留空函数以与项目列表页面保持一致
 };
 
-// 处理项目成员变化，确保当前负责人无法被删除
 const handleMembersChange = () => {
   if (!projectForm.owner_id) return;
 
-  // 检查当前负责人是否在项目成员列表中
   if (!projectForm.selectedUsers.includes(projectForm.owner_id)) {
-    // 如果不在，自动添加回列表
     projectForm.selectedUsers.push(projectForm.owner_id);
-    // 显示提示信息
     ElMessage.warning("当前项目负责人无法从成员列表中删除");
   }
 };
 
-// 用于项目成员下拉列表的排序，将负责人排在顶部
+// 项目成员下拉排序：负责人排在顶部
 const getSortedUsers = () => {
   if (!projectForm.owner_id) return allUsers.value;
 
-  // 创建用户列表的副本，避免修改原始数据
   const sortedUsers = [...allUsers.value];
-
-  // 排序：将项目负责人排在最前面
   return sortedUsers.sort((a, b) => {
     if (a.id == projectForm.owner_id) return -1;
     if (b.id == projectForm.owner_id) return 1;
@@ -597,7 +570,6 @@ const getSortedUsers = () => {
   });
 };
 
-// 表单验证规则
 const projectRules = {
   project_name: [
     { required: true, message: "请输入项目名称", trigger: "blur" },
@@ -700,7 +672,6 @@ function applyChartLegendSelected() {
   };
 }
 
-// 图表配置选项
 const caseExecutionChartOption = ref({
   title: {
     text: "",
@@ -799,7 +770,6 @@ const iterationChartOption = ref({
   ],
 });
 
-// 版本需求图表配置
 const requirementChartOption = ref({
   title: {
     text: "",
@@ -849,7 +819,6 @@ const requirementChartOption = ref({
   ],
 });
 
-// 状态类型映射
 const getStatusType = (status) => {
   const statusMap = {
     not_started: "info",
@@ -861,7 +830,6 @@ const getStatusType = (status) => {
   return statusMap[status] || "info";
 };
 
-// 状态文本映射
 const getStatusText = (status) => {
   const statusMap = {
     not_started: "未开始",
@@ -873,7 +841,6 @@ const getStatusText = (status) => {
   return statusMap[status] || status || "-";
 };
 
-// 优先级类型映射
 const getPriorityType = (priority) => {
   const priorityMap = {
     high: "danger",
@@ -883,7 +850,6 @@ const getPriorityType = (priority) => {
   return priorityMap[priority] || "info";
 };
 
-// 优先级文本映射
 const getPriorityText = (priority) => {
   const priorityMap = {
     high: "高",
@@ -893,7 +859,6 @@ const getPriorityText = (priority) => {
   return priorityMap[priority] || priority;
 };
 
-// 时间格式化函数
 const formatDateTime = (dateTime) => {
   return dateTime ? dayjs(dateTime).format("YYYY-MM-DD HH:mm:ss") : "-";
 };
@@ -911,11 +876,7 @@ function applyPieChartFormatters(optionRef) {
     `${params.name}: ${params.value ?? 0} (${pct(params.value)}%)`;
 }
 
-// 更新图表数据
 const updateCharts = () => {
-  // 与报告详情一致：0 的项也占位显示、显示为 0%，多个 0 值时错开显示（minAngle）
-
-  // 更新用例执行情况饼图 - 通过绿色、失败红色、阻塞黄色、不适用紫色、未执行灰色
   const caseStats = projectDetail.value.case_stats || {};
   caseExecutionChartOption.value.series[0].data = [
     {
@@ -946,10 +907,7 @@ const updateCharts = () => {
   ];
   applyPieChartFormatters(caseExecutionChartOption);
 
-  // 更新迭代统计饼图 - 与实际迭代表状态属性值对应
   const iterationStats = projectDetail.value.iteration_stats || {};
-
-  // 状态映射，将英文状态转换为中文显示，保持与后端一致
   const statusMap = {
     planning: "规划中",
     active: "进行中",
@@ -957,7 +915,6 @@ const updateCharts = () => {
     cancelled: "已取消",
   };
 
-  // 直接使用后端返回的统计数据，添加对应颜色
   iterationChartOption.value.series[0].data = [
     {
       name: statusMap["planning"],
@@ -982,7 +939,6 @@ const updateCharts = () => {
   ];
   applyPieChartFormatters(iterationChartOption);
 
-  // 更新需求状态分布饼图 - 新建灰色、进行中黄色、已完成绿色、已取消红色
   const requirementStats = projectDetail.value.requirement_stats || {};
   requirementChartOption.value.series[0].data = [
     {
@@ -1012,7 +968,6 @@ const updateCharts = () => {
   applyChartLegendSelected();
 };
 
-// 获取项目详情
 const fetchProjectDetail = async () => {
   loading.value = true;
   try {
@@ -1026,12 +981,10 @@ const fetchProjectDetail = async () => {
     projectDetail.value = {};
   } finally {
     loading.value = false;
-    // 更新图表
     updateCharts();
   }
 };
 
-// 监听 projectDetail 变化，更新图表
 watch(
   projectDetail,
   () => {
@@ -1040,7 +993,6 @@ watch(
   { deep: true },
 );
 
-// 监听主题切换，更新图例文字颜色
 watch(
   () => settingsStore.theme,
   () => {
@@ -1048,12 +1000,10 @@ watch(
   },
 );
 
-// 返回列表
 const handleBack = () => {
   router.push("/projects");
 };
 
-// 重置表单
 const resetForm = () => {
   if (projectFormRef.value) {
     projectFormRef.value.resetFields();
@@ -1073,16 +1023,13 @@ const resetForm = () => {
   });
 };
 
-// 打开编辑项目对话框
 const handleEdit = () => {
   dialogTitle.value = "编辑项目";
   editingProjectId.value = projectDetail.value.id;
 
-  // 转换项目成员数据为多选格式
   const members = projectDetail.value.members || [];
   const selectedUsers = members.map((member) => member.user_id);
 
-  // 设置表单数据
   Object.assign(projectForm, {
     project_name: projectDetail.value.project_name || "",
     description: projectDetail.value.description || "",
@@ -1099,32 +1046,26 @@ const handleEdit = () => {
   dialogVisible.value = true;
 };
 
-// 保存项目
 const handleSaveProject = async () => {
   if (!projectFormRef.value) return;
 
   await projectFormRef.value.validate();
 
-  // 引入useUserStore获取当前登录用户信息
   const userStore = useUserStore();
   const currentUserId = userStore.userInfo.id;
 
-  // 构建保存数据，将selectedUsers转换为members数组格式
   const saveData = { ...projectForm };
 
   // 只有创建项目时才设置creator_id，编辑时不修改创建者
   if (!editingProjectId.value) {
-    // 添加创建者ID为当前登录用户ID
     saveData.creator_id = currentUserId;
   }
 
-  // 转换多选用户为members数组格式，固定使用tester角色
   saveData.members = saveData.selectedUsers.map((userId) => ({
     user_id: userId,
-    role: "tester", // 固定默认角色为tester
+    role: "tester",
   }));
 
-  // 删除不需要发送给后端的字段
   delete saveData.selectedUsers;
 
   dialogLoading.value = true;
@@ -1132,7 +1073,6 @@ const handleSaveProject = async () => {
     const projectId = projectDetail.value.id;
     const response = await updateProject(projectId, saveData);
 
-    // 更新本地项目详情数据
     Object.assign(projectDetail.value, response.data.project || {});
 
     ElMessage.success("项目更新成功");
@@ -1145,7 +1085,6 @@ const handleSaveProject = async () => {
   }
 };
 
-// 生命周期钩子 - 组件挂载时获取项目详情
 onMounted(() => {
   fetchProjectDetail();
 });

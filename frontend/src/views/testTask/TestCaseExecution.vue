@@ -1,6 +1,5 @@
 <template>
   <div class="test-case-execution">
-    <!-- 页面标题和按钮区域 -->
     <div class="page-header-container">
       <div class="title-section">
         <h1>执行任务：{{ taskInfo.task_name }}</h1>
@@ -26,7 +25,6 @@
     </div>
 
     <div class="main-content">
-      <!-- 左侧：用例列表 -->
       <div
         class="left-panel"
         :class="{ collapsed: isCaseTreeCollapsed }"
@@ -161,9 +159,7 @@
         </div>
       </div>
 
-      <!-- 中间：用例详情和执行区域 -->
       <div class="middle-panel">
-        <!-- 左侧导航区域 -->
         <div class="nav-area left-nav-area">
           <el-button
             v-if="hasPreviousCase"
@@ -181,7 +177,6 @@
           >&lt;</span>
         </div>
 
-        <!-- 用例内容区域 -->
         <div class="content-area">
           <el-card
             v-if="selectedCase"
@@ -212,7 +207,6 @@
             </template>
 
             <div class="case-detail">
-              <!-- 上半部分：左右两列 -->
               <div class="case-detail-upper">
                 <div class="case-detail-left">
                   <el-descriptions
@@ -268,7 +262,6 @@
                 </div>
               </div>
 
-              <!-- 下半部分：实际结果 + 按钮区域 -->
               <div class="case-detail-lower">
                 <el-descriptions
                   title="实际结果"
@@ -343,7 +336,6 @@
           </div>
         </div>
 
-        <!-- 右侧导航区域 -->
         <div class="nav-area right-nav-area">
           <el-button
             v-if="hasNextCase"
@@ -362,7 +354,6 @@
         </div>
       </div>
 
-      <!-- 右侧：执行结果统计 -->
       <div class="right-panel">
         <el-card shadow="hover">
           <template #header>
@@ -507,15 +498,11 @@ const executionForm = reactive({
   actual_result: "",
 });
 
-// 用例树收起/展开状态
 const isCaseTreeCollapsed = ref(false);
 
-// 切换用例树收起/展开状态
 const toggleCaseTree = () => {
   isCaseTreeCollapsed.value = !isCaseTreeCollapsed.value;
-  // 当展开用例树时，重新设置选中状态
   if (!isCaseTreeCollapsed.value && selectedCase.value) {
-    // 确保DOM更新完成后再设置选中状态
     setTimeout(() => {
       if (caseTreeRef.value) {
         caseTreeRef.value.setCurrentKey(selectedCase.value.id);
@@ -551,7 +538,6 @@ const treeProps = {
   isLeaf: (data) => data.type !== "suite",
 };
 
-// 解析测试步骤为数组
 const parseSteps = (steps) => {
   if (!steps) return [];
   return steps.split("\n").filter((step) => step.trim());
@@ -561,18 +547,15 @@ const parseSteps = (steps) => {
 const handleBack = () => {
   loading.navigate = true;
   try {
-    // 关闭当前标签页
     window.close();
   } catch (error) {
     console.error("关闭标签页失败:", error);
-    // 如果关闭失败，退而求其次，在当前标签页跳转回任务列表
     router.push("/test-tasks");
   } finally {
     loading.navigate = false;
   }
 };
 
-// 获取任务信息
 const getTaskInfo = async () => {
   loading.getTaskInfo = true;
   try {
@@ -596,7 +579,6 @@ const getTaskInfo = async () => {
   }
 };
 
-// 获取任务关联的测试用例
 const getTestCases = async () => {
   loading.getTestCases = true;
   try {
@@ -612,13 +594,11 @@ const getTestCases = async () => {
   }
 };
 
-// 更新任务状态为执行中
 const updateTaskToRunning = async () => {
   loading.updateTaskStatus = true;
   try {
-    // API只允许执行待执行或已完成状态的任务
-      // 如果任务已经处于运行中状态，或者不是待执行/已完成状态，就不需要再次调用API
-      if (
+    // API只允许执行待执行或已完成状态的任务，若已是运行中或其它状态则无需再调
+    if (
         taskInfo.value.status === "running" ||
         (taskInfo.value.status !== "pending" &&
           taskInfo.value.status !== "completed")
@@ -627,17 +607,14 @@ const updateTaskToRunning = async () => {
       }
 
     await testTaskApi.executeTestTask(taskId);
-    // 重新获取任务信息，更新状态
     await getTaskInfo();
   } catch (error) {
     console.error("更新任务状态失败:", error);
-    // 忽略错误，继续执行
   } finally {
     loading.updateTaskStatus = false;
   }
 };
 
-// 获取优先级类型
 const getPriorityType = (priority) => {
   const priorityMap = {
     P0: "danger",
@@ -649,15 +626,11 @@ const getPriorityType = (priority) => {
   return priorityMap[priority] || "info";
 };
 
-// 构建用例树形结构
 const buildTestCaseTree = () => {
   const suiteMap = new Map();
   const tree = [];
-
-  // 获取筛选后的用例
   const casesToUse = filteredCases.value;
 
-  // 先处理测试套件
   casesToUse.forEach((caseItem) => {
     if (!suiteMap.has(caseItem.suite_id)) {
       suiteMap.set(caseItem.suite_id, {
@@ -673,12 +646,10 @@ const buildTestCaseTree = () => {
     }
   });
 
-  // 处理测试用例
   casesToUse.forEach((caseItem) => {
     const suite = suiteMap.get(caseItem.suite_id);
     suite.children.push(caseItem);
 
-    // 更新套件统计
     switch (caseItem.status) {
       case "pass":
         suite.pass_count++;
@@ -695,7 +666,6 @@ const buildTestCaseTree = () => {
     }
   });
 
-  // 转换为数组
   suiteMap.forEach((suite) => {
     tree.push(suite);
   });
@@ -703,7 +673,6 @@ const buildTestCaseTree = () => {
   testCaseTree.value = tree;
 };
 
-// 处理用例点击
 const handleCaseClick = (data) => {
   if (data.type !== "suite") {
     selectedCase.value = data;
@@ -711,7 +680,6 @@ const handleCaseClick = (data) => {
   }
 };
 
-// 当前选中用例的索引
 const currentCaseIndex = computed(() => {
   if (!selectedCase.value) return -1;
   return filteredCases.value.findIndex(
@@ -719,41 +687,34 @@ const currentCaseIndex = computed(() => {
   );
 });
 
-// 是否有上一条用例
 const hasPreviousCase = computed(() => {
   return currentCaseIndex.value > 0;
 });
 
-// 是否有下一条用例
 const hasNextCase = computed(() => {
   return currentCaseIndex.value < filteredCases.value.length - 1;
 });
 
-// 上一条用例
 const previousCase = () => {
   if (hasPreviousCase.value) {
     selectedCase.value = filteredCases.value[currentCaseIndex.value - 1];
     executionForm.actual_result = selectedCase.value.actual_result || "";
-    // 更新左侧用例列表的选中效果
     if (caseTreeRef.value) {
       caseTreeRef.value.setCurrentKey(selectedCase.value.id);
     }
   }
 };
 
-// 下一条用例
 const nextCase = () => {
   if (hasNextCase.value) {
     selectedCase.value = filteredCases.value[currentCaseIndex.value + 1];
     executionForm.actual_result = selectedCase.value.actual_result || "";
-    // 更新左侧用例列表的选中效果
     if (caseTreeRef.value) {
       caseTreeRef.value.setCurrentKey(selectedCase.value.id);
     }
   }
 };
 
-// 筛选用例
 const filteredCases = computed(() => {
   return testCases.value.filter((caseItem) => {
     const matchesSearch =
@@ -769,9 +730,7 @@ const filteredCases = computed(() => {
   });
 });
 
-// 处理筛选
 const handleFilter = () => {
-  // 根据筛选条件重新构建树
   buildTestCaseTree();
 };
 
@@ -786,7 +745,6 @@ const getStatusType = (status) => {
   return typeMap[status] ?? "info";
 };
 
-// 获取状态文本
 const getStatusText = (status) => {
   const textMap = {
     pass: "通过",
@@ -816,7 +774,6 @@ const updateCaseStatus = async (status) => {
     selectedCase.value.actual_result = executionForm.actual_result;
     buildTestCaseTree();
     ElMessage.success("用例状态更新成功");
-    // 非重置状态时自动跳到下一条用例
     if (status !== "" && hasNextCase.value) {
       nextCase();
     }
@@ -828,7 +785,6 @@ const updateCaseStatus = async (status) => {
   }
 };
 
-// 完成任务
 const handleCompleteTask = async () => {
   try {
     await ElMessageBox.confirm("确认完成该测试任务吗？", "提示", {
@@ -838,7 +794,6 @@ const handleCompleteTask = async () => {
     });
 
     loading.completeTask = true;
-    // 调用 API 完成任务；后端已根据用户「报告设置」在自动模式下生成报告，前端不再重复调用
     await testTaskApi.completeTestTask(taskId);
     try {
       const userRes = await getUserSettings();
@@ -851,16 +806,9 @@ const handleCompleteTask = async () => {
       ElMessage.success("任务完成成功");
     }
 
-    // 延迟一段时间再跳转，方便用户看清提示
     await new Promise((r) => setTimeout(r, 1800));
-
-    // 等待API调用完全完成，然后再关闭标签页
     await getTaskInfo();
-
-    // 关闭当前标签页
     window.close();
-
-    // 如果关闭失败（如从其他页面打开），则跳转回任务列表页面
     setTimeout(() => {
       router.push("/test-tasks");
     }, 100);
@@ -875,7 +823,6 @@ const handleCompleteTask = async () => {
   }
 };
 
-// 统计数据
 const totalCases = computed(() => {
   return testCases.value.length;
 });
@@ -915,17 +862,14 @@ const executionProgress = computed(() => {
   return Math.round((executed / totalCases.value) * 100);
 });
 
-// 获取进度条颜色
 const getProgressColor = (percentage) => {
   if (percentage >= 80) return "#67c23a";
   if (percentage >= 60) return "#e6a23c";
   return "#f56c6c";
 };
 
-// 初始化
 onMounted(async () => {
   await getTaskInfo();
-  // 将任务状态更新为执行中
   await updateTaskToRunning();
   await getTestCases();
 });
@@ -940,7 +884,6 @@ onMounted(async () => {
   flex-direction: column;
   background-color: var(--el-bg-color, #fff);
 
-  // 页面标题和按钮：与主内容统一为整体，用底边线划分
   .page-header-container {
     flex-shrink: 0;
     display: flex;
@@ -973,7 +916,6 @@ onMounted(async () => {
     }
   }
 
-  // 主内容区域：占满除标题外剩余高度，左/中/右同高；内容少时无整页滚动条，内容多时各自内部滚动
   .main-content {
     flex: 1;
     min-height: 0;
@@ -1066,7 +1008,6 @@ onMounted(async () => {
         max-height: none;
         width: 100%;
         box-sizing: border-box;
-        // 优化滚动条样式
         scrollbar-width: thin;
         scrollbar-color: var(--el-text-color-placeholder, #c0c4cc) var(--el-fill-color-light, #fafafa);
 
@@ -1132,7 +1073,6 @@ onMounted(async () => {
             font-weight: 500;
           }
 
-          /* 首个子元素（含 el-tooltip）占满剩余宽度，保证布局 */
           & > :first-child {
             flex: 1;
             min-width: 0;
@@ -1154,7 +1094,6 @@ onMounted(async () => {
       }
     }
 
-    // 中间用例详情和执行区域：高度与左侧一致，内容少时占满一屏，内容多时内部滚动
     .middle-panel {
       flex: 1;
       min-width: 0;
@@ -1164,7 +1103,6 @@ onMounted(async () => {
       display: flex;
       overflow: hidden;
 
-      // 导航区域：与内容区同背景、无边界，视觉上为一体
       .nav-area {
         width: 48px;
         background: transparent;
@@ -1174,7 +1112,6 @@ onMounted(async () => {
         flex-shrink: 0;
       }
 
-      // 导航：仅显示 < > 符号，拉长、收窄宽度
       .nav-area :deep(.el-button.nav-button) {
         min-width: auto;
         width: auto;
@@ -1225,7 +1162,6 @@ onMounted(async () => {
         }
       }
 
-      // 内容区域：与左侧等高；内容少时占满一屏，内容多时卡片主体内部滚动
       .content-area {
         flex: 1;
         min-height: 0;
@@ -1266,7 +1202,6 @@ onMounted(async () => {
         }
       }
 
-      // 卡片头部样式
       .card-header {
         display: flex;
         justify-content: space-between;
@@ -1322,7 +1257,6 @@ onMounted(async () => {
         flex-direction: column;
         gap: 20px;
 
-        // 上半部分：左右两列
         .case-detail-upper {
           display: flex;
           gap: 24px;
@@ -1340,7 +1274,6 @@ onMounted(async () => {
           }
         }
 
-        // 下半部分：实际结果 + 按钮
         .case-detail-lower {
           flex: 0 0 auto;
           padding-top: 16px;
@@ -1402,7 +1335,6 @@ onMounted(async () => {
       }
     }
 
-    // 右侧执行统计：与左、中同高
     .right-panel {
       width: 200px;
       flex-shrink: 0;
@@ -1425,7 +1357,6 @@ onMounted(async () => {
       .stats-content {
         padding: 12px;
 
-        // 总用例数统计
         .total-stats {
           text-align: center;
           margin-bottom: 18px;
@@ -1443,7 +1374,6 @@ onMounted(async () => {
           }
         }
 
-        // 状态统计，添加颜色区分
         .status-stats {
           display: grid;
           grid-template-columns: 1fr;
@@ -1477,7 +1407,6 @@ onMounted(async () => {
               font-weight: 500;
             }
 
-            // 状态颜色区分
             &.status-pass {
               background-color: rgba(103, 194, 58, 0.1);
 
@@ -1520,7 +1449,6 @@ onMounted(async () => {
           }
         }
 
-        // 进度条样式
         .progress-text {
           display: flex;
           flex-direction: column;

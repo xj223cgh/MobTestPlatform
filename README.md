@@ -1,258 +1,265 @@
-# 移动测试平台 (Mobile Test Platform)
+# MobTestPlatform - 移动测试平台
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
-[![Node.js](https://img.shields.io/badge/node.js-16%2B-green.svg)](https://nodejs.org/)
-[![Vue.js](https://img.shields.io/badge/vue.js-3.0%2B-green.svg)](https://vuejs.org/)
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.8%2B-blue?logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/node.js-16%2B-green?logo=node.js&logoColor=white" alt="Node.js" />
+  <img src="https://img.shields.io/badge/vue-3.3-brightgreen?logo=vue.js&logoColor=white" alt="Vue 3" />
+  <img src="https://img.shields.io/badge/flask-2.3-lightgrey?logo=flask&logoColor=white" alt="Flask" />
+  <img src="https://img.shields.io/badge/mysql-5.7%2B-blue?logo=mysql&logoColor=white" alt="MySQL" />
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
+</p>
 
-一个功能全面的移动测试平台，支持移动设备管理、测试用例管理（手动创建+AI自动化生成）、测试任务执行（手工执行+自动化测试）、报告管理等功能。
-
-## 🚀 功能特性
-
-### 核心功能
-- **设备管理**: 支持Android/iOS设备连接、监控、远程控制
-- **测试用例管理**: 可视化用例编辑、版本控制、标签分类
-- **自动化测试**: 支持UI自动化、性能测试、兼容性测试
-- **报告管理**: 多维度测试报告、统计分析、导出分享
-- **用户管理**: 角色权限控制、团队协作
-
-### 技术特性
-- **现代化架构**: Vue3 + Flask + MySQL技术栈
-- **响应式设计**: 支持桌面端和移动端访问
-- **实时监控**: WebSocket实时设备状态监控
-- **高性能**: 异步任务处理、分布式执行
-- **易扩展**: 模块化设计、插件化架构
-
-## 📋 系统要求
-
-### 后端环境
-- Python 3.8+
-- MySQL 5.7+ / PostgreSQL 10+
-- Redis 6.0+ (可选，用于缓存和任务队列)
-
-### 前端环境
-- Node.js 16+
-- npm 8+ 或 yarn 1.22+
-
-### 硬件要求
-- CPU: 2核心以上
-- 内存: 4GB以上
-- 存储: 20GB可用空间
-
-## 🛠️ 快速开始
-
-### 1. 克隆项目
-```bash
-git clone https://github.com/your-org/mob-test-platform.git
-cd mob-test-platform
-```
-
-### 2. 一键启动 (推荐)
-
-#### Windows用户
-```bash
-# 双击运行或在命令行执行
-start.bat
-```
-
-#### Linux/macOS用户
-```bash
-# 给脚本执行权限
-chmod +x start.sh
-
-# 运行启动脚本
-./start.sh
-```
-
-### 3. 手动启动
-
-#### 启动后端
-```bash
-cd backend
-pip install -r requirements.txt
-python main.py
-```
-
-#### 启动前端
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### 4. 访问应用
-- 前端地址: http://localhost:5173
-- 后端API: http://localhost:8000
-- API文档: http://localhost:8000/docs
-
-## 📁 项目结构
-
-```
-MobTestPlatform/
-├── backend/                 # 后端代码
-│   ├── app/                # 应用核心
-│   │   ├── api/           # API路由
-│   │   ├── models/        # 数据模型
-│   │   ├── services/      # 业务逻辑
-│   │   └── utils/         # 工具函数
-│   ├── config/            # 配置文件
-│   ├── migrations/        # 数据库迁移
-│   ├── tests/             # 测试代码
-│   └── main.py           # 应用入口
-├── frontend/              # 前端代码
-│   ├── src/              # 源代码
-│   │   ├── api/          # API调用
-│   │   ├── components/   # 组件
-│   │   ├── views/        # 页面
-│   │   ├── router/       # 路由配置
-│   │   ├── store/        # 状态管理
-│   │   └── utils/        # 工具函数
-│   ├── public/           # 静态资源
-│   └── package.json      # 依赖配置
-├── docs/                 # 文档
-├── scripts/              # 脚本工具
-├── start.py             # Python启动脚本
-├── start.bat            # Windows启动脚本
-├── start.sh             # Linux/macOS启动脚本
-└── README.md            # 项目说明
-```
-
-## 🔧 配置说明
-
-### 后端配置
-主要配置文件位于 `backend/config/` 目录：
-
-- `config.py`: 基础配置
-- `database.py`: 数据库配置
-- `redis.py`: Redis配置
-- `email.py`: 邮件配置
-
-### 前端配置
-主要配置文件位于 `frontend/src/` 目录：
-
-- `config/index.js`: 环境配置
-- `utils/request.js`: HTTP请求配置
-- `router/index.js`: 路由配置
-
-## 📖 使用指南
-
-### 设备管理
-1. 连接移动设备到测试机
-2. 在设备管理页面添加设备
-3. 配置设备参数和权限
-4. 开始使用设备进行测试
-
-### 测试用例管理
-1. 创建测试项目
-2. 编写测试用例
-3. 设置用例参数和预期结果
-4. 组织用例到测试套件
-
-### 执行测试
-1. 选择测试用例或套件
-2. 配置执行参数
-3. 选择目标设备
-4. 启动测试执行
-
-### 查看报告
-1. 在报告管理页面查看测试结果
-2. 分析测试数据和统计信息
-3. 导出或分享报告
-
-## 🔌 API文档
-
-### 认证接口
-- `POST /api/auth/login` - 用户登录
-- `POST /api/auth/logout` - 用户登出
-- `GET /api/auth/profile` - 获取用户信息
-
-### 设备管理接口
-- `GET /api/devices` - 获取设备列表
-- `POST /api/devices` - 添加设备
-- `PUT /api/devices/{id}` - 更新设备信息
-- `DELETE /api/devices/{id}` - 删除设备
-
-### 测试用例接口
-- `GET /api/testcases` - 获取测试用例列表
-- `POST /api/testcases` - 创建测试用例
-- `PUT /api/testcases/{id}` - 更新测试用例
-- `DELETE /api/testcases/{id}` - 删除测试用例
-
-详细API文档请访问: http://localhost:8000/docs
-
-## 🧪 测试
-
-### 运行后端测试
-```bash
-cd backend
-python -m pytest tests/
-```
-
-### 运行前端测试
-```bash
-cd frontend
-npm run test
-```
-
-### 端到端测试
-```bash
-cd frontend
-npm run test:e2e
-```
-
-## 🚀 部署
-
-### Docker部署
-```bash
-# 构建镜像
-docker-compose build
-
-# 启动服务
-docker-compose up -d
-```
-
-### 生产环境部署
-1. 配置生产环境变量
-2. 构建前端静态文件
-3. 配置Web服务器 (Nginx)
-4. 部署后端应用
-5. 配置数据库和缓存
-
-## 🤝 贡献指南
-
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 创建 Pull Request
-
-### 代码规范
-- 后端遵循 PEP 8 规范
-- 前端遵循 ESLint 规范
-- 提交信息遵循 Conventional Commits 规范
-
-## 📄 许可证
-
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
-
-## 🆘 支持
-
-如果您遇到问题或有建议，请：
-
-1. 查看 [FAQ](docs/FAQ.md)
-2. 搜索 [Issues](https://github.com/your-org/mob-test-platform/issues)
-3. 创建新的 [Issue](https://github.com/your-org/mob-test-platform/issues/new)
-
-## 📞 联系我们
-
-- 邮箱: support@mobtestplatform.com
-- 官网: https://mobtestplatform.com
-- 文档: https://docs.mobtestplatform.com
-
-## 🙏 致谢
-
-感谢所有为这个项目做出贡献的开发者和用户！
+一个面向移动端测试团队的综合测试管理平台，覆盖项目管理、需求管理、用例管理（支持 AI 生成）、用例评审、测试任务执行、设备管理、报告管理及消息通知等完整测试流程。
 
 ---
 
-⭐ 如果这个项目对您有帮助，请给我们一个星标！
+## 功能概览
+
+| 模块 | 说明 |
+|------|------|
+| **项目管理** | 项目创建与维护、成员管理、项目详情面板 |
+| **迭代管理** | 迭代规划、状态追踪、迭代详情 |
+| **需求管理** | 版本需求录入、状态流转、关联迭代与项目 |
+| **用例管理** | 树形用例库（文件夹 + 用例集）、手动编写与 AI 自动生成、脑图视图、批量导入导出 |
+| **用例评审** | 发起评审 / 执行评审、逐条审批、评审历史记录 |
+| **测试任务** | 用例执行任务与设备脚本任务、任务文件夹分类、关联项目/迭代/用例集 |
+| **设备管理** | Android 设备 ADB 连接管理、无线连接、设备投屏（Escrcpy）、设备详情 |
+| **报告管理** | 自动 / 手动生成测试报告、报告详情、导出 Word / Excel |
+| **消息通知** | WebSocket 实时推送、消息中心（已读/未读/置顶/清理） |
+| **用户与权限** | 四级角色（超管/管理员/测试人员/普通成员）、功能埋点权限可视化配置 |
+| **系统设置** | 安全策略（会话超时、登录锁定）、分页设置、自动报告等 |
+| **认证** | 账号密码登录、QQ 邮箱验证码登录、注册、忘记密码 / 重置密码 |
+
+---
+
+## 技术栈
+
+| 层 | 技术 |
+|----|------|
+| 前端 | Vue 3 + Element Plus + Vite + Pinia + Axios + ECharts + Socket.IO Client |
+| 后端 | Flask + Flask-SQLAlchemy + Flask-Login + Flask-SocketIO + APScheduler |
+| 数据库 | MySQL 5.7+（utf8mb4） |
+| 通信 | RESTful API + WebSocket（Socket.IO） |
+
+---
+
+## 环境要求
+
+- **Python** 3.8+
+- **Node.js** 16+（npm 8+）
+- **MySQL** 5.7+ / MariaDB 10.2+
+
+---
+
+## 快速开始
+
+### 1. 克隆项目
+
+```bash
+git clone https://github.com/your-org/MobTestPlatform.git
+cd MobTestPlatform
+```
+
+### 2. 安装依赖
+
+```bash
+# 后端依赖
+cd backend
+pip install -r requirements.txt
+
+# 前端依赖
+cd ../frontend
+npm install
+```
+
+### 3. 初始化数据库
+
+修改 `database/config.py` 中的数据库连接信息，然后执行：
+
+```bash
+# 在项目根目录执行
+python database/01_create_database.py   # 创建数据库
+python database/03_create_tables.py     # 创建表结构
+python database/05_insert_test_data.py  # 插入测试数据（可选）
+```
+
+> 也可使用一键初始化脚本：`python database/init_database.py`
+
+### 4. 配置后端环境变量
+
+在 `backend/` 目录下创建或编辑 `.env` 文件：
+
+```env
+# Flask
+FLASK_ENV=development
+FLASK_PORT=5000
+
+# 数据库
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASSWORD=123456
+MYSQL_DATABASE=mobile_test_platform
+
+# 安全
+SECRET_KEY=your-secret-key
+
+# QQ 邮箱 SMTP（用于邮箱验证码登录和找回密码，不配置则邮箱相关功能不可用）
+SMTP_USER=你的QQ邮箱@qq.com
+SMTP_PASSWORD=QQ邮箱授权码
+```
+
+### 5. 启动服务
+
+#### 一键启动（推荐）
+
+```bash
+python start.py
+```
+
+该脚本会同时启动后端（Flask，端口 5000）和前端（Vite，端口 8081）。
+
+#### 手动启动
+
+```bash
+# 终端 1 - 启动后端
+cd backend
+python run.py
+
+# 终端 2 - 启动前端
+cd frontend
+npm run dev
+```
+
+### 6. 访问应用
+
+- 前端地址：http://localhost:8081
+- 后端 API：http://localhost:5000/api
+
+测试账号（执行测试数据脚本后可用）：
+
+| 账号 | 密码 | 角色 |
+|------|------|------|
+| Lethe | 123321 | 超级管理员 |
+| Manager | 123321 | 管理员 |
+| Tester | 123321 | 测试人员 |
+| Admin | 123321 | 普通成员 |
+
+---
+
+## 项目结构
+
+```
+MobTestPlatform/
+├── backend/                    # 后端（Flask）
+│   ├── app/
+│   │   ├── __init__.py         # 应用工厂 & 蓝图注册
+│   │   ├── config/config.py    # 配置（数据库、SMTP、CORS 等）
+│   │   ├── models/models.py    # SQLAlchemy 数据模型
+│   │   ├── routes/             # API 路由（17 个模块）
+│   │   ├── services/           # 业务逻辑（邮件、通知、权限）
+│   │   ├── utils/              # 工具函数（认证、辅助函数、调度器）
+│   │   └── constants/          # 常量（权限编码）
+│   ├── storage/                # 文件存储（设备脚本、Logo）
+│   ├── .env                    # 环境变量
+│   ├── run.py                  # 后端启动入口
+│   └── requirements.txt        # Python 依赖
+├── frontend/                   # 前端（Vue 3 + Element Plus）
+│   ├── src/
+│   │   ├── api/                # API 调用封装
+│   │   ├── components/         # 公共组件（布局、脑图等）
+│   │   ├── router/             # 路由配置
+│   │   ├── stores/             # Pinia 状态管理
+│   │   ├── utils/              # 工具（请求封装）
+│   │   └── views/              # 页面视图
+│   ├── vite.config.js          # Vite 构建配置
+│   └── package.json            # 前端依赖
+├── database/                   # 数据库脚本
+│   ├── config.py               # 数据库连接配置
+│   ├── 01_create_database.py   # 创建数据库
+│   ├── 03_create_tables.py     # 创建所有表结构
+│   ├── 05_insert_test_data.py  # 通用测试数据
+│   ├── 08_seed_wps_email_data.py # WPS 邮箱业务模拟数据
+│   ├── init_database.py        # 一键初始化
+│   └── README.md               # 数据库操作说明
+├── docs/                       # 项目文档
+├── escrcpy/                    # 设备投屏工具
+├── start.py                    # 一键启动脚本
+└── README.md
+```
+
+---
+
+## 数据库初始化
+
+详见 [`database/README.md`](database/README.md)，主要操作：
+
+| 脚本 | 说明 |
+|------|------|
+| `01_create_database.py` | 创建 `mobile_test_platform` 数据库 |
+| `02_drop_database.py` | 删除数据库（慎用） |
+| `03_create_tables.py` | 创建全部 24 张数据表 |
+| `04_drop_tables.py` | 删除所有表（慎用） |
+| `05_insert_test_data.py` | 插入通用测试数据（多项目/迭代/需求/用例/任务） |
+| `06_clear_table_data.py` | 清空所有表数据（保留表结构） |
+| `07_test_connection.py` | 测试数据库连接 |
+| `08_seed_wps_email_data.py` | 插入 WPS 邮箱业务模拟数据 |
+| `init_database.py` | 一键初始化（创建库 → 建表 → 造数） |
+
+---
+
+## 邮箱配置（QQ 邮箱验证码登录 & 找回密码）
+
+使用邮箱验证码登录和忘记密码功能前，需配置 QQ 邮箱 SMTP。
+
+### 获取授权码
+
+1. 登录 [QQ 邮箱](https://mail.qq.com) → **设置** → **账户**
+2. 开启 **IMAP/SMTP 服务**
+3. 按提示获取 **授权码**
+
+### 配置环境变量
+
+在 `backend/.env` 中填写：
+
+```env
+SMTP_USER=你的QQ邮箱@qq.com
+SMTP_PASSWORD=授权码
+```
+
+配置完成后，用户在 **个人中心** 或 **用户管理** 中绑定 QQ 邮箱即可使用邮箱验证码登录和找回密码功能。
+
+---
+
+## AI 用例生成
+
+平台支持通过 AI 大模型自动生成测试用例，支持上传需求文档（.docx / .pdf / .txt）辅助生成。
+
+配置方式见 [`docs/AI_GENERATE_CASE_CONFIG.md`](docs/AI_GENERATE_CASE_CONFIG.md)。
+
+---
+
+## 内网访问
+
+如需局域网内其他设备访问平台，请参考 [`docs/内网访问说明.md`](docs/内网访问说明.md)。
+
+---
+
+## 文档
+
+| 文档 | 说明 |
+|------|------|
+| [安装部署指南](docs/INSTALLATION.md) | 环境搭建与部署 |
+| [开发指南](docs/DEVELOPMENT.md) | 架构设计、代码规范、开发流程 |
+| [用户手册](docs/USER_MANUAL.md) | 功能使用说明 |
+| [API 文档](docs/API.md) | 接口说明 |
+| [AI 用例生成配置](docs/AI_GENERATE_CASE_CONFIG.md) | AI 功能配置与使用 |
+| [消息通知设计](docs/消息通知机制设计方案.md) | 消息中心设计方案 |
+| [权限配置设计](docs/功能埋点与角色权限可视化配置设计方案.md) | 角色权限设计方案 |
+| [内网访问说明](docs/内网访问说明.md) | 局域网访问配置 |
+
+---
+
+## 许可证
+
+本项目采用 [MIT License](LICENSE)。

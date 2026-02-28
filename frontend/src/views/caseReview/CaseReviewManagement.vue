@@ -6,7 +6,6 @@
         v-model="activeTab"
         class="review-tabs"
       >
-        <!-- 待我评审 -->
         <el-tab-pane
           label="待我评审"
           name="my-tasks"
@@ -375,7 +374,6 @@
           </div>
         </el-tab-pane>
 
-        <!-- 评审历史 -->
         <el-tab-pane
           label="评审历史"
           name="review-history"
@@ -650,7 +648,6 @@
             <el-descriptions-item label="创建时间">
               {{ formatDate(currentReviewTask?.created_at) || "-" }}
             </el-descriptions-item>
-            <!-- 添加版本信息显示 -->
             <el-descriptions-item
               v-if="currentReviewTask?.version"
               label="版本号"
@@ -684,13 +681,11 @@
           </el-descriptions>
         </div>
 
-        <!-- 用例评审列表 -->
         <div class="dialog-section case-list-section">
           <h4>用例评审列表</h4>
           <p v-if="isReviewer && !currentReviewTask?.version" class="review-save-hint">
             评审状态与意见会即时保存，可随时关闭页面，下次继续评审。
           </p>
-          <!-- 筛选条件栏 -->
           <div class="case-review-filter-bar">
             <div class="filter-bar-left">
               <el-input
@@ -888,7 +883,6 @@
               min-width="90"
             >
               <template #default="scope">
-                <!-- 如果是评审人且可编辑，显示可编辑的单选按钮组 -->
                 <el-radio-group
                   v-if="isReviewerAndCanEdit"
                   v-model="scope.row.review_status"
@@ -900,7 +894,6 @@
                   <el-radio-button label="approved" class="status-approved">已通过</el-radio-button>
                   <el-radio-button label="rejected" class="status-rejected">已拒绝</el-radio-button>
                 </el-radio-group>
-                <!-- 如果是发起人或其他用户，显示只读的状态标签 -->
                 <el-tag
                   v-else
                   :type="getCaseReviewStatusTagType(scope.row.review_status)"
@@ -916,7 +909,6 @@
               min-width="120"
             >
               <template #default="scope">
-                <!-- 如果是评审人且可编辑，显示可编辑的输入框 -->
                 <el-input
                   v-if="isReviewerAndCanEdit"
                   v-model="scope.row.comments"
@@ -927,7 +919,6 @@
                   size="small"
                   @blur="handleCommentsChange(scope.row)"
                 />
-                <!-- 如果是发起人或其他用户，显示只读的评审意见 -->
                 <div
                   v-else
                   class="read-only-comments"
@@ -961,13 +952,11 @@
           />
         </div>
 
-        <!-- 整体评审意见 -->
         <div
           v-if="isReviewer || isInitiator || currentReviewTask?.version"
           class="dialog-section"
         >
           <h4>整体评审意见</h4>
-          <!-- 如果是评审人且可编辑，显示可编辑的输入框 -->
           <el-input
             v-if="isReviewerAndCanEdit"
             v-model="overallComments"
@@ -975,7 +964,6 @@
             :rows="4"
             placeholder="请输入整体评审意见"
           />
-          <!-- 如果是发起人或评审历史详情，显示只读的评审意见 -->
           <div
             v-else
             class="read-only-comments"
@@ -985,16 +973,12 @@
         </div>
       </div>
 
-      <!-- 对话框底部按钮 -->
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="reviewDialogVisible = false">关闭</el-button>
 
-          <!-- 只有当不是评审历史详情（即没有version属性）时，才显示操作按钮 -->
           <template v-if="!currentReviewTask?.version">
-            <!-- 评审人操作按钮 -->
             <template v-if="isReviewer">
-              <!-- 如果评审未完成且没有被拒绝的用例，显示完成评审按钮 -->
               <el-button
                 v-if="
                   currentReviewTask &&
@@ -1008,7 +992,6 @@
               >
                 完成评审
               </el-button>
-              <!-- 如果评审已完成或已拒绝，显示重新评审按钮（评审人可重新打开继续评） -->
               <el-button
                 v-else-if="
                   currentReviewTask &&
@@ -1019,7 +1002,6 @@
               >
                 重新评审
               </el-button>
-              <!-- 评审中或已完成且非已拒绝时，或有被拒绝的用例时，显示打回评审（已拒绝后不再显示打回） -->
               <el-button
                 v-if="
                   currentReviewTask &&
@@ -1033,7 +1015,6 @@
               </el-button>
             </template>
 
-            <!-- 发起人操作按钮：已完成或已拒绝的评审可以重新发起 -->
             <el-button
               v-if="
                 isInitiator &&
@@ -1063,13 +1044,11 @@ import { useUserStore } from "@/stores/user";
 import { useSystemSettingsStore } from "@/stores/systemSettings";
 import { Folder, Document, Search } from "@element-plus/icons-vue";
 
-// 状态管理
 const userStore = useUserStore();
 const systemSettingsStore = useSystemSettingsStore();
 const defaultPageSize = computed(() => systemSettingsStore.defaultPageSize || 10);
 const route = useRoute();
 const router = useRouter();
-// 从路由参数中获取activeTab，默认值为'my-tasks'
 const activeTab = ref(route.query.activeTab || "my-tasks");
 const reviewHistorySubTab = ref("recent");
 // 消息跳转时的短暂闪烁行（2.5s 后清除）
@@ -1091,13 +1070,10 @@ const loading = ref({
   suites: false,
 });
 
-// 数据
 const myTasks = ref([]);
 const myInitiated = ref([]);
-// 待我评审 / 我发起的 分页（每页条数使用系统设置）
 const paginationMyTasks = ref({ page: 1, size: 10, total: 0 });
 const paginationMyInitiated = ref({ page: 1, size: 10, total: 0 });
-// 待我评审 / 我发起的 列表筛选
 const filterSuiteNameMyTasks = ref("");
 const filterStatusMyTasks = ref("");
 const filterDateRangeMyTasks = ref(null);
@@ -1105,13 +1081,12 @@ const filterSuiteNameMyInitiated = ref("");
 const filterStatusMyInitiated = ref("");
 const filterDateRangeMyInitiated = ref(null);
 const caseReviews = ref([]);
-const originalCaseReviews = ref([]); // 保存原始的用例评审数据，用于判断哪些用例被修改了
+const originalCaseReviews = ref([]);
 const currentReviewTask = ref(null);
 const reviewDialogVisible = ref(false);
 const reviewDialogTitle = ref("");
 const overallComments = ref("");
 
-// 评审历史相关
 const selectedSuiteId = ref(null);
 const selectedSuitePath = ref("");
 const suitePopoverVisible = ref(false);
@@ -1122,20 +1097,16 @@ const defaultProps = ref({
 });
 const reviewHistory = ref([]);
 const recentHistory = ref([]);
-// 评审历史分页（前端分页，每页条数使用系统设置）
 const paginationRecent = ref({ page: 1, size: 10, total: 0 });
 const paginationBySuite = ref({ page: 1, size: 10, total: 0 });
-// 评审详情弹窗内用例列表分页（前端分页）
 const paginationCaseReview = ref({ page: 1, size: 10 });
 
-// 用例评审列表筛选条件（评审详情弹窗内）
 const caseReviewKeyword = ref("");
 const caseReviewPriorityFilter = ref([]);
 const caseReviewStatusFilter = ref([]);
 const caseReviewPriorityFilterAll = ref(true);
 const caseReviewStatusFilterAll = ref(true);
 
-// 计算属性：是否为当前任务的评审人（含已拒绝时，用于显示「重新评审」等按钮）
 const isReviewer = computed(() => {
   if (currentReviewTask.value?.version) return false;
   if (!userStore.userInfo || !currentReviewTask.value) return false;
@@ -1144,7 +1115,6 @@ const isReviewer = computed(() => {
   return currentUserId === reviewerId;
 });
 
-// 评审人且可编辑（已拒绝时仅只读，不展示编辑控件）
 const isReviewerAndCanEdit = computed(() => {
   if (!isReviewer.value) return false;
   if (currentReviewTask.value?.status === "rejected") return false;
@@ -1152,51 +1122,41 @@ const isReviewerAndCanEdit = computed(() => {
 });
 
 const isInitiator = computed(() => {
-  // 根据当前登录用户和评审任务的发起人信息判断是否为发起人
   if (!userStore.userInfo || !currentReviewTask.value) return false;
-  // 确保类型一致，转换为字符串进行比较
   const currentUserId = String(userStore.userInfo.id);
   const initiatorId = String(currentReviewTask.value.initiator_id);
   return currentUserId === initiatorId;
 });
 
 const canCompleteReview = computed(() => {
-  // 评审历史详情是只读的，不允许完成评审
   if (currentReviewTask.value?.version) {
     return false;
   }
 
-  // 已拒绝的评审，不允许完成评审
   if (currentReviewTask.value?.status === "rejected") {
     return false;
   }
 
-  // 如果没有用例，允许完成评审
   if (!caseReviews.value.length) return true;
-  // 检查是否所有用例都已评审
   return caseReviews.value.every((cr) => cr.review_status !== "pending");
 });
 
-// 检查是否有被拒绝的用例
 const hasRejectedCases = computed(() => {
   return caseReviews.value.some((cr) => cr.review_status === "rejected");
 });
 
-// 全部最近历史（前端分页）
 const paginatedRecentHistory = computed(() => {
   const list = recentHistory.value || [];
   const { page, size } = paginationRecent.value;
   const start = (page - 1) * size;
   return list.slice(start, start + size);
 });
-// 按用例集查看历史（前端分页）
 const paginatedReviewHistory = computed(() => {
   const list = reviewHistory.value || [];
   const { page, size } = paginationBySuite.value;
   const start = (page - 1) * size;
   return list.slice(start, start + size);
 });
-// 用例评审列表筛选结果（关键字 + 优先级 + 评审状态）
 const filteredCaseReviews = computed(() => {
   let list = caseReviews.value || [];
   const kw = (caseReviewKeyword.value || "").trim().toLowerCase();
@@ -1227,7 +1187,6 @@ const filteredCaseReviews = computed(() => {
   }
   return list;
 });
-// 评审详情弹窗内用例列表（前端分页）
 const paginatedFilteredCaseReviews = computed(() => {
   const list = filteredCaseReviews.value || [];
   const { page, size } = paginationCaseReview.value;
@@ -1235,8 +1194,6 @@ const paginatedFilteredCaseReviews = computed(() => {
   return list.slice(start, start + size);
 });
 
-// 方法
-// 获取我的评审任务（支持状态、用例集名称、创建时间筛选、分页）
 const getMyTasks = async () => {
   loading.value.myTasks = true;
   try {
@@ -1261,7 +1218,6 @@ const getMyTasks = async () => {
   }
 };
 
-// 获取我发起的评审（支持状态、用例集名称、创建时间筛选、分页）
 const getMyInitiated = async () => {
   loading.value.myInitiated = true;
   try {
@@ -1321,7 +1277,6 @@ const onMyInitiatedSizeChange = (size) => {
   getMyInitiated();
 };
 
-// 获取评审任务详情（从消息跳转时若任务已删除会提示并清除 URL 中的 taskId）
 const getReviewTaskDetail = async (taskId) => {
   loading.value.caseReviews = true;
   paginationCaseReview.value.page = 1;
@@ -1330,14 +1285,11 @@ const getReviewTaskDetail = async (taskId) => {
     const response = await reviewApi.getReviewTask(taskId);
     currentReviewTask.value = response.data;
 
-    // 获取用例评审详情
     const caseResponse = await reviewApi.getCaseReviews(taskId);
     caseReviews.value = caseResponse.data.case_reviews || [];
 
-    // 保存原始用例评审数据，用于判断哪些用例被修改了
     originalCaseReviews.value = JSON.parse(JSON.stringify(caseReviews.value));
 
-    // 获取整体评审意见
     overallComments.value = response.data.overall_comments || "";
   } catch (error) {
     if (isPermissionError(error)) {
@@ -1370,7 +1322,6 @@ const getReviewTaskDetail = async (taskId) => {
   }
 };
 
-// 处理任务点击
 const handleTaskClick = (row) => {
   reviewDialogTitle.value = "评审详情";
   reviewDialogVisible.value = true;
@@ -1383,19 +1334,15 @@ const handleGoToSuite = (row) => {
   router.push({ path: "/test-cases", query: { suite_id: row.suite_id, fromReview: "1" } });
 };
 
-// 处理开始评审
 const handleReview = async (row) => {
   reviewDialogTitle.value = "开始评审";
   reviewDialogVisible.value = true;
   await getReviewTaskDetail(row.id);
 
-  // 如果评审任务状态是待处理，将其改为评审中
   if (currentReviewTask.value && currentReviewTask.value.status === "pending") {
     try {
-      // 获取第一个用例，用于触发评审开始
       if (caseReviews.value.length > 0) {
         const firstCase = caseReviews.value[0];
-        // 调用更新用例评审API，不修改实际内容，只是触发评审任务状态更新
         await reviewApi.updateCaseReview(
           firstCase.review_task_id,
           firstCase.case_id,
@@ -1404,7 +1351,6 @@ const handleReview = async (row) => {
             comments: firstCase.comments || "",
           },
         );
-        // 重新获取评审任务详情，更新状态
         await getReviewTaskDetail(row.id);
       }
     } catch (error) {
@@ -1415,19 +1361,15 @@ const handleReview = async (row) => {
   }
 };
 
-// 处理查看详情
 const handleViewDetail = (row) => {
   reviewDialogTitle.value = "评审详情";
   reviewDialogVisible.value = true;
   getReviewTaskDetail(row.id);
 };
 
-// 评审历史相关方法
-// 获取可用用例集树状结构
 const getAvailableSuites = async () => {
   loading.value.suites = true;
   try {
-    // 调用获取用例集树状结构的API
     const response = await testSuiteApi.getTestSuiteTree();
     suiteTreeData.value = response.data || [];
   } catch (error) {
@@ -1439,7 +1381,6 @@ const getAvailableSuites = async () => {
   }
 };
 
-// 清空目标用例集选择（评审历史）
 const handleClearSuiteSelection = () => {
   selectedSuiteId.value = null;
   selectedSuitePath.value = "";
@@ -1454,32 +1395,23 @@ const handleSuiteTreeNodeClick = (data) => {
   // 文件夹由 el-tree 的 expand-on-click-node 处理展开/收起，此处不处理
 };
 
-// 处理用例集选择
 const handleSuiteSelect = (data) => {
-  // 确保只处理类型为suite的测试套件
   if (data.type === "suite") {
     selectedSuiteId.value = data.id;
     selectedSuitePath.value = buildSuitePath(data);
     suitePopoverVisible.value = false;
-
-    // 自动查询评审历史
     handleGetReviewHistory();
   }
 };
 
-// 过滤节点方法：确保文件夹可展开，但不可选择
 const filterSuiteType = (value, data) => {
-  // 允许所有节点显示，包括文件夹
   return true;
 };
 
-// 构建用例集路径
 const buildSuitePath = (data) => {
-  // 简化实现：直接返回当前套件名称
   return data.suite_name;
 };
 
-// 获取全部最近评审历史（评审历史 Tab 用）
 const getRecentReviewHistory = async () => {
   loading.value.recentHistory = true;
   try {
@@ -1495,7 +1427,6 @@ const getRecentReviewHistory = async () => {
   }
 };
 
-// 获取评审历史记录（按用例集）
 const handleGetReviewHistory = async () => {
   if (!selectedSuiteId.value) {
     ElMessage.warning("请先选择用例集");
@@ -1519,16 +1450,13 @@ const handleGetReviewHistory = async () => {
   }
 };
 
-// 查看评审历史详情
 const handleViewReviewHistory = async (row) => {
   reviewDialogTitle.value = "评审历史详情";
   reviewDialogVisible.value = true;
   loading.value.caseReviews = true;
   try {
-    // 调用获取评审历史详情的API
     const response = await reviewApi.getReviewHistoryDetail(row.id);
 
-    // 构建当前评审任务对象，适配现有的弹窗UI
     currentReviewTask.value = {
       ...response.data,
       suite_name: response.data.suite?.suite_name || "",
@@ -1538,13 +1466,10 @@ const handleViewReviewHistory = async (row) => {
       status: response.data.status,
     };
 
-    // 适配用例评审列表
     caseReviews.value = response.data.case_reviews || [];
 
-    // 保存原始用例评审数据
     originalCaseReviews.value = JSON.parse(JSON.stringify(caseReviews.value));
 
-    // 获取整体评审意见
     overallComments.value = response.data.overall_comments || "";
   } catch (error) {
     if (isPermissionError(error)) return;
@@ -1554,7 +1479,6 @@ const handleViewReviewHistory = async (row) => {
   }
 };
 
-// 处理评审状态变化
 const handleReviewStatusChange = async (row) => {
   loading.value.updateReview = true;
   try {
@@ -1567,10 +1491,8 @@ const handleReviewStatusChange = async (row) => {
       },
     );
 
-    // 更新本地数据，保留原来的test_case信息
     const index = caseReviews.value.findIndex((cr) => cr.id === row.id);
     if (index > -1) {
-      // 合并数据，保留原来的test_case信息
       caseReviews.value[index] = {
         ...response.data,
         test_case: caseReviews.value[index].test_case,
@@ -1579,7 +1501,6 @@ const handleReviewStatusChange = async (row) => {
 
     ElMessage.success("评审状态更新成功");
 
-    // 刷新任务列表
     if (activeTab.value === "my-tasks") {
       getMyTasks();
     } else {
@@ -1593,11 +1514,9 @@ const handleReviewStatusChange = async (row) => {
   }
 };
 
-// 处理评审意见变化
 const handleCommentsChange = async (row) => {
   loading.value.updateReview = true;
   try {
-    // 确保review_status有值
     const status = row.review_status || "pending";
     const response = await reviewApi.updateCaseReview(
       row.review_task_id,
@@ -1608,10 +1527,8 @@ const handleCommentsChange = async (row) => {
       },
     );
 
-    // 更新本地数据，保留原来的test_case信息
     const index = caseReviews.value.findIndex((cr) => cr.id === row.id);
     if (index > -1) {
-      // 合并数据，保留原来的test_case信息
       caseReviews.value[index] = {
         ...response.data,
         test_case: caseReviews.value[index].test_case,
@@ -1630,7 +1547,6 @@ const handleCommentsChange = async (row) => {
   }
 };
 
-// 处理完成评审
 const handleCompleteReview = async () => {
   if (!currentReviewTask.value) return;
 
@@ -1642,19 +1558,14 @@ const handleCompleteReview = async () => {
 
   loading.value.updateReview = true;
   try {
-    // 1. 收集所有被修改的用例评审
     const modifiedCaseReviews = [];
 
-    // 遍历当前用例评审列表
     for (const currentReview of caseReviews.value) {
-      // 找到对应的原始评审数据
       const originalReview = originalCaseReviews.value.find(
         (orig) => orig.id === currentReview.id,
       );
 
-      // 如果找到原始数据并且有修改，添加到修改列表中
       if (originalReview) {
-        // 检查评审状态或评审意见是否有修改
         if (
           currentReview.review_status !== originalReview.review_status ||
           currentReview.comments !== originalReview.comments
@@ -1669,7 +1580,6 @@ const handleCompleteReview = async () => {
       }
     }
 
-    // 2. 批量更新被修改的用例评审
     for (const caseReview of modifiedCaseReviews) {
       await reviewApi.updateCaseReview(
         caseReview.review_task_id,
@@ -1681,7 +1591,6 @@ const handleCompleteReview = async () => {
       );
     }
 
-    // 3. 完成评审任务，更新任务相关的时间属性
     await reviewApi.completeReview(currentReviewTask.value.id, {
       overall_comments: overallComments.value,
     });
@@ -1689,7 +1598,6 @@ const handleCompleteReview = async () => {
     ElMessage.success("评审完成成功");
     reviewDialogVisible.value = false;
 
-    // 刷新列表
     if (activeTab.value === "my-tasks") {
       getMyTasks();
     } else {
@@ -1703,7 +1611,6 @@ const handleCompleteReview = async () => {
   }
 };
 
-// 处理重新评审：评审人修改已完成的评审
 const handleRestartReview = async () => {
   if (!currentReviewTask.value) return;
 
@@ -1723,10 +1630,8 @@ const handleRestartReview = async () => {
 
     ElMessage.success("重新评审成功");
 
-    // 重新获取评审任务详情，更新本地数据
     await getReviewTaskDetail(currentReviewTask.value.id);
 
-    // 刷新列表
     if (activeTab.value === "my-tasks") {
       getMyTasks();
     } else {
@@ -1740,7 +1645,6 @@ const handleRestartReview = async () => {
   }
 };
 
-// 处理重新发起评审：发起人重新发起已拒绝/已完成的评审
 const handleReinitiateReview = async () => {
   if (!currentReviewTask.value) return;
 
@@ -1774,7 +1678,6 @@ const handleReinitiateReview = async () => {
   }
 };
 
-// 处理打回评审
 const handleRejectReview = async () => {
   if (!currentReviewTask.value) return;
 
@@ -1792,19 +1695,14 @@ const handleRejectReview = async () => {
 
   loading.value.updateReview = true;
   try {
-    // 1. 收集所有被修改的用例评审
     const modifiedCaseReviews = [];
 
-    // 遍历当前用例评审列表
     for (const currentReview of caseReviews.value) {
-      // 找到对应的原始评审数据
       const originalReview = originalCaseReviews.value.find(
         (orig) => orig.id === currentReview.id,
       );
 
-      // 如果找到原始数据并且有修改，添加到修改列表中
       if (originalReview) {
-        // 检查评审状态或评审意见是否有修改
         if (
           currentReview.review_status !== originalReview.review_status ||
           currentReview.comments !== originalReview.comments
@@ -1819,7 +1717,6 @@ const handleRejectReview = async () => {
       }
     }
 
-    // 2. 批量更新被修改的用例评审
     for (const caseReview of modifiedCaseReviews) {
       await reviewApi.updateCaseReview(
         caseReview.review_task_id,
@@ -1831,17 +1728,14 @@ const handleRejectReview = async () => {
       );
     }
 
-    // 3. 调用打回评审API
     await reviewApi.rejectReview(currentReviewTask.value.id, {
       overall_comments: overallComments.value,
     });
 
     ElMessage.success("打回评审成功");
 
-    // 关闭对话框
     reviewDialogVisible.value = false;
 
-    // 刷新列表
     if (activeTab.value === "my-tasks") {
       getMyTasks();
     } else {
@@ -1858,7 +1752,6 @@ const handleRejectReview = async () => {
   }
 };
 
-// 重置用例评审列表筛选条件
 const resetCaseReviewFilter = () => {
   caseReviewKeyword.value = "";
   caseReviewPriorityFilter.value = [];
@@ -1895,7 +1788,6 @@ const handleCaseReviewStatusReset = () => {
   caseReviewStatusFilterAll.value = true;
 };
 
-// 全部通过：将所有用例评审状态设为已通过
 const handleSetAllApproved = async () => {
   if (!currentReviewTask.value || !caseReviews.value.length) return;
   await ElMessageBox.confirm("确定将所有用例设置为已通过？", "提示", {
@@ -1922,7 +1814,6 @@ const handleSetAllApproved = async () => {
   }
 };
 
-// 重置状态：将所有用例评审状态设为待审核
 const handleResetAllStatus = async () => {
   if (!currentReviewTask.value || !caseReviews.value.length) return;
   await ElMessageBox.confirm("确定将所有用例重置为待审核？", "提示", {
@@ -1949,41 +1840,31 @@ const handleResetAllStatus = async () => {
   }
 };
 
-// 处理对话框关闭
 const handleDialogClose = () => {
-  // 重置数据
   currentReviewTask.value = null;
   caseReviews.value = [];
   overallComments.value = "";
   resetCaseReviewFilter();
   reviewDialogVisible.value = false;
 
-  // 刷新对应的列表数据
   if (activeTab.value === "my-tasks") {
     getMyTasks();
   } else if (activeTab.value === "my-initiated") {
     getMyInitiated();
   }
-  // 不需要刷新评审历史列表，因为历史记录不会因为查看详情而改变
 };
 
-// 辅助方法
 const formatDate = (time) => {
   if (!time) return "-";
   try {
-    // 处理各种格式的时间字符串，确保浏览器能够正确解析
     let date;
     if (typeof time === "string") {
-      // 如果已经是YYYY-MM-DD HH:mm:ss格式，直接返回
       if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(time)) {
         return time;
       }
 
-      // 尝试直接解析
       date = new Date(time);
-      // 如果解析失败，尝试处理不同的日期格式
       if (isNaN(date.getTime())) {
-        // 处理后端返回的 '%Y-%m-%d %H:%M:%S' 格式
         const parts = time.split(/[- :]/);
         if (parts.length >= 6) {
           date = new Date(
@@ -2005,7 +1886,6 @@ const formatDate = (time) => {
       return "-";
     }
 
-    // 手动构建固定格式的时间字符串：YYYY-MM-DD HH:mm:ss
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
@@ -2020,9 +1900,7 @@ const formatDate = (time) => {
   }
 };
 
-// 获取评审状态文本
 const getStatusText = (status, historyType = null) => {
-  // 如果是评审历史记录且有historyType，优先根据historyType显示
   if (historyType) {
     if (historyType === "reject") {
       return "已打回";
@@ -2031,7 +1909,6 @@ const getStatusText = (status, historyType = null) => {
     }
   }
 
-  // 否则使用默认状态映射
   const statusMap = {
     pending: "待处理",
     in_review: "评审中",
@@ -2042,7 +1919,6 @@ const getStatusText = (status, historyType = null) => {
 };
 
 const getStatusTagType = (status, historyType = null) => {
-  // 如果是评审历史记录且有historyType，优先根据historyType显示
   if (historyType) {
     if (historyType === "reject") {
       return "danger";
@@ -2051,7 +1927,6 @@ const getStatusTagType = (status, historyType = null) => {
     }
   }
 
-  // 否则使用默认状态映射
   const typeMap = {
     pending: "info",
     in_review: "primary",
@@ -2096,12 +1971,10 @@ const progressColor = (percentage) => {
   return "#e6a23c";
 };
 
-// 切换到评审历史 Tab 时加载全部最近历史
 watch(activeTab, (tab) => {
   if (tab === "review-history") getRecentReviewHistory();
 });
 
-// 评审详情弹窗内筛选条件变化时重置到第一页
 watch([caseReviewKeyword, caseReviewPriorityFilter, caseReviewStatusFilter], () => {
   paginationCaseReview.value.page = 1;
 });
@@ -2156,7 +2029,6 @@ watch(
   { flush: "post" }
 );
 
-// 生命周期
 onMounted(async () => {
   systemSettingsStore.load();
   const size = defaultPageSize.value;
@@ -2165,13 +2037,9 @@ onMounted(async () => {
   paginationRecent.value.size = size;
   paginationBySuite.value.size = size;
   paginationCaseReview.value.size = size;
-  // 初始加载数据
   await getMyTasks();
   await getMyInitiated();
-  // 获取可用用例集列表，用于评审历史查询
   await getAvailableSuites();
-  // 处理从用例集页面跳转过来的情况（保留 taskId/activeTab，仅移除 suiteId）
-  // 若 URL 带 taskId（如从消息中心进入），由 watch 统一打开详情，此处不再根据 suiteId 打开，避免重复
   const suiteId = route.query.suiteId;
   if (suiteId && !route.query.taskId) {
     try {
@@ -2264,7 +2132,6 @@ onMounted(async () => {
   flex-direction: column;
 }
 
-/* 树节点样式优化 */
 .tree-node-content {
   display: flex;
   align-items: center;
@@ -2286,7 +2153,6 @@ onMounted(async () => {
   margin-left: 4px;
 }
 
-/* 文件夹节点：可点击展开/收起 */
 .folder-node {
   color: var(--el-text-color-secondary, #909399);
   cursor: pointer;
@@ -2365,7 +2231,6 @@ onMounted(async () => {
   flex: none;
 }
 
-/* 用例集名称列：悬浮触发样式 */
 .suite-name-trigger {
   cursor: pointer;
   color: var(--el-color-primary);
@@ -2478,7 +2343,6 @@ onMounted(async () => {
   color: var(--el-text-color-secondary);
 }
 
-/* 用例评审列表筛选栏 */
 .case-review-filter-bar {
   display: flex;
   align-items: center;
@@ -2550,7 +2414,6 @@ onMounted(async () => {
   outline: none;
   border-left-color: #e9e9eb;
 }
-/* 未选中：统一中性样式，不区分颜色 */
 .review-case-table :deep(.case-review-status-group .el-radio-button__inner) {
   background-color: #f4f4f5;
   border-color: #e9e9eb;

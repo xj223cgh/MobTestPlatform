@@ -206,7 +206,6 @@
       </div>
     </div>
 
-    <!-- 最近活动 -->
     <div class="activity-section">
       <div class="card">
         <div class="card-header">
@@ -285,7 +284,6 @@ import { useSystemSettingsStore } from "@/stores/systemSettings";
 const router = useRouter();
 const systemSettingsStore = useSystemSettingsStore();
 
-// 注册 ECharts 组件
 use([
   CanvasRenderer,
   LineChart,
@@ -296,7 +294,6 @@ use([
   GridComponent,
 ]);
 
-// 加载状态
 const loading = ref(false);
 const chartLoading = reactive({
   taskTrend: false,
@@ -304,7 +301,6 @@ const chartLoading = reactive({
   taskStatus: false,
 });
 
-// 统计数据
 const stats = reactive({
   projects: 0,
   projectsGrowth: 0,
@@ -316,7 +312,6 @@ const stats = reactive({
   devicesGrowth: 0,
 });
 
-// 任务趋势周期
 const taskTrendPeriod = ref("7d");
 
 // 最近活动：全量缓存，时间范围筛选后取前 10 条
@@ -336,10 +331,8 @@ const recentActivities = computed(() => {
   return list.filter((a) => (a.created_at || "") >= cutoffStr).slice(0, ACTIVITY_LIMIT);
 });
 
-// 最近项目
 const recentProjects = ref([]);
 
-// 趋势数据
 const taskTrendData = reactive({
   dates: [],
   completed: [],
@@ -347,13 +340,9 @@ const taskTrendData = reactive({
   running: [],
 });
 
-// 设备状态数据
 const deviceStatusData = ref([]);
-
-// 任务状态数据
 const taskStatusData = ref([]);
 
-// 测试任务趋势图配置
 const taskTrendOption = computed(() => ({
   title: {
     show: false,
@@ -409,7 +398,6 @@ const taskTrendOption = computed(() => ({
   ],
 }));
 
-// 设备状态分布图配置
 const deviceStatusOption = computed(() => ({
   title: {
     show: false,
@@ -459,7 +447,6 @@ const deviceStatusOption = computed(() => ({
   ],
 }));
 
-// 任务状态分布图配置
 const taskStatusOption = computed(() => ({
   title: {
     show: false,
@@ -511,7 +498,6 @@ const taskStatusOption = computed(() => ({
   ],
 }));
 
-// 获取活动图标
 const getActivityIcon = (activity) => {
   if (activity && activity._isNotification) return "Bell";
   const type = typeof activity === "string" ? activity : activity?.type;
@@ -523,12 +509,10 @@ const getActivityIcon = (activity) => {
   return iconMap[type] || "Document";
 };
 
-// 格式化时间
 const formatTime = (time) => {
   return dayjs(time).format("YYYY-MM-DD HH:mm:ss");
 };
 
-// 获取统计数据
 const fetchStats = async () => {
   try {
     const response = await getHomeStats();
@@ -542,7 +526,6 @@ const fetchStats = async () => {
   }
 };
 
-// 加载任务趋势数据
 const loadTaskTrendData = async () => {
   chartLoading.taskTrend = true;
   try {
@@ -561,7 +544,6 @@ const loadTaskTrendData = async () => {
   }
 };
 
-// 加载设备状态数据
 const loadDeviceStatusData = async () => {
   chartLoading.deviceStatus = true;
   try {
@@ -576,7 +558,6 @@ const loadDeviceStatusData = async () => {
   }
 };
 
-// 加载任务状态数据
 const loadTaskStatusData = async () => {
   chartLoading.taskStatus = true;
   try {
@@ -591,7 +572,6 @@ const loadTaskStatusData = async () => {
   }
 };
 
-// 加载最近项目
 const loadRecentProjects = async () => {
   try {
     const response = await getRecentProjects({ limit: 5 });
@@ -641,7 +621,6 @@ const fetchRecentActivities = async () => {
   }
 };
 
-// 刷新数据
 const refreshData = async () => {
   loading.value = true;
   try {
@@ -662,7 +641,6 @@ const refreshData = async () => {
   }
 };
 
-// 获取项目状态标签类型
 const getProjectStatusType = (status) => {
   const types = {
     not_started: "info",
@@ -673,7 +651,6 @@ const getProjectStatusType = (status) => {
   return types[status] || "info";
 };
 
-// 获取项目状态标签文本
 const getProjectStatusLabel = (status) => {
   const labels = {
     not_started: "未开始",
@@ -684,7 +661,6 @@ const getProjectStatusLabel = (status) => {
   return labels[status] || status;
 };
 
-// 组件挂载时获取数据
 onMounted(() => {
   systemSettingsStore.load();
   refreshData();
@@ -1070,7 +1046,6 @@ onMounted(() => {
   }
 }
 
-// 响应式
 @media (max-width: 1400px) {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);

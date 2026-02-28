@@ -1,7 +1,6 @@
 <template>
   <div class="test-task-management">
     <div class="main-layout" :class="{ 'left-collapsed': isLeftPanelCollapsed }">
-      <!-- 左侧：任务类型下拉 + 任务文件夹树 -->
       <div class="left-panel" :class="{ collapsed: isLeftPanelCollapsed }">
         <div class="panel-header">
           <span class="panel-title">任务目录</span>
@@ -81,7 +80,6 @@
           </el-tree>
           </div>
         </div>
-        <!-- 右键菜单 -->
         <div
           v-show="folderContextMenuVisible"
           ref="folderContextMenuRef"
@@ -101,7 +99,6 @@
         </div>
       </div>
 
-      <!-- 右侧：列表工具栏 + 筛选 + 任务列表 -->
       <div class="right-content">
         <div class="list-toolbar">
           <div class="toolbar-left">
@@ -151,7 +148,7 @@
               <el-option
                 v-for="u in userOptions"
                 :key="u.id"
-                :label="u.real_name"
+                :label="u.real_name || u.username"
                 :value="u.id"
               />
             </el-select>
@@ -173,7 +170,6 @@
           </div>
         </div>
 
-    <!-- 任务列表：仅由左侧任务类型下拉控制，无类型 Tab -->
     <div class="task-tabs-section">
       <div class="table-section">
         <div class="table-scroll-viewport">
@@ -227,7 +223,6 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <!-- 测试用例任务：统计列 -->
             <el-table-column
               v-if="activeTab === 'test_case'"
               label="统计"
@@ -264,7 +259,6 @@
                 <span v-else class="no-data">-</span>
               </template>
             </el-table-column>
-            <!-- 设备脚本任务：脚本文件列 -->
             <el-table-column
               v-if="activeTab === 'device_script'"
               prop="script_file"
@@ -380,7 +374,7 @@ import {
 } from "@element-plus/icons-vue";
 import testTaskApi from "@/api/testTask";
 import projectApi from "@/api/project";
-import { getUserList } from "@/api/user";
+import { getUserOptions } from "@/api/user";
 import deviceApi from "@/api/device";
 import { manualGenerateReport } from "@/api/report";
 import { getUserSettings } from "@/api/settings";
@@ -403,11 +397,11 @@ const taskDialogRef = ref(null);
 const router = useRouter();
 const route = useRoute();
 
-// 任务目录：按任务类型分开的文件夹树
 const folderTreeRef = ref(null);
-const folderTreeWrapRef = ref(null); // 目录滚动容器，用于横向定位到当前选中项
-const folderTreeRaw = ref([]); // 当前任务类型下的文件夹树（从接口来）
-const selectedFolderId = ref(null); // null 表示「全部」，数字为文件夹 id
+const folderTreeWrapRef = ref(null);
+const folderTreeRaw = ref([]);
+/** null 表示「全部」，数字为文件夹 id */
+const selectedFolderId = ref(null);
 const folderTreeData = ref([
   { id: "__all__", name: "全部", children: [] },
 ]);
@@ -421,7 +415,6 @@ const editingFolderName = ref("");
 const folderEditInputRef = ref(null);
 const lastDropDeniedHintTime = ref(0);
 
-// 任务目录树展开状态（与用例管理页套件树逻辑一致：记录用户手动展开的节点，持久化到 localStorage）
 const taskFolderExpandedKeys = ref([]);
 const taskFolderMountKey = ref(0);
 
@@ -705,7 +698,6 @@ const handleFolderNodeDrop = async (draggingNode, dropNode, dropType) => {
   try {
     let parentId = null;
     let sortOrder = 0;
-    // 拖到根节点「全部」内（列表最下方）：视为放到根级末尾
     if (dropNode.data?.id === "__all__" && dropType === "inner") {
       parentId = null;
       const rootChildren = dropNode.data.children || [];
@@ -733,7 +725,6 @@ const handleFolderNodeDrop = async (draggingNode, dropNode, dropType) => {
 
 const TASK_FOLDER_MAX_DEPTH = 3;
 
-/** 从树中根据 id 查找节点深度，未找到返回 0 */
 function getFolderDepthById(nodes, id) {
   if (!nodes || !id) return 0;
   for (const n of nodes) {
@@ -775,7 +766,6 @@ const handleAddFolder = () => {
     });
 };
 
-// 当前任务类型对应的列表、分页、加载状态（仅由左侧任务类型下拉控制）
 const currentTaskList = computed(() =>
   activeTab.value === "test_case" ? taskList.testCase : taskList.deviceScript
 );
@@ -926,8 +916,8 @@ const loadTasks = async () => {
 
 const loadUsers = async () => {
   try {
-    const response = await getUserList({ page: 1, size: 1000 });
-    userOptions.value = response.data?.items || response.data?.users || [];
+    const response = await getUserOptions({ size: 1000 });
+    userOptions.value = response.data?.items || [];
   } catch (error) {
     console.error("加载用户列表失败:", error);
   }
@@ -965,13 +955,11 @@ const handleCreate = () => {
 
 const handleExecute = async (row) => {
   try {
-    // 对于测试用例任务，在新标签页中打开用例执行页面
     if (row.task_type === "test_case") {
       const url = `${window.location.origin}/test-tasks/${row.id}/execute`;
       window.open(url, "_blank");
       return;
     }
-    // 对于设备脚本任务，跳转到设备脚本执行页，实时显示终端输出
     if (row.task_type === "device_script") {
       if (row.status !== "pending" && row.status !== "completed") {
         ElMessage.warning("当前任务状态不支持此操作");
@@ -1089,14 +1077,9 @@ const handleDelete = async (row) => {
   }
 };
 
-// 下载脚本文件
 const handleDownloadScript = (row) => {
   if (row.file_path) {
-    // 构建完整的下载URL，包含原始文件名作为查询参数
     const downloadUrl = `/api/files/${row.file_path}?filename=${encodeURIComponent(row.script_file || "script_file")}`;
-
-
-    // 创建下载链接并触发下载
     const a = document.createElement("a");
     a.href = downloadUrl;
     a.download = row.script_file || "script_file";
@@ -1120,8 +1103,6 @@ const handlePageChange = (page) => {
   loadTasks();
 };
 
-
-// 拉取报告设置（自动时隐藏「生成报告」按钮）
 const loadReportSetting = async () => {
   try {
     const res = await getUserSettings();
@@ -1139,7 +1120,6 @@ const onFolderContextMenuMousedown = (e) => {
 };
 
 onMounted(() => {
-  // 从设备脚本执行页返回时保持设备脚本任务标签
   if (route.query.tab === "device_script") {
     activeTab.value = "device_script";
   }
@@ -1155,10 +1135,8 @@ onUnmounted(() => {
   document.removeEventListener('mousedown', onFolderContextMenuMousedown);
 });
 
-// 选中目录变化时，将目录区横向滚动到当前节点
 watch(selectedFolderId, () => scrollFolderTreeToCurrent());
 
-// 监听路由变化，当导航到任务列表页面时刷新任务列表并重新拉取报告设置
 watch(
   () => route.path,
   (newPath) => {
@@ -1169,7 +1147,6 @@ watch(
   }
 );
 
-// 从执行页返回带 tab=device_script 时保持设备脚本标签（path 未变仅 query 变时 path 的 watch 不触发）
 watch(
   () => route.query.tab,
   (tab) => {
@@ -1181,7 +1158,6 @@ watch(
   }
 );
 
-// 页面可见性变化处理
 const handleVisibilityChange = () => {
   if (document.visibilityState === 'visible') {
     loadTasks();
@@ -1353,7 +1329,10 @@ const handleVisibilityChange = () => {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
+}
+.list-toolbar .toolbar-left .el-button + .el-button {
+  margin-left: 0;
 }
 .list-toolbar .toolbar-right {
   display: flex;
@@ -1381,7 +1360,6 @@ const handleVisibilityChange = () => {
   background: var(--el-fill-color-light, #f5f7fa);
 }
 
-/* 任务标签页区域填满剩余高度 */
 .task-tabs-section {
   flex: 1;
   min-height: 0;

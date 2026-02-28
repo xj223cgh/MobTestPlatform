@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import {
   login as loginApi,
+  loginByEmail as loginByEmailApi,
   logout as logoutApi,
   checkSession,
   getPermissions as getPermissionsApi,
@@ -13,18 +14,15 @@ const PERMISSIONS_KEY = "mob_permissions";
 const REMEMBER_KEY = "mob_remember";
 
 export const useUserStore = defineStore("user", () => {
-  // 状态
   const userInfo = ref(JSON.parse(sessionStorage.getItem(USER_KEY) || "null"));
   const permissions = ref(JSON.parse(sessionStorage.getItem(PERMISSIONS_KEY) || "[]"));
   const loading = ref(false);
 
-  // 计算属性
   const isAuthenticated = computed(() => !!userInfo.value);
   const userName = computed(() => userInfo.value?.username || "");
   const userRole = computed(() => userInfo.value?.role || "");
   const avatar = computed(() => userInfo.value?.avatar || "");
 
-  // 登录
   const login = async (credentials) => {
     try {
       loading.value = true;
@@ -33,17 +31,14 @@ export const useUserStore = defineStore("user", () => {
       if (response.code === 200) {
         const { user, permissions: permList } = response.data;
 
-        // 保存用户信息到sessionStorage
         userInfo.value = user;
         sessionStorage.setItem(USER_KEY, JSON.stringify(user));
-        // 保存权限埋点列表（用于菜单与按钮显隐）
+        // 埋点权限用于菜单与按钮显隐
         const permArr = Array.isArray(permList) ? permList : [];
         permissions.value = permArr;
         sessionStorage.setItem(PERMISSIONS_KEY, JSON.stringify(permArr));
 
-        // 处理记住我功能
         if (credentials.remember) {
-          // 保存用户名和密码到localStorage（加密存储）
           const rememberData = {
             username: credentials.username,
             password: btoa(credentials.password), // 简单编码，实际项目中应使用更安全的加密
@@ -51,7 +46,6 @@ export const useUserStore = defineStore("user", () => {
           };
           localStorage.setItem(REMEMBER_KEY, JSON.stringify(rememberData));
         } else {
-          // 清除记住的信息
           localStorage.removeItem(REMEMBER_KEY);
         }
 
@@ -62,17 +56,44 @@ export const useUserStore = defineStore("user", () => {
         return false;
       }
     } catch (error) {
-      ElMessage.error(error.response?.data?.message || "登录失败");
+      if (!error._messageShown) {
+        ElMessage.error(error.response?.data?.message || "登录失败");
+      }
       return false;
     } finally {
       loading.value = false;
     }
   };
 
-  // 登出
+  const loginByEmail = async (payload) => {
+    try {
+      loading.value = true;
+      const response = await loginByEmailApi(payload);
+      if (response.code === 200) {
+        const { user, permissions: permList } = response.data;
+        userInfo.value = user;
+        sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+        const permArr = Array.isArray(permList) ? permList : [];
+        permissions.value = permArr;
+        sessionStorage.setItem(PERMISSIONS_KEY, JSON.stringify(permArr));
+        ElMessage.success(response.message || "登录成功");
+        return true;
+      } else {
+        ElMessage.error(response.message || "登录失败");
+        return false;
+      }
+    } catch (error) {
+      if (!error._messageShown) {
+        ElMessage.error(error.response?.data?.message || "登录失败");
+      }
+      return false;
+    } finally {
+      loading.value = false;
+    }
+  };
+
   const logout = async () => {
     try {
-      // 尝试调用后端登出接口
       await logoutApi();
     } catch (error) {
       // 即使后端登出失败也要清除本地数据
@@ -88,7 +109,6 @@ export const useUserStore = defineStore("user", () => {
         // 其他错误（如4xx）也静默处理，因为登出总是要成功的
       }
     } finally {
-      // 无论后端请求是否成功，都清除本地数据
       userInfo.value = null;
       permissions.value = [];
       sessionStorage.removeItem(USER_KEY);
@@ -117,7 +137,6 @@ export const useUserStore = defineStore("user", () => {
         if (response.data.authenticated && response.data.user) {
           userInfo.value = response.data.user;
           sessionStorage.setItem(USER_KEY, JSON.stringify(response.data.user));
-          // 刷新权限列表
           try {
             const permRes = await getPermissionsApi();
             if (permRes.code === 200 && Array.isArray(permRes.data?.permissions)) {
@@ -127,7 +146,6 @@ export const useUserStore = defineStore("user", () => {
           } catch (_) {}
           return true;
         }
-        // 服务端明确未认证，清除本地
         userInfo.value = null;
         permissions.value = [];
         sessionStorage.removeItem(USER_KEY);
@@ -152,13 +170,11 @@ export const useUserStore = defineStore("user", () => {
     }
   };
 
-  // 更新用户信息
   const updateUserInfo = (newUserInfo) => {
     userInfo.value = { ...userInfo.value, ...newUserInfo };
     sessionStorage.setItem(USER_KEY, JSON.stringify(userInfo.value));
   };
 
-  // 获取记住的登录信息
   const getRememberedCredentials = () => {
     try {
       const rememberedData = localStorage.getItem(REMEMBER_KEY);
@@ -167,7 +183,7 @@ export const useUserStore = defineStore("user", () => {
         if (data.remember && data.username && data.password) {
           return {
             username: data.username,
-            password: atob(data.password), // 解码密码
+            password: atob(data.password),
             remember: true,
           };
         }
@@ -180,12 +196,10 @@ export const useUserStore = defineStore("user", () => {
     }
   };
 
-  // 清除记住的登录信息
   const clearRememberedCredentials = () => {
     localStorage.removeItem(REMEMBER_KEY);
   };
 
-  // 判断当前用户是否拥有某埋点权限
   const hasPermission = (code) => {
     if (!permissions.value || !Array.isArray(permissions.value)) return false;
     return permissions.value.includes(code);
@@ -219,19 +233,17 @@ export const useUserStore = defineStore("user", () => {
   };
 
   return {
-    // 状态
     userInfo,
     permissions,
     loading,
 
-    // 计算属性
     isAuthenticated,
     userName,
     userRole,
     avatar,
 
-    // 方法
     login,
+    loginByEmail,
     logout,
     checkAuth,
     updateUserInfo,

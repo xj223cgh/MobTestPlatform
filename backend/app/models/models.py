@@ -1,6 +1,5 @@
 from datetime import datetime, timezone, timedelta
 
-# 设置本地时区为UTC+8
 LOCAL_TIMEZONE = timezone(timedelta(hours=8))
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
@@ -9,7 +8,6 @@ from sqlalchemy.types import TypeDecorator
 
 db = SQLAlchemy()
 
-# 定义枚举类型的常量
 TEST_CASE_STATUS = ('', 'pass', 'fail', 'blocked', 'not_applicable')
 TEST_CASE_PRIORITY = ('P0', 'P1', 'P2', 'P3', 'P4')
 
@@ -51,6 +49,7 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True, comment='用户编号')
     username = db.Column(db.String(14), unique=True, nullable=False, comment='用户名（3-14个字节长度限制）')
     phone = db.Column(db.String(11), unique=True, nullable=False, comment='手机号（需要格式验证）')
+    email = db.Column(db.String(128), unique=True, nullable=True, comment='邮箱（用于QQ邮箱验证登录与找回密码）')
     real_name = db.Column(db.String(50), nullable=False, comment='真实姓名')
     gender = db.Column(db.Enum('male', 'female', 'other'), default='other', comment='性别')
     department = db.Column(db.String(100), default='', comment='所属部门')
@@ -62,7 +61,6 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
-    # 关系
     created_devices = db.relationship('Device', backref='owner', lazy='dynamic', foreign_keys='Device.owner_id')
     created_cases = db.relationship('TestCase', lazy='dynamic', foreign_keys='TestCase.creator_id')
     created_tasks = db.relationship('TestTask', lazy='dynamic', foreign_keys='TestTask.creator_id', overlaps='creator')
@@ -82,6 +80,7 @@ class User(UserMixin, db.Model):
             'id': self.id,
             'username': self.username,
             'phone': self.phone,
+            'email': self.email,
             'real_name': self.real_name,
             'gender': self.gender,
             'department': self.department,
@@ -90,6 +89,18 @@ class User(UserMixin, db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
+
+
+class EmailVerifyCode(db.Model):
+    """邮箱验证码（登录验证码，5 分钟有效）"""
+    __tablename__ = 'email_verify_codes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(128), nullable=False, index=True, comment='邮箱')
+    code = db.Column(db.String(10), nullable=False, comment='验证码')
+    purpose = db.Column(db.String(20), nullable=False, default='login', comment='用途：login')
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False, comment='过期时间')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE))
 
 
 # 系统固定角色枚举，与 User.role 一致
@@ -182,7 +193,6 @@ class Project(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
-    # 关系
     owner = db.relationship('User', backref='owned_projects', foreign_keys=[owner_id])
     creator = db.relationship('User', backref='created_projects', foreign_keys=[creator_id])
     project_members = db.relationship('ProjectMember', backref='project', cascade='all, delete-orphan')
@@ -293,7 +303,6 @@ class VersionRequirement(db.Model):
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     is_deleted = db.Column(db.Boolean, default=False, comment='是否逻辑删除')
     
-    # 关系
     project = db.relationship('Project', backref='version_requirements')
     iteration = db.relationship('Iteration', back_populates='version_requirements')
     creator = db.relationship('User', backref='created_requirements', foreign_keys=[created_by])
@@ -339,11 +348,8 @@ class ProjectMember(db.Model):
     role = db.Column(db.Enum(*PROJECT_ROLE), default='tester', comment='项目角色')
     joined_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='加入时间')
     
-    # 唯一约束，确保用户在项目中只有一个角色
-    # 注意：MySQL不支持NULL值的唯一约束，所以这个约束只在user_id不为NULL时生效
     __table_args__ = (db.UniqueConstraint('project_id', 'user_id', name='_project_user_uc'),)
     
-    # 关系
     user = db.relationship('User', backref=db.backref('project_memberships', cascade='all, delete-orphan'))
     
     def to_dict(self):
@@ -378,8 +384,6 @@ class Iteration(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
-    # 关系
-
     test_tasks = db.relationship('TestTask', cascade='all, delete-orphan', overlaps='iteration')
     version_requirements = db.relationship('VersionRequirement', back_populates='iteration', cascade='all, delete-orphan')
     case_executions = db.relationship('TestCaseExecution', back_populates='iteration', cascade='all, delete-orphan')
@@ -456,8 +460,6 @@ class Device(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
-    # 关系
-    
     def to_dict(self):
         """转换为字典"""
         return {
@@ -493,16 +495,11 @@ class TestSuite(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
-    # 关系
     # 自引用关系，用于构建目录树结构
     parent = db.relationship('TestSuite', remote_side=[id], backref=db.backref('children', order_by='TestSuite.sort_order'))
-    # 与测试用例的一对多关系
     test_cases = db.relationship('TestCase', backref='suite')
-    # 与用户的多对一关系
     creator = db.relationship('User', backref='created_suites', foreign_keys=[creator_id])
-    # 与版本需求的多对一关系
     version_requirement = db.relationship('VersionRequirement', backref='test_suites')
-    # 与迭代的多对一关系
     iteration = db.relationship('Iteration', backref='test_suites')
     
     def to_dict(self):
@@ -545,7 +542,6 @@ class TestSuiteReviewTask(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
-    # 关系
     suite = db.relationship('TestSuite', backref='review_tasks')
     initiator = db.relationship('User', backref='initiated_review_tasks', foreign_keys=[initiator_id])
     reviewer = db.relationship('User', backref='assigned_review_tasks', foreign_keys=[reviewer_id])
@@ -582,11 +578,9 @@ class TestCaseReviewDetail(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
-    # 关系
     reviewer = db.relationship('User', backref='case_reviews', foreign_keys=[reviewer_id])
     test_case = db.relationship('TestCase', backref='review_details')
     
-    # 唯一约束，确保每条用例在一个评审任务中只有一条记录
     __table_args__ = (db.UniqueConstraint('review_task_id', 'case_id', name='_review_task_case_uc'),)
     
     def to_dict(self):
@@ -605,9 +599,7 @@ class TestCaseReviewDetail(db.Model):
         }
 
 
-# 评审历史记录相关模型
-# 评审历史记录类型枚举
-REVIEW_HISTORY_TYPE = ('complete', 'reject')  # 评审历史记录类型：complete-完成评审, reject-打回评审
+REVIEW_HISTORY_TYPE = ('complete', 'reject')  # complete-完成评审, reject-打回评审
 
 
 class TestSuiteReviewHistory(db.Model):
@@ -628,7 +620,6 @@ class TestSuiteReviewHistory(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建人ID')
     version = db.Column(db.Integer, default=1, comment='评审版本号')
     
-    # 关系
     review_task = db.relationship('TestSuiteReviewTask', backref='review_history')
     suite = db.relationship('TestSuite', backref='review_history')
     initiator = db.relationship('User', backref='initiated_review_history', foreign_keys=[initiator_id])
@@ -681,7 +672,6 @@ class TestCaseReviewHistory(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
     created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='创建人ID')
     
-    # 关系
     reviewer = db.relationship('User', foreign_keys=[reviewer_id])
     test_case = db.relationship('TestCase', backref='review_history')
     created_user = db.relationship('User', foreign_keys=[created_by])
@@ -826,13 +816,11 @@ class TaskCaseSnapshot(db.Model):
         }
 
 
-# 测试任务和测试用例的关联表
 task_case_relation = db.Table('task_case_relation',
     db.Column('task_id', db.Integer, db.ForeignKey('test_tasks.id'), primary_key=True),
     db.Column('case_id', db.Integer, db.ForeignKey('test_cases.id'), primary_key=True)
 )
 
-# 测试任务和设备的关联表
 task_device_relation = db.Table('task_device_relation',
     db.Column('task_id', db.Integer, db.ForeignKey('test_tasks.id'), primary_key=True),
     db.Column('device_id', db.Integer, db.ForeignKey('devices.id'), primary_key=True)
@@ -846,7 +834,6 @@ class TestCaseExecution(db.Model):
     id = db.Column(db.Integer, primary_key=True, comment='执行记录ID')
     task_id = db.Column(db.Integer, db.ForeignKey('test_tasks.id'), nullable=False, comment='测试任务ID')
     case_id = db.Column(db.Integer, db.ForeignKey('test_cases.id'), nullable=False, comment='测试用例ID')
-    # 添加项目和迭代关联
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=True, comment='所属项目ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
     status = db.Column(db.Enum(*TEST_EXECUTION_STATUS), comment='执行状态：通过、失败、阻塞、不适用')
@@ -854,13 +841,10 @@ class TestCaseExecution(db.Model):
     execution_time = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='执行时间')
     notes = db.Column(db.Text, comment='执行备注')
     
-    # 关系
     task = db.relationship('TestTask', backref='case_executions')
     test_case = db.relationship('TestCase', backref='executions')
     executor = db.relationship('User', backref='executed_cases')
-    # 与项目的多对一关系
     project = db.relationship('Project', backref='executions')
-    # 与迭代的多对一关系
     iteration = db.relationship('Iteration', back_populates='case_executions')
     
     def to_dict(self):
@@ -927,20 +911,16 @@ class TestTask(db.Model):
     task_description = db.Column(db.Text, comment='任务描述')
     # 所属任务文件夹（按任务类型分组的目录，可选）
     folder_id = db.Column(db.Integer, db.ForeignKey('task_folders.id', ondelete='SET NULL'), nullable=True, comment='所属任务文件夹ID')
-    # 添加项目和迭代关联
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=True, comment='所属项目ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
     status = db.Column(db.Enum(*TEST_TASK_STATUS), default='pending', comment='任务状态')
     priority = db.Column(db.Enum('high', 'medium', 'low'), default='medium', comment='任务优先级')
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, comment='创建者ID')
     executor_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='执行者ID')
-    # 添加与测试套件的关联
     suite_id = db.Column(db.Integer, db.ForeignKey('test_suites.id'), nullable=True, comment='关联的测试套件ID')
     suite_name_snapshot = db.Column(db.String(200), nullable=True, comment='创建/更新任务时用例集名称快照（历史追溯）')
     case_snapshot_at = db.Column(db.DateTime(timezone=True), nullable=True, comment='用例快照时间')
-    # 添加版本需求关联
     version_requirement_id = db.Column(db.Integer, db.ForeignKey('version_requirements.id'), nullable=True, comment='关联的版本需求ID')
-    # 添加任务相关信息
     documentation_url = db.Column(db.Text, comment='相关文档链接')
     version_info = db.Column(db.String(100), comment='版本信息')
     scheduled_time = db.Column(db.DateTime(timezone=True), comment='计划开始执行时间')
@@ -956,26 +936,18 @@ class TestTask(db.Model):
     file_path = db.Column(db.String(500), nullable=True, comment='服务器上的相对存储路径')
     file_hash = db.Column(db.String(100), nullable=True, comment='文件哈希值（用于验证文件完整性）')
     command = db.Column(db.Text, nullable=True, comment='完整执行命令')
-    # 添加任务结果字段
     result = db.Column(db.Text, comment='任务执行结果，JSON格式存储')
     
-    # 关系
     suite = db.relationship('TestSuite', backref='test_tasks')
-    # 与项目的多对一关系
     project = db.relationship('Project', backref='test_tasks')
-    # 与迭代的多对一关系（与 Iteration.test_tasks 互斥写入，声明 overlaps 消除 SAWarning）
+    # 与 Iteration.test_tasks 互斥写入，声明 overlaps 消除 SAWarning
     iteration = db.relationship('Iteration', overlaps='test_tasks')
-    # 与设备的多对多关系
     devices = db.relationship('Device', secondary='task_device_relation', backref='test_tasks')
-    # 与测试用例的多对多关系（与 TestCase.test_tasks 互斥，声明 overlaps 消除 SAWarning）
+    # 与 TestCase.test_tasks 互斥，声明 overlaps 消除 SAWarning
     test_cases = db.relationship('TestCase', secondary='task_case_relation', overlaps='test_tasks')
-    # 与创建者的多对一关系（与 User.created_tasks 互斥）
     creator = db.relationship('User', foreign_keys=[creator_id], overlaps='created_tasks')
-    # 与执行者的多对一关系（与 User.executed_tasks 互斥）
     executor = db.relationship('User', foreign_keys=[executor_id], overlaps='executed_tasks')
-    # 与版本需求的多对一关系
     version_requirement = db.relationship('VersionRequirement', backref='test_tasks')
-    # 与任务文件夹的多对一关系（backref 在 TaskFolder 已定义）
 
     def to_dict(self):
         """转换为字典"""

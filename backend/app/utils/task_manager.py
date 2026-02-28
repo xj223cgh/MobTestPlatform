@@ -10,18 +10,18 @@ from typing import Dict, Any, Callable, Optional
 
 class TaskStatus:
     """任务状态枚举"""
-    PENDING = "pending"  # 等待中
-    RUNNING = "running"  # 执行中
-    COMPLETED = "completed"  # 已完成
-    FAILED = "failed"  # 失败
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 class TaskManager:
     """任务管理器，用于管理后台异步任务"""
     
     def __init__(self):
-        self.tasks: Dict[str, Dict[str, Any]] = {}  # 存储所有任务的状态
-        self.lock = threading.Lock()  # 线程锁，确保线程安全
+        self.tasks: Dict[str, Dict[str, Any]] = {}
+        self.lock = threading.Lock()
     
     def create_task(self, task_name: str, task_func: Callable, *args, **kwargs) -> str:
         """
@@ -54,12 +54,11 @@ class TaskManager:
                 'completed_at': None,
             }
         
-        # 创建并启动线程
         thread = threading.Thread(
             target=self._run_task,
             args=(task_id, task_func, args, kwargs)
         )
-        thread.daemon = True  # 设置为守护线程
+        thread.daemon = True
         thread.start()
         
         return task_id
@@ -75,7 +74,6 @@ class TaskManager:
             kwargs: 任务函数的关键字参数
         """
         try:
-            # 更新任务状态为运行中
             self.update_task_status(
                 task_id,
                 status=TaskStatus.RUNNING,
@@ -87,10 +85,8 @@ class TaskManager:
             kwargs['task_manager'] = self
             kwargs['task_id'] = task_id
             
-            # 执行任务函数
             result = task_func(*args, **kwargs)
             
-            # 更新任务状态为完成
             self.update_task_status(
                 task_id,
                 status=TaskStatus.COMPLETED,
@@ -101,7 +97,6 @@ class TaskManager:
             )
             
         except Exception as e:
-            # 更新任务状态为失败
             self.update_task_status(
                 task_id,
                 status=TaskStatus.FAILED,
@@ -181,5 +176,4 @@ class TaskManager:
                 del self.tasks[task_id]
 
 
-# 全局任务管理器实例
 task_manager = TaskManager()

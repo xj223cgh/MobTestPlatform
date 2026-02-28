@@ -18,7 +18,6 @@ LOCAL_TZ = timezone(timedelta(hours=8))
 
 bp = Blueprint('notifications', __name__, url_prefix='/api/notifications')
 
-# 时间范围合法值
 TIME_RANGE_VALUES = ('1d', '1w', '1m', '3m', 'older')
 
 
@@ -114,7 +113,7 @@ def mark_read(notification_id):
         ).filter(Notification.deleted_at.is_(None)).first()
         if not n:
             return error_response(404, '通知不存在')
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         if 'is_read' in data:
             n.is_read = bool(data['is_read'])
         else:
@@ -156,7 +155,7 @@ def pin_notification(notification_id):
         ).filter(Notification.deleted_at.is_(None)).first()
         if not n:
             return error_response(404, '通知不存在')
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         n.is_pinned = bool(data.get('is_pinned', True))
         db.session.commit()
         return success_response(n.to_dict())
@@ -170,7 +169,7 @@ def pin_notification(notification_id):
 def mark_read_batch():
     """批量已读，body: { "ids": [1,2,3] }"""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         ids = data.get('ids') or []
         if not ids:
             return error_response(400, '请提供 ids 数组')
@@ -197,6 +196,22 @@ def mark_read_all():
         ).filter(Notification.deleted_at.is_(None)).update({'is_read': True}, synchronize_session=False)
         db.session.commit()
         return success_response({'message': '已全部标记为已读'})
+    except Exception as e:
+        db.session.rollback()
+        return error_response(500, str(e))
+
+
+@bp.route('/unread-all', methods=['POST'])
+@login_required
+def mark_unread_all():
+    """全部未读"""
+    try:
+        Notification.query.filter_by(
+            user_id=current_user.id,
+            is_read=True,
+        ).filter(Notification.deleted_at.is_(None)).update({'is_read': False}, synchronize_session=False)
+        db.session.commit()
+        return success_response({'message': '已全部标记为未读'})
     except Exception as e:
         db.session.rollback()
         return error_response(500, str(e))

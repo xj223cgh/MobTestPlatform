@@ -1,10 +1,11 @@
+from datetime import datetime, timedelta
 from flask import Blueprint, request
 from flask_login import login_required, current_user
 
-from app.models.models import User, ProjectMember, db
+from app.models.models import User, ProjectMember, db, EmailVerifyCode, LOCAL_TIMEZONE
 from app.utils.helpers import (
     success_response, error_response, validate_phone,
-    validate_username, get_pagination_params, log_user_action,
+    validate_username, validate_qq_email, get_pagination_params, log_user_action,
     validate_json_data
 )
 from app.services.permission_service import permission_required
@@ -22,10 +23,8 @@ def get_users():
     role = request.args.get('role', '').strip()
     is_active_param = request.args.get('is_active', '').strip()
     
-    # 构建查询
     query = User.query
     
-    # 搜索过滤
     if search:
         # 用户名查询使用BINARY关键字确保严格区分大小写
         # 真实姓名和手机号保持不区分大小写的contains查询
@@ -37,17 +36,13 @@ def get_users():
             )
         )
     
-    # 角色过滤
     if role:
         query = query.filter(User.role == role)
     
-    # 状态过滤
     if is_active_param:
-        # 将字符串转换为布尔值
         is_active = is_active_param.lower() == 'true'
         query = query.filter(User.is_active == is_active)
     
-    # 分页
     pagination = query.paginate(
         page=page, per_page=size, error_out=False
     )
@@ -104,7 +99,6 @@ def create_user():
     gender = data.get('gender', 'other')
     department = data.get('department', '').strip()
     
-    # 验证输入
     if not validate_username(username):
         return error_response(400, "用户名长度必须在3-14个字节之间")
     
@@ -122,38 +116,90 @@ def create_user():
     if role == 'super' and username != 'Lethe':
         return error_response(400, "仅 Lethe 账号可设为超级管理员")
     
-    # 检查用户名是否已存在
     if User.query.filter_by(username=username).first():
         return error_response(400, "用户名已存在")
     
-    # 检查手机号是否已存在
     if User.query.filter_by(phone=phone).first():
         return error_response(400, "手机号已注册")
     
-    # 创建新用户
+    # 可选邮箱：若提供则必须带验证码，验证通过后才写入（只有能收到验证码才证明邮箱存在）
+    email_val = (data.get('email') or '').strip().lower()
+    if email_val:
+        if not validate_qq_email(email_val):
+            return error_response(400, "仅支持 QQ 邮箱，格式为 QQ号@qq.com")
+        code = (data.get('email_verify_code') or '').strip()
+        if not code or len(code) != 6:
+            return error_response(400, "填写邮箱后需先验证邮箱，请获取并输入 6 位验证码")
+        now = datetime.now(LOCAL_TIMEZONE)
+        record = EmailVerifyCode.query.filter_by(
+            email=email_val, purpose='bind_verify', code=code
+        ).filter(EmailVerifyCode.expires_at > now).order_by(EmailVerifyCode.created_at.desc()).first()
+        if not record:
+            return error_response(400, "验证码错误或已过期，请重新获取验证码")
+        if User.query.filter_by(email=email_val).first():
+            return error_response(400, "该邮箱已被其他用户使用")
+
     user = User(
         username=username,
         phone=phone,
         real_name=real_name,
         gender=gender,
         department=department,
-        role=role
+        role=role,
+        email=email_val if email_val else None
     )
     user.set_password(password)
-    
+
     try:
+        if email_val:
+            EmailVerifyCode.query.filter_by(email=email_val, purpose='bind_verify').delete()
         db.session.add(user)
         db.session.commit()
-        
+
         log_user_action("创建用户", f"用户名: {username}, 角色: {role}")
-        
+
         return success_response({
             'user': user.to_dict()
         }, "用户创建成功")
-        
+
     except Exception as e:
         db.session.rollback()
         return error_response(500, "用户创建失败，请稍后重试")
+
+
+@bp.route('/<int:user_id>/confirm-email', methods=['POST'])
+@login_required
+@permission_required('user.edit')
+def confirm_user_email(user_id):
+    """管理员为指定用户绑定/修改邮箱：验证码通过后写入（只有能收到验证码才证明邮箱存在）"""
+    user = User.query.get_or_404(user_id)
+    data = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip().lower()
+    code = (data.get('code') or '').strip()
+    if not email:
+        return error_response(400, "请输入邮箱")
+    if not validate_qq_email(email):
+        return error_response(400, "仅支持 QQ 邮箱（格式：QQ号@qq.com）")
+    if not code or len(code) != 6:
+        return error_response(400, "请输入 6 位验证码")
+    now = datetime.now(LOCAL_TIMEZONE)
+    record = EmailVerifyCode.query.filter_by(
+        email=email, purpose='bind_verify', code=code
+    ).filter(EmailVerifyCode.expires_at > now).order_by(EmailVerifyCode.created_at.desc()).first()
+    if not record:
+        return error_response(400, "验证码错误或已过期，请重新获取验证码")
+    existing = User.query.filter_by(email=email).first()
+    if existing and existing.id != user_id:
+        return error_response(400, "该邮箱已被其他用户使用")
+    try:
+        EmailVerifyCode.query.filter_by(id=record.id).delete()
+        user.email = email
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return error_response(500, "保存失败，请稍后重试")
+    log_user_action("为用户绑定邮箱", f"用户ID: {user_id}, 邮箱: {email}")
+    return success_response({'user': user.to_dict()}, "邮箱绑定成功")
 
 
 @bp.route('/<int:user_id>', methods=['PUT'])
@@ -165,7 +211,6 @@ def update_user(user_id):
     user = User.query.get_or_404(user_id)
     data = request.get_json()
     
-    # 更新字段
     if 'real_name' in data:
         real_name = data['real_name'].strip()
         if not real_name:
@@ -180,12 +225,20 @@ def update_user(user_id):
     if 'department' in data:
         user.department = data['department'].strip()
     
+    # 邮箱：允许传空字符串解除绑定；非空时仅允许与当前一致或通过「验证邮箱」接口绑定
+    if 'email' in data:
+        email_val = (data.get('email') or '').strip().lower()
+        current_email = (user.email or '').strip().lower()
+        if email_val == "":
+            user.email = None
+        elif email_val != current_email:
+            return error_response(400, "请先点击「验证邮箱」并完成验证码验证后再保存")
+
     if 'phone' in data:
         phone = data['phone'].strip()
         if not validate_phone(phone):
             return error_response(400, "手机号格式不正确")
         
-        # 检查手机号是否已被其他用户使用
         existing_user = User.query.filter(
             User.phone == phone, User.id != user_id
         ).first()
@@ -365,7 +418,6 @@ def toggle_user_status(user_id):
     user = User.query.get_or_404(user_id)
     if user.username == 'Lethe':
         return error_response(400, "不可禁用超级管理员账号")
-    # 切换用户状态
     user.is_active = not user.is_active
     
     try:

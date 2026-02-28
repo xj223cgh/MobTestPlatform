@@ -1,6 +1,5 @@
 <template>
   <div class="report-management">
-    <!-- 筛选条件 -->
     <div class="filter-section">
       <el-form
         :model="filterForm"
@@ -67,14 +66,12 @@
       </el-form>
     </div>
 
-    <!-- 报告类型选项卡 -->
     <div class="report-tabs-section">
       <el-tabs
         v-model="activeTab"
         class="report-tabs"
         @tab-change="handleTabChange"
       >
-        <!-- 测试用例报告 -->
         <el-tab-pane
           label="用例执行报告"
           name="test_case"
@@ -191,7 +188,6 @@
           </div>
         </el-tab-pane>
 
-        <!-- 脚本执行报告 -->
         <el-tab-pane
           label="脚本执行报告"
           name="device_script"
@@ -320,7 +316,6 @@
     </el-tabs>
     </div>
 
-    <!-- 分页 -->
     <div class="pagination-container">
       <el-pagination
         v-if="activeTab === 'test_case'"
@@ -344,7 +339,6 @@
       />
     </div>
 
-    <!-- 执行输出弹窗 -->
     <el-dialog
       v-model="outputDialogVisible"
       :title="`执行输出 - ${currentOutputDetail?.device_name || ''}`"
@@ -402,7 +396,6 @@ import { getReportList, getReportData, deleteReport, batchDeleteReports } from '
 import { isPermissionError } from '@/utils/request';
 import { useSystemSettingsStore } from '@/stores/systemSettings';
 
-// 路由相关
 const router = useRouter();
 const route = useRoute();
 const systemSettingsStore = useSystemSettingsStore();
@@ -416,7 +409,6 @@ const loading = reactive({
 const outputDialogVisible = ref(false);
 const currentOutputDetail = ref(null);
 
-// 筛选表单
 const filterForm = reactive({
   taskName: '',
   status: '',
@@ -438,24 +430,19 @@ const pagination = reactive({
   }
 });
 
-// 报告列表
 const reportList = reactive({
   testCase: [],
   deviceScript: []
 });
 
-// 批量删除：当前选中的报告 ID（按 tab 分）
 const selectedIds = reactive({
   testCase: [],
   deviceScript: []
 });
 
-// 当前 tab 下选中的 id 列表（用于顶部批量删除按钮）
 const currentSelectedIds = computed(() => selectedIds[activeTab.value] || []);
 
-// 获取报告列表（从 reports 表）
 const fetchReportList = async () => {
-  // 加载测试用例报告
   loading.testCase = true;
   try {
     const testCaseParams = {
@@ -481,7 +468,6 @@ const fetchReportList = async () => {
     loading.testCase = false;
   }
 
-  // 加载设备脚本报告
   loading.deviceScript = true;
   try {
     const deviceScriptParams = {
@@ -508,14 +494,12 @@ const fetchReportList = async () => {
   }
 };
 
-// 搜索
 const handleFilter = () => {
   pagination.testCase.page = 1;
   pagination.deviceScript.page = 1;
   fetchReportList();
 };
 
-// 重置
 const handleReset = () => {
   Object.assign(filterForm, {
     taskName: '',
@@ -527,7 +511,6 @@ const handleReset = () => {
   fetchReportList();
 };
 
-// 分页处理
 const handleSizeChange = (size, tab) => {
   pagination[tab].size = size;
   pagination[tab].page = 1;
@@ -539,7 +522,6 @@ const handleCurrentChange = (page, tab) => {
   fetchReportList();
 };
 
-// 标签页切换
 const handleTabChange = () => {
   // 切换标签页时不需要重新加载，因为已经在fetchReportList中加载了所有数据
 };
@@ -553,12 +535,10 @@ const handleViewReport = (row) => {
   });
 };
 
-// 表格多选变化
 const handleSelectionChange = (rows, tab) => {
   selectedIds[tab] = (rows || []).map((r) => r.id);
 };
 
-// 单个删除报告
 const handleDeleteReport = async (row, tab) => {
   try {
     await ElMessageBox.confirm(
@@ -581,7 +561,6 @@ const handleDeleteReport = async (row, tab) => {
   }
 };
 
-// 批量删除报告
 const handleBatchDelete = async (tab) => {
   const ids = selectedIds[tab] || [];
   if (!ids.length) return;
@@ -608,13 +587,11 @@ const handleBatchDelete = async (tab) => {
   }
 };
 
-// 查看设备执行输出
 const handleViewOutput = (row) => {
   currentOutputDetail.value = row;
   outputDialogVisible.value = true;
 };
 
-// 复制输出
 const handleCopyOutput = () => {
   if (!currentOutputDetail.value) return;
   
@@ -628,12 +605,10 @@ const handleCopyOutput = () => {
     });
 };
 
-// 格式化日期时间
 const formatDateTime = (dateTime) => {
   return dateTime ? dayjs(dateTime).format('YYYY-MM-DD HH:mm:ss') : '-';
 };
 
-// 获取状态标签类型
 const getStatusTagType = (status) => {
   const typeMap = {
     'pending': 'info',
@@ -644,7 +619,6 @@ const getStatusTagType = (status) => {
   return typeMap[status] || 'info';
 };
 
-// 获取状态标签文本
 const getStatusLabel = (status) => {
   const labelMap = {
     'pending': '待执行',
@@ -655,7 +629,6 @@ const getStatusLabel = (status) => {
   return labelMap[status] || status;
 };
 
-// 页面加载时获取报告列表
 onMounted(() => {
   fetchReportList();
 });
@@ -828,7 +801,6 @@ watch(
   text-align: center;
 }
 
-/* 输出弹窗样式 */
 .output-dialog {
   padding: 10px 0;
 }

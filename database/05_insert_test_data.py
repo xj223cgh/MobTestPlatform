@@ -47,7 +47,6 @@ def insert_test_data():
             # 禁用外键检查以允许截断表
             cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
             
-            # 清空所有表数据（含 reports：造数后报告为空；自动生成仅在「任务状态变更为已完成」且用户设置「自动生成报告」时触发）
             tables = [
                 'reports', 'user_settings', 'system_settings',
                 'version_requirements', 'test_cases', 'test_tasks',
@@ -243,30 +242,6 @@ def insert_test_data():
             
             # 6. 插入版本需求测试数据
             print("开始插入版本需求数据...")
-            # 确保 version_requirements.priority 为 P0-P4（若曾被改为 high/medium/low 则先修正，避免创建需求时报 Data truncated）
-            try:
-                cursor.execute("""
-                    SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
-                    WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'version_requirements' AND COLUMN_NAME = 'priority'
-                """, (DB_CONFIG['database'],))
-                row = cursor.fetchone()
-                if row:
-                    current_type = (row[0] or "").upper()
-                    if ("HIGH" in current_type or "MEDIUM" in current_type or "LOW" in current_type) and "P1" not in current_type:
-                        cursor.execute("""
-                            ALTER TABLE version_requirements
-                            MODIFY COLUMN priority ENUM('high', 'medium', 'low', 'P0', 'P1', 'P2', 'P3', 'P4') DEFAULT 'P1' COMMENT '优先级'
-                        """)
-                        connection.commit()
-                        cursor.execute("UPDATE version_requirements SET priority = 'P1' WHERE priority IN ('high', 'medium', 'low')")
-                        connection.commit()
-                        cursor.execute("""
-                            ALTER TABLE version_requirements
-                            MODIFY COLUMN priority ENUM('P0', 'P1', 'P2', 'P3', 'P4') DEFAULT 'P1' COMMENT '优先级'
-                        """)
-                        connection.commit()
-            except Exception:
-                pass
             # 获取所有迭代ID
             cursor.execute("SELECT id FROM iterations")
             iteration_ids = [row[0] for row in cursor.fetchall()]
@@ -691,22 +666,6 @@ def insert_test_data():
                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         """, (hist_id, rt_id, case_id, reviewer_id, rs, '通过' if rs == 'approved' else '需修改', row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], reviewer_id))
             print(f"评审任务与评审历史插入成功，共 {len(review_task_ids_inserted)} 条评审任务！")
-
-            # 11.5 报告表：仅清空并确保表结构（assignee_id），不插入造数，由用户在平台上手动创建报告
-            print("开始处理报告表...")
-            cursor.execute("TRUNCATE TABLE reports")
-            cursor.execute("""
-                SELECT COUNT(*) FROM information_schema.COLUMNS
-                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'reports' AND COLUMN_NAME = 'assignee_id'
-            """)
-            if cursor.fetchone()[0] == 0:
-                cursor.execute("ALTER TABLE reports ADD COLUMN assignee_id INT NULL COMMENT '负责人ID' AFTER creator_id")
-                cursor.execute("ALTER TABLE reports ADD INDEX idx_assignee_id (assignee_id)")
-                try:
-                    cursor.execute("ALTER TABLE reports ADD CONSTRAINT fk_reports_assignee FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL")
-                except Exception:
-                    pass
-            print("报告表已清空，未插入造数；请在平台上通过「完成任务」或「生成报告」手动创建报告。")
 
             # 12. 设备脚本任务：复制 get_device_info.py 到 storage/device_scripts/日期/uuid.py，并插入任务与任务-设备关联
             print("开始插入设备脚本任务数据...")

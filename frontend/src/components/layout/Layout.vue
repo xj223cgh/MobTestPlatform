@@ -3,7 +3,6 @@
     class="layout"
     :class="{ 'sidebar-collapsed': isCollapsed }"
   >
-    <!-- 侧边栏 -->
     <aside
       class="sidebar"
       :class="{ collapsed: isCollapsed }"
@@ -32,15 +31,11 @@
         router
         class="sidebar-menu"
       >
-        <!-- 递归生成菜单，支持嵌套路由 -->
         <template v-for="menuRoute in menuRoutes">
-          <!-- 检查是否有可见的子路由 -->
           <template v-if="menuRoute.children && menuRoute.children.length > 0">
-            <!-- 过滤出可见的子路由 -->
             <template
               v-if="menuRoute.children.some((child) => !child.meta?.hidden)"
             >
-              <!-- 有可见子路由，使用 el-sub-menu -->
               <el-sub-menu
                 :key="`${menuRoute.path}-submenu`"
                 :index="`/${menuRoute.path}`"
@@ -51,9 +46,7 @@
                   </el-icon>
                   {{ menuRoute.meta.title }}
                 </template>
-                <!-- 递归渲染子菜单 -->
                 <template v-for="childRoute in menuRoute.children">
-                  <!-- 只渲染可见的子路由 -->
                   <template v-if="!childRoute.meta?.hidden">
                     <el-menu-item
                       v-if="
@@ -69,7 +62,6 @@
                         {{ childRoute.meta.title }}
                       </template>
                     </el-menu-item>
-                    <!-- 支持多级嵌套 -->
                     <el-sub-menu
                       v-else
                       :key="`${childRoute.path}-submenu`"
@@ -81,7 +73,6 @@
                         </el-icon>
                         {{ childRoute.meta.title }}
                       </template>
-                      <!-- 递归渲染更深层级的子菜单 -->
                       <el-menu-item
                         v-for="grandChildRoute in childRoute.children"
                         :key="grandChildRoute.path"
@@ -100,7 +91,6 @@
               </el-sub-menu>
             </template>
             <template v-else>
-              <!-- 没有可见子路由，直接使用 el-menu-item -->
               <el-menu-item
                 :key="`${menuRoute.path}-item`"
                 :index="`/${menuRoute.path}`"
@@ -114,7 +104,6 @@
               </el-menu-item>
             </template>
           </template>
-          <!-- 没有子路由，直接使用 el-menu-item -->
           <el-menu-item
             v-else
             :key="`${menuRoute.path}-item`"
@@ -131,9 +120,7 @@
       </el-menu>
     </aside>
 
-    <!-- 主内容区 -->
     <div class="main-container">
-      <!-- 顶部导航 -->
       <header class="header">
         <div class="header-left">
           <el-button
@@ -161,7 +148,6 @@
         </div>
 
         <div class="header-right">
-          <!-- 消息下拉列表 -->
           <el-popover
             v-model:visible="notificationPopoverVisible"
             placement="bottom-end"
@@ -185,13 +171,34 @@
               <div v-loading="notificationListLoading" class="notification-list">
                 <template v-if="notificationList.length">
                   <div
-                    v-for="item in notificationList"
+                    v-for="(item, index) in notificationList"
                     :key="item.id"
                     class="notification-item"
-                    :class="{ unread: !item.is_read }"
+                    :class="{
+                      unread: !item.is_read,
+                      'first-unpinned': isFirstUnpinned(index),
+                    }"
                     @click="onNotificationItemClick(item)"
                   >
-                    <div class="notification-item-main">
+                    <el-tooltip
+                      v-if="getNotificationFullContent(item)"
+                      :content="getNotificationFullContent(item)"
+                      placement="top"
+                      :show-after="300"
+                      popper-class="notification-full-content-tooltip"
+                    >
+                      <div class="notification-item-main">
+                        <div class="notification-item-title">{{ item.title }}</div>
+                        <div class="notification-item-summary">{{ formatNotificationSummary(item.summary) }}</div>
+                      <div class="notification-item-meta">
+                        <el-tag :type="item.is_read ? 'info' : 'warning'" size="small" class="notification-item-status">
+                          {{ item.is_read ? '已读' : '未读' }}
+                        </el-tag>
+                        <span class="notification-item-time">{{ formatNotificationTime(item.created_at) }}</span>
+                      </div>
+                    </div>
+                    </el-tooltip>
+                    <div v-else class="notification-item-main">
                       <div class="notification-item-title">{{ item.title }}</div>
                       <div class="notification-item-summary">{{ formatNotificationSummary(item.summary) }}</div>
                       <div class="notification-item-meta">
@@ -227,10 +234,12 @@
                 <el-button type="primary" link size="small" :loading="readAllLoading" @click="markAllRead">
                   全部已读
                 </el-button>
+                <el-button type="primary" link size="small" :loading="unreadAllLoading" @click="markAllUnread">
+                  全部未读
+                </el-button>
               </div>
             </div>
           </el-popover>
-          <!-- 全屏按钮 -->
           <el-tooltip
             content="全屏"
             placement="bottom"
@@ -244,7 +253,6 @@
             </el-button>
           </el-tooltip>
 
-          <!-- 用户信息 -->
           <el-dropdown
             class="user-dropdown"
             @command="handleCommand"
@@ -318,7 +326,7 @@ import {
 } from "@element-plus/icons-vue";
 import { useNotificationStore } from "@/stores/notification";
 import { useNotificationSocket } from "@/composables/useNotificationSocket";
-import { getNotifications, markRead, markReadAll, deleteNotification, pinNotification } from "@/api/notifications";
+import { getNotifications, markRead, markReadAll, markUnreadAll, deleteNotification, pinNotification } from "@/api/notifications";
 import { getNotificationRoute } from "@/utils/notificationLink";
 
 const route = useRoute();
@@ -328,11 +336,11 @@ const systemSettingsStore = useSystemSettingsStore();
 const notificationStore = useNotificationStore();
 const { connect: connectNotificationSocket, disconnect: disconnectNotificationSocket } = useNotificationSocket();
 
-// 消息下拉
 const notificationPopoverVisible = ref(false);
 const notificationList = ref([]);
 const notificationListLoading = ref(false);
 const readAllLoading = ref(false);
+const unreadAllLoading = ref(false);
 
 function formatNotificationSummary(summary) {
   if (!summary || typeof summary !== "string") return "";
@@ -340,6 +348,15 @@ function formatNotificationSummary(summary) {
     .replace(/结果：approved/g, "结果：已通过")
     .replace(/结果：rejected/g, "结果：已拒绝")
     .replace(/结果：pending/g, "结果：待审核");
+}
+
+/** 悬浮时显示的完整消息内容（标题 + 正文） */
+function getNotificationFullContent(item) {
+  if (!item) return "";
+  const title = item.title ? String(item.title).trim() : "";
+  const summary = item.summary != null ? formatNotificationSummary(String(item.summary)) : "";
+  if (title && summary) return `${title}\n\n${summary}`;
+  return title || summary || "";
 }
 
 function formatNotificationTime(iso) {
@@ -369,6 +386,15 @@ function onNotificationPopoverShow() {
   fetchNotificationList();
 }
 
+/** 是否为“未置顶”区块的第一条（用于与置顶消息的视觉分界） */
+function isFirstUnpinned(index) {
+  const list = notificationList.value;
+  if (!list.length || index >= list.length) return false;
+  const item = list[index];
+  if (item.is_pinned) return false;
+  return index === 0 || list[index - 1].is_pinned;
+}
+
 async function onNotificationItemClick(item) {
   if (item.id && !item.is_read) {
     try {
@@ -395,6 +421,18 @@ async function markAllRead() {
   } catch (_) {}
   finally {
     readAllLoading.value = false;
+  }
+}
+
+async function markAllUnread() {
+  unreadAllLoading.value = true;
+  try {
+    await markUnreadAll();
+    notificationStore.fetchUnreadCount();
+    await fetchNotificationList();
+  } catch (_) {}
+  finally {
+    unreadAllLoading.value = false;
   }
 }
 
@@ -427,19 +465,14 @@ async function onDropdownDelete(item) {
 // 应用基础设置：主题（深/浅/跟随系统）、语言（html lang）
 useSystemAppearance(systemSettingsStore);
 
-// 侧边栏折叠状态
 const isCollapsed = ref(false);
 
-// 侧边栏顶部仅显示系统名称，不显示 Logo；系统 Logo 仅用于浏览器标签页图标与系统设置页
-
-// 浏览器标签页：动态标题（系统名 + 当前页）
 function setPageTitle() {
   const name = systemSettingsStore.systemName || "移动测试平台";
   const pageTitle = route.meta?.title;
   document.title = pageTitle ? `${name} - ${pageTitle}` : name;
 }
 
-// 浏览器标签页：动态 Favicon（有系统 Logo 用系统 Logo，否则用 Vue 官方默认图标）
 function getDefaultFaviconHref() {
   const base = (import.meta.env.BASE_URL || "/").replace(/\/?$/, "/");
   return `${window.location.origin}${base}favicon.svg`;
@@ -475,7 +508,6 @@ watch(route, setPageTitle);
 watch(() => systemSettingsStore.systemName, setPageTitle);
 watch(() => systemSettingsStore.systemLogo, setFavicon);
 
-// 菜单路由
 const menuRoutes = computed(() => {
   const routes = router.getRoutes() || [];
   const layoutRoute = routes.find((route) => route.name === "Layout");
@@ -554,12 +586,10 @@ const breadcrumbItems = computed(() => {
   return items;
 });
 
-// 切换侧边栏
 const toggleSidebar = () => {
   isCollapsed.value = !isCollapsed.value;
 };
 
-// 切换全屏
 const toggleFullscreen = () => {
   if (!document.fullscreenElement) {
     document.documentElement.requestFullscreen();
@@ -568,7 +598,6 @@ const toggleFullscreen = () => {
   }
 };
 
-// 处理下拉菜单命令
 const handleCommand = (command) => {
   switch (command) {
     case "profile":
@@ -595,9 +624,7 @@ const handleCommand = (command) => {
           // 无论API是否成功都跳转到登录页
           router.push("/login");
         })
-        .catch(() => {
-          // 用户取消登出，不做任何操作
-        });
+        .catch(() => {});
       break;
   }
 };
@@ -698,22 +725,18 @@ const handleCommand = (command) => {
       padding: 0;
     }
 
-    /* 修复面包屑字体加粗问题，确保所有面包屑项字体粗细一致 */
     .el-breadcrumb__item {
       font-weight: normal !important;
     }
 
-    /* 确保面包屑分隔符样式正常 */
     .el-breadcrumb__separator {
       font-weight: normal;
     }
 
-    /* 修复面包屑颜色问题：除了首页，非当前页面的面包屑保持默认颜色 */
     .el-breadcrumb__item:not(:first-child) .el-breadcrumb__inner {
       color: var(--el-text-color-regular) !important;
     }
 
-    /* 确保首页面包屑样式正常 */
     .el-breadcrumb__item:first-child .el-breadcrumb__inner {
       color: inherit;
     }
@@ -780,7 +803,6 @@ const handleCommand = (command) => {
   overflow-y: auto;
   background: var(--el-bg-color-page, $background-color);
 
-  /* 测试任务页：最外层不出现垂直滚动条，仅标签页内表格滚动 */
   &.content-no-outer-scroll {
     overflow: hidden;
   }
@@ -791,7 +813,6 @@ const handleCommand = (command) => {
   min-height: 0;
 }
 
-// 响应式
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
@@ -813,7 +834,6 @@ const handleCommand = (command) => {
 }
 </style>
 
-<!-- 分页区域与左侧菜单无缝对齐，无间隔 -->
 <style lang="scss">
 @use "@/styles/variables.scss" as *;
 
@@ -825,7 +845,6 @@ const handleCommand = (command) => {
   --layout-sidebar-width: #{$sidebar-collapsed-width};
 }
 
-/* 所有功能页固定分页：左边紧贴侧边栏无间隔，左侧内边距与页面内容对齐 */
 .layout .content .fixed-pagination,
 .layout .content .pagination-container {
   left: var(--layout-sidebar-width) !important;
@@ -841,12 +860,12 @@ const handleCommand = (command) => {
   }
 }
 
-/* 消息下拉（popper 挂载在 body，需全局样式） */
+/* popper 挂载在 body，需全局样式 */
 .notification-popover {
   padding: 0 !important;
 }
 .notification-popover .notification-dropdown {
-  max-height: 400px;
+  max-height: 460px;
   display: flex;
   flex-direction: column;
 }
@@ -856,7 +875,7 @@ const handleCommand = (command) => {
   border-bottom: 1px solid var(--el-border-color-lighter);
 }
 .notification-popover .notification-list {
-  max-height: 320px;
+  max-height: 360px;
   overflow-y: auto;
   min-height: 80px;
 }
@@ -868,6 +887,9 @@ const handleCommand = (command) => {
   border-bottom: 1px solid var(--el-border-color-extra-light);
   cursor: pointer;
   transition: background 0.2s;
+}
+.notification-popover .notification-item.first-unpinned {
+  border-top: 2px solid var(--el-border-color);
 }
 .notification-popover .notification-item:hover {
   background: var(--el-fill-color-light);
@@ -921,7 +943,6 @@ const handleCommand = (command) => {
   border-top: 1px solid var(--el-border-color-lighter);
 }
 
-/* 消息跳转后列表行/卡片：蓝色选中闪烁 2～3 次后消失（约 2.8s） */
 tr.notification-flash-row > td,
 .el-table tr.notification-flash-row > td {
   background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
@@ -955,7 +976,6 @@ tr.notification-flash-row > td,
   }
 }
 
-/* 表格滚动视口：横向滚动条在视口底部，查看首行时也可直接左右滑动，无需滚到列表底部 */
 .layout .content .table-scroll-viewport {
   overflow: auto;
   max-height: calc(100vh - 320px);
@@ -966,7 +986,6 @@ tr.notification-flash-row > td,
   min-width: max-content;
 }
 
-/* 表格表头首行冻结：视口不滚动，仅表体区域滚动，表头自然固定 */
 .layout .content .table-section .table-scroll-viewport {
   overflow: hidden !important;
   display: flex !important;
@@ -978,7 +997,7 @@ tr.notification-flash-row > td,
   flex-direction: column !important;
   flex: 1 !important;
   min-height: 0 !important;
-  min-width: 0 !important; /* 不撑出横向滚动条（测试任务/报告/用户/需求管理） */
+  min-width: 0 !important;
 }
 
 .layout .content .table-section .table-scroll-viewport .el-table__header-wrapper {
@@ -990,5 +1009,14 @@ tr.notification-flash-row > td,
   min-height: 0 !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
+}
+</style>
+
+<style lang="scss">
+.notification-full-content-tooltip.el-popper {
+  max-width: 360px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
 }
 </style>

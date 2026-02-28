@@ -1,6 +1,6 @@
 import request from "@/utils/request";
 
-// 获取用户列表（需 user.list 权限，用于用户管理页）
+/** 需 user.list 权限，用于用户管理页 */
 export function getUserList(params) {
   return request({
     url: "/users",
@@ -9,7 +9,7 @@ export function getUserList(params) {
   });
 }
 
-// 获取用户选项（仅需登录，用于评审人/负责人/执行人等下拉）
+/** 仅需登录，用于评审人/负责人/执行人等下拉 */
 export function getUserOptions(params) {
   return request({
     url: "/users/options",
@@ -18,7 +18,6 @@ export function getUserOptions(params) {
   });
 }
 
-// 创建用户
 export function createUser(data) {
   return request({
     url: "/users",
@@ -27,7 +26,6 @@ export function createUser(data) {
   });
 }
 
-// 更新用户
 export function updateUser(id, data) {
   return request({
     url: `/users/${id}`,
@@ -49,6 +47,15 @@ export function toggleUserStatus(id) {
   return request({
     url: `/users/${id}/toggle-status`,
     method: "post",
+  });
+}
+
+/** 管理员操作；验证码通过后写入，只有能收到验证码才证明邮箱存在 */
+export function confirmUserEmail(id, data) {
+  return request({
+    url: `/users/${id}/confirm-email`,
+    method: "post",
+    data: { email: data.email, code: data.code },
   });
 }
 
