@@ -315,10 +315,8 @@ def delete_project(project_id):
     if not project:
         return jsonify({'code': 404, 'message': '项目不存在'}), 404
 
+    # 仅校验业务实体引用；成员关联为单向绑定，不阻止删除（删除时由 cascade 清理）
     refs = []
-    n = ProjectMember.query.filter_by(project_id=project_id).count()
-    if n > 0:
-        refs.append(f"项目成员({n})")
     n = Iteration.query.filter_by(project_id=project_id).count()
     if n > 0:
         refs.append(f"迭代({n})")
