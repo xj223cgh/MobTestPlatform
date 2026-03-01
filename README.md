@@ -178,8 +178,7 @@ MobTestPlatform/
 │   ├── config.py               # 数据库连接配置
 │   ├── 01_create_database.py   # 创建数据库
 │   ├── 03_create_tables.py     # 创建所有表结构
-│   ├── 05_insert_test_data.py  # 通用测试数据
-│   ├── 08_seed_wps_email_data.py # WPS 邮箱业务模拟数据
+│   ├── 05_insert_test_data.py  # 用户 + WPS 邮箱业务测试数据
 │   ├── init_database.py        # 一键初始化
 │   └── README.md               # 数据库操作说明
 ├── docs/                       # 项目文档
@@ -200,10 +199,9 @@ MobTestPlatform/
 | `02_drop_database.py` | 删除数据库（慎用） |
 | `03_create_tables.py` | 创建全部 24 张数据表 |
 | `04_drop_tables.py` | 删除所有表（慎用） |
-| `05_insert_test_data.py` | 插入通用测试数据（多项目/迭代/需求/用例/任务） |
+| `05_insert_test_data.py` | 插入用户 + WPS 邮箱业务测试数据 |
 | `06_clear_table_data.py` | 清空所有表数据（保留表结构） |
 | `07_test_connection.py` | 测试数据库连接 |
-| `08_seed_wps_email_data.py` | 插入 WPS 邮箱业务模拟数据 |
 | `init_database.py` | 一键初始化（创建库 → 建表 → 造数） |
 
 ---

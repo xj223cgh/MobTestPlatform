@@ -82,29 +82,26 @@ def login():
         return error_response(401, "用户名或密码错误")
     
     # 登录失败锁定：检查是否在锁定期内
-    from datetime import datetime as dt, timedelta as td
-    from app.models.models import LOCAL_TIMEZONE
     lock_threshold = _get_login_failure_lock_threshold()
-    now = dt.now(LOCAL_TIMEZONE)
+    now = datetime.now(LOCAL_TIMEZONE)
     if lock_threshold > 0 and getattr(user, "locked_until", None):
         locked_until = user.locked_until
-        if locked_until:
-            # 统一转为带时区的比较
-            lock_time = locked_until if locked_until.tzinfo else locked_until.replace(tzinfo=LOCAL_TIMEZONE)
-            if lock_time > now:
-                return error_response(401, "账户已锁定，请稍后再试或联系管理员")
-            user.failed_login_attempts = 0
-            user.locked_until = None
-            try:
-                db.session.commit()
-            except Exception:
-                db.session.rollback()
+        # 统一转为带时区的比较
+        lock_time = locked_until if locked_until.tzinfo else locked_until.replace(tzinfo=LOCAL_TIMEZONE)
+        if lock_time > now:
+            return error_response(401, "账户已锁定，请稍后再试或联系管理员")
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
 
     if not user.check_password(password):
         if lock_threshold > 0:
             user.failed_login_attempts = getattr(user, "failed_login_attempts", 0) + 1
             if user.failed_login_attempts >= lock_threshold:
-                user.locked_until = now + td(minutes=30)
+                user.locked_until = now + timedelta(minutes=30)
             try:
                 db.session.commit()
             except Exception:
@@ -113,6 +110,9 @@ def login():
                 return error_response(401, "登录失败次数过多，账户已锁定30分钟，请稍后再试")
         return error_response(401, "用户名或密码错误")
 
+    if not user.is_active:
+        return error_response(401, "账户已被禁用，请联系管理员解除禁制")
+
     if lock_threshold > 0 and (getattr(user, "failed_login_attempts", 0) or getattr(user, "locked_until", None)):
         user.failed_login_attempts = 0
         user.locked_until = None
@@ -120,9 +120,6 @@ def login():
             db.session.commit()
         except Exception:
             db.session.rollback()
-    
-    if not user.is_active:
-        return error_response(401, "账户已被禁用，请联系管理员解除禁制")
     
     # 从系统设置读取会话超时时间（分钟），无则用 .env 的 SESSION_TIMEOUT_MINUTES 默认值
     session_timeout_minutes = current_app.config.get('SESSION_TIMEOUT_MINUTES', 1440)
@@ -207,6 +204,18 @@ def login_by_email():
         return error_response(401, "该邮箱未绑定账号")
     if not user.is_active:
         return error_response(401, "账户已被禁用，请联系管理员")
+    # 邮箱登录同样需要检查账户是否在锁定期内
+    lock_threshold = _get_login_failure_lock_threshold()
+    if lock_threshold > 0 and user.locked_until:
+        lock_time = user.locked_until if user.locked_until.tzinfo else user.locked_until.replace(tzinfo=LOCAL_TIMEZONE)
+        if lock_time > now:
+            return error_response(401, "账户已锁定，请稍后再试或联系管理员")
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
     try:
         EmailVerifyCode.query.filter_by(id=record.id).delete()
         db.session.commit()

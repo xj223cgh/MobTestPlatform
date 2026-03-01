@@ -216,7 +216,7 @@
           </el-form-item>
 
           <el-form-item
-            label="计划执行时间"
+            label="计划时间"
             prop="scheduledTime"
             :required="true"
           >

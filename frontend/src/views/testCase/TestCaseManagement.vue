@@ -530,7 +530,7 @@
               <el-table-column
                 prop="preconditions"
                 label="前置条件"
-                min-width="130"
+                min-width="125"
                 align="left"
                 header-align="left"
                 :cell-style="{ textAlign: 'left' }"
@@ -568,7 +568,7 @@
               <el-table-column
                 prop="steps"
                 label="操作步骤"
-                min-width="140"
+                min-width="130"
                 align="left"
                 header-align="left"
                 :cell-style="{ textAlign: 'left' }"
@@ -602,7 +602,7 @@
               <el-table-column
                 prop="expected_result"
                 label="预期结果"
-                min-width="130"
+                min-width="125"
                 align="left"
                 header-align="left"
                 :cell-style="{ textAlign: 'left' }"
@@ -3173,6 +3173,12 @@ const handleNodeClick = (data) => {
     loadTestCases(data.id);
     // 获取用例集评审状态
     getSuiteReviewStatusData(data.id);
+    // 若当前处于脑图视图，同步更新脑图数据
+    if (viewMode.value === "mindmap") {
+      loadAllTestCases(data.id).then(() => {
+        generateMindMapData();
+      });
+    }
   } else {
     // 文件夹清空测试用例列表
     testCases.value = [];
@@ -4717,6 +4723,7 @@ const generateMindMapData = () => {
   // 检查是否有当前选中的用例集
   if (!selectedSuite.value || selectedSuite.value.type !== "suite") {
     mindMapData.value = {
+      template: "right",
       root: {
         data: {
           text: "请先选择一个用例集",
@@ -4730,11 +4737,12 @@ const generateMindMapData = () => {
   // 使用当前选中的用例集作为根节点
   const currentSuite = selectedSuite.value;
 
-  // 构建脑图数据
+  // 构建脑图数据（template: "right" 使所有子节点全部向右展开）
   const mindMapRoot = {
+    template: "right",
     root: {
       data: {
-        text: currentSuite.suite_name, // 当前用例集名称为根节点
+        text: currentSuite.suite_name,
         type: "suite",
       },
       children: [],

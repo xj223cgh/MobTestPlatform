@@ -88,7 +88,10 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
             version_requirement_id = params.get('requirementId') or suite.version_requirement_id
             if project_id is None:
                 raise ValueError("用例集未关联项目，无法保存测试用例。请为用例集选择所属项目。")
-            
+            creator_id = params.get('creatorId') or getattr(suite, 'creator_id', None)
+            if creator_id is None:
+                raise ValueError("无法确定用例创建人，请重新发起生成任务。")
+
             # 6. 生成用例编号前缀（格式与前端一致：xxx-xxx-xxx，从 params 或 suite 关联取项目/迭代/需求名）
             case_number_prefix = generate_case_number_prefix(suite, params)
             
@@ -129,7 +132,7 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
                     'project_id': project_id,
                     'iteration_id': iteration_id,
                     'version_requirement_id': version_requirement_id,
-                    'creator_id': params.get('creatorId'),
+                    'creator_id': creator_id,
                 }
                 
                 test_case = TestCase(**case_data)
@@ -143,10 +146,10 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
                 message=f'成功生成并保存{len(saved_cases)}条测试用例',
                 progress=100
             )
-            creator_id = params.get('creatorId')
-            if creator_id:
+            notify_creator_id = params.get('creatorId') or creator_id
+            if notify_creator_id:
                 from app.services.notification_service import notify_users
-                notify_users([creator_id], 'ai_case_generated', 'AI 用例生成完成', f'已成功生成并保存 {len(saved_cases)} 条测试用例', 'suite', suite_id, extra={'total_cases': len(saved_cases)})
+                notify_users([notify_creator_id], 'ai_case_generated', 'AI 用例生成完成', f'已成功生成并保存 {len(saved_cases)} 条测试用例', 'suite', suite_id, extra={'total_cases': len(saved_cases)})
             return {
                 'suite_id': suite_id,
                 'total_cases': len(saved_cases),
@@ -155,11 +158,11 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
             
         except Exception as e:
             db.session.rollback()
-            creator_id = params.get('creatorId')
-            if creator_id:
+            notify_creator_id = params.get('creatorId') or getattr(suite, 'creator_id', None)
+            if notify_creator_id:
                 from app.services.notification_service import notify_users
-                notify_users([creator_id], 'ai_case_generated', 'AI 用例生成失败', str(e)[:200] or '任务执行失败', 'suite', suite_id, extra={'error': str(e)[:200]})
-            raise e
+                notify_users([notify_creator_id], 'ai_case_generated', 'AI 用例生成失败', str(e)[:200] or '任务执行失败', 'suite', suite_id, extra={'error': str(e)[:200]})
+            raise
 
 
 def _suggest_case_count(document_content: str) -> int:
@@ -255,7 +258,13 @@ def call_ai_api(prompt: str, ai_config: dict, max_tokens_override: int = None) -
                 '并到 SiliconFlow 控制台确认密钥状态：https://cloud.siliconflow.cn/'
             )
         response.raise_for_status()
-        return response.json()
+        resp_json = response.json()
+        # 部分 API 在 HTTP 200 下仍返回业务错误（如 {"error": {"message": "..."}}）
+        if isinstance(resp_json, dict) and 'error' in resp_json:
+            err = resp_json['error']
+            msg = err.get('message', err) if isinstance(err, dict) else str(err)
+            raise ValueError(f'AI 服务返回错误: {msg}')
+        return resp_json
     except requests.exceptions.HTTPError as e:
         if e.response is not None and e.response.status_code == 401:
             raise ValueError(
@@ -265,20 +274,45 @@ def call_ai_api(prompt: str, ai_config: dict, max_tokens_override: int = None) -
 
 
 def parse_ai_response(ai_response: dict) -> list:
-    """解析AI返回结果"""
+    """解析AI返回结果，兼容多种返回结构并给出明确异常信息"""
+    if not isinstance(ai_response, dict):
+        raise Exception("解析AI返回结果失败: 响应不是有效的 JSON 对象")
+    # 先检查是否为 API 错误结构
+    if 'error' in ai_response:
+        err = ai_response['error']
+        msg = err.get('message', err) if isinstance(err, dict) else str(err)
+        raise Exception(f"AI 返回错误: {msg}")
     try:
-        content = ai_response['choices'][0]['message']['content']
-        
-        content = content.strip()
+        choices = ai_response.get('choices') or []
+        if not choices:
+            raise Exception("AI 返回中无 choices，可能为模型限流或服务异常，请稍后重试")
+        first = choices[0]
+        if not isinstance(first, dict):
+            raise Exception("AI 返回的 choices[0] 格式异常")
+        message = first.get('message') or {}
+        if not isinstance(message, dict):
+            raise Exception("AI 返回的 message 格式异常")
+        content = message.get('content')
+        if content is None:
+            raise Exception("AI 返回的 content 为空，请检查模型或提示词")
+        content = str(content).strip()
+        if not content:
+            raise Exception("AI 返回的 content 为空字符串")
         if content.startswith('```json'):
             content = content[7:]
+        if content.startswith('```'):
+            content = content.split('\n', 1)[-1]
         if content.endswith('```'):
-            content = content[:-3]
+            content = content[:-3].rstrip()
         content = content.strip()
-        
         parsed = json.loads(content)
-        return parsed.get('test_cases', [])
+        cases = parsed.get('test_cases') if isinstance(parsed, dict) else []
+        return list(cases) if cases else []
+    except json.JSONDecodeError as e:
+        raise Exception(f"解析AI返回结果失败: 内容不是合法 JSON（{e}）")
     except Exception as e:
+        if isinstance(e, Exception) and not isinstance(e, (KeyError, IndexError, TypeError)):
+            raise
         raise Exception(f"解析AI返回结果失败: {str(e)}")
 
 
@@ -296,16 +330,24 @@ def _ensure_env_loaded():
 
 
 def get_ai_config() -> dict:
-    """获取AI配置（从环境变量读取，自动去除首尾空格）"""
+    """获取AI配置（从环境变量读取，自动去除首尾空格；数值型做容错）"""
     _ensure_env_loaded()
     api_key = (os.getenv('AI_API_KEY') or 'sk-your-api-key').strip()
     base_url = (os.getenv('AI_BASE_URL') or 'https://api.siliconflow.cn/v1').strip().rstrip('/')
+    try:
+        temperature = float(os.getenv('AI_TEMPERATURE', '0.3'))
+    except (TypeError, ValueError):
+        temperature = 0.3
+    try:
+        max_tokens = int(os.getenv('AI_MAX_TOKENS', '4096'))
+    except (TypeError, ValueError):
+        max_tokens = 4096
     return {
         'baseURL': base_url,
         'apiKey': api_key,
         'model': (os.getenv('AI_MODEL') or 'Qwen/Qwen2.5-7B-Instruct').strip(),
-        'temperature': float(os.getenv('AI_TEMPERATURE', '0.3')),
-        'maxTokens': int(os.getenv('AI_MAX_TOKENS', '4096'))
+        'temperature': temperature,
+        'maxTokens': max_tokens
     }
 
 
