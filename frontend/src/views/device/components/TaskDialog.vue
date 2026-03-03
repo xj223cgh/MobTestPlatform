@@ -174,9 +174,9 @@
           >
             <el-option
               v-for="device in props.devices"
-              :key="device.db_id"
+              :key="device.id"
               :label="`${device.device_id || device.id} (${device.status === 'online' ? '在线' : '离线'})`"
-              :value="device.db_id"
+              :value="device.id"
               :disabled="device.status !== 'online'"
             />
             <el-option
@@ -878,7 +878,7 @@ const open = () => {
   selectedFolderPath.value = "";
   const onlineDevices = props.devices.filter((d) => d.status === "online");
   if (onlineDevices.length === 1) {
-    scriptForm.deviceIds = [onlineDevices[0].db_id];
+    scriptForm.deviceIds = [onlineDevices[0].id];
   }
   if (scriptForm.executionMode === "scheduled") {
     loadTaskFolderTree();

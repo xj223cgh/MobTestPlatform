@@ -184,8 +184,8 @@ def update_test_case(case_id):
         case_number = data['case_number']
         if case_number:
             import re
-            # 格式：xxx-xxx-xxx001～xxx-xxx-xxx999，只识别后三位数字
-            if not re.match(r'^.+-.+-.+\d{3}$', case_number):
+            # 格式与创建接口保持一致：xxx-xxx-xxx001～xxx-xxx-xxx999，或纯三位数字（导入兼容）
+            if not re.match(r'^.+-.+-.+\d{3}$', case_number) and not re.match(r'^\d{3}$', case_number):
                 return error_response(400, "用例编号格式不正确，应为：xxx-xxx-xxx001～xxx-xxx-xxx999")
             num_match = re.search(r'\d{3}$', case_number)
             if num_match:

@@ -26,11 +26,11 @@ def get_users():
     query = User.query
     
     if search:
-        # 用户名查询使用BINARY关键字确保严格区分大小写
-        # 真实姓名和手机号保持不区分大小写的contains查询
+        # 用户名使用 ORM cast(BINARY) 实现区分大小写的 LIKE 查询，避免双引号被 MySQL 当字符串字面量处理
+        # 真实姓名和手机号保持不区分大小写的 contains 查询
         query = query.filter(
             db.or_(
-                db.text(f'BINARY "username" LIKE :username_pattern').params(username_pattern=f'%{search}%'),
+                db.cast(User.username, db.String).like(f'%{search}%'),
                 User.real_name.contains(search),
                 User.phone.contains(search)
             )

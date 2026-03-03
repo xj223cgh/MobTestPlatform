@@ -31,7 +31,7 @@ def create_project():
         if not owner:
             return jsonify({'code': 400, 'message': '项目负责人不存在'}), 400
         
-        if len(data['description']) > 100:
+        if len(data['description'] or '') > 100:
             return jsonify({'code': 400, 'message': '项目描述不能超过100个字符'}), 400
         
         try:

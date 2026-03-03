@@ -558,6 +558,8 @@ def reset_password():
         return error_response(400, message)
     
     user = User.query.get(user_id)
+    if not user:
+        return error_response(400, "用户不存在，无法重置密码")
     user.set_password(password)
     
     try:

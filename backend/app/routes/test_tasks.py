@@ -191,11 +191,12 @@ def update_task_folder(folder_id):
 def delete_task_folder(folder_id):
     """删除任务文件夹（子文件夹由 DB 外键 CASCADE 递归删除，该文件夹下任务 folder_id 置空）"""
     folder = TaskFolder.query.get_or_404(folder_id)
+    folder_name = folder.name
+    # 两步操作放入同一事务，避免中间状态不可回滚
     TestTask.query.filter_by(folder_id=folder_id).update({'folder_id': None})
-    db.session.commit()
     db.session.delete(folder)
     db.session.commit()
-    log_user_action("删除任务文件夹", f"ID: {folder_id}, 名称: {folder.name}")
+    log_user_action("删除任务文件夹", f"ID: {folder_id}, 名称: {folder_name}")
     return success_response(message='删除成功')
 
 

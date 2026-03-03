@@ -113,6 +113,11 @@ def create_test_suite():
             if depth == 4 and suite_type != 'suite':
                 return error_response(400, '最深一层只能创建用例集')
         
+        # project_id 在模型中定义为 nullable=False，必须校验非空
+        project_id = data.get('project_id')
+        if not project_id:
+            return error_response(400, '缺少必填字段：project_id')
+
         max_sort_order = db.session.query(db.func.max(TestSuite.sort_order))
         if parent_id is not None:
             max_sort_order = max_sort_order.filter_by(parent_id=parent_id)
@@ -129,7 +134,7 @@ def create_test_suite():
             status=data.get('status', 'active'),
             type=suite_type,
             creator_id=current_user.id,
-            project_id=data.get('project_id'),
+            project_id=project_id,
             version_requirement_id=data.get('version_requirement_id'),
             iteration_id=data.get('iteration_id'),
             sort_order=new_sort_order
@@ -233,7 +238,7 @@ def update_test_suite(suite_id):
            ('sort_order' in data and data['sort_order'] != original_sort_order):
             
             # 处理父级变化的情况：如果父级变化，先将原父级下的节点重新排序
-            if data['parent_id'] != original_parent_id:
+            if data.get('parent_id', original_parent_id) != original_parent_id:
                 # 原父级下的节点重新排序
                 original_siblings = TestSuite.query.filter_by(parent_id=original_parent_id).all()
                 original_siblings.sort(key=lambda x: x.sort_order)

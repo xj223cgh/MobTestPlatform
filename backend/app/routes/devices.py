@@ -3,7 +3,7 @@ import os
 import re
 import shlex
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from flask import Blueprint, request
 from flask_login import login_required, current_user
 
@@ -334,6 +334,8 @@ def get_adb_devices():
 def execute_adb_command():
     """执行adb命令"""
     data = request.get_json()
+    if not data:
+        return error_response(400, "请求体不能为空，且 Content-Type 必须为 application/json")
     command = data.get('command')
     
     if not command:

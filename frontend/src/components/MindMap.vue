@@ -234,7 +234,7 @@ const initMindMap = () => {
 watch(
   () => props.data,
   (newData) => {
-    if (minder && props.visible) {
+    if (minder && props.visible && newData && newData.root) {
       minder.importData("json", JSON.stringify(newData));
       applyRightLayout();
     }

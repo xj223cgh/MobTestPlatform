@@ -5,7 +5,7 @@ from app.models.models import (
     TestSuite, TestCase, TestTask, TestCaseExecution,
 )
 from app.services.permission_service import permission_required
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 
 bp = Blueprint('iterations', __name__)
@@ -296,11 +296,11 @@ def copy_iteration(iteration_id):
         ).order_by(Iteration.end_date.desc()).first()
         
         if latest_iteration:
-            new_start_date = latest_iteration.end_date + datetime.timedelta(days=1)
+            new_start_date = latest_iteration.end_date + timedelta(days=1)
         else:
             new_start_date = source_iteration.start_date
         
-        new_end_date = new_start_date + datetime.timedelta(days=iteration_duration - 1)
+        new_end_date = new_start_date + timedelta(days=iteration_duration - 1)
 
         if project.start_date and project.end_date:
             ps = project.start_date.date() if hasattr(project.start_date, 'date') else project.start_date

@@ -3330,27 +3330,28 @@ const closeContextMenu = () => {
   contextMenuVisible.value = false;
 };
 
-onMounted(() => {
-  // 使用mousedown事件而不是click事件，因为contextmenu事件会在mousedown事件之后，click事件之前触发
-  // 这样可以避免右键点击时立即关闭菜单
-  document.addEventListener("mousedown", (event) => {
-    // 只有左键点击才关闭菜单
-    if (event.button === 0) {
-      // 检查点击的不是右键菜单本身
-      if (
-        contextMenuRef.value &&
-        !contextMenuRef.value.contains(event.target)
-      ) {
-        closeContextMenu();
-      }
+// 具名处理函数，确保 onUnmounted 时能正确移除
+const handleContextMenuMouseDown = (event) => {
+  // 只有左键点击才关闭菜单（避免右键点击时立即关闭）
+  if (event.button === 0) {
+    if (
+      contextMenuRef.value &&
+      !contextMenuRef.value.contains(event.target)
+    ) {
+      closeContextMenu();
     }
-  });
+  }
+};
+
+onMounted(() => {
+  document.addEventListener("mousedown", handleContextMenuMouseDown);
   loadTreeData();
   // 加载评审人列表
   loadReviewers();
 });
 
 onUnmounted(() => {
+  document.removeEventListener("mousedown", handleContextMenuMouseDown);
   document.removeEventListener("click", handleSuitePopoverGlobalClick);
 });
 

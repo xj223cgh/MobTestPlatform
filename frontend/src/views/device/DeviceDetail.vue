@@ -53,10 +53,10 @@
               border
             >
               <el-descriptions-item label="设备序列号">
-                {{ device.id || "-" }}
+                {{ device.device_id || "-" }}
               </el-descriptions-item>
               <el-descriptions-item label="设备名称">
-                {{ device.name || "未命名设备" }}
+                {{ device.device_name || "未命名设备" }}
               </el-descriptions-item>
               <el-descriptions-item label="设备型号">
                 {{ device.device_model || "-" }}
@@ -341,7 +341,7 @@ const startMirror = async () => {
   mirrorLoading.value = true;
   try {
     await deviceApi.executeAdbCommand(
-      `scrcpy --serial="${device.value.id}" --window-title="设备 ${device.value.id} 投屏" --disable-screensaver`,
+      `scrcpy --serial="${device.value.device_id}" --window-title="设备 ${device.value.device_id} 投屏" --disable-screensaver`,
     );
     mirrorStarted.value = true;
     ElMessage.success("投屏启动成功");
