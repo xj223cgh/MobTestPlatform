@@ -4078,8 +4078,8 @@ watch(
       const needParent = mode === "new" && (autoCaseForm.parent_id === null || autoCaseForm.parent_id === "");
       const needAppend = mode === "append" && (autoCaseForm.append_suite_id === null || autoCaseForm.append_suite_id === "");
       nextTick(() => {
-        if (needParent) autoCaseFormRef.value.validateField("parent_id");
-        else if (needAppend) autoCaseFormRef.value.validateField("append_suite_id");
+        if (needParent) autoCaseFormRef.value?.validateField("parent_id").catch(() => {});
+        else if (needAppend) autoCaseFormRef.value?.validateField("append_suite_id").catch(() => {});
       });
     }
   },
@@ -4182,7 +4182,7 @@ const handleCaseSuiteSelect = (data) => {
         caseSuitePopoverVisible.value = false;
         loadExistingSuitesInFolder(data.id);
         if (autoCaseForm.suite_name) {
-          nextTick(() => autoCaseFormRef.value?.validateField("suite_name"));
+          nextTick(() => autoCaseFormRef.value?.validateField("suite_name").catch(() => {}));
         }
       } else {
         ElMessage.warning("生成到新用例集时，请选择文件夹");
@@ -4367,8 +4367,10 @@ const handleGenerateCase = async () => {
 
     startTaskPolling(taskId, targetSuiteId);
   } catch (error) {
+    // 表单校验失败时 error 是校验错误对象（非 Error 实例），不显示错误弹窗，校验提示已由表单本身展示
+    if (error && typeof error === "object" && !(error instanceof Error)) return;
     console.error("[前端AI调用] handleGenerateCase 失败:", error);
-    ElMessage.error(`创建用例集或启动生成任务失败：${error.message}`);
+    ElMessage.error(`创建用例集或启动生成任务失败：${error?.message || "未知错误"}`);
     isGeneratingCases.value = false;
     generatingSuiteId.value = null;
   }
