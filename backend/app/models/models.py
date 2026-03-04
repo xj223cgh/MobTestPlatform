@@ -29,6 +29,8 @@ class CasePriorityType(TypeDecorator):
 TEST_SUITE_STATUS = ('active', 'inactive')
 TEST_SUITE_TYPE = ('folder', 'suite')  # folder: 用例文件夹, suite: 用例集
 TEST_SUITE_REVIEW_STATUS = ('not_submitted', 'pending', 'approved', 'rejected')  # 评审状态：未提交、待审核、已通过、已拒绝
+SUITE_EDIT_STATUS = ('drafting', 'completed')  # 用例编辑状态：编写中、已完成
+SUITE_REVIEW_DISPLAY = ('not_reviewed', 'pending', 'in_review', 'completed', 'rejected')  # 用例集评审展示状态
 TEST_TASK_STATUS = ('pending', 'running', 'completed', 'paused')
 TEST_EXECUTION_STATUS = ('pass', 'fail', 'blocked', 'not_applicable')
 PROJECT_STATUS = ('not_started', 'in_progress', 'paused', 'completed', 'closed')
@@ -492,6 +494,13 @@ class TestSuite(db.Model):
     version_requirement_id = db.Column(db.Integer, db.ForeignKey('version_requirements.id'), nullable=True, comment='关联的版本需求ID')
     iteration_id = db.Column(db.Integer, db.ForeignKey('iterations.id'), nullable=True, comment='所属迭代ID')
     sort_order = db.Column(db.Integer, default=0, comment='排序顺序')
+    deleted_at = db.Column(db.DateTime(timezone=True), nullable=True, comment='逻辑删除时间，非空表示已入回收站')
+    case_mindmap_data = db.Column(db.Text, nullable=True, comment='脑图JSON数据')
+    case_count = db.Column(db.Integer, default=0, comment='用例数量（保存脑图时同步）')
+    review_status = db.Column(db.String(20), default='not_reviewed', comment='评审展示状态')
+    case_edit_status = db.Column(db.String(20), default='drafting', comment='用例编辑状态：drafting/completed')
+    last_saved_at = db.Column(db.DateTime(timezone=True), nullable=True, comment='脑图最后保存时间')
+    last_saved_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='最后保存人ID')
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
@@ -499,6 +508,7 @@ class TestSuite(db.Model):
     parent = db.relationship('TestSuite', remote_side=[id], backref=db.backref('children', order_by='TestSuite.sort_order'))
     test_cases = db.relationship('TestCase', backref='suite')
     creator = db.relationship('User', backref='created_suites', foreign_keys=[creator_id])
+    last_saver = db.relationship('User', foreign_keys=[last_saved_by])
     version_requirement = db.relationship('VersionRequirement', backref='test_suites')
     iteration = db.relationship('Iteration', backref='test_suites')
     
@@ -523,7 +533,35 @@ class TestSuite(db.Model):
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'sort_order': self.sort_order,
             'children_count': len(self.children) if self.children else 0,
-            'cases_count': len(self.test_cases) if self.test_cases else 0
+            'cases_count': self.case_count if self.case_count else (len(self.test_cases) if self.test_cases else 0),
+            'case_count': self.case_count or 0,
+            'review_status': self.review_status or 'not_reviewed',
+            'case_edit_status': self.case_edit_status or 'drafting',
+            'last_saved_at': self.last_saved_at.isoformat() if self.last_saved_at else None,
+            'last_saved_by': self.last_saved_by,
+            'last_saved_by_name': self.last_saver.real_name if self.last_saver else None,
+            'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None,
+        }
+
+
+class MindmapVersion(db.Model):
+    """脑图编辑版本快照（用于回退）"""
+    __tablename__ = 'mindmap_versions'
+    id = db.Column(db.Integer, primary_key=True, comment='版本ID')
+    suite_id = db.Column(db.Integer, db.ForeignKey('test_suites.id', ondelete='CASCADE'), nullable=False, comment='用例集ID')
+    snapshot = db.Column(db.Text, nullable=False, comment='脑图JSON快照')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='保存人ID')
+    suite = db.relationship('TestSuite', backref=db.backref('mindmap_versions', order_by='MindmapVersion.created_at.desc()'))
+    creator = db.relationship('User', foreign_keys=[created_by])
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'suite_id': self.suite_id,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_by': self.created_by,
+            'created_by_name': self.creator.real_name if self.creator else None,
         }
 
 
@@ -735,6 +773,13 @@ class TestCase(db.Model):
     # 审核信息
     review_comments = db.Column(db.Text, comment='审核意见')
     
+    # 脑图关联字段
+    mindmap_node_id = db.Column(db.String(100), nullable=True, comment='脑图中对应的节点ID')
+    tags = db.Column(db.JSON, nullable=True, comment='标签JSON数组')
+    markers = db.Column(db.JSON, nullable=True, comment='标记JSON数组')
+    group_path = db.Column(db.String(500), nullable=True, comment='脑图分组路径')
+    automation_case_id = db.Column(db.Integer, nullable=True, comment='关联自动化用例ID')
+    
     # 关系（与 TestTask.test_cases 通过 task_case_relation 关联，声明 overlaps 消除 SAWarning）
     test_tasks = db.relationship('TestTask', secondary='task_case_relation', overlaps='test_cases')
     # 移除backref参数，避免与User模型中的created_cases冲突
@@ -775,7 +820,62 @@ class TestCase(db.Model):
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'executed_at': self.executed_at.isoformat() if self.executed_at else None,
             'last_reviewed_at': self.last_reviewed_at.isoformat() if self.last_reviewed_at else None,
-            'review_comments': self.review_comments
+            'review_comments': self.review_comments,
+            'mindmap_node_id': self.mindmap_node_id,
+            'tags': self.tags,
+            'markers': self.markers,
+            'group_path': self.group_path,
+            'automation_case_id': self.automation_case_id,
+        }
+
+
+class CaseTag(db.Model):
+    """用例标签字典"""
+    __tablename__ = 'case_tags'
+
+    id = db.Column(db.Integer, primary_key=True)
+    tag_name = db.Column(db.String(50), nullable=False, comment='标签名称')
+    tag_color = db.Column(db.String(20), default='#409EFF', comment='标签颜色')
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE))
+
+    project = db.relationship('Project', backref='case_tags')
+    creator = db.relationship('User', foreign_keys=[creator_id])
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'tag_name': self.tag_name,
+            'tag_color': self.tag_color,
+            'project_id': self.project_id,
+            'creator_id': self.creator_id,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class CaseMarker(db.Model):
+    """用例标记字典"""
+    __tablename__ = 'case_markers'
+
+    id = db.Column(db.Integer, primary_key=True)
+    marker_name = db.Column(db.String(50), nullable=False, comment='标记名称')
+    marker_type = db.Column(db.String(20), default='system', comment='system/custom')
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE))
+
+    project = db.relationship('Project', backref='case_markers')
+    creator = db.relationship('User', foreign_keys=[creator_id])
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'marker_name': self.marker_name,
+            'marker_type': self.marker_type,
+            'project_id': self.project_id,
+            'creator_id': self.creator_id,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
         }
 
 

@@ -4,12 +4,13 @@ AI异步任务接口
 """
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
-from app.models.models import db, TestSuite, TestCase, User
+from app.models.models import db, TestSuite, TestCase, User, Project
 from app.utils.helpers import success_response, error_response
 from app.utils.task_manager import task_manager, TaskStatus
 import requests
 import json
 import os
+from datetime import datetime
 
 bp = Blueprint('ai_tasks', __name__, url_prefix='/api/ai-tasks')
 
@@ -33,12 +34,13 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
     
     with app.app_context():
         try:
+            _ensure_env_loaded()
             task_manager.update_task_status(
                 task_id,
                 message='正在解析需求文档...',
                 progress=10
             )
-            
+
             document_content = params.get('documentContent', '')
             
             task_manager.update_task_status(
@@ -87,7 +89,11 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
             iteration_id = params.get('iterationId') or suite.iteration_id
             version_requirement_id = params.get('requirementId') or suite.version_requirement_id
             if project_id is None:
-                raise ValueError("用例集未关联项目，无法保存测试用例。请为用例集选择所属项目。")
+                first_project = Project.query.first()
+                if first_project:
+                    project_id = first_project.id
+            if project_id is None:
+                raise ValueError("用例集未关联项目，且系统中无可用项目。请先在「项目」中创建项目，并为用例集选择所属项目。")
             creator_id = params.get('creatorId') or getattr(suite, 'creator_id', None)
             if creator_id is None:
                 raise ValueError("无法确定用例创建人，请重新发起生成任务。")
@@ -102,6 +108,15 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
             total_cases = len(test_cases)
             
             for i, case_item in enumerate(test_cases):
+                suite = TestSuite.query.get(suite_id)
+                if not suite:
+                    task_manager.update_task_status(
+                        task_id,
+                        status=TaskStatus.FAILED,
+                        message='用例集已删除，生成已终止',
+                        completed_at=datetime.now().isoformat()
+                    )
+                    break
                 current_progress = 60 + int((i / total_cases) * 35)
                 task_manager.update_task_status(
                     task_id,
@@ -110,7 +125,7 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
                     current=i+1,
                     total=total_cases
                 )
-                
+
                 # 生成用例编号（原格式：xxx-xxx-xxx001，三段前缀 + 3 位数字 001～999）
                 current_index = max_index + i + 1
                 suffix = str(current_index).zfill(3)
@@ -139,8 +154,10 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
                 db.session.add(test_case)
                 saved_cases.append(case_data)
             
+            if suite:
+                suite.case_count = len(saved_cases)
             db.session.commit()
-            
+
             task_manager.update_task_status(
                 task_id,
                 message=f'成功生成并保存{len(saved_cases)}条测试用例',
@@ -158,10 +175,17 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
             
         except Exception as e:
             db.session.rollback()
-            notify_creator_id = params.get('creatorId') or getattr(suite, 'creator_id', None)
+            notify_creator_id = params.get('creatorId')
+            if notify_creator_id is None:
+                s = TestSuite.query.get(suite_id)
+                if s:
+                    notify_creator_id = getattr(s, 'creator_id', None)
             if notify_creator_id:
-                from app.services.notification_service import notify_users
-                notify_users([notify_creator_id], 'ai_case_generated', 'AI 用例生成失败', str(e)[:200] or '任务执行失败', 'suite', suite_id, extra={'error': str(e)[:200]})
+                try:
+                    from app.services.notification_service import notify_users
+                    notify_users([notify_creator_id], 'ai_case_generated', 'AI 用例生成失败', str(e)[:200] or '任务执行失败', 'suite', suite_id, extra={'error': str(e)[:200]})
+                except Exception:
+                    pass
             raise
 
 
@@ -317,11 +341,8 @@ def parse_ai_response(ai_response: dict) -> list:
 
 
 def _ensure_env_loaded():
-    """确保已从 backend/.env 加载环境变量（后台线程或未经过 run.py 时可能未加载）"""
+    """确保已从 backend/.env 加载环境变量（后台线程中显式加载，保证 AI 配置可用）"""
     from pathlib import Path
-    api_key = (os.getenv('AI_API_KEY') or '').strip()
-    if api_key and api_key not in ('sk-your-api-key', 'sk-your-api-key-here'):
-        return
     _backend_dir = Path(__file__).resolve().parent.parent.parent  # routes -> app -> backend
     _env_file = _backend_dir / '.env'
     if _env_file.exists():
@@ -539,7 +560,8 @@ def generate_cases():
             suite_id=suite_id,
             params=params
         )
-        
+        task_manager.update_task_status(task_id, suite_id=suite_id)
+
         return success_response({
             'task_id': task_id,
             'suite_id': suite_id,
@@ -548,6 +570,23 @@ def generate_cases():
         
     except Exception as e:
         return error_response(f'创建任务失败: {str(e)}', 500)
+
+
+@bp.route('/suite/<int:suite_id>/generating', methods=['GET'])
+@login_required
+def get_suite_generating(suite_id):
+    """
+    查询指定用例集是否正在AI生成中（用于脑图页进入时提示等待）
+    返回：{ "generating": true/false, "task_id": "..." } 当 generating 为 true 时带 task_id
+    """
+    try:
+        with task_manager.lock:
+            for tid, task in task_manager.tasks.items():
+                if task.get('suite_id') == suite_id and task.get('status') in (TaskStatus.PENDING, TaskStatus.RUNNING):
+                    return success_response({'generating': True, 'task_id': tid})
+        return success_response({'generating': False})
+    except Exception as e:
+        return error_response(f'查询失败: {str(e)}', 500)
 
 
 @bp.route('/task-status/<task_id>', methods=['GET'])

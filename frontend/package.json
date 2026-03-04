@@ -25,6 +25,7 @@
     "pdfjs-dist": "^5.4.449",
     "pinia": "^2.1.6",
     "qrcode": "^1.5.3",
+    "simple-mind-map": "^0.14.0-fix.1",
     "socket.io-client": "^4.8.3",
     "vue": "^3.3.4",
     "vue-echarts": "^6.6.1",

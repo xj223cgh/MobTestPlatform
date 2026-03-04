@@ -26,6 +26,18 @@ export const getTaskStatus = (taskId) => {
 }
 
 /**
+ * 查询指定用例集是否正在AI生成中（脑图页进入时用于显示“等待生成后查看”）
+ * @param {number} suiteId - 用例集ID
+ * @returns {Promise<{ data: { generating: boolean, task_id?: string } }>}
+ */
+export const getSuiteGeneratingStatus = (suiteId) => {
+  return request({
+    url: `/ai-tasks/suite/${suiteId}/generating`,
+    method: 'get'
+  })
+}
+
+/**
  * 获取所有任务列表
  * @returns {Promise}
  */

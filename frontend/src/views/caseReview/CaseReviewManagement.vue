@@ -1056,8 +1056,11 @@ const flashTaskId = ref(null);
 let flashClearTimer = null;
 // 从消息带 taskId 进入时是否已自动打开过详情弹窗（避免重复打开）
 const hasOpenedDialogForFlashTask = ref(false);
+/** 从用例管理点击「评审」带 suiteId 跳转时，对应任务行的 id，用于蓝色选中样式 */
+const highlightedSuiteTaskId = ref(null);
 const getReviewRowClassName = ({ row }) => {
   if (flashTaskId.value && row.id === flashTaskId.value) return "notification-flash-row";
+  if (highlightedSuiteTaskId.value && row.id === highlightedSuiteTaskId.value) return "review-row-selected";
   return "";
 };
 const loading = ref({
@@ -2043,16 +2046,21 @@ onMounted(async () => {
   const suiteId = route.query.suiteId;
   if (suiteId && !route.query.taskId) {
     try {
-      const tasks = myInitiated.value;
-      const suiteTask = tasks.find((task) => task.suite_id === parseInt(suiteId, 10));
+      const sid = parseInt(suiteId, 10);
+      const inMyTasks = myTasks.value.find((t) => t.suite_id === sid);
+      const inMyInitiated = myInitiated.value.find((t) => t.suite_id === sid);
+      const suiteTask = inMyTasks || inMyInitiated;
       if (suiteTask) {
+        highlightedSuiteTaskId.value = suiteTask.id;
+        if (inMyTasks) activeTab.value = "my-tasks";
+        else activeTab.value = "my-initiated";
         reviewDialogTitle.value = "评审详情";
         reviewDialogVisible.value = true;
         await getReviewTaskDetail(suiteTask.id);
       }
       const nextQuery = { ...route.query };
       delete nextQuery.suiteId;
-      if (!nextQuery.activeTab) nextQuery.activeTab = "my-initiated";
+      if (!nextQuery.activeTab) nextQuery.activeTab = inMyTasks ? "my-tasks" : "my-initiated";
       router.replace({ path: route.path, query: Object.keys(nextQuery).length ? nextQuery : undefined });
     } catch (error) {
       if (isPermissionError(error)) {
@@ -2229,6 +2237,14 @@ onMounted(async () => {
 .review-list-table {
   /* 表格不参与 flex 收缩，由 wrapper 负责横向滚动 */
   flex: none;
+}
+
+/* 从用例管理点击「评审」跳转过来时，对应任务行的蓝色选中样式 */
+.review-list-table :deep(tr.review-row-selected) {
+  background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
+}
+.review-list-table :deep(tr.review-row-selected:hover) {
+  background-color: var(--el-color-primary-light-8, #d9ecff) !important;
 }
 
 .suite-name-trigger {

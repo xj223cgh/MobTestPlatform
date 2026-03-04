@@ -5,6985 +5,1928 @@
         <h1>用例管理</h1>
       </div>
       <div class="header-actions">
-        <el-button
-          v-if="
-            !showSelection &&
-              viewMode === 'list' &&
-              selectedSuite &&
-              selectedSuite.type === 'suite'
-          "
-          type="danger"
-          icon="Delete"
-          @click="toggleSelectionMode"
-        >
-          选中删除
+        <el-button type="warning" icon="MagicStick" :loading="isGeneratingAny" @click="handleGenerateCases">
+          AI生成用例
+        </el-button>
+        <el-button type="primary" icon="Plus" @click="handleAddFolder">
+          新建文件夹
         </el-button>
         <el-button
-          v-else-if="
-            viewMode === 'list' &&
-              selectedSuite &&
-              selectedSuite.type === 'suite'
-          "
-          type="danger"
-          icon="Delete"
-          @click="handleDeleteSelection"
-        >
-          点击删除
-        </el-button>
-        <el-button
-          v-if="showSelection && viewMode === 'list'"
-          @click="cancelSelectionMode"
-        >
-          取消
-        </el-button>
-
-        <el-button
-          v-if="viewMode === 'mindmap'"
-          type="success"
-          icon="RefreshRight"
-          style="margin-right: 10px"
-          @click="refreshMindMap"
-        >
-          刷新脑图
-        </el-button>
-
-        <el-button
-          type="primary"
-          icon="View"
-          style="margin-right: 10px"
-          @click="toggleViewMode"
-        >
-          {{ viewMode === "list" ? "脑图视图" : "列表视图" }}
-        </el-button>
-
-        <el-button
+          v-if="selectedFolder && selectedFolder.id !== 0"
           type="success"
           icon="Plus"
-          @click="handleAddCase"
+          @click="handleAddSuite"
         >
-          新增用例
+          新建用例集
         </el-button>
-
-        <el-button
-          v-if="selectedSuite && selectedSuite.type === 'suite'"
-          type="warning"
-          icon="Message"
-          @click="handleReviewButtonClick"
+        <el-select
+          v-model="filterProjectId"
+          placeholder="所属项目"
+          filterable
+          class="header-project-select"
+          @change="onProjectFilterChange"
         >
-          {{ reviewButtonText }}
-        </el-button>
-
-        <el-button
-          type="primary"
-          icon="Download"
-          @click="showImportExportDialog"
-        >
-          导入/导出
-        </el-button>
+          <el-option
+            v-for="p in projectOptions"
+            :key="p.id"
+            :label="p.project_name"
+            :value="p.id"
+          />
+        </el-select>
       </div>
     </div>
 
     <div class="main-content">
-      <div
-        class="left-panel"
-        :class="{ collapsed: isLeftPanelCollapsed }"
-      >
+      <!-- 收起状态下的展开按钮 -->
+      <div v-if="isLeftPanelCollapsed" class="collapsed-expand-btn" @click="isLeftPanelCollapsed = false">
+        <el-icon><DArrowRight /></el-icon>
+      </div>
+
+      <!-- 左侧：文件夹目录树 -->
+      <div class="left-panel" :class="{ collapsed: isLeftPanelCollapsed }">
         <div class="panel-header">
           <el-input
             v-model="searchText"
-            placeholder="搜索测试套件"
+            placeholder="搜索文件夹"
             prefix-icon="Search"
             clearable
             size="small"
           />
-          <div class="header-actions">
+          <el-tooltip content="折叠面板">
             <el-button
               size="small"
-              icon="RefreshRight"
-              circle
-              title="刷新"
-              @click="handleRefresh"
+              text
+              icon="DArrowLeft"
+              @click="isLeftPanelCollapsed = true"
             />
-            <el-button
-              type="primary"
-              size="small"
-              icon="Plus"
-              circle
-              title="新增套件"
-              @click="handleAddSuite"
-            />
-            <el-button
-              size="small"
-              :icon="isLeftPanelCollapsed ? 'ArrowRight' : 'ArrowLeft'"
-              circle
-              :title="isLeftPanelCollapsed ? '展开套件树' : '收起套件树'"
-              @click="toggleLeftPanel"
-            />
+          </el-tooltip>
           </div>
-        </div>
-
         <div class="tree-container">
           <el-tree
-            :key="'suite-tree-' + treeMountKey"
-            ref="treeRef"
-            :data="treeData"
-            :props="defaultProps"
-            :filter-node-method="filterNode"
-            :draggable="isDraggable"
-            :allow-drop="allowDrop"
-            :allow-drag="allowDrag"
-            :default-expanded-keys="expandedKeys"
-            :current-node-key="selectedSuite?.id"
+            ref="folderTreeRef"
+            :data="folderTree"
+            :props="treeProps"
             node-key="id"
-            @node-click="handleNodeClick"
-            @node-drop="handleNodeDrop"
-            @node-contextmenu="handleContextMenu"
-            @node-expand="handleNodeExpand"
-            @node-collapse="handleNodeCollapse"
+            highlight-current
+            :expand-on-click-node="false"
+            :filter-node-method="filterNode"
+            default-expand-all
+            draggable
+            :allow-drag="allowFolderDrag"
+            :allow-drop="allowFolderDrop"
+            @node-click="handleFolderClick"
+            @node-contextmenu="handleFolderContextMenu"
+            @node-drop="handleFolderDrop"
           >
             <template #default="{ node, data }">
-              <span class="tree-node-content">
-                <el-icon class="node-icon">
-                  <Folder v-if="data.type === 'folder'" />
-                  <Document v-else />
-                </el-icon>
-                <span
-                  v-if="!editingNodeId || editingNodeId !== data.id"
-                  @dblclick="startEdit(data)"
-                >
-                  {{ node.label }}
-                </span>
-                <el-input
-                  v-else
-                  ref="editInputRef"
-                  v-model="editingNodeName"
-                  size="small"
-                  autofocus
-                  clearable
-                  @blur="saveEdit(data)"
-                  @keyup.enter="saveEdit(data)"
-                  @keyup.esc="cancelEdit"
-                />
-                <el-icon
-                  v-if="data.type === 'suite' && generatingSuiteId === data.id"
-                  class="tree-node-loading"
-                >
-                  <Loading />
-                </el-icon>
+              <span class="tree-node-label">
+                <el-icon><Folder /></el-icon>
+                <span>{{ data.suite_name }}{{ (data._virtual || data.id === 0) ? '' : `（${data.suite_count ?? 0}）` }}</span>
               </span>
             </template>
           </el-tree>
         </div>
-
-        <div
-          v-show="contextMenuVisible"
-          ref="contextMenuRef"
-          :style="contextMenuStyle"
-          class="context-menu"
-        >
-          <div
-            v-if="selectedNode && selectedNode.type === 'folder'"
-            class="menu-item"
-            @click="handleAddSuiteFromMenu"
-          >
-            <el-icon><Plus /></el-icon> 新增套件
-          </div>
-          <div
-            v-if="selectedNode && selectedNode.type === 'suite'"
-            class="menu-item"
-            @click="handleEditSuite"
-          >
-            <el-icon><Edit /></el-icon> 编辑套件
-          </div>
-          <div
-            v-if="selectedSuite && selectedSuite.type === 'suite'"
-            class="menu-item"
-            @click="handleDeleteSuite"
-          >
-            <el-icon><Delete /></el-icon> 删除套件
-          </div>
+        <div class="recycle-trigger" @click="showRecycleDrawer = true">
+          <el-icon><Delete /></el-icon>
+          <span>回收站</span>
         </div>
       </div>
 
+      <!-- 右侧：用例集列表  -->
       <div class="right-panel">
-        <div class="panel-header">
-          <div class="header-content">
-            <h3>
-              {{ selectedSuite ? selectedSuite.suite_name : "用例列表" }}
-              <span
-                v-if="
-                  selectedSuite &&
-                    selectedSuite.type === 'suite' &&
-                    totalCases > 0
-                "
-                class="case-count-title"
-              >(用例数: {{ totalCases }}条)</span>
-            </h3>
-            <div
-              v-if="selectedSuite && selectedSuite.type === 'suite'"
-              class="suite-info"
-            >
-              <div class="info-item">
-                <span class="label">项目:</span>
-                <span
-                  class="value link"
-                  :class="{ disabled: !selectedSuite.project_id }"
-                  @click="goToProject(selectedSuite)"
-                >{{
-                  selectedSuite.project_name || "-"
-                }}</span>
-              </div>
-              <div class="info-item">
-                <span class="label">迭代:</span>
-                <span
-                  class="value link"
-                  :class="{ disabled: !selectedSuite.iteration_id }"
-                  @click="goToIteration(selectedSuite)"
-                >{{
-                  selectedSuite.iteration_name || "-"
-                }}</span>
-              </div>
-              <div class="info-item">
-                <span class="label">需求:</span>
-                <span
-                  class="value link"
-                  :class="{ disabled: !selectedSuite.version_requirement_id }"
-                  @click="goToRequirement(selectedSuite)"
-                >{{
-                  selectedSuite.version_requirement_name || "-"
-                }}</span>
-              </div>
-              <div class="info-item">
-                <span class="label">创建人:</span>
-                <span
-                  class="value link"
-                  :class="{ disabled: !selectedSuite.creator_id }"
-                  @click="goToUser(selectedSuite)"
-                >{{
-                  selectedSuite.creator_name || "-"
-                }}</span>
-              </div>
-            </div>
-          </div>
-          <div
-            v-if="selectedSuite && selectedSuite.type === 'suite' && viewMode === 'list'"
-            class="case-list-filter"
-          >
+        <div v-if="selectedFolder" class="panel-content">
+          <div class="table-toolbar">
+            <div class="toolbar-left-area">
             <el-input
-              v-model="caseFilterKeyword"
-              placeholder="按编号或名称筛选"
+                v-model="caseSetSearch"
+                placeholder="搜索用例集名称"
+                prefix-icon="Search"
               clearable
-              style="width: 200px"
-            >
-              <template #prefix>
-                <el-icon><Search /></el-icon>
-              </template>
-            </el-input>
-            <el-button
-              :icon="RefreshLeft"
-              @click="resetCaseFilter"
-            >
-              重置
-            </el-button>
-          </div>
-        </div>
-
-        <div
-          v-if="!selectedSuite || selectedSuite.type === 'folder'"
-          class="case-list-default"
-        >
-          <div class="default-placeholder">
-            <el-icon class="default-icon"><FolderOpened /></el-icon>
-            <p class="default-text">
-              {{ selectedSuite && selectedSuite.type === 'folder' ? '当前为文件夹，请选择具体用例集查看用例列表' : '请选择左侧的测试套件查看用例' }}
-            </p>
-          </div>
-        </div>
-
-        <div
-          v-else-if="viewMode === 'list' && selectedSuite && selectedSuite.type === 'suite'"
-          class="case-list"
-        >
-          <div class="table-wrapper table-scroll-viewport">
-            <el-table
-              ref="caseTableRef"
-              class="case-list-table"
-              :data="filteredTestCases"
-              style="width: 100%"
-              border
-              height="100%"
-              :row-style="{ height: 'auto', textAlign: 'center' }"
-              :cell-style="{
-                padding: '10px',
-                whiteSpace: 'normal',
-                wordBreak: 'break-word',
-                textAlign: 'center',
-              }"
-              :header-cell-style="{ textAlign: 'center' }"
-              row-key="id"
-              @selection-change="handleSelectionChange"
-              @select="handleSelect"
-              @select-all="handleSelectAll"
-            >
-              <el-table-column
-                v-if="showSelection"
-                type="selection"
-                width="55"
+                style="width: 260px"
+                @clear="loadCaseSets"
+                @keyup.enter="loadCaseSets"
               />
-              <el-table-column
-                prop="case_number"
-                label="编号"
-                width="110"
+              <el-select
+                v-model="reviewStatusFilter"
+                placeholder="评审状态"
+                clearable
+                style="width: 140px; margin-left: 10px"
+                @change="loadCaseSets"
               >
+                <el-option label="未评审" value="not_reviewed" />
+                <el-option label="待评审" value="pending" />
+                <el-option label="评审中" value="in_review" />
+                <el-option label="已通过" value="completed" />
+                <el-option label="已拒绝" value="rejected" />
+              </el-select>
+            </div>
+        </div>
+
+            <el-table
+            :data="caseSets"
+            v-loading="tableLoading"
+              border
+            stripe
+            style="width: 100%"
+            @row-click="handleRowClick"
+          >
+            <el-table-column prop="suite_name" label="用例集名称" min-width="150" align="center">
                 <template #default="{ row }">
-                  <template
-                    v-if="
-                      editingCaseId === row.id && editingField === 'case_number'
-                    "
-                  >
-                    <div class="cell-edit-wrap">
-                      <el-input
-                        v-model="editingValue"
-                        class="cell-full-edit"
-                        autofocus
-                        clearable
-                        @blur="saveCaseEdit(row)"
-                        @keyup.enter="saveCaseEdit(row)"
-                        @keyup.esc="cancelCaseEdit"
-                      />
-                    </div>
+                <div class="suite-name-cell" :class="{ 'suite-name-cell--editing': editingSuiteId === row.id }">
+                  <template v-if="editingSuiteId === row.id">
+                    <el-input
+                      ref="suiteNameInputRef"
+                      v-model="editingSuiteName"
+                      size="small"
+                      maxlength="30"
+                      show-word-limit
+                      placeholder="用例集名称"
+                      @click.stop
+                      @blur="saveSuiteNameEdit"
+                      @keyup.enter="saveSuiteNameEdit"
+                      @keyup.esc="cancelSuiteNameEdit"
+                    />
                   </template>
-                  <div
-                    v-else
-                    @dblclick="startCaseEdit(row, 'case_number')"
-                  >
-                    {{ row.case_number || "-" }}
-                  </div>
+                  <template v-else>
+                    <el-link type="primary" :underline="false" @click.stop="openMindmap(row)">
+                      {{ row.suite_name }}
+                    </el-link>
+                    <el-button
+                      type="primary"
+                      link
+                      class="suite-name-edit-btn"
+                      :disabled="!!generatingMap[row.id]"
+                      @click.stop="startEditSuiteName(row)"
+                    >
+                      <el-icon><EditPen /></el-icon>
+                    </el-button>
+                    <el-icon v-if="generatingMap[row.id]" class="is-loading generating-icon">
+                      <Loading />
+                    </el-icon>
+                  </template>
+                </div>
                 </template>
               </el-table-column>
-              <el-table-column
-                prop="case_name"
-                label="用例名称"
-                min-width="110"
-              >
+            <el-table-column prop="case_count" label="用例数量" width="85" align="center" />
+            <el-table-column prop="review_status" label="状态" width="85" align="center">
                 <template #default="{ row }">
-                  <template
-                    v-if="
-                      editingCaseId === row.id && editingField === 'case_name'
-                    "
-                  >
-                    <div class="cell-edit-wrap">
-                      <el-input
-                        v-model="editingValue"
-                        class="cell-full-edit"
-                        autofocus
-                        clearable
-                        @blur="saveCaseEdit(row)"
-                        @keyup.enter="saveCaseEdit(row)"
-                        @keyup.esc="cancelCaseEdit"
-                      />
-                    </div>
-                  </template>
-                  <div
-                    v-else
-                    @dblclick="startCaseEdit(row, 'case_name')"
-                  >
-                    {{ row.case_name }}
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column
-                prop="priority"
-                label="优先级"
-                width="100"
-              >
-                <template #header>
-                  <el-popover
-                    placement="bottom"
-                    :width="90"
-                    trigger="click"
-                  >
-                    <template #reference>
-                      <div style="display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer;">
-                        <span>优先级</span>
-                        <el-icon style="color: #409eff;">
-                          <Filter />
-                        </el-icon>
-                      </div>
-                    </template>
-                      <div class="filter-panel">
-                        <el-checkbox
-                          v-model="priorityFilterAll"
-                          @change="handlePriorityAllChange"
-                          style="margin-bottom: 6px; font-weight: 500;"
-                        >
-                          全选 ({{ priorityFilterTotal }})
-                        </el-checkbox>
-                        <el-checkbox-group
-                          v-model="priorityFilterValues"
-                          @change="handlePriorityFilterChange"
-                        >
-                          <el-checkbox label="P0" style="display: block; margin: 4px 0;">P0 ({{ priorityFilterCounts.P0 }})</el-checkbox>
-                          <el-checkbox label="P1" style="display: block; margin: 4px 0;">P1 ({{ priorityFilterCounts.P1 }})</el-checkbox>
-                          <el-checkbox label="P2" style="display: block; margin: 4px 0;">P2 ({{ priorityFilterCounts.P2 }})</el-checkbox>
-                          <el-checkbox label="P3" style="display: block; margin: 4px 0;">P3 ({{ priorityFilterCounts.P3 }})</el-checkbox>
-                          <el-checkbox label="P4" style="display: block; margin: 4px 0;">P4 ({{ priorityFilterCounts.P4 }})</el-checkbox>
-                        </el-checkbox-group>
-                        <div style="margin-top: 8px; text-align: right; border-top: 1px solid #e4e7ed; padding-top: 6px;">
-                          <el-button size="small" @click="handlePriorityReset">重置</el-button>
-                        </div>
-                      </div>
-                  </el-popover>
-                </template>
-                <template #default="{ row }">
-                  <template
-                    v-if="
-                      editingCaseId === row.id && editingField === 'priority'
-                    "
-                  >
-                    <div class="cell-edit-wrap">
-                      <el-select
-                        v-model="editingValue"
-                        class="cell-full-edit"
-                        @change="saveCaseEdit(row)"
-                      >
-                      <el-option
-                        label="P0"
-                        value="P0"
-                      />
-                      <el-option
-                        label="P1"
-                        value="P1"
-                      />
-                      <el-option
-                        label="P2"
-                        value="P2"
-                      />
-                      <el-option
-                        label="P3"
-                        value="P3"
-                      />
-                      <el-option
-                        label="P4"
-                        value="P4"
-                      />
-                    </el-select>
-                    </div>
-                  </template>
-                  <el-tag
-                    v-else
-                    :type="
-                      row.priority === 'P0'
-                        ? 'danger'
-                        : row.priority === 'P1'
-                          ? 'danger'
-                          : row.priority === 'P2'
-                            ? 'warning'
-                            : row.priority === 'P3'
-                              ? 'info'
-                              : 'success'
-                    "
-                    size="small"
-                    @dblclick="startCaseEdit(row, 'priority')"
-                  >
-                    {{ row.priority }}
+                <el-tag :type="reviewStatusType(row.review_status)" size="small">
+                  {{ reviewStatusLabel(row.review_status) }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column
-                prop="test_data"
-                label="测试数据"
-                min-width="90"
-                align="left"
-                header-align="left"
-                :cell-style="{ textAlign: 'left' }"
-              >
+            <el-table-column prop="creator_name" label="创建人" width="95" align="center" />
+            <el-table-column prop="updated_at" label="更新时间" width="110" sortable align="center">
                 <template #default="{ row }">
-                  <template
-                    v-if="
-                      editingCaseId === row.id && editingField === 'test_data'
-                    "
-                  >
-                    <div class="cell-edit-wrap">
-                      <el-input
-                        v-model="editingValue"
-                        type="textarea"
-                        class="cell-full-edit"
-                        :rows="3"
-                        autofocus
-                        clearable
-                        @blur="saveCaseEdit(row)"
-                        @keyup.enter.ctrl="saveCaseEdit(row)"
-                        @keyup.esc="cancelCaseEdit"
-                      />
-                    </div>
-                  </template>
-                  <div
-                    v-else
-                    style="text-align: left"
-                    @dblclick="startCaseEdit(row, 'test_data')"
-                  >
-                    {{ row.test_data || "-" }}
-                  </div>
+                {{ formatTime(row.updated_at) }}
                 </template>
               </el-table-column>
-              <el-table-column
-                prop="preconditions"
-                label="前置条件"
-                min-width="125"
-                align="left"
-                header-align="left"
-                :cell-style="{ textAlign: 'left' }"
-              >
+            <el-table-column prop="created_at" label="创建时间" width="110" sortable align="center">
                 <template #default="{ row }">
-                  <template
-                    v-if="
-                      editingCaseId === row.id &&
-                        editingField === 'preconditions'
-                    "
-                  >
-                    <div class="cell-edit-wrap">
-                      <el-input
-                        v-model="editingValue"
-                        type="textarea"
-                        class="cell-full-edit"
-                        :rows="3"
-                        autofocus
-                        clearable
-                        @blur="saveCaseEdit(row)"
-                        @keyup.enter.ctrl="saveCaseEdit(row)"
-                        @keyup.esc="cancelCaseEdit"
-                      />
-                    </div>
-                  </template>
-                  <div
-                    v-else
-                    style="text-align: left"
-                    @dblclick="startCaseEdit(row, 'preconditions')"
-                  >
-                    {{ row.preconditions || "-" }}
-                  </div>
+                {{ formatTime(row.created_at) }}
                 </template>
               </el-table-column>
-              <el-table-column
-                prop="steps"
-                label="操作步骤"
-                min-width="130"
-                align="left"
-                header-align="left"
-                :cell-style="{ textAlign: 'left' }"
-              >
+            <el-table-column prop="version_requirement_name" label="所属需求" min-width="140" align="center">
                 <template #default="{ row }">
-                  <template
-                    v-if="editingCaseId === row.id && editingField === 'steps'"
-                  >
-                    <div class="cell-edit-wrap">
-                      <el-input
-                        v-model="editingValue"
-                        type="textarea"
-                        class="cell-full-edit"
-                        :rows="5"
-                        autofocus
-                        @blur="saveCaseEdit(row)"
-                        @keyup.enter.ctrl="saveCaseEdit(row)"
-                        @keyup.esc="cancelCaseEdit"
-                      />
-                    </div>
-                  </template>
-                  <div
-                    v-else
-                    style="text-align: left"
-                    @dblclick="startCaseEdit(row, 'steps')"
-                  >
-                    {{ row.steps || "-" }}
-                  </div>
+                {{ row.version_requirement_name || '-' }}
                 </template>
               </el-table-column>
-              <el-table-column
-                prop="expected_result"
-                label="预期结果"
-                min-width="125"
-                align="left"
-                header-align="left"
-                :cell-style="{ textAlign: 'left' }"
-              >
+            <el-table-column label="操作" width="195" fixed="right" align="center">
                 <template #default="{ row }">
-                  <template
-                    v-if="
-                      editingCaseId === row.id &&
-                        editingField === 'expected_result'
-                    "
-                  >
-                    <div class="cell-edit-wrap">
-                      <el-input
-                        v-model="editingValue"
-                        type="textarea"
-                        class="cell-full-edit"
-                        :rows="3"
-                        autofocus
-                        clearable
-                        @blur="saveCaseEdit(row)"
-                        @keyup.enter.ctrl="saveCaseEdit(row)"
-                        @keyup.esc="cancelCaseEdit"
-                      />
-                    </div>
+                <div class="action-btns">
+                  <template v-if="generatingMap[row.id]">
+                    <el-icon class="is-loading generating-icon" style="margin-right: 8px"><Loading /></el-icon>
+                    <el-button size="small" text type="danger" @click.stop="handleDeleteSuite(row)">删除</el-button>
                   </template>
-                  <div
-                    v-else
-                    style="text-align: left"
-                    @dblclick="startCaseEdit(row, 'expected_result')"
-                  >
-                    {{ row.expected_result || "-" }}
-                  </div>
-                </template>
-              </el-table-column>
-              <template #empty>
-                <div
-                  v-if="isGeneratingCases && generatingSuiteId && selectedSuite && selectedSuite.id === generatingSuiteId"
-                  class="table-empty-generating"
-                >
-                  <el-icon class="empty-generating-icon"><Loading /></el-icon>
-                  <p class="empty-generating-text">正在生成测试用例</p>
-                  <el-progress
-                    :percentage="taskProgress"
-                    :stroke-width="6"
-                    style="width: 200px; margin: 0 auto;"
-                  />
+                  <template v-else>
+                    <el-tooltip :content="getReviewButtonTooltip(row)" placement="top">
+                      <el-button size="small" text type="primary" @click.stop="handleReviewSuite(row)">评审</el-button>
+                    </el-tooltip>
+                    <el-button size="small" text type="primary" @click.stop="handleMoveSuite(row)">移动</el-button>
+                    <el-button size="small" text type="success" @click.stop="handleCopySuite(row)">复制</el-button>
+                    <el-button size="small" text type="danger" @click.stop="handleDeleteSuite(row)">删除</el-button>
+                  </template>
                 </div>
-                <div
-                  v-else
-                  class="table-empty-default"
-                >
-                  <el-icon class="empty-default-icon"><Document /></el-icon>
-                  <p>暂无数据</p>
-                </div>
-              </template>
+                </template>
+              </el-table-column>
             </el-table>
+
+          <div class="pagination-bar">
+            <el-pagination
+              v-model:current-page="pagination.page"
+              v-model:page-size="pagination.pageSize"
+              :total="pagination.total"
+              :page-sizes="[10, 20, 50]"
+              layout="total, sizes, prev, pager, next"
+              @size-change="loadCaseSets"
+              @current-change="loadCaseSets"
+            />
           </div>
         </div>
 
-        <div
-          v-if="viewMode === 'mindmap' && selectedSuite && selectedSuite.type === 'suite'"
-          class="mindmap-view-wrapper"
-        >
-          <el-tooltip
-            content="新标签页全屏查看"
-            placement="left"
-          >
-            <el-button
-              class="mindmap-fullscreen-btn"
-              :icon="FullScreen"
-              circle
-              size="small"
-              @click="openMindmapFullscreen"
-            />
-          </el-tooltip>
-          <div class="mindmap-view">
-            <MindMap
-              :data="mindMapData"
-              :visible="true"
-              @node-select="handleMindMapNodeSelect"
-              @content-change="handleMindMapContentChange"
-            />
-          </div>
-        </div>
+        <div v-else class="empty-tip">
+          <el-empty description="请在左侧选择一个文件夹" />
       </div>
     </div>
-
-    <div
-      v-if="viewMode === 'list' && selectedSuite && selectedSuite.type === 'suite'"
-      class="pagination-container"
-    >
-      <el-pagination
-        :current-page="currentPage"
-        :page-size="pageSize"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        :total="totalCases"
-        @size-change="handleSizeChange"
-        @current-change="handleCurrentChange"
-      />
     </div>
 
-    <el-dialog
-      v-model="suiteDialogVisible"
-      :title="isEditSuite ? '编辑测试套件' : '新增测试套件'"
-      width="750px"
-      @close="parentSuitePopoverVisible = false"
-    >
-      <el-form
-        ref="suiteFormRef"
-        :model="suiteForm"
-        :rules="suiteFormRules"
-        label-width="80px"
-      >
-        <el-form-item
-          label="套件名称"
-          prop="suite_name"
-        >
-          <el-input
-            v-model="suiteForm.suite_name"
-            placeholder="请输入测试套件名称"
-          />
+    <!-- 新建文件夹对话框 -->
+    <el-dialog v-model="folderDialogVisible" :title="folderDialogTitle" width="440px">
+      <el-alert
+        v-if="!folderForm.id && (folderForm.parentId || selectedFolder)"
+        :title="`将在「${folderParentName}」下创建文件夹`"
+        type="info"
+        :closable="false"
+        show-icon
+        style="margin-bottom: 16px"
+      />
+      <el-form :model="folderForm" label-width="80px">
+        <el-form-item label="名称">
+          <el-input v-model="folderForm.name" placeholder="请输入文件夹名称" />
         </el-form-item>
-        <el-form-item
-          v-if="!isEditSuite"
-          label="套件类型"
-          prop="type"
-        >
-          <el-select
-            v-model="suiteForm.type"
-            placeholder="请选择套件类型"
-          >
-            <el-option
-              label="用例文件夹"
-              value="folder"
-            />
-            <el-option
-              label="用例集"
-              value="suite"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item
-          v-if="!isContextMenuAction"
-          label="父套件"
-        >
-          <div class="parent-suite-selector">
-            <el-popover
-              :visible="parentSuitePopoverVisible"
-              placement="bottom-start"
-              trigger="manual"
-              width="auto"
-              teleport="body"
-              @clickoutside="parentSuitePopoverVisible = false"
-            >
-              <template #reference>
-                <div style="display: flex; align-items: center; gap: 8px">
-                  <el-input
-                    v-model="selectedParentSuitePath"
-                    placeholder="点击选择父套件（默认根套件）"
-                    readonly
-                    style="flex: 1; min-width: 568px"
-                    @click="
-                      parentSuitePopoverVisible = !parentSuitePopoverVisible
-                    "
-                  />
-                  <el-button
-                    size="small"
-                    style="height: 32px; margin-left: -2px"
-                    icon="Refresh"
-                    title="重置选择"
-                    @click.stop="clearParentSuiteSelection"
-                  >
-                    重置
-                  </el-button>
-                </div>
-              </template>
-              <div
-                class="suite-tree-popover"
-                style="width: 100%; min-width: 543px"
-              >
-                <el-tree
-                  :current-node-key="suiteForm.parent_id"
-                  :data="getFolderTreeData()"
-                  :props="defaultProps"
-                  node-key="id"
-                  style="
-                    max-height: 300px;
-                    overflow-y: auto;
-                    width: 100%;
-                    padding-right: 10px;
-                  "
-                  :expand-on-click-node="false"
-                  @node-click="handleParentSuiteSelect"
-                >
-                  <template #default="{ node, data }">
-                    <span
-                      class="tree-node-content"
-                      :class="{
-                        'current-node': node.key === suiteForm.parent_id,
-                      }"
-                    >
-                      <el-icon
-                        class="node-icon"
-                        @click.stop="handleParentSuiteSelect(data)"
-                      >
-                        <Folder />
-                      </el-icon>
-                      <span @click.stop="handleParentSuiteSelect(data)">{{
-                        node.label
-                      }}</span>
-                    </span>
-                  </template>
-                </el-tree>
-              </div>
-            </el-popover>
-          </div>
-        </el-form-item>
-        <el-form-item
-          v-if="suiteForm.type === 'suite'"
-          label="项目"
-          prop="project_id"
-        >
+      </el-form>
+      <template #footer>
+        <el-button @click="folderDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitFolder">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 新建用例集对话框 -->
+    <el-dialog v-model="suiteDialogVisible" title="新建用例集" width="560px" @open="onSuiteDialogOpen">
+      <el-form :model="suiteForm" label-width="100px">
+        <el-form-item label="所属项目" required>
           <el-select
             v-model="suiteForm.project_id"
-            placeholder="请选择所属项目"
+            placeholder="选择项目"
             filterable
+            style="width: 100%"
+            @change="onSuiteFormProjectChange"
           >
-            <template #empty>
-              <div v-if="projects.length === 0">
-                <span>暂无项目数据</span>
-                <el-button
-                  type="text"
-                  size="small"
-                  @click="loadProjects"
-                >
-                  重新加载
-                </el-button>
-              </div>
-              <div v-else>
-                未找到匹配的项目
-              </div>
-            </template>
             <el-option
-              v-for="project in filteredProjects"
-              :key="project.id"
-              :label="project.project_name"
-              :value="project.id"
+              v-for="p in projectOptions"
+              :key="p.id"
+              :label="p.project_name"
+              :value="p.id"
             />
           </el-select>
+          <div class="form-item-hint">新建时默认当前页所选项目；若选择某文件夹下创建，用例集将归属该文件夹所在项目。</div>
         </el-form-item>
-        <el-form-item
-          v-if="suiteForm.type === 'suite'"
-          label="迭代"
-          prop="iteration_id"
-        >
-          <el-select
-            v-model="suiteForm.iteration_id"
-            placeholder="请选择所属迭代"
-            :disabled="!suiteForm.project_id"
+        <el-form-item label="所属文件夹" required>
+          <el-tree-select
+            v-model="suiteForm.parentId"
+            :data="suiteFormFolderTree"
+            :props="{ label: 'suite_name', value: 'id' }"
+            node-key="id"
+            placeholder="选择存放位置（默认当前选中文件夹）"
+            style="width: 100%"
+            check-strictly
+            :render-after-expand="false"
+            default-expand-all
             filterable
-          >
-            <template #empty>
-              <div v-if="!suiteForm.project_id">
-                请先选择项目
-              </div>
-              <div v-else-if="iterations.length === 0">
-                <span>暂无迭代数据</span>
-                <el-button
-                  type="text"
-                  size="small"
-                  @click="loadIterations(suiteForm.project_id)"
-                >
-                  重新加载
-                </el-button>
-              </div>
-              <div v-else>
-                未找到匹配的迭代
-              </div>
-            </template>
-            <el-option
-              v-for="iteration in filteredIterations"
-              :key="iteration.id"
-              :label="iteration.iteration_name"
-              :value="iteration.id"
-            />
-          </el-select>
+            clearable
+          />
         </el-form-item>
-        <el-form-item
-          v-if="suiteForm.type === 'suite'"
-          label="需求"
-          prop="version_requirement_id"
-        >
-          <el-select
-            v-model="suiteForm.version_requirement_id"
-            placeholder="请选择关联需求"
-            :disabled="!suiteForm.iteration_id"
-            filterable
-          >
-            <template #empty>
-              <div v-if="!suiteForm.iteration_id">
-                请先选择迭代
-              </div>
-              <div v-else-if="requirements.length === 0">
-                <span>暂无需求数据，可不选直接提交</span>
-                <el-button
-                  type="text"
-                  size="small"
-                  @click="
-                    loadRequirements(
-                      suiteForm.project_id,
-                      suiteForm.iteration_id,
-                    )
-                  "
-                >
-                  重新加载
-                </el-button>
-              </div>
-              <div v-else>
-                未找到匹配的需求
-              </div>
-            </template>
-            <el-option
-              v-for="requirement in filteredRequirements"
-              :key="requirement.id"
-              :label="requirement.requirement_name"
-              :value="requirement.id"
-            />
-          </el-select>
+        <el-form-item label="用例集名称" required>
+          <el-input v-model="suiteForm.suite_name" placeholder="请输入用例集名称" maxlength="30" show-word-limit />
         </el-form-item>
         <el-form-item label="描述">
-          <el-input
-            v-model="suiteForm.description"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入测试套件描述"
-          />
+          <el-input v-model="suiteForm.description" type="textarea" :rows="3" placeholder="选填，用于说明用例集用途或范围" />
+        </el-form-item>
+        <el-form-item label="关联需求">
+          <el-select
+            v-model="suiteForm.version_requirement_id"
+            placeholder="选择关联需求（可选）"
+            clearable
+            filterable
+            style="width: 100%"
+          >
+            <el-option
+              v-for="r in requirementOptions"
+              :key="r.id"
+              :label="r.requirement_name"
+              :value="r.id"
+            />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="handleCancelSuite">取消</el-button>
-          <el-button
-            type="primary"
-            @click="handleSaveSuite"
-          >确定</el-button>
-        </span>
+        <el-button @click="suiteDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitSuite">确定</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog
-      v-model="caseDialogVisible"
-      :title="isEditCase ? '编辑测试用例' : '新增测试用例'"
-      width="700px"
-      @close="caseSuitePopoverVisible = false"
-    >
-      <div
-        v-if="!isEditCase"
-        class="create-type-selector"
+    <!-- 移动用例集对话框 -->
+    <el-dialog v-model="moveDialogVisible" title="移动用例集" width="440px">
+      <p style="margin-bottom: 12px">选择目标文件夹：</p>
+                  <el-tree
+        :data="folderTree"
+        :props="treeProps"
+                    node-key="id"
+        highlight-current
+        default-expand-all
+        @node-click="(data) => (moveTargetId = data.id)"
       >
-        <el-radio-group
-          v-model="createCaseType"
-          style="
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-          "
-        >
-          <el-radio label="manual">
-            手动创建
-          </el-radio>
-          <el-radio label="auto">
-            自动生成
-          </el-radio>
-        </el-radio-group>
-      </div>
+        <template #default="{ data }">
+          <span><el-icon><Folder /></el-icon> {{ data.suite_name }}</span>
+                    </template>
+                  </el-tree>
+      <template #footer>
+        <el-button @click="moveDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmMove">确定</el-button>
+      </template>
+    </el-dialog>
 
-      <el-form
-        v-if="isEditCase || createCaseType === 'manual'"
-        ref="caseFormRef"
-        :model="caseForm"
-        :rules="caseFormRules"
-        label-width="100px"
-      >
-        <el-form-item
-          label="用例名称"
-          prop="case_name"
-          required
-        >
-          <el-input
-            v-model="caseForm.case_name"
-            placeholder="请输入测试用例名称"
-          />
-        </el-form-item>
-        <el-form-item
-          label="用例编号"
-          prop="case_number"
-        >
-          <div class="case-number-input-group">
-            <el-input
-              v-model="caseNumberParts.part1"
-              placeholder="编号前缀1"
-              class="case-number-part"
-              @input="updateCaseNumber"
-            />
-            <span class="case-number-separator">-</span>
-            <el-input
-              v-model="caseNumberParts.part2"
-              placeholder="编号前缀2"
-              class="case-number-part"
-              @input="updateCaseNumber"
-            />
-            <span class="case-number-separator">-</span>
-            <el-input
-              v-model="caseNumberParts.part3"
-              placeholder="编号前缀3"
-              class="case-number-part"
-              clearable
-              @input="updateCaseNumber"
-            />
-            <el-input
-              v-model="caseNumberParts.part4"
-              placeholder="001"
-              class="case-number-part number-part"
-              type="text"
-              inputmode="numeric"
-              pattern="[0-9]*"
-              maxlength="3"
-              clearable
-              @input="handleNumberInput"
-            />
-          </div>
-        </el-form-item>
-        <el-form-item
-          label="所属用例集"
-          prop="suite_id"
-          required
-        >
-          <div class="case-suite-selector">
-            <el-popover
-              :visible="caseSuitePopoverVisible"
-              placement="bottom-start"
-              trigger="manual"
-              width="auto"
-              teleport="body"
-              @clickoutside="caseSuitePopoverVisible = false"
-            >
-              <template #reference>
-                <el-input
-                  v-model="selectedCaseSuitePath"
-                  placeholder="点击选择所属用例集"
-                  readonly
-                  style="width: 100%; min-width: 568px"
-                  clearable
-                  @click="caseSuitePopoverVisible = !caseSuitePopoverVisible"
-                />
-              </template>
-              <div
-                class="suite-tree-popover"
-                style="width: 100%; min-width: 540px"
-              >
-                <el-tree
-                  :current-node-key="caseForm.suite_id"
-                  :data="getSuiteTreeData()"
-                  :props="defaultProps"
-                  node-key="id"
-                  style="
-                    max-height: 300px;
-                    overflow-y: auto;
-                    width: 100%;
-                    padding-right: 10px;
-                  "
-                  :expand-on-click-node="false"
-                  @node-click="handleCaseSuiteSelect"
-                >
-                  <template #default="{ node, data }">
-                    <span
-                      class="tree-node-content"
-                      :class="{
-                        'current-node': node.key === caseForm.suite_id,
-                      }"
-                    >
-                      <el-icon
-                        class="node-icon"
-                        @click.stop="handleCaseSuiteSelect(data)"
-                      >
-                        <Document v-if="data.type === 'suite'" />
-                        <Folder v-else />
-                      </el-icon>
-                      <span @click.stop="handleCaseSuiteSelect(data)">{{
-                        node.label
-                      }}</span>
-                      <span
-                        v-if="data.type === 'suite' && data.cases_count > 0"
-                        class="case-count"
-                      >({{ data.cases_count }})</span>
-                    </span>
-                  </template>
-                </el-tree>
-              </div>
-            </el-popover>
-          </div>
-        </el-form-item>
-        <el-form-item
-          label="优先级"
-          required
-        >
-          <el-select
-            v-model="caseForm.priority"
-            placeholder="请选择优先级"
-          >
-            <el-option
-              label="P0"
-              value="P0"
-            />
-            <el-option
-              label="P1"
-              value="P1"
-            />
-            <el-option
-              label="P2"
-              value="P2"
-            />
-            <el-option
-              label="P3"
-              value="P3"
-            />
-            <el-option
-              label="P4"
-              value="P4"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="测试数据">
-          <el-input
-            v-model="caseForm.test_data"
-            type="textarea"
-            :rows="2"
-            placeholder="请输入测试数据"
-          />
-        </el-form-item>
-        <el-form-item label="前置条件">
-          <el-input
-            v-model="caseForm.preconditions"
-            type="textarea"
-            :rows="2"
-            placeholder="请输入前置条件"
-            clearable
-          />
-        </el-form-item>
-        <el-form-item label="测试步骤">
-          <el-input
-            v-model="caseForm.steps"
-            type="textarea"
-            :rows="4"
-            placeholder="请输入测试步骤"
-            clearable
-          />
-        </el-form-item>
-        <el-form-item label="预期结果">
-          <el-input
-            v-model="caseForm.expected_result"
-            type="textarea"
-            :rows="2"
-            placeholder="请输入预期结果"
-            clearable
-          />
-        </el-form-item>
-      </el-form>
-
-      <el-form
-        v-else-if="createCaseType === 'auto'"
-        ref="autoCaseFormRef"
-        :model="autoCaseForm"
-        :rules="autoCaseFormRules"
-        label-width="120px"
-      >
-        <el-form-item label="生成方式" prop="generateMode">
-          <el-radio-group v-model="autoCaseForm.generateMode" @change="onAutoGenerateModeChange">
-            <el-radio value="new">生成到新用例集</el-radio>
-            <el-radio value="append">追加到已选用例集</el-radio>
+    <!-- AI生成用例对话框 -->
+    <el-dialog v-model="generateDialogVisible" title="AI 生成用例" width="600px" @open="onGenerateDialogOpen">
+      <el-form :model="generateForm" label-width="110px">
+        <el-form-item label="生成方式" required>
+          <el-radio-group v-model="generateForm.mode">
+            <el-radio value="append">追加到已有用例集</el-radio>
+            <el-radio value="new">创建新用例集并生成</el-radio>
           </el-radio-group>
         </el-form-item>
-
-        <el-form-item
-          :label="autoCaseForm.generateMode === 'append' ? '选择所属用例集' : '所属文件夹'"
-          :prop="autoCaseForm.generateMode === 'append' ? 'append_suite_id' : 'parent_id'"
-          required
-        >
-          <div
-            ref="autoCaseSuiteSelectorRef"
-            class="case-suite-selector auto-case-suite-selector"
-          >
-            <el-popover
-              :visible="caseSuitePopoverVisible"
-              placement="bottom-start"
-              trigger="manual"
-              :width="autoCaseSuitePopoverWidth"
-              teleport="body"
-              popper-class="auto-case-suite-popover"
-              @clickoutside="caseSuitePopoverVisible = false"
-            >
-              <template #reference>
-                <el-input
-                  v-model="selectedCaseSuitePath"
-                  :placeholder="autoCaseForm.generateMode === 'append' ? '点击选择所属用例集' : '点击选择所属文件夹'"
-                  readonly
-                  class="auto-case-suite-input"
-                  clearable
-                  @click="caseSuitePopoverVisible = !caseSuitePopoverVisible"
-                />
-              </template>
-              <div class="suite-tree-popover">
-                <el-tree
-                  :current-node-key="autoCaseForm.generateMode === 'append' ? autoCaseForm.append_suite_id : autoCaseForm.parent_id"
-                  :data="autoCaseForm.generateMode === 'append' ? getSuiteTreeData() : getFolderTreeData()"
-                  :props="defaultProps"
-                  node-key="id"
-                  style="max-height: 300px; overflow-y: auto; width: 100%; padding-right: 10px;"
-                  :expand-on-click-node="false"
-                  @node-click="handleAutoCaseSuiteSelect"
-                >
-                  <template #default="{ node, data }">
-                    <span
-                      class="tree-node-content"
-                      :class="{
-                        'current-node':
-                          (autoCaseForm.generateMode === 'append' && data.id === autoCaseForm.append_suite_id) ||
-                          (autoCaseForm.generateMode === 'new' && data.id === autoCaseForm.parent_id),
-                      }"
-                    >
-                      <el-icon class="node-icon" @click.stop="handleAutoCaseSuiteSelect(data)">
-                        <Folder v-if="data.type === 'folder'" />
-                        <Document v-else />
-                      </el-icon>
-                      <span @click.stop="handleAutoCaseSuiteSelect(data)">{{ node.label }}</span>
-                      <span v-if="data.type === 'suite' && data.cases_count != null" class="case-count">({{ data.cases_count }})</span>
-                    </span>
-                  </template>
-                </el-tree>
-              </div>
-            </el-popover>
-          </div>
-        </el-form-item>
-
-        <el-form-item
-          v-if="autoCaseForm.generateMode === 'new'"
-          label="用例集名称"
-          prop="suite_name"
-          required
-        >
-          <div class="suite-name-container">
-            <div class="existing-suites-selector">
-              <template v-if="autoCaseForm.parent_id">
-                <el-select
-                  :model-value="null"
-                  :placeholder="existingSuitesInFolder.length > 0 ? `查看已有用例集（${existingSuitesInFolder.length}个）` : '暂无用例集'"
-                  filterable
-                  class="view-only-select"
-                  popper-class="suite-view-popper"
-                >
-                  <template #prefix>
-                    <el-icon><InfoFilled /></el-icon>
-                  </template>
-                  <el-option
-                    v-for="suite in existingSuitesInFolder"
-                    :key="suite.id"
-                    :label="suite.suite_name"
-                    :value="suite.id"
-                    disabled
-                  />
-                  <template #empty>
-                    <div class="empty-suite-tip">
-                      <el-icon><FolderOpened /></el-icon>
-                      <span>当前文件夹下暂无用例集</span>
-                    </div>
-                  </template>
-                </el-select>
-                <div class="selector-hint">点击查看，避免重名</div>
-              </template>
-              <div v-else class="placeholder-tip">
-                <el-icon><InfoFilled /></el-icon>
-                <span>请先选择文件夹</span>
-              </div>
-            </div>
-            
-            <div class="suite-name-input">
-              <el-input
-                v-model="autoCaseForm.suite_name"
-                placeholder="请输入用例集名称"
-                clearable
-                @blur="checkSuiteNameDuplicate"
-              />
-            </div>
-          </div>
-        </el-form-item>
-
-        <el-form-item
-          v-if="autoCaseForm.generateMode === 'new' && autoCaseForm.type === 'suite'"
-          label="所属项目"
-          prop="project_id"
-          required
-        >
-          <el-select
-            v-model="autoCaseForm.project_id"
-            placeholder="请选择所属项目"
+        <el-form-item label="目标文件夹" required>
+          <el-tree-select
+            v-model="generateForm.folderId"
+            :data="generateFolderTree"
+            :props="{ label: 'suite_name', value: 'id' }"
+            node-key="id"
+            placeholder="先选择目录（全部或文件夹）"
+            style="width: 100%"
+            clearable
+            check-strictly
+            :render-after-expand="false"
+            default-expand-all
             filterable
-            clearable
-            :loading="isLoadingProjects"
-            @focus="loadProjects"
-          >
-            <template #empty>
-              <div v-if="isLoadingProjects">
-                数据加载中...
-              </div>
-              <div v-else-if="projects.length === 0">
-                <span>暂无项目数据</span>
-                <el-button
-                  type="text"
-                  size="small"
-                  @click="loadProjects"
-                >
-                  重新加载
-                </el-button>
-              </div>
-              <div v-else>
-                未找到匹配的项目
-              </div>
-            </template>
-            <el-option
-              v-for="project in filteredProjects"
-              :key="project.id"
-              :label="project.project_name"
-              :value="project.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item
-          v-if="autoCaseForm.generateMode === 'new' && autoCaseForm.type === 'suite'"
-          label="所属迭代"
-          prop="iteration_id"
-        >
-          <el-select
-            v-model="autoCaseForm.iteration_id"
-            placeholder="请选择所属迭代"
-            :disabled="!autoCaseForm.project_id"
-            filterable
-            clearable
-            :loading="isLoadingIterations"
-            @focus="
-              autoCaseForm.project_id && loadIterations(autoCaseForm.project_id)
-            "
-          >
-            <template #empty>
-              <div v-if="!autoCaseForm.project_id">
-                请先选择项目
-              </div>
-              <div v-else-if="isLoadingIterations">
-                数据加载中...
-              </div>
-              <div v-else-if="iterations.length === 0">
-                <span>暂无迭代数据</span>
-                <el-button
-                  type="text"
-                  size="small"
-                  @click="loadIterations(autoCaseForm.project_id)"
-                >
-                  重新加载
-                </el-button>
-              </div>
-              <div v-else>
-                未找到匹配的迭代
-              </div>
-            </template>
-            <el-option
-              v-for="iteration in filteredIterations"
-              :key="iteration.id"
-              :label="iteration.iteration_name"
-              :value="iteration.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item
-          v-if="autoCaseForm.generateMode === 'new' && autoCaseForm.type === 'suite'"
-          label="所属需求"
-          prop="version_requirement_id"
-        >
-          <el-select
-            v-model="autoCaseForm.version_requirement_id"
-            placeholder="请选择关联需求"
-            :disabled="!autoCaseForm.iteration_id"
-            filterable
-            clearable
-            :loading="isLoadingRequirements"
-            @focus="
-              autoCaseForm.project_id &&
-                autoCaseForm.iteration_id &&
-                loadRequirements(
-                  autoCaseForm.project_id,
-                  autoCaseForm.iteration_id,
-                )
-            "
-          >
-            <template #empty>
-              <div v-if="!autoCaseForm.iteration_id">
-                请先选择迭代
-              </div>
-              <div v-else-if="isLoadingRequirements">
-                数据加载中...
-              </div>
-              <div v-else-if="requirements.length === 0">
-                <span>暂无需求数据，可不选直接提交</span>
-                <el-button
-                  type="text"
-                  size="small"
-                  @click="
-                    loadRequirements(
-                      autoCaseForm.project_id,
-                      autoCaseForm.iteration_id,
-                    )
-                  "
-                >
-                  重新加载
-                </el-button>
-              </div>
-              <div v-else>
-                未找到匹配的需求
-              </div>
-            </template>
-            <el-option
-              v-for="requirement in filteredRequirements"
-              :key="requirement.id"
-              :label="requirement.requirement_name"
-              :value="requirement.id"
-            />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item
-          label="用例集描述"
-          prop="description"
-        >
-          <el-input
-            v-model="autoCaseForm.description"
-            type="textarea"
-            :rows="4"
-            placeholder="请输入用例集描述"
-            clearable
+            @change="onGenerateFolderChange"
           />
         </el-form-item>
-
-        <el-form-item label="需求文档上传">
-          <el-upload
-            ref="requirementUploadRef"
-            :auto-upload="false"
-            :headers="{ 'Content-Type': 'multipart/form-data' }"
-            accept=".docx,.pdf,.txt"
-            :on-change="handleRequirementFileChange"
-            :file-list="requirementFileList"
-            :on-remove="handleRequirementFileRemove"
-            :limit="1"
-            :on-exceed="handleRequirementFileExceed"
+        <el-form-item v-if="generateForm.mode === 'append'" label="用例集选择" required>
+          <el-select
+            v-model="generateForm.suiteId"
+            placeholder="选择该目录下的用例集"
+            style="width: 100%"
+            clearable
+            filterable
+            :disabled="generateForm.folderId == null"
           >
-            <el-button type="primary">
-              选择文件
-            </el-button>
+            <el-option
+              v-for="s in generateSuiteOptions"
+              :key="s.id"
+              :label="s.suite_name"
+              :value="s.id"
+            />
+          </el-select>
+          <div v-if="generateForm.folderId != null && !generateSuiteOptions.length" class="form-tip">该目录下暂无用例集</div>
+        </el-form-item>
+        <el-form-item v-if="generateForm.mode === 'new'" label="新用例集名称" required>
+          <el-input v-model="generateForm.newSuiteName" placeholder="请输入新用例集名称" maxlength="30" show-word-limit clearable />
+        </el-form-item>
+        <el-form-item label="需求文档" required>
+          <el-upload
+            ref="generateUploadRef"
+            :auto-upload="false"
+            :limit="1"
+            accept=".txt,.md,.doc,.docx"
+            :on-change="onGenerateFileChange"
+            :on-remove="onGenerateFileRemove"
+          >
+            <el-button type="primary" plain>上传需求文档</el-button>
             <template #tip>
-              <div class="el-upload__tip">
-                支持上传.docx、.pdf和.txt格式的文件，大小不超过10MB
-              </div>
+              <div class="upload-tip">支持 .txt、.md、.doc、.docx，上传后将读取文档内容用于生成用例</div>
             </template>
           </el-upload>
+          <div v-if="generateForm.documentContent" class="document-preview">
+            已加载 {{ (generateForm.documentContent || '').length }} 字，可重新上传替换
+          </div>
         </el-form-item>
       </el-form>
-
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="handleCancelCase">取消</el-button>
-          <el-button
-            v-if="createCaseType === 'auto'"
-            type="primary"
-            @click="handleGenerateCase"
-          >生成用例</el-button>
-          <el-button
-            v-if="isEditCase || createCaseType === 'manual'"
-            type="primary"
-            @click="handleSaveCase"
-          >确定</el-button>
-        </span>
+        <el-button @click="generateDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="isGeneratingAny"
+          :disabled="!canSubmitGenerate"
+          @click="submitGenerate"
+        >
+          开始生成
+        </el-button>
       </template>
     </el-dialog>
 
-    <!-- 导入/导出用例对话框 -->
-    <el-dialog
-      v-model="importExportVisible"
-      title="导入/导出用例"
-      width="800px"
+    <!-- 右键菜单遮罩：点击任意空白处关闭菜单 -->
+    <div
+      v-if="contextMenu.visible"
+      class="context-menu-overlay"
+      @click="hideContextMenu"
+    />
+    <!-- 右键菜单 -->
+    <div
+      v-if="contextMenu.visible"
+      class="context-menu"
+      :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }"
+      @click.stop
     >
-      <el-form
-        ref="importExportFormRef"
-        :model="importExportForm"
-        label-width="100px"
-      >
-        <el-form-item label="操作类型">
-          <el-radio-group v-model="importExportForm.type">
-            <el-radio label="import">
-              导入
-            </el-radio>
-            <el-radio label="export">
-              导出
-            </el-radio>
+      <div class="context-menu-item" @click="handleRenameFolder">重命名</div>
+      <div class="context-menu-item" @click="handleNewUnderNode">新建</div>
+      <div class="context-menu-item danger" @click="handleDeleteFolder">删除</div>
+    </div>
+
+    <!-- 新建类型对话框：选择文件夹/用例集后展示对应表单 -->
+    <el-dialog v-model="createTypeDialogVisible" title="新建" width="520px" @close="resetCreateTypeForm">
+      <el-form :model="createTypeForm" label-width="100px">
+        <el-form-item label="创建类型">
+          <el-radio-group v-model="createTypeForm.createType">
+            <el-radio value="folder">文件夹</el-radio>
+            <el-radio value="suite">用例集</el-radio>
           </el-radio-group>
         </el-form-item>
-
-        <template v-if="importExportForm.type === 'import'">
-          <el-form-item label="本地文件">
-            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-              <el-upload
-                ref="importUploadRef"
-                :auto-upload="false"
-                :headers="{ 'Content-Type': 'multipart/form-data' }"
-                accept=".xlsx, .xls"
-                :on-change="handleFileChange"
-                :file-list="fileList"
-                :on-remove="handleFileRemove"
-                :limit="1"
-                :on-exceed="handleFileExceed"
-                class="upload-with-clear"
-              >
-                <el-button type="primary">
-                  选择文件
-                </el-button>
-                <template #tip>
-                  <div class="el-upload__tip">
-                    支持上传.xlsx和.xls格式的文件，大小不超过10MB；可先下载模板填写后导入
-                  </div>
-                  <div class="form-help-text">
-                    导入规则：按表头名称匹配字段，匹配到的列会导入，缺失列使用默认值或空，Excel 中多余列会忽略。不要求与模板完全一致，表头名称一致即可。
-                  </div>
-                  <div class="form-help-text">
-                    注意：导入后需在用例管理中手动关联所属项目、迭代和需求
-                  </div>
-                </template>
-              </el-upload>
-              <el-button type="default" @click="downloadExcelTemplate">
-                下载模板
-              </el-button>
-            </div>
-          </el-form-item>
-
-          <el-form-item label="目标位置">
-            <div class="parent-suite-selector">
-              <el-popover
-                :visible="importParentSuiteVisible"
-                placement="bottom-start"
-                trigger="manual"
-                width="auto"
-                teleport="body"
-                @clickoutside="importParentSuiteVisible = false"
-              >
-                <template #reference>
-                  <div style="display: flex; align-items: center; gap: 8px">
-                    <el-input
-                      v-model="importSelectedParentSuitePath"
-                      placeholder="点击选择父套件（默认根套件）"
-                      readonly
-                      style="flex: 1; min-width: 568px"
-                      clearable
-                      @click="
-                        importParentSuiteVisible = !importParentSuiteVisible
-                      "
-                    />
-                    <el-button
-                      size="small"
-                      style="height: 32px; margin-left: -2px"
-                      icon="Refresh"
-                      title="重置选择"
-                      @click.stop="clearImportParentSuiteSelection"
-                    >
-                      重置
-                    </el-button>
-                  </div>
-                </template>
-                <div
-                  class="suite-tree-popover"
-                  style="width: 100%; min-width: 543px"
-                >
-                  <el-tree
-                    :current-node-key="importExportForm.parent_id"
-                    :data="getFolderTreeData()"
-                    :props="defaultProps"
-                    node-key="id"
-                    style="
-                      max-height: 300px;
-                      overflow-y: auto;
-                      width: 100%;
-                      padding-right: 10px;
-                    "
-                    :expand-on-click-node="false"
-                    @node-click="handleImportParentSuiteSelect"
-                  >
-                    <template #default="{ node, data }">
-                      <span class="tree-node-content">
-                        <el-icon class="node-icon">
-                          <Folder />
-                        </el-icon>
-                        <span
-                          @click.stop="handleImportParentSuiteSelect(data)"
-                        >{{ node.label }}</span>
-                      </span>
-                    </template>
-                  </el-tree>
-                </div>
-              </el-popover>
-            </div>
+        <template v-if="createTypeForm.createType === 'folder'">
+          <el-form-item label="名称" required>
+            <el-input v-model="createTypeForm.folderName" placeholder="请输入文件夹名称" />
           </el-form-item>
         </template>
-
-        <template v-else-if="importExportForm.type === 'export'">
-          <el-form-item label="导出属性">
-            <div style="margin-bottom: 8px;">
-              <el-button link type="primary" @click="exportColumnKeys = EXPORT_COLUMN_OPTIONS.map(o => o.key)">全选</el-button>
-              <el-button link @click="exportColumnKeys = []">清空</el-button>
-            </div>
-            <el-checkbox-group v-model="exportColumnKeys" style="display: flex; flex-wrap: wrap; gap: 8px 16px;">
-              <el-checkbox
-                v-for="opt in EXPORT_COLUMN_OPTIONS"
-                :key="opt.key"
-                :label="opt.key"
-              >
-                {{ opt.key }}
-              </el-checkbox>
-            </el-checkbox-group>
+        <template v-else>
+          <el-form-item label="关联项目" required>
+            <el-select v-model="createTypeForm.project_id" placeholder="选择项目" filterable style="width: 100%" @change="onCreateTypeProjectChange">
+              <el-option v-for="p in projectOptions" :key="p.id" :label="p.project_name" :value="p.id" />
+            </el-select>
           </el-form-item>
-          <el-form-item label="导出的用例集">
-            <div class="case-suite-selector">
-              <!-- 显示当前选中的用例集路径 -->
-              <el-popover
-                :visible="exportCaseSuiteVisible"
-                placement="bottom-start"
-                trigger="manual"
-                width="auto"
-                teleport="body"
-                @clickoutside="exportCaseSuiteVisible = false"
-              >
-                <template #reference>
-                  <el-input
-                    v-model="exportSelectedCaseSuitePath"
-                    placeholder="点击选择所属用例集"
-                    readonly
-                    style="width: 100%; min-width: 568px"
-                    clearable
-                    @click="exportCaseSuiteVisible = !exportCaseSuiteVisible"
-                  />
-                </template>
-                <div
-                  class="suite-tree-popover"
-                  style="width: 100%; min-width: 543px"
-                >
-                  <el-tree
-                    :current-node-key="importExportForm.suite_id"
-                    :data="treeData"
-                    :props="defaultProps"
-                    node-key="id"
-                    style="
-                      max-height: 300px;
-                      overflow-y: auto;
-                      width: 100%;
-                      padding-right: 10px;
-                    "
-                    :expand-on-click-node="false"
-                    @node-click="handleExportCaseSuiteSelect"
-                  >
-                    <template #default="{ node, data }">
-                      <span class="tree-node-content">
-                        <el-icon class="node-icon">
-                          <Folder v-if="data.type === 'folder'" />
-                          <Document v-else />
-                        </el-icon>
-                        <span @click.stop="handleExportCaseSuiteSelect(data)">{{
-                          node.label
-                        }}</span>
-                        <span
-                          v-if="data.type === 'suite' && data.cases_count > 0"
-                          class="case-count"
-                        >({{ data.cases_count }})</span>
-                      </span>
-                    </template>
-                  </el-tree>
-                </div>
-              </el-popover>
-            </div>
-          </el-form-item>
-        </template>
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="importExportVisible = false">取消</el-button>
-          <el-button
-            type="primary"
-            :loading="isImporting"
-            :disabled="isImporting"
-            @click="handleImportExportAction"
-          >
-            {{ importExportForm.type === "import" ? "导入" : "导出" }}
-          </el-button>
-        </span>
-      </template>
-    </el-dialog>
-
-    <!-- 发起评审对话框 -->
-    <el-dialog
-      v-model="initiateReviewVisible"
-      title="发起用例集评审"
-      width="650px"
-    >
-      <el-form
-        ref="reviewFormRef"
-        :model="reviewForm"
-        :rules="reviewFormRules"
-        label-width="100px"
-      >
-        <el-form-item
-          label="所属用例集"
-          prop="suite_id"
-        >
-          <div class="case-suite-selector">
-            <el-popover
-              :visible="reviewSuitePopoverVisible"
-              placement="bottom-start"
-              trigger="manual"
-              width="auto"
-              teleport="body"
-              @clickoutside="reviewSuitePopoverVisible = false"
-            >
-              <template #reference>
-                <el-input
-                  v-model="reviewSuitePath"
-                  placeholder="点击选择所属用例集"
-                  readonly
-                  style="width: 518px"
-                  @click="
-                    reviewSuitePopoverVisible = !reviewSuitePopoverVisible
-                  "
-                />
-              </template>
-              <!-- 弹出的套件树 -->
-              <div
-                class="suite-tree-popover"
-                style="width: 100%; min-width: 490px"
-              >
-                <el-tree
-                  :current-node-key="reviewForm.suite_id"
-                  :data="getSuiteTreeData()"
-                  :props="defaultProps"
-                  node-key="id"
-                  style="
-                    max-height: 300px;
-                    overflow-y: auto;
-                    width: 100%;
-                    padding-right: 10px;
-                  "
-                  :expand-on-click-node="false"
-                  @node-click="handleReviewSuiteSelect"
-                >
-                  <template #default="{ node, data }">
-                    <span
-                      class="tree-node-content"
-                      :class="{
-                        'current-node': node.key === reviewForm.suite_id,
-                      }"
-                    >
-                      <el-icon
-                        class="node-icon"
-                        @click.stop="handleReviewSuiteSelect(data)"
-                      >
-                        <Document v-if="data.type === 'suite'" />
-                        <Folder v-else />
-                      </el-icon>
-                      <span @click.stop="handleReviewSuiteSelect(data)">{{
-                        node.label
-                      }}</span>
-                      <span
-                        v-if="data.type === 'suite' && data.cases_count > 0"
-                        class="case-count"
-                      >({{ data.cases_count }})</span>
-                    </span>
-                  </template>
-                </el-tree>
-              </div>
-            </el-popover>
-          </div>
-        </el-form-item>
-
-        <el-form-item
-          label="评审人"
-          prop="reviewer_id"
-        >
-          <el-select
-            v-model="reviewForm.reviewer_id"
-            placeholder="请选择评审人"
-            filterable
-          >
-            <el-option
-              v-for="user in reviewerOptions"
-              :key="user.id"
-              :label="user.real_name"
-              :value="user.id"
+          <el-form-item label="所属文件夹" required>
+            <el-tree-select
+              v-model="createTypeForm.parentId"
+              :data="createTypeFolderTree"
+              :props="{ label: 'suite_name', value: 'id' }"
+              node-key="id"
+              placeholder="选择存放位置"
+              style="width: 100%"
+              check-strictly
+              default-expand-all
+              filterable
+              clearable
             />
-          </el-select>
-        </el-form-item>
+          </el-form-item>
+          <el-form-item label="用例集名称" required>
+            <el-input v-model="createTypeForm.suite_name" placeholder="请输入用例集名称" maxlength="30" show-word-limit />
+          </el-form-item>
+          <el-form-item label="描述">
+            <el-input v-model="createTypeForm.description" type="textarea" :rows="2" placeholder="选填" />
+          </el-form-item>
+          <el-form-item label="关联需求">
+            <el-select v-model="createTypeForm.version_requirement_id" placeholder="可选" clearable filterable style="width: 100%">
+              <el-option v-for="r in requirementOptions" :key="r.id" :label="r.requirement_name" :value="r.id" />
+            </el-select>
+          </el-form-item>
+        </template>
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="initiateReviewVisible = false">取消</el-button>
-          <el-button
-            type="primary"
-            @click="handleInitiateReview"
-          >发起评审</el-button>
-        </span>
+        <el-button @click="createTypeDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitCreateType">确定</el-button>
       </template>
     </el-dialog>
 
-    <!-- 评审详情/提示对话框 -->
-    <el-dialog
-      v-model="reviewDialogVisible"
-      :title="reviewDialogTitle"
-      :fullscreen="reviewDialogType === 'detail'"
-      :width="reviewDialogType === 'message' ? '500px' : undefined"
-    >
-      <div
-        v-if="reviewDialogType === 'message'"
-        class="review-message-content"
-      >
-        <el-icon
-          size="48"
-          class="message-icon"
+    <!-- 回收站抽屉（仅用例集，按当前所属项目区分） -->
+    <el-drawer v-model="showRecycleDrawer" :title="recycleDrawerTitle" size="960" direction="rtl" class="recycle-drawer">
+      <div class="recycle-toolbar">
+        <el-button
+          type="danger"
+          plain
+          :disabled="!recycleSelectedIds.length"
+          @click="batchPermanentDeleteRecycled"
         >
-          <InfoFilled />
-        </el-icon>
-        <p class="message-text">
-          {{ reviewDialogContent }}
-        </p>
+          全选删除
+        </el-button>
       </div>
-      <div
-        v-else-if="currentReviewTask"
-        class="review-detail-content"
-      >
-        <div class="dialog-section">
-          <h4>评审任务信息</h4>
-          <el-descriptions
-            :column="2"
-            border
-          >
-            <el-descriptions-item label="用例集名称">
-              {{
-                currentReviewTask?.suite?.suite_name ||
-                  currentReviewTask?.suite_name ||
-                  "-"
-              }}
-            </el-descriptions-item>
-            <el-descriptions-item label="发起人">
-              {{ currentReviewTask?.initiator_name || "-" }}
-            </el-descriptions-item>
-            <el-descriptions-item label="评审人">
-              {{ currentReviewTask?.reviewer_name || "-" }}
-            </el-descriptions-item>
-            <el-descriptions-item label="创建时间">
-              {{ formatDate(currentReviewTask?.created_at) || "-" }}
-            </el-descriptions-item>
-            <el-descriptions-item label="开始时间">
-              {{ formatDate(currentReviewTask?.start_time) || "-" }}
-            </el-descriptions-item>
-            <el-descriptions-item label="结束时间">
-              {{ formatDate(currentReviewTask?.end_time) || "-" }}
-            </el-descriptions-item>
-            <el-descriptions-item
-              label="评审状态"
-              :span="2"
-            >
-              <el-tag :type="getStatusTagType(currentReviewTask?.status)">
-                {{ getStatusText(currentReviewTask?.status) }}
-              </el-tag>
-            </el-descriptions-item>
-          </el-descriptions>
-        </div>
-
-        <div class="dialog-section">
-          <h4>用例评审列表</h4>
-          <el-table
-            v-if="
-              currentReviewTask.case_reviews &&
-                currentReviewTask.case_reviews.length > 0
-            "
-            :data="currentReviewTask.case_reviews"
-            class="review-case-table"
-            style="width: 100%"
-            row-key="id"
-            max-height="calc(100vh - 280px)"
-            :row-style="{ height: 'auto' }"
-            :cell-style="{
-              'white-space': 'pre-wrap',
-              'word-break': 'break-word',
-              'line-height': '1.5',
-            }"
-          >
-            <el-table-column
-              label="用例编号"
-              width="7%"
-              min-width="80"
-            >
-              <template #default="scope">
-                {{
-                  scope.row.case_number ||
-                    scope.row.test_case?.case_number ||
-                    "-"
-                }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              label="用例名称"
-              width="10%"
-              min-width="100"
-            >
-              <template #default="scope">
-                {{
-                  scope.row.case_name || scope.row.test_case?.case_name || "-"
-                }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              label="优先级"
-              width="5%"
-              min-width="70"
-            >
-              <template #default="scope">
-                <el-tag
-                  :type="
-                    getPriorityTagType(
-                      scope.row.priority ||
-                        scope.row.test_case?.priority ||
-                        'P3',
-                    )
-                  "
-                  size="small"
-                >
-                  {{
-                    scope.row.priority || scope.row.test_case?.priority || "-"
-                  }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column
-              label="评审状态"
-              width="9%"
-              min-width="90"
-            >
-              <template #default="scope">
-                <el-tag
-                  :type="getCaseReviewStatusTagType(scope.row.review_status)"
-                >
-                  {{ getCaseReviewStatusText(scope.row.review_status) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column
-              label="测试数据"
-              width="9%"
-              min-width="90"
-            >
-              <template #default="scope">
-                <div class="read-only-comments">
-                  {{ scope.row.test_case?.test_data || "-" }}
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column
-              label="前置条件"
-              width="10%"
-              min-width="90"
-            >
-              <template #default="scope">
-                <div class="read-only-comments">
-                  {{ scope.row.test_case?.preconditions || "-" }}
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column
-              label="测试步骤"
-              width="11%"
-              min-width="90"
-            >
-              <template #default="scope">
-                <div class="read-only-comments">
-                  {{ scope.row.test_case?.steps || "-" }}
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column
-              label="预期结果"
-              width="10%"
-              min-width="90"
-            >
-              <template #default="scope">
-                <div class="read-only-comments">
-                  {{ scope.row.test_case?.expected_result || "-" }}
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column
-              label="评审意见"
-              width="12%"
-              min-width="120"
-            >
-              <template #default="scope">
-                <div class="read-only-comments">
-                  {{ scope.row.comments || "-" }}
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column
-              label="评审时间"
-              width="7%"
-              min-width="120"
-            >
-              <template #default="scope">
-                {{ formatDate(scope.row.updated_at || scope.row.created_at) || "-" }}
-              </template>
-            </el-table-column>
-          </el-table>
-          <div
-            v-else
-            class="no-data"
-          >
-            <p>暂无评审数据</p>
-          </div>
-        </div>
-
-        <div class="dialog-section">
-          <h4>整体评审意见</h4>
-          <div class="read-only-comments">
-            {{ currentReviewTask.overall_comments || "暂无整体评审意见" }}
-          </div>
-        </div>
+      <div v-loading="recycleLoading" class="recycle-list">
+        <table class="recycle-table recycle-table-center" v-if="recycledList.length">
+          <thead>
+            <tr>
+              <th class="col-check"><el-checkbox v-model="recycleSelectAll" @change="onRecycleSelectAllChange" /></th>
+              <th class="col-path">文件夹路径</th>
+              <th class="col-name">用例集名称</th>
+              <th class="col-time">删除时间</th>
+              <th class="col-operator">操作人</th>
+              <th class="col-actions">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in recycledList" :key="item.id">
+              <td class="col-check">
+                <el-checkbox :model-value="recycleSelectedIds.includes(item.id)" @update:model-value="(v) => toggleRecycleSelected(item.id, v)" />
+              </td>
+              <td class="col-path">
+                <el-tooltip v-if="(item.parent_path || '').length" :content="item.parent_path" placement="top" :show-after="300">
+                  <span class="cell-text">{{ item.parent_path || '—' }}</span>
+                </el-tooltip>
+                <span v-else class="cell-text">—</span>
+              </td>
+              <td class="col-name">
+                <el-tooltip v-if="getRecycleRowTooltip(item)" :content="getRecycleRowTooltip(item)" placement="top" :show-after="300" popper-class="recycle-name-tooltip-multiline">
+                  <span class="cell-text">{{ item.suite_name }}</span>
+                </el-tooltip>
+                <span v-else class="cell-text">{{ item.suite_name }}</span>
+              </td>
+              <td class="col-time">{{ item.deleted_at ? formatRecycleTimeFull(item.deleted_at) : '—' }}</td>
+              <td class="col-operator">{{ item.creator_name || '—' }}</td>
+              <td class="col-actions">
+                <el-button size="small" type="primary" link @click="restoreRecycled(item.id)">恢复</el-button>
+                <el-button size="small" type="danger" link @click="permanentDeleteRecycled(item)">彻底删除</el-button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <el-empty v-if="!recycleLoading && !recycledList.length" description="回收站为空" />
       </div>
-      <div
-        v-else
-        class="review-detail-content"
-      >
-        <p>正在加载评审详情...</p>
+      <div v-if="recycledList.length || recyclePagination.total" class="recycle-pagination">
+        <el-pagination
+          v-model:current-page="recyclePagination.page"
+          v-model:page-size="recyclePagination.pageSize"
+          :page-sizes="[10, 20, 50]"
+          :total="recyclePagination.total"
+          layout="total, sizes, prev, pager, next"
+          @current-change="loadRecycled"
+          @size-change="loadRecycled"
+        />
       </div>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="reviewDialogVisible = false">关闭</el-button>
-        </span>
-      </template>
-    </el-dialog>
-
-    <el-upload
-      ref="uploadRef"
-      :auto-upload="false"
-      :headers="{ 'Content-Type': 'multipart/form-data' }"
-      accept=".xlsx, .xls"
-      :before-upload="
-        (file) => {
-          const isExcel =
-            file.type === 'application/vnd.ms-excel' ||
-            file.type ===
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-          const isLt10M = file.size / 1024 / 1024 < 10;
-
-          if (!isExcel) {
-            ElMessage.error('只能上传Excel文件！');
-            return false;
-          }
-          if (!isLt10M) {
-            ElMessage.error('上传文件大小不能超过 10MB！');
-            return false;
-          }
-
-          excelFile.value = file;
-          const reader = new FileReader();
-          reader.onload = async (e) => {
-            try {
-              const data = new Uint8Array(e.target.result);
-              const workbook = XLSX.read(data, { type: 'array' });
-              const sheetName = workbook.SheetNames[0];
-              const worksheet = workbook.Sheets[sheetName];
-              const excelData = XLSX.utils.sheet_to_json(worksheet);
-
-              if (excelData.length === 0) {
-                ElMessage.warning('Excel文件中没有测试用例数据');
-                return;
-              }
-
-              if (!importExportForm.parent_id) {
-                ElMessage.error('请选择导入的目标位置');
-                return;
-              }
-
-              const suiteDetail = await getTestSuiteDetail(
-                importExportForm.parent_id,
-              );
-
-              let importedCount = 0;
-              let errorCount = 0;
-
-              for (const item of excelData) {
-                try {
-                  // 用例库不维护执行状态，导入时状态留空；执行通过创建计划进行
-                  const caseData = {
-                    case_number: item['用例编号'] || '',
-                    case_name: item['用例名称'] || '',
-                    priority: item['优先级'] || 'P1',
-                    status: '',
-                    preconditions: item['前置条件'] || '',
-                    test_data: item['测试数据'] || '',
-                    steps: item['操作步骤'] || '',
-                    expected_result: item['预期结果'] || '',
-                    suite_id: importExportForm.parent_id,
-                    project_id: suiteDetail.data.project_id,
-                    version_requirement_id:
-                      suiteDetail.data.version_requirement_id,
-                    iteration_id: suiteDetail.data.iteration_id,
-                  };
-
-                  await createTestCase(caseData);
-                  importedCount++;
-                } catch (error) {
-                  console.error('导入单条测试用例失败:', error);
-                  errorCount++;
-                }
-              }
-
-              ElMessage.success(
-                `成功导入 ${importedCount} 条测试用例，失败 ${errorCount} 条`,
-              );
-
-              if (selectedSuite.value && selectedSuite.value.type === 'suite') {
-                loadTestCases(selectedSuite.value.id);
-              }
-
-              importExportVisible.value = false;
-            } catch (error) {
-              console.error('导入测试用例失败:', error);
-              ElMessage.error('导入测试用例失败，请检查文件格式和内容');
-            }
-          };
-          reader.readAsArrayBuffer(file.raw);
-
-          return false;
-        }
-      "
-      style="display: none"
-    >
-      <el-button
-        ref="uploadBtnRef"
-        type="primary"
-      >
-        上传
-      </el-button>
-    </el-upload>
+    </el-drawer>
   </div>
 </template>
 
 <script setup>
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
+import { useRouter } from "vue-router";
+import { Folder, DArrowRight, DArrowLeft, Loading, Delete, EditPen } from "@element-plus/icons-vue";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { useUserStore } from "@/stores/user";
 import {
-  ref,
-  reactive,
-  computed,
-  onMounted,
-  onUnmounted,
-  watch,
-  nextTick,
-} from "vue";
-import { useRouter, useRoute } from "vue-router";
-import {
-  ElMessage,
-  ElMessageBox,
-  ElUpload,
-  ElButton,
-  ElLoading,
-} from "element-plus";
-import {
-  Folder,
-  FolderOpened,
-  Document,
-  ArrowDown,
-  ArrowUp,
-  Download,
-  Upload,
-  DocumentCopy,
-  FullScreen,
-  Filter,
-  Loading,
-  InfoFilled,
-  Search,
-  RefreshLeft,
-} from "@element-plus/icons-vue";
-import {
-  getTestSuiteTree,
-  getSuiteCases,
+  getFolderTree,
+  getCaseSets,
   createTestSuite,
   updateTestSuite,
   deleteTestSuite,
+  getRecycledSuites,
+  restoreRecycledSuite,
+  batchPermanentDeleteRecycledSuites,
 } from "@/api/testSuite";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
-import { useUserStore } from "@/stores/user";
+import { moveTestSuite, copyTestSuite } from "@/api/testSuite";
+import { getProjects, getProjectVersionRequirements } from "@/api/project";
+import { createGenerateCasesTask, getTaskStatus } from "@/api/aiTasks";
 
-import {
-  updateTestCase,
-  createTestCase,
-  deleteTestCase,
-  batchDeleteTestCases,
-} from "@/api/testCase";
-import { getTestSuiteDetail } from "@/api/testSuite";
-
-const EXPORT_COLUMN_OPTIONS = [
-  { key: "用例编号", wch: 20 },
-  { key: "用例名称", wch: 30 },
-  { key: "用例描述", wch: 25 },
-  { key: "所属项目", wch: 20 },
-  { key: "所属迭代", wch: 20 },
-  { key: "关联需求", wch: 20 },
-  { key: "优先级", wch: 10 },
-  { key: "前置条件", wch: 25 },
-  { key: "测试数据", wch: 25 },
-  { key: "操作步骤", wch: 40 },
-  { key: "预期结果", wch: 30 },
-];
-
-import {
-  getProjects,
-  getProjectIterations,
-  getProjectVersionRequirements,
-} from "@/api/project";
-import {
-  initiateReview,
-  getSuiteReviewStatus,
-  getReviewTask,
-  getCaseReviews,
-} from "@/api/reviewTask";
-import { getUserOptions } from "@/api/user";
-
-import MindMap from "@/components/MindMap.vue";
-
-const treeRef = ref(null);
-const treeData = ref([]);
+const router = useRouter();
+const userStore = useUserStore();
+const folderTreeRef = ref(null);
 const searchText = ref("");
-const defaultProps = {
-  children: "children",
-  label: "suite_name",
-};
-const isDraggable = ref(true);
+const isLeftPanelCollapsed = ref(false);
+const selectedFolder = ref(null);
+const folderTree = ref([]);
 
-const expandedKeys = ref([]);
-// 树挂载 key：数据加载完成后递增，强制树重新挂载以正确应用 default-expanded-keys（否则刷新后展开状态会丢失）
-const treeMountKey = ref(0);
+const treeProps = { children: "children", label: "suite_name" };
 
-const editingNodeId = ref(null);
-const editingNodeName = ref("");
-const editInputRef = ref(null);
+const caseSets = ref([]);
+const tableLoading = ref(false);
+const caseSetSearch = ref("");
+const reviewStatusFilter = ref("");
+const pagination = reactive({ page: 1, pageSize: 20, total: 0 });
 
-const contextMenuRef = ref(null);
-const contextMenuVisible = ref(false);
-const contextMenuStyle = reactive({
-  position: "fixed",
-  zIndex: 1000,
-});
-const selectedNode = ref(null);
-
-const parentSuitePopoverVisible = ref(false);
-const selectedParentSuitePath = ref("");
+const folderDialogVisible = ref(false);
+const folderDialogTitle = ref("新建文件夹");
+const folderForm = reactive({ name: "", id: null, parentId: null });
 
 const suiteDialogVisible = ref(false);
-const caseDialogVisible = ref(false);
-const isEditSuite = ref(false);
-const isEditCase = ref(false);
-// 标识是否是从右键菜单触发的操作
-const isContextMenuAction = ref(false);
-
+const suiteFormFolderTree = ref([]);
 const suiteForm = reactive({
-  id: null,
   suite_name: "",
   description: "",
-  type: "folder",
-  parent_id: null,
-  project_id: null,
   version_requirement_id: null,
-  iteration_id: null,
+  project_id: null,
+  parentId: null,
 });
 
-const suiteOptions = ref([]);
-const suiteFormRef = ref(null);
+const moveDialogVisible = ref(false);
+const moveTargetId = ref(null);
+const movingSuite = ref(null);
 
-// 标记是否正在初始化表单，用于控制观察者行为
-const isInitializingForm = ref(false);
-// 与后端一致：项目必填，迭代与需求选填（迭代下无需求时也可提交）
-const suiteFormRules = reactive({
-  suite_name: [
-    { required: true, message: "请输入测试套件名称", trigger: "blur" },
-  ],
-  type: [{ required: true, message: "请选择套件类型", trigger: "change" }],
-  project_id: [
-    {
-      required: (rule, value, callback) => {
-        return suiteForm.type === "suite";
-      },
-      message: "请选择所属项目",
-      trigger: "change",
-    },
-  ],
-  // iteration_id、version_requirement_id 不设必填，与 DB nullable 一致，避免迭代无需求时无法提交
-});
+const requirementOptions = ref([]);
 
-const projects = ref([]);
-const iterations = ref([]);
-const requirements = ref([]);
-
-const searchKeywords = reactive({
-  project: "",
-  iteration: "",
-  requirement: "",
-});
-
-const filteredProjects = computed(() => {
-  if (!searchKeywords.project) {
-    return projects.value;
-  }
-  return projects.value.filter((project) =>
-    project.project_name.includes(searchKeywords.project),
-  );
-});
-
-const filteredIterations = computed(() => {
-  if (!searchKeywords.iteration) {
-    return iterations.value;
-  }
-  return iterations.value.filter((iteration) =>
-    iteration.iteration_name.includes(searchKeywords.iteration),
-  );
-});
-
-const filteredRequirements = computed(() => {
-  if (!searchKeywords.requirement) {
-    return requirements.value;
-  }
-  return requirements.value.filter((requirement) =>
-    requirement.requirement_name.includes(searchKeywords.requirement),
-  );
-});
-
-const caseSuitePopoverVisible = ref(false);
-const selectedCaseSuitePath = ref("");
-const caseFormRef = ref(null);
-const autoCaseSuiteSelectorRef = ref(null);
-const autoCaseSuitePopoverWidth = ref(400);
-
-const createCaseType = ref("manual");
-
-const autoCaseFormRef = ref(null);
-const isGeneratingCases = ref(false);
-const currentTaskId = ref(null);
-const generatingSuiteId = ref(null); // 正在生成用例的用例集ID，仅该用例集页面显示进度
-const taskProgress = ref(0);
-const taskMessage = ref("");
-let taskPollingTimer = null;
-
-const selectedProject = ref(null);
-const selectedIteration = ref(null);
-const selectedRequirement = ref(null);
-const isLoadingProjects = ref(false);
-const isLoadingIterations = ref(false);
-const isLoadingRequirements = ref(false);
-const existingSuitesInFolder = ref([]);
-
-const autoCaseForm = reactive({
-  generateMode: "new", // 'new' 生成到新用例集 | 'append' 追加到已选用例集
-  append_suite_id: null,
+const contextMenu = reactive({ visible: false, x: 0, y: 0, data: null });
+const filterProjectId = ref(null);
+const projectOptions = ref([]);
+const showRecycleDrawer = ref(false);
+const recycleLoading = ref(false);
+const recycledList = ref([]);
+const recyclePagination = reactive({ page: 1, pageSize: 10, total: 0 });
+const recycleSelectedIds = ref([]);
+const recycleSelectAll = ref(false);
+const createTypeDialogVisible = ref(false);
+const createTypeFolderTree = ref([]);
+const createTypeForm = reactive({
+  createType: "folder",
+  folderName: "",
+  parentFolderName: "",
+  parentId: null,
+  project_id: null,
   suite_name: "",
-  parent_id: null,
-  type: "suite",
-  project_id: null,
-  iteration_id: null,
-  version_requirement_id: null,
   description: "",
-  file: null,
+  version_requirement_id: null,
 });
 
-watch(createCaseType, (newType) => {
-  if (newType === "auto") {
-    loadProjects();
-  }
+const generateDialogVisible = ref(false);
+const generateForm = reactive({
+  mode: "append",
+  folderId: null,
+  suiteId: null,
+  newSuiteName: "",
+  documentContent: "",
+});
+const generateFolderTree = ref([]);
+const generateSuiteOptions = ref([]);
+const generateUploadRef = ref(null);
+const editingSuiteId = ref(null);
+const editingSuiteName = ref("");
+const suiteNameInputRef = ref(null);
+
+const canSubmitGenerate = computed(() => {
+  if (!generateForm.documentContent?.trim()) return false;
+  if (generateForm.mode === "append") return !!generateForm.suiteId;
+  return generateForm.folderId != null && !!generateForm.newSuiteName?.trim();
 });
 
-const onAutoGenerateModeChange = () => {
-  if (autoCaseForm.generateMode === "new") {
-    autoCaseForm.append_suite_id = null;
-  } else {
-    autoCaseForm.parent_id = null;
-    autoCaseForm.suite_name = "";
-    existingSuitesInFolder.value = [];
-  }
-  selectedCaseSuitePath.value = getSelectedCaseSuitePath();
-};
+const generatingMap = reactive({});
+const isGeneratingAny = computed(() => Object.keys(generatingMap).length > 0);
 
-watch(
-  () => autoCaseForm.project_id,
-  (newProjectId) => {
-    if (newProjectId) {
-      loadIterations(newProjectId);
-    } else {
-      autoCaseForm.iteration_id = null;
-      autoCaseForm.version_requirement_id = null;
-      iterations.value = [];
-      requirements.value = [];
-    }
-  },
-);
-
-watch(
-  () => autoCaseForm.iteration_id,
-  (newIterationId) => {
-    if (newIterationId && autoCaseForm.project_id) {
-      loadRequirements(autoCaseForm.project_id, newIterationId);
-    } else {
-      autoCaseForm.version_requirement_id = null;
-      requirements.value = [];
-    }
-  },
-);
-
-const validateSuiteName = async (rule, value, callback) => {
-  if (!value) {
-    callback(new Error("请输入用例集名称"));
-    return;
-  }
-  
-  if (!autoCaseForm.parent_id) {
-    // 如果还没有选择文件夹，跳过重名检测
-    callback();
-    return;
-  }
-  
-  try {
-    // 获取当前文件夹下的所有子套件
-    const { getTestSuiteTree } = await import("@/api/testSuite");
-    const response = await getTestSuiteTree();
-    
-    // 查找当前选中的文件夹
-    const findChildren = (nodes, parentId) => {
-      for (const node of nodes) {
-        if (node.id === parentId) {
-          return node.children || [];
-        }
-        if (node.children && node.children.length > 0) {
-          const found = findChildren(node.children, parentId);
-          if (found) return found;
-        }
+const folderParentName = computed(() => {
+  if (folderForm.parentId) {
+    const find = (nodes) => {
+      for (const n of nodes) {
+        if (n.id === folderForm.parentId) return n.suite_name;
+        if (n.children?.length) { const r = find(n.children); if (r) return r; }
       }
       return null;
     };
-    
-    const children = findChildren(response.data, autoCaseForm.parent_id);
-    if (children) {
-      // 检查是否有同名的用例集
-      const duplicate = children.find(
-        (child) => child.suite_name === value && child.type === 'suite'
-      );
-      
-      if (duplicate) {
-        callback(new Error("当前文件夹下已存在同名用例集，请修改名称"));
-        return;
-      }
-    }
-    
-    callback();
-  } catch (error) {
-    console.error("检查用例集名称失败:", error);
-    // 如果检查失败，不阻止提交
-    callback();
+    return find(folderTree.value) || '全部';
   }
-};
-
-// parent_id / append_suite_id 不在 change 时校验，避免展开树节点就报错；仅在下拉关闭未选择时由逻辑触发校验
-const autoCaseFormRules = reactive({
-  parent_id: [
-    {
-      message: "请选择所属文件夹",
-      validator: (rule, value, callback) => {
-        if (autoCaseForm.generateMode === "append") return callback();
-        if (value === undefined || value === null || value === "") return callback(new Error(rule.message || "请选择所属文件夹"));
-        callback();
-      },
-    },
-  ],
-  suite_name: [
-    {
-      validator: (rule, value, callback) => {
-        if (autoCaseForm.generateMode === "append") return callback();
-        if (!value) return callback(new Error("请输入用例集名称"));
-        validateSuiteName(rule, value, callback);
-      },
-      trigger: "blur",
-    },
-  ],
-  append_suite_id: [
-    {
-      message: "请选择所属用例集",
-      validator: (rule, value, callback) => {
-        if (autoCaseForm.generateMode === "new") return callback();
-        if (value === undefined || value === null || value === "") return callback(new Error(rule.message || "请选择所属用例集"));
-        callback();
-      },
-    },
-  ],
-  project_id: [
-    {
-      validator: (rule, value, callback) => {
-        if (autoCaseForm.generateMode === "append") return callback();
-        if (!value) return callback(new Error("请选择所属项目"));
-        callback();
-      },
-      trigger: "change",
-    },
-  ],
-  // 迭代、需求选填，与后端可空一致，迭代无需求时也可提交
+  return selectedFolder.value?.suite_name || '全部';
 });
 
-const requirementUploadRef = ref(null);
-const requirementFileList = ref([]);
-
-const caseForm = reactive({
-  id: null,
-  case_number: "",
-  case_name: "",
-  case_description: "",
-  priority: "P1",
-  status: "",
-  suite_id: null,
-  preconditions: "",
-  steps: "",
-  expected_result: "",
-  test_data: "",
-  actual_result: "",
+const recycleDrawerTitle = computed(() => {
+  if (!filterProjectId.value) return "回收站";
+  const p = projectOptions.value?.find((x) => x.id === filterProjectId.value);
+  return p ? `回收站（${p.project_name}）` : "回收站";
 });
 
-const caseNumberParts = reactive({
-  part1: "",
-  part2: "",
-  part3: "",
-  part4: "",
+watch(searchText, (val) => {
+  folderTreeRef.value?.filter(val);
 });
 
-const updateCaseNumber = () => {
-  // 确保数字部分是1-999之间的整数
-  let numberPart = caseNumberParts.part4 ? parseInt(caseNumberParts.part4) : 1;
-  // 确保数字在1-999之间
-  if (isNaN(numberPart) || numberPart < 1) {
-    numberPart = 1;
-  } else if (numberPart > 999) {
-    numberPart = 999;
-  }
-  // 确保数字部分是3位格式
-  const formattedNumber = numberPart.toString().padStart(3, "0");
+function filterNode(value, data) {
+  if (!value) return true;
+  return data.suite_name?.toLowerCase().includes(value.toLowerCase());
+}
 
-  // 生成用例编号，确保格式正确
-  // 如果三个前缀都为空，使用默认格式
-  if (
-    !caseNumberParts.part1 &&
-    !caseNumberParts.part2 &&
-    !caseNumberParts.part3
-  ) {
-    // 默认格式：CASE-001-001
-    caseForm.case_number = `CASE-001-${formattedNumber}`;
-  } else {
-    // 正常格式：xxx-xxx-xxx001
-    caseForm.case_number = `${caseNumberParts.part1}-${caseNumberParts.part2}-${caseNumberParts.part3}${formattedNumber}`;
-  }
-};
-
-const handleNumberInput = () => {
-  let inputValue = caseNumberParts.part4.replace(/[^0-9]/g, "");
-
-  if (inputValue.length > 3) {
-    inputValue = inputValue.slice(0, 3);
-  }
-
-  let num = parseInt(inputValue) || 1;
-  if (num < 1) {
-    num = 1;
-  } else if (num > 999) {
-    num = 999;
-  }
-
-  caseNumberParts.part4 = num.toString().padStart(3, "0");
-  updateCaseNumber();
-};
-
-const caseFormRules = reactive({
-  case_name: [
-    { required: true, message: "请输入测试用例名称", trigger: "blur" },
-  ],
-  case_number: [
-    { required: true, message: "请输入测试用例编号", trigger: "blur" },
-    {
-      validator: (rule, value, callback) => {
-        const regex = /^.+-.+-.+\d{3}$/;
-        if (!regex.test(value)) {
-          callback(
-            new Error(
-              "用例编号格式不正确，应为: XXX-XXX-XXX001~XXX-XXX-XXX999",
-            ),
-          );
-        } else {
-          const numRegex = /\d{3}$/;
-          const match = value.match(numRegex);
-          if (match) {
-            const num = parseInt(match[0]);
-            if (num < 1 || num > 999) {
-              callback(new Error("用例编号数字部分必须在001-999之间"));
-            } else {
-              callback();
-            }
-          } else {
-            callback(
-              new Error(
-                "用例编号格式不正确，应为：xxx-xxx-xxx001~xxx-xxx-xxx999",
-              ),
-            );
-          }
-        }
-      },
-      trigger: ["blur", "change"],
-    },
-  ],
-  suite_id: [
-    { required: true, message: "请选择所属用例集", trigger: "change" },
-  ],
-});
-
-// 用例列表相关
-const selectedSuite = ref(null);
-const testCases = ref([]);
-const allTestCases = ref([]);
-const totalCases = ref(0);
-const currentPage = ref(1);
-const pageSize = ref(10);
-const viewMode = ref("list");
-
-const editingCaseId = ref(null);
-const editingField = ref(null);
-const editingValue = ref("");
-
-const showSelection = ref(false);
-const selectedCases = ref([]);
-const caseTableRef = ref(null);
-// 使用Set存储选中的用例ID，实现跨分页选择
-const selectedCaseIds = ref(new Set());
-
-const initiateReviewVisible = ref(false);
-const reviewFormRef = ref(null);
-const reviewSuitePopoverVisible = ref(false);
-const reviewSuitePath = ref("");
-const reviewForm = reactive({
-  suite_id: null,
-  suite_name: "",
-  reviewer_id: null,
-});
-const reviewFormRules = reactive({
-  suite_id: [
-    { required: true, message: "请选择所属用例集", trigger: "change" },
-  ],
-  reviewer_id: [{ required: true, message: "请选择评审人", trigger: "change" }],
-});
-const reviewerOptions = ref([]);
-
-// 评审状态相关
-const userStore = useUserStore();
-const router = useRouter();
-const route = useRoute();
-
-// 用例集信息跳转：项目/迭代/需求 -> 对应列表页并高亮该条；创建人 -> 用户管理
-const goToProject = (suite) => {
-  router.push({
-    name: "Projects",
-    query: suite?.project_id ? { highlight_id: String(suite.project_id) } : {},
-  });
-};
-const goToIteration = (suite) => {
-  const query = {};
-  if (suite?.project_id) query.project_id = String(suite.project_id);
-  if (suite?.iteration_id) query.highlight_id = String(suite.iteration_id);
-  router.push({ name: "Iterations", query });
-};
-const goToRequirement = (suite) => {
-  router.push({
-    name: "Requirements",
-    query: suite?.version_requirement_id
-      ? { highlight_id: String(suite.version_requirement_id) }
-      : {},
-  });
-};
-const goToUser = (suite) => {
-  if (suite?.creator_id) {
-    router.push({
-      name: "Users",
-      query: { user_id: suite.creator_id },
-    });
-  } else {
-    router.push({ name: "Users" });
-  }
-};
-
-const suiteReviewStatus = ref(null);
-const isLoadingReviewStatus = ref(false);
-const reviewButtonText = ref("发起评审");
-const reviewDialogVisible = ref(false);
-const reviewDialogTitle = ref("");
-const reviewDialogContent = ref("");
-const reviewDialogType = ref("detail"); // detail: 详情页面, message: 提示消息
-const currentReviewTask = ref(null);
-
-// 评审人不能为自己，排除当前用户；使用 /users/options 不依赖 user.list 权限
-const loadReviewers = async () => {
+async function loadFolderTree() {
   try {
-    const response = await getUserOptions({ size: 1000 });
-    const users = response.data?.items || [];
-    const currentUserId = userStore.userInfo?.id;
-    reviewerOptions.value = currentUserId
-      ? users.filter((u) => u.id !== currentUserId)
-      : users;
-  } catch (error) {
-    console.error("获取评审人列表失败:", error);
-    ElMessage.error("获取评审人列表失败，请稍后重试");
+    const params = filterProjectId.value ? { project_id: filterProjectId.value } : {};
+    const res = await getFolderTree(params);
+    const payload = res.data || {};
+    const tree = payload.tree || payload || [];
+    const rootSuiteCount = payload.root_suite_count || 0;
+
+    const treeArr = Array.isArray(tree) ? tree : [];
+    // 「全部」作为唯一根节点，其 children 为所有根级文件夹，便于拖拽到「全部」下（即移为根级）
+    folderTree.value = [
+      {
+        id: 0,
+        suite_name: "全部",
+        type: "folder",
+        parent_id: null,
+        suite_count: rootSuiteCount,
+        children: treeArr,
+        _virtual: true,
+      },
+    ];
+  } catch {
+    ElMessage.error("加载文件夹目录失败");
   }
-};
+}
 
-// 获取用例集路径
-const getSuitePath = (suiteId, separator = " / ") => {
-  let path = "";
-  let currentId = suiteId;
-  const findPath = (node, id) => {
-    if (node.id === id) {
-      path = node.suite_name + (path ? separator + path : "");
-      return true;
-    }
-    if (node.children && node.children.length > 0) {
-      for (const child of node.children) {
-        if (findPath(child, id)) {
-          path = node.suite_name + separator + path;
-          return true;
-        }
-      }
-    }
-    return false;
-  };
-
-  // 遍历所有根节点
-  for (const root of treeData.value) {
-    if (findPath(root, currentId)) {
-      break;
-    }
-  }
-
-  return path;
-};
-
-const handleReviewSuiteSelect = (data) => {
-  if (data.type === "suite") {
-    reviewForm.suite_id = data.id;
-    reviewForm.suite_name = data.suite_name;
-    reviewSuitePath.value = getSuitePath(data.id);
-    reviewSuitePopoverVisible.value = false;
-  }
-};
-
-const showInitiateReviewDialog = () => {
-  if (selectedSuite.value && selectedSuite.value.type === "suite") {
-    reviewForm.suite_id = selectedSuite.value.id;
-    reviewForm.suite_name = selectedSuite.value.suite_name;
-    reviewSuitePath.value = getSuitePath(selectedSuite.value.id);
-    reviewForm.reviewer_id = null;
-    loadReviewers(); // 刷新评审人列表（排除当前用户）
-    initiateReviewVisible.value = true;
-  }
-};
-
-const handleInitiateReview = async () => {
-  if (!reviewFormRef.value) return;
-
-  await reviewFormRef.value.validate();
-
+async function loadCaseSets() {
+  if (!selectedFolder.value) return;
+  tableLoading.value = true;
   try {
-    // 调用发起评审API（不需要description参数）
-    await initiateReview(reviewForm.suite_id, {
-      reviewer_id: reviewForm.reviewer_id,
-    });
+    const params = {
+      page: pagination.page,
+      page_size: pagination.pageSize,
+      search: caseSetSearch.value,
+      review_status: reviewStatusFilter.value || undefined,
+    };
+    if (filterProjectId.value) params.project_id = filterProjectId.value;
+    const res = await getCaseSets(selectedFolder.value.id, params);
+    const d = res.data || {};
+    caseSets.value = d.items || [];
+    pagination.total = d.total || 0;
+  } catch {
+    ElMessage.error("加载用例集列表失败");
+  } finally {
+    tableLoading.value = false;
+  }
+}
 
-    ElMessage.success("发起评审成功");
-    initiateReviewVisible.value = false;
+async function loadProjects() {
+  try {
+    const res = await getProjects({ page: 1, size: 10000 });
+    projectOptions.value = res.data?.items ?? (Array.isArray(res.data) ? res.data : []) ?? [];
+    if (projectOptions.value.length && filterProjectId.value == null) {
+      filterProjectId.value = projectOptions.value[0].id;
+      loadFolderTree();
+    }
+  } catch {
+    projectOptions.value = [];
+  }
+}
 
-    // 刷新当前套件评审状态与按钮文案，避免仍显示「暂未发起评审」
-    await getSuiteReviewStatusData(reviewForm.suite_id);
-    // 刷新用例集信息，可能需要更新评审状态
-    loadTreeData();
-  } catch (error) {
-    console.error("发起评审失败:", error);
-    const msg = error.response?.data?.message || error.message || "发起评审失败，请稍后重试";
+function onProjectFilterChange() {
+  loadFolderTree();
+  selectedFolder.value = null;
+  caseSets.value = [];
+}
+
+async function loadRecycled() {
+  recycleLoading.value = true;
+  recycleSelectedIds.value = [];
+  recycleSelectAll.value = false;
+  try {
+    const params = {
+      page: recyclePagination.page,
+      page_size: recyclePagination.pageSize,
+      ...(filterProjectId.value ? { project_id: filterProjectId.value } : {}),
+    };
+    const res = await getRecycledSuites(params);
+    const data = res.data || {};
+    recycledList.value = data.items || [];
+    recyclePagination.total = data.total ?? 0;
+  } catch {
+    recycledList.value = [];
+    recyclePagination.total = 0;
+  } finally {
+    recycleLoading.value = false;
+  }
+}
+
+function toggleRecycleSelected(id, checked) {
+  if (checked) {
+    if (!recycleSelectedIds.value.includes(id)) recycleSelectedIds.value = [...recycleSelectedIds.value, id];
+  } else {
+    recycleSelectedIds.value = recycleSelectedIds.value.filter((x) => x !== id);
+  }
+  recycleSelectAll.value = recycledList.value.length > 0 && recycleSelectedIds.value.length === recycledList.value.length;
+}
+
+function onRecycleSelectAllChange(checked) {
+  if (checked) {
+    recycleSelectedIds.value = recycledList.value.map((x) => x.id);
+  } else {
+    recycleSelectedIds.value = [];
+  }
+}
+
+async function batchPermanentDeleteRecycled() {
+  if (!recycleSelectedIds.value.length) return;
+  try {
+    await ElMessageBox.confirm(
+      `确定彻底删除选中的 ${recycleSelectedIds.value.length} 项吗？删除后不可恢复。`,
+      "批量彻底删除",
+      { type: "warning" }
+    );
+    await batchPermanentDeleteRecycledSuites(recycleSelectedIds.value);
+    ElMessage.success("已彻底删除");
+    await loadRecycled();
+    await loadFolderTree();
+  } catch (e) {
+    if (e !== "cancel" && !e?._messageShown) {
+      const msg = e?.response?.data?.message || e?.message || "批量彻底删除失败";
+      ElMessage.error(msg);
+    }
+  }
+}
+
+async function restoreRecycled(id) {
+  try {
+    await restoreRecycledSuite(id);
+    ElMessage.success("已恢复");
+    await loadRecycled();
+    await loadFolderTree();
+    if (selectedFolder.value) await loadCaseSets();
+  } catch (err) {
+    if (!err?._messageShown) {
+      const msg = err?.response?.data?.message || err?.message || "恢复失败";
+      ElMessage.error(msg);
+    }
+  }
+}
+
+async function permanentDeleteRecycled(item) {
+  try {
+    await ElMessageBox.confirm(`确定彻底删除"${item.suite_name}"吗？删除后不可恢复。`, "确认彻底删除", { type: "warning" });
+    await deleteTestSuite(item.id, { permanent: true });
+    ElMessage.success("已彻底删除");
+    await loadRecycled();
+    await loadFolderTree();
+  } catch { /* cancelled */ }
+}
+
+async function loadRequirements() {
+  try {
+    const { default: request } = await import("@/utils/request");
+    const res = await request({ url: "/test-suites", method: "get", params: { all: true } });
+    // Attempt to load requirements from a dedicated API if available
+    try {
+      const reqRes = await request({ url: "/iterations", method: "get", params: { page: 1, page_size: 1000 } });
+      // We need version requirements - try to get them
+      const vrRes = await request({ url: "/test-suites/options", method: "get" });
+    } catch { /* ignore */ }
+  } catch { /* ignore */ }
+}
+
+function handleFolderClick(data) {
+  selectedFolder.value = data;
+  pagination.page = 1;
+  loadCaseSets();
+}
+
+function handleRowClick(row) {
+  if (editingSuiteId.value != null) return;
+  openMindmap(row);
+}
+
+function openMindmap(row) {
+  const taskId = generatingMap[row.id];
+  let url = `/mindmap-editor?suite_id=${row.id}&suite_name=${encodeURIComponent(row.suite_name)}`;
+  if (taskId && typeof taskId === 'string') {
+    url += `&generating=1&task_id=${encodeURIComponent(taskId)}`;
+  }
+  window.open(url, "_blank");
+}
+
+function startEditSuiteName(row) {
+  if (generatingMap[row.id]) return;
+  editingSuiteId.value = row.id;
+  editingSuiteName.value = row.suite_name || "";
+  nextTick(() => suiteNameInputRef.value?.focus());
+}
+
+async function saveSuiteNameEdit() {
+  const id = editingSuiteId.value;
+  if (id == null) return;
+  const name = (editingSuiteName.value || "").trim();
+  editingSuiteId.value = null;
+  editingSuiteName.value = "";
+  if (name === "") return;
+  const row = caseSets.value.find((r) => r.id === id);
+  if (row && row.suite_name === name) return;
+  try {
+    await updateTestSuite(id, { suite_name: name });
+    ElMessage.success("名称已更新");
+    await loadCaseSets();
+    await loadFolderTree();
+  } catch (err) {
+    editingSuiteId.value = id;
+    editingSuiteName.value = name;
+    const msg = err?.response?.data?.message || err?.message || "更新失败";
     ElMessage.error(msg);
   }
-};
+}
 
-const filterNode = (value, data) => {
-  if (!value) return true;
-  return data.suite_name.includes(value);
-};
+function cancelSuiteNameEdit() {
+  editingSuiteId.value = null;
+  editingSuiteName.value = "";
+}
 
-watch(searchText, (newVal) => {
-  if (treeRef.value) {
-    treeRef.value.filter(newVal);
-  }
-});
+function handleAddFolder() {
+  folderDialogTitle.value = "新建文件夹";
+  folderForm.name = "";
+  folderForm.id = null;
+  folderForm.parentId = selectedFolder.value?.id || null;
+  folderDialogVisible.value = true;
+}
 
-const allowDrag = (node) => {
-  // 可以根据需要限制某些节点不能拖拽
-  return true;
-};
+function handleAddSubFolder() {
+  contextMenu.visible = false;
+  folderDialogTitle.value = "新建子文件夹";
+  folderForm.name = "";
+  folderForm.id = null;
+  folderForm.parentId = contextMenu.data?.id;
+  folderDialogVisible.value = true;
+}
 
-const allowDrop = (draggingNode, dropNode, type) => {
-  if (type === "inner") {
-    // 限制5级深度
-    const level = dropNode.level;
-    if (level >= 5) {
-      return false;
+function handleNewUnderNode() {
+  contextMenu.visible = false;
+  const parent = contextMenu.data;
+  createTypeForm.createType = "folder";
+  createTypeForm.folderName = "";
+  createTypeForm.parentFolderName = parent?.suite_name ?? "全部";
+  createTypeForm.parentId = (parent?.id !== undefined && parent?.id !== null) ? parent.id : 0;
+  createTypeForm.project_id = filterProjectId.value ?? projectOptions.value[0]?.id ?? null;
+  createTypeForm.suite_name = "";
+  createTypeForm.description = "";
+  createTypeForm.version_requirement_id = null;
+  createTypeFolderTree.value = folderTree.value;
+  if (createTypeForm.project_id) loadRequirementOptionsByProject(createTypeForm.project_id);
+  createTypeDialogVisible.value = true;
+}
+
+function onCreateTypeProjectChange(projectId) {
+  loadRequirementOptionsByProject(projectId);
+}
+
+function resetCreateTypeForm() {
+  createTypeForm.createType = "folder";
+  createTypeForm.folderName = "";
+  createTypeForm.parentFolderName = "";
+  createTypeForm.parentId = null;
+  createTypeForm.project_id = null;
+  createTypeForm.suite_name = "";
+  createTypeForm.description = "";
+  createTypeForm.version_requirement_id = null;
+}
+
+async function submitCreateType() {
+  if (createTypeForm.createType === "folder") {
+    if (!createTypeForm.folderName.trim()) {
+      ElMessage.warning("文件夹名称不能为空");
+      return;
     }
-    // 禁止将「用例集」类型的套件拖入同为「用例集」类型的套件内部（仅文件夹可包含用例集）
-    const dragType = draggingNode?.data?.type;
-    const dropType = dropNode?.data?.type;
-    if (dragType === "suite" && dropType === "suite") {
-      return false;
-    }
-  }
-  return true;
-};
-
-const handleNodeExpand = (data) => {
-  if (!expandedKeys.value.includes(data.id)) {
-    expandedKeys.value.push(data.id);
-    // 存储到localStorage
-    localStorage.setItem('testCaseExpandedKeys', JSON.stringify(expandedKeys.value));
-  }
-  // 展开后滚动到当前节点
-  scrollToCurrentNode();
-};
-
-const findNodeInTree = (nodes, id) => {
-  if (!nodes || !nodes.length) return null;
-  for (const n of nodes) {
-    if (n.id === id) return n;
-    const found = findNodeInTree(n.children, id);
-    if (found) return found;
-  }
-  return null;
-};
-
-const collectNodeAndDescendantIds = (nodeOrId) => {
-  const node = typeof nodeOrId === 'object' && nodeOrId !== null
-    ? nodeOrId
-    : findNodeInTree(treeData.value, nodeOrId);
-  if (!node) return [typeof nodeOrId === 'object' ? nodeOrId?.id : nodeOrId].filter(Boolean);
-  const ids = [node.id];
-  const walk = (list) => {
-    if (!list || !list.length) return;
-    for (const n of list) {
-      ids.push(n.id);
-      if (n.children?.length) walk(n.children);
-    }
-  };
-  walk(node.children);
-  return ids;
-};
-
-const handleNodeCollapse = (data) => {
-  const toRemove = collectNodeAndDescendantIds(data);
-  const keySet = new Set(expandedKeys.value);
-  toRemove.forEach((id) => keySet.delete(id));
-  expandedKeys.value = Array.from(keySet);
-  localStorage.setItem('testCaseExpandedKeys', JSON.stringify(expandedKeys.value));
-  // 强制树重新挂载，使 default-expanded-keys 生效（组件内部不响应 prop 变化，需 remount 才能看到收起）
-  treeMountKey.value += 1;
-};
-
-// 获取用例集评审状态（仅当当前选中的仍是该套件时更新状态，避免切换套件后旧请求覆盖新数据）
-const getSuiteReviewStatusData = async (suiteId) => {
-  isLoadingReviewStatus.value = true;
-  try {
-    const response = await getSuiteReviewStatus(suiteId);
-    if (selectedSuite.value?.id === suiteId) {
-      suiteReviewStatus.value = response.data;
-    }
-    updateReviewButtonText();
-  } catch (error) {
-    console.error("获取用例集评审状态失败:", error);
-    if (selectedSuite.value?.id === suiteId) {
-      suiteReviewStatus.value = null;
-    }
-    updateReviewButtonText();
-  } finally {
-    isLoadingReviewStatus.value = false;
-  }
-};
-
-const updateReviewButtonText = () => {
-  if (!selectedSuite.value || selectedSuite.value.type !== "suite") {
-    reviewButtonText.value = "发起评审";
-    return;
-  }
-
-  // 获取评审状态和相关信息
-  const status = suiteReviewStatus.value?.current_status || "not_submitted";
-  const reviewerId = suiteReviewStatus.value?.current_reviewer_id;
-  const isCreator =
-    userStore.userInfo &&
-    userStore.userInfo.id === selectedSuite.value.creator_id;
-  const isReviewer = userStore.userInfo && userStore.userInfo.id === reviewerId;
-
-  // 根据用户角色和评审状态更新按钮文本
-  if (isCreator) {
-      // 作为评审发起人
-      if (status === "not_submitted") {
-        reviewButtonText.value = "发起评审";
-      } else if (status === "pending") {
-        reviewButtonText.value = "评审待处理";
-      } else if (status === "in_review") {
-        reviewButtonText.value = "等待评审中";
-      } else if (status === "approved" || status === "completed" || status === "rejected") {
-        reviewButtonText.value = "重新发起评审";
-      }
-    } else if (isReviewer) {
-    // 作为评审人
-    if (status === "not_submitted") {
-      reviewButtonText.value = "暂未发起评审";
-    } else if (status === "pending") {
-      reviewButtonText.value = "开始评审";
-    } else if (status === "in_review") {
-      reviewButtonText.value = "继续评审";
-    } else if (
-      status === "approved" ||
-      status === "completed" ||
-      status === "rejected"
-    ) {
-      reviewButtonText.value = "查看评审";
-    }
-  } else {
-    // 作为其他用户
-    if (status === "not_submitted") {
-      reviewButtonText.value = "暂未发起评审";
-    } else if (status === "pending") {
-      reviewButtonText.value = "评审待处理";
-    } else if (status === "in_review") {
-      reviewButtonText.value = "等待评审中";
-    } else {
-      reviewButtonText.value = "查看评审";
-    }
-  }
-};
-
-const formatDate = (dateString) => {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  return date.toLocaleString("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-};
-
-const getStatusTagType = (status) => {
-  const typeMap = {
-    pending: "warning",
-    in_review: "primary",
-    completed: "success",
-    rejected: "danger",
-    not_submitted: "info",
-  };
-  return typeMap[status] || "info";
-};
-
-const getStatusText = (status) => {
-  const textMap = {
-    pending: "待评审",
-    in_review: "评审中",
-    completed: "已完成",
-    rejected: "已拒绝",
-    not_submitted: "未提交",
-  };
-  return textMap[status] || "未知状态";
-};
-
-const getPriorityTagType = (priority) => {
-  const typeMap = {
-    P0: "danger",
-    P1: "danger",
-    P2: "warning",
-    P3: "info",
-    P4: "success",
-  };
-  return typeMap[priority] || "info";
-};
-
-const getCaseReviewStatusTagType = (status) => {
-  const typeMap = {
-    passed: "success",
-    failed: "danger",
-    pending: "warning",
-    in_review: "primary",
-    approved: "success",
-    rejected: "danger",
-  };
-  return typeMap[status] || "info";
-};
-
-const getCaseReviewStatusText = (status) => {
-  const textMap = {
-    passed: "通过",
-    failed: "拒绝",
-    pending: "待评审",
-    in_review: "评审中",
-    approved: "通过",
-    rejected: "拒绝",
-  };
-  return textMap[status] || "未知状态";
-};
-
-const fetchReviewDetail = async (taskId) => {
-  try {
-    // 获取评审任务详情
-    const taskResponse = await getReviewTask(taskId);
-    currentReviewTask.value = taskResponse.data;
-
-    // 获取用例评审详情
-    const casesResponse = await getCaseReviews(taskId);
-    currentReviewTask.value.case_reviews =
-      casesResponse.data.case_reviews || [];
-  } catch (error) {
-    console.error("获取评审详情失败:", error);
-    ElMessage.error("获取评审详情失败");
-  }
-};
-
-// 先拉取最新评审状态再执行操作，避免「暂未」与真实不符
-const handleReviewButtonClick = async () => {
-  if (!selectedSuite.value || selectedSuite.value.type !== "suite") {
-    return;
-  }
-
-  await getSuiteReviewStatusData(selectedSuite.value.id);
-
-  // 获取评审状态和相关信息（已为刚拉取的最新状态）
-  const status = suiteReviewStatus.value?.current_status || "not_submitted";
-  const reviewerId = suiteReviewStatus.value?.current_reviewer_id;
-  const isCreator =
-    userStore.userInfo &&
-    userStore.userInfo.id === selectedSuite.value.creator_id;
-  const isReviewer = userStore.userInfo && userStore.userInfo.id === reviewerId;
-
-  if (isCreator) {
-      // 作为评审发起人
-      if (status === "not_submitted") {
-        // 发起评审
-        showInitiateReviewDialog();
-      } else if (status === "pending") {
-        // 显示悬浮提示信息
-        ElMessage.info("等待评审人处理...");
-      } else if (status === "in_review") {
-        // 显示悬浮提示信息
-        ElMessage.info("等待评审人完成评审...");
-      } else if (status === "approved" || status === "completed" || status === "rejected") {
-        // 跳转用例评审页并打开该用例集对应的评审任务详情，便于发起人点击「重新发起评审」
-        const latestTaskId = suiteReviewStatus.value?.latest_task_id;
-        const query = { activeTab: "my-initiated", suiteId: selectedSuite.value.id };
-        if (latestTaskId != null) query.taskId = String(latestTaskId);
-        router.push({ path: "/case-reviews", query });
-      }
-    } else if (isReviewer) {
-    // 作为评审人
-    if (status === "not_submitted") {
-      // 显示悬浮提示信息
-      ElMessage.info("该用例集创建者暂未发起评审...");
-    } else if (status === "pending") {
-      // 跳转到待我评审标签页
-      router.push({ path: "/case-reviews", query: { activeTab: "my-tasks" } });
-    } else if (status === "in_review") {
-      // 跳转到待我评审标签页
-      router.push({ path: "/case-reviews", query: { activeTab: "my-tasks" } });
-    } else if (
-      status === "approved" ||
-      status === "completed" ||
-      status === "rejected"
-    ) {
-      // 跳转到待我评审标签页
-      router.push({ path: "/case-reviews", query: { activeTab: "my-tasks" } });
-    }
-  } else {
-    // 作为其他用户
-    if (status === "not_submitted") {
-      // 显示悬浮提示信息
-      ElMessage.info("该用例集创建者暂未发起评审...");
-    } else if (status === "pending") {
-      // 显示悬浮提示信息
-      ElMessage.info("等待评审人处理...");
-    } else if (status === "in_review") {
-      // 显示悬浮提示信息
-      ElMessage.info("等待评审人完成评审...");
-    } else {
-      // 先获取最新的评审任务ID
-      const reviewStatusResponse = await getSuiteReviewStatus(
-        selectedSuite.value.id,
-      );
-
-      // 获取最新的评审任务
-      let latestTaskId = null;
-      if (
-        reviewStatusResponse.data.review_history &&
-        reviewStatusResponse.data.review_history.length > 0
-      ) {
-        // 从评审历史中获取最新的评审任务ID
-        latestTaskId = reviewStatusResponse.data.review_history[0].task_id;
-      }
-
-      if (latestTaskId) {
-        // 获取评审详情
-        await fetchReviewDetail(latestTaskId);
-
-        // 显示评审详情页面
-        reviewDialogType.value = "detail";
-        reviewDialogTitle.value = "评审详情";
-        reviewDialogVisible.value = true;
-      } else {
-        // 如果没有找到评审任务，显示提示
-        ElMessage.error("未找到评审任务详情");
-      }
-    }
-  }
-};
-
-const handleNodeClick = (data) => {
-  selectedSuite.value = data;
-  // 存储选中状态到localStorage
-  localStorage.setItem('testCaseSelectedSuite', JSON.stringify(data));
-  
-  // 确保树节点选中并滚动到视图中
-  nextTick(() => {
-    if (treeRef.value) {
-      treeRef.value.setCurrentKey(data.id);
-      scrollToCurrentNode();
-    }
-  });
-  
-  if (data.type === "suite") {
-    // 只有用例集才能加载测试用例
-    loadTestCases(data.id);
-    // 获取用例集评审状态
-    getSuiteReviewStatusData(data.id);
-    // 若当前处于脑图视图，同步更新脑图数据
-    if (viewMode.value === "mindmap") {
-      loadAllTestCases(data.id).then(() => {
-        generateMindMapData();
-      });
-    }
-  } else {
-    // 文件夹清空测试用例列表
-    testCases.value = [];
-    totalCases.value = 0;
-    suiteReviewStatus.value = null;
-    reviewButtonText.value = "发起评审";
-  }
-};
-
-const scrollToCurrentNode = () => {
-  nextTick(() => {
-    const treeContainer = document.querySelector('.left-panel .tree-container');
-    const currentNode = document.querySelector('.el-tree-node.is-current');
-    
-    if (treeContainer && currentNode) {
-      // 获取容器和节点的位置信息
-      const containerRect = treeContainer.getBoundingClientRect();
-      const nodeRect = currentNode.getBoundingClientRect();
-      
-      // 计算节点在容器中的相对位置
-      const nodeOffsetTop = currentNode.offsetTop;
-      const nodeOffsetLeft = currentNode.offsetLeft;
-      
-      // 垂直滚动：将节点滚动到容器中间位置
-      const scrollTop = nodeOffsetTop - (containerRect.height / 2) + (nodeRect.height / 2);
-      treeContainer.scrollTop = Math.max(0, scrollTop);
-      
-      // 水平滚动：如果节点超出可视区域，则滚动到该节点
-      const scrollLeft = nodeOffsetLeft - 20; // 留一点边距
-      if (scrollLeft > 0) {
-        treeContainer.scrollLeft = scrollLeft;
-      } else {
-        treeContainer.scrollLeft = 0;
-      }
-    }
-  });
-};
-
-const startEdit = (data) => {
-  isDraggable.value = false; // 禁用拖拽功能
-  editingNodeId.value = data.id;
-  editingNodeName.value = data.suite_name;
-  // 延迟聚焦，确保输入框已渲染
-  setTimeout(() => {
-    if (editInputRef.value) {
-      editInputRef.value.focus();
-    }
-  }, 100);
-};
-
-const saveEdit = async (data) => {
-  if (!editingNodeName.value.trim()) {
-    ElMessage.warning("套件名称不能为空");
-    return;
-  }
-
-  try {
-    await updateTestSuite(data.id, {
-      suite_name: editingNodeName.value.trim(),
-    });
-    data.suite_name = editingNodeName.value.trim();
-    ElMessage.success("套件名称已更新");
-    editingNodeId.value = null;
-    isDraggable.value = true; // 恢复拖拽功能
-  } catch (error) {
-    console.error("更新套件名称失败:", error);
-    ElMessage.error("更新套件名称失败");
-  }
-};
-
-const cancelEdit = () => {
-  editingNodeId.value = null;
-  isDraggable.value = true; // 恢复拖拽功能
-};
-
-const handleNodeDrop = async (draggingNode, dropNode, dropType) => {
-  // 处理拖拽逻辑，更新节点位置
-  console.log("Node dropped:", draggingNode, dropNode, dropType);
-
-  try {
-    let parentId = null;
-    let sortOrder = 0;
-
-    if (dropType === "inner") {
-      // 拖入节点内部，设置parent_id为dropNode的id
-      parentId = dropNode.data.id;
-      // 计算新的sort_order，添加到尾部
-      // 获取该文件夹下最大的sort_order值，确保新节点排序到末尾
-      const lastChild =
-        dropNode.data.children && dropNode.data.children.length > 0
-          ? [...dropNode.data.children].sort(
-              (a, b) => b.sort_order - a.sort_order,
-            )[0]
-          : null;
-      sortOrder = lastChild ? lastChild.sort_order + 1 : 1;
-    } else if (dropType === "before") {
-      // 拖到节点前面，设置parent_id与dropNode相同
-      parentId = dropNode.data.parent_id;
-      // 对于'before'类型，我们希望当前节点被放置在dropNode之前
-      // 所以设置sort_order为dropNode的sort_order
-      sortOrder = dropNode.data.sort_order;
-    } else if (dropType === "after") {
-      // 拖到节点后面，设置parent_id与dropNode相同
-      parentId = dropNode.data.parent_id;
-      // 对于'after'类型，我们希望当前节点被放置在dropNode之后
-      // 所以设置sort_order为dropNode的sort_order + 1
-      sortOrder = dropNode.data.sort_order + 1;
-    }
-
-    await updateTestSuite(draggingNode.data.id, {
-      parent_id: parentId,
-      sort_order: sortOrder,
-    });
-
-    // 重新加载树形数据
-    await loadTreeData();
-
-    ElMessage.success("套件位置已更新");
-  } catch (error) {
-    console.error("更新套件位置失败:", error);
-    ElMessage.error("更新套件位置失败，请稍后重试");
-  }
-};
-
-const handleContextMenu = (event, data, node) => {
-  // 阻止默认的右键菜单
-  event.preventDefault();
-
-  // 保存选中的节点数据
-  selectedNode.value = data;
-
-  // 设置右键菜单位置
-  // 考虑页面滚动和视口边界
-  const x = event.clientX + window.scrollX;
-  const y = event.clientY + window.scrollY;
-
-  // 设置菜单位置
-  contextMenuStyle.left = `${x}px`;
-  contextMenuStyle.top = `${y}px`;
-
-  // 强制显示菜单
-  contextMenuVisible.value = true;
-
-  // 确保菜单在最顶层
-  contextMenuStyle.zIndex = 10000;
-};
-
-const closeContextMenu = () => {
-  contextMenuVisible.value = false;
-};
-
-onMounted(() => {
-  // 使用mousedown事件而不是click事件，因为contextmenu事件会在mousedown事件之后，click事件之前触发
-  // 这样可以避免右键点击时立即关闭菜单
-  document.addEventListener("mousedown", (event) => {
-    // 只有左键点击才关闭菜单
-    if (event.button === 0) {
-      // 检查点击的不是右键菜单本身
-      if (
-        contextMenuRef.value &&
-        !contextMenuRef.value.contains(event.target)
-      ) {
-        closeContextMenu();
-      }
-    }
-  });
-  loadTreeData();
-  // 加载评审人列表
-  loadReviewers();
-});
-
-onUnmounted(() => {
-  document.removeEventListener("click", handleSuitePopoverGlobalClick);
-});
-
-const getAllNodeIds = (nodes) => {
-  let ids = [];
-  if (!nodes || !nodes.length) return ids;
-
-  for (const node of nodes) {
-    ids.push(node.id);
-    if (node.children && node.children.length) {
-      ids = [...ids, ...getAllNodeIds(node.children)];
-    }
-  }
-  return ids;
-};
-
-const loadTreeData = async () => {
-  try {
-    const response = await getTestSuiteTree();
-    treeData.value = response.data;
-
-    suiteOptions.value = buildSuiteOptions();
-
-    const savedExpandedKeys = localStorage.getItem('testCaseExpandedKeys');
-    if (savedExpandedKeys) {
-      try {
-        expandedKeys.value = JSON.parse(savedExpandedKeys);
-      } catch (error) {
-        console.error('Failed to parse saved expanded keys:', error);
-        expandedKeys.value = (treeData.value || []).map((n) => n.id).filter(Boolean);
-      }
-    } else {
-      // 默认展开根目录（所有顶层节点）
-      expandedKeys.value = (treeData.value || []).map((n) => n.id).filter(Boolean);
-    }
-
-    // 强制树重新挂载，使 default-expanded-keys 生效（Element Plus 树仅在挂载时读取该 prop，数据异步加载后需 remount）
-    treeMountKey.value += 1;
-
-    // 检查路由参数中是否有 suite_id，如果有则自动选中对应的用例集（含从用例评审页返回时的刷新）
-    if (route.query.suite_id) {
-      const suiteId = parseInt(route.query.suite_id);
-      await selectSuiteById(suiteId);
-      // 若来自评审页，清除 fromReview 以保持 URL 简洁
-      if (route.query.fromReview) {
-        router.replace({ path: route.path, query: { suite_id: route.query.suite_id } });
-      }
-    } else {
-      // 从localStorage恢复选中状态
-      const savedSelectedSuite = localStorage.getItem('testCaseSelectedSuite');
-      if (savedSelectedSuite) {
-        try {
-          const selectedData = JSON.parse(savedSelectedSuite);
-          selectedSuite.value = selectedData;
-          
-          if (selectedData.type === "suite") {
-            // 加载该用例集的测试用例
-            await loadTestCases(selectedData.id);
-            // 获取用例集评审状态
-            getSuiteReviewStatusData(selectedData.id);
-            
-            // 确保树形组件高亮显示当前节点并滚动到该节点
-            await nextTick();
-            if (treeRef.value) {
-              treeRef.value.setCurrentKey(selectedData.id);
-              scrollToCurrentNode();
-            }
-          }
-        } catch (error) {
-          console.error('Failed to parse saved selected suite:', error);
-        }
-      }
-    }
-  } catch (error) {
-    ElMessage.error("加载测试套件失败");
-    console.error("Failed to load test suites:", error);
-  }
-};
-
-const selectSuiteById = async (suiteId) => {
-  try {
-    // 查找对应的用例集节点
-    const findNode = (nodes, id) => {
-      for (const node of nodes) {
-        if (node.id === id) {
-          return node;
-        }
-        if (node.children && node.children.length > 0) {
-          const found = findNode(node.children, id);
-          if (found) {
-            return found;
-          }
-        }
-      }
-      return null;
-    };
-
-    const suiteNode = findNode(treeData.value, suiteId);
-    if (suiteNode) {
-      // 选中该节点并与 localStorage 同步，便于刷新后恢复
-      selectedSuite.value = suiteNode;
-      try {
-        localStorage.setItem("testCaseSelectedSuite", JSON.stringify(suiteNode));
-      } catch (_) {}
-      caseForm.suite_id = suiteId;
-
-      // 展开父节点
-      const expandParentNodes = (nodes, id, path = []) => {
-        for (const node of nodes) {
-          if (node.id === id) {
-            return path;
-          }
-          if (node.children && node.children.length > 0) {
-            const result = expandParentNodes(node.children, id, [
-              ...path,
-              node.id,
-            ]);
-            if (result) {
-              return result;
-            }
-          }
-        }
-        return null;
-      };
-
-      const parentPath = expandParentNodes(treeData.value, suiteId);
-      if (parentPath) {
-        expandedKeys.value = [
-          ...new Set([...expandedKeys.value, ...parentPath]),
-        ];
-        // 树仅在挂载时读取 default-expanded-keys，需重挂载后展开的父级才生效
-        treeMountKey.value += 1;
-      }
-
-      // 使用 nextTick 确保 DOM 更新后再加载测试用例和设置高亮
-      await nextTick();
-
-      // 加载该用例集的测试用例
-      await loadTestCases(suiteId);
-      // 从用例评审页返回或带 suite_id 进入时，拉取最新评审状态并刷新按钮文案
-      getSuiteReviewStatusData(suiteId);
-
-      // 确保树形组件高亮显示当前节点并滚动到该节点
-      await nextTick();
-      if (treeRef.value) {
-        treeRef.value.setCurrentKey(suiteId);
-        scrollToCurrentNode();
-      }
-    } else {
-      ElMessage.warning("未找到指定的用例集");
-    }
-  } catch (error) {
-    console.error("选择用例集失败:", error);
-  }
-};
-
-// 消息中心等从外部带 suite_id 跳转时，若页面已打开则需根据 query 定位用例集并高亮
-watch(
-  () => route.query.suite_id,
-  (newSuiteId) => {
-    if (!newSuiteId || !route.path.includes("test-cases")) return;
-    const suiteId = parseInt(newSuiteId, 10);
-    if (Number.isNaN(suiteId)) return;
-    if (treeData.value && treeData.value.length > 0) {
-      selectSuiteById(suiteId);
-    }
-  },
-);
-
-const loadProjects = async () => {
-  try {
-    isLoadingProjects.value = true;
-    const response = await getProjects({ page: 1, size: 10000 });
-    // 检查API返回的数据结构
-    console.log("Projects API response:", response);
-    if (
-      response &&
-      response.code === 200 &&
-      response.data &&
-      response.data.items
-    ) {
-      projects.value = response.data.items;
-    } else if (response && response.data && Array.isArray(response.data)) {
-      // 兼容旧版API返回格式
-      projects.value = response.data;
-    } else {
-      projects.value = [];
-      console.error("Projects API returned invalid data structure");
-    }
-  } catch (error) {
-    ElMessage.error("加载项目列表失败");
-    console.error("Failed to load projects:", error);
-    // 确保projects是数组
-    projects.value = [];
-  } finally {
-    isLoadingProjects.value = false;
-  }
-};
-
-const loadIterations = async (projectId) => {
-  if (!projectId) {
-    iterations.value = [];
-    return;
-  }
-
-  isLoadingIterations.value = true;
-  try {
-    const response = await getProjectIterations(projectId);
-    let allIterations = [];
-
-    // 处理API返回的数据格式
-    if (
-      response &&
-      response.code === 200 &&
-      response.data &&
-      response.data.items
-    ) {
-      allIterations = response.data.items;
-    } else if (response && response.data && Array.isArray(response.data)) {
-      // 兼容旧版API返回格式
-      allIterations = response.data;
-    }
-
-    // 获取当前选中的迭代ID（同时考虑suiteForm和autoCaseForm）
-    const suiteIterationId = suiteForm.iteration_id;
-    const autoIterationId = autoCaseForm.iteration_id;
-    const currentIterationId =
-      projectId === autoCaseForm.project_id
-        ? autoIterationId
-        : suiteIterationId;
-
-    // 如果当前有选中的迭代，但不在结果中，尝试添加到列表中
-    if (currentIterationId) {
-      const isIterationInList = allIterations.some(
-        (iter) => iter.id === currentIterationId,
-      );
-      if (!isIterationInList) {
-        // 检查selectedNode中是否有当前迭代的完整信息
-        if (selectedNode.value && selectedNode.value.iteration_name) {
-          // 将当前迭代添加到列表中，确保它能显示在下拉列表中
-          allIterations.push({
-            id: currentIterationId,
-            iteration_name: selectedNode.value.iteration_name,
-          });
-        }
-      }
-    }
-
-    iterations.value = allIterations;
-  } catch (error) {
-    ElMessage.error("加载迭代列表失败");
-    console.error("Failed to load iterations:", error);
-
-    // 即使API调用失败，也要确保当前选中的迭代能显示
-    // 获取当前选中的迭代ID（同时考虑suiteForm和autoCaseForm）
-    const suiteIterationId = suiteForm.iteration_id;
-    const autoIterationId = autoCaseForm.iteration_id;
-    const currentIterationId =
-      projectId === autoCaseForm.project_id
-        ? autoIterationId
-        : suiteIterationId;
-
-    if (currentIterationId) {
-      // 创建一个包含当前选中迭代的临时列表
-      iterations.value = [
-        {
-          id: currentIterationId,
-          iteration_name: selectedNode.value?.iteration_name || "当前选中迭代",
-        },
-      ];
-    } else {
-      iterations.value = [];
-    }
-  } finally {
-    isLoadingIterations.value = false;
-  }
-};
-
-const loadRequirements = async (projectId, iterationId) => {
-  if (!projectId || !iterationId) {
-    requirements.value = [];
-    return;
-  }
-
-  isLoadingRequirements.value = true;
-  try {
-    const response = await getProjectVersionRequirements(projectId);
-    let allRequirements = [];
-
-    // 处理API返回的数据格式
-    if (
-      response &&
-      response.code === 200 &&
-      response.data &&
-      response.data.items
-    ) {
-      allRequirements = response.data.items;
-    } else if (response && response.data && Array.isArray(response.data)) {
-      // 兼容旧版API返回格式
-      allRequirements = response.data;
-    }
-
-    // 根据迭代筛选需求
-    const filteredRequirements = allRequirements.filter(
-      (req) => req.iteration_id === iterationId,
-    );
-
-    // 获取当前选中的需求ID（同时考虑suiteForm和autoCaseForm）
-    const suiteRequirementId = suiteForm.version_requirement_id;
-    const autoRequirementId = autoCaseForm.version_requirement_id;
-    const currentRequirementId =
-      projectId === autoCaseForm.project_id &&
-      iterationId === autoCaseForm.iteration_id
-        ? autoRequirementId
-        : suiteRequirementId;
-
-    // 如果当前有选中的需求，但不在筛选结果中，尝试添加到列表中
-    if (currentRequirementId) {
-      const isRequirementInList = filteredRequirements.some(
-        (req) => req.id === currentRequirementId,
-      );
-      if (!isRequirementInList) {
-        // 从所有需求中查找当前选中的需求
-        let currentRequirement = allRequirements.find(
-          (req) => req.id === currentRequirementId,
-        );
-
-        // 如果在所有需求中找不到当前需求，使用selectedNode中的信息创建一个
-        if (
-          !currentRequirement &&
-          selectedNode.value &&
-          selectedNode.value.version_requirement_name
-        ) {
-          currentRequirement = {
-            id: currentRequirementId,
-            requirement_name: selectedNode.value.version_requirement_name,
-            iteration_id: iterationId,
-          };
-        }
-
-        // 将当前需求添加到筛选结果中，确保它能显示在下拉列表中
-        if (currentRequirement) {
-          filteredRequirements.push(currentRequirement);
-        }
-      }
-    }
-
-    requirements.value = filteredRequirements;
-  } catch (error) {
-    ElMessage.error("加载需求列表失败");
-    console.error("Failed to load requirements:", error);
-
-    // 即使API调用失败，也要确保当前选中的需求能显示
-    // 获取当前选中的需求ID（同时考虑suiteForm和autoCaseForm）
-    const suiteRequirementId = suiteForm.version_requirement_id;
-    const autoRequirementId = autoCaseForm.version_requirement_id;
-    const currentRequirementId =
-      projectId === autoCaseForm.project_id &&
-      iterationId === autoCaseForm.iteration_id
-        ? autoRequirementId
-        : suiteRequirementId;
-
-    if (currentRequirementId) {
-      // 创建一个包含当前选中需求的临时列表，使用真实需求名称
-      requirements.value = [
-        {
-          id: currentRequirementId,
-          requirement_name:
-            selectedNode.value?.version_requirement_name || "当前选中需求",
-        },
-      ];
-    } else {
-      requirements.value = [];
-    }
-  } finally {
-    isLoadingRequirements.value = false;
-  }
-};
-
-const loadTestCases = async (suiteId) => {
-  try {
-    const response = await getSuiteCases(suiteId, {
-      page: currentPage.value,
-      page_size: pageSize.value,
-    });
-    testCases.value = response.data.items;
-    totalCases.value = response.data.total;
-
-    // 延迟执行，确保表格已渲染
-    setTimeout(() => {
-      if (showSelection.value && caseTableRef.value) {
-        // 遍历当前页的用例，根据selectedCaseIds设置选中状态
-        testCases.value.forEach((caseItem) => {
-          if (selectedCaseIds.value.has(caseItem.id)) {
-            caseTableRef.value.toggleRowSelection(caseItem, true);
-          } else {
-            caseTableRef.value.toggleRowSelection(caseItem, false);
-          }
-        });
-      }
-    }, 100);
-
-    loadAllTestCases(suiteId);
-  } catch (error) {
-    ElMessage.error("加载测试用例失败");
-    console.error("Failed to load test cases:", error);
-  }
-};
-
-const loadAllTestCases = async (suiteId) => {
-  try {
-    // 加载所有数据，page_size设置为较大值
-    const response = await getSuiteCases(suiteId, {
-      page: 1,
-      page_size: 10000, // 足够大的值，确保获取所有数据
-    });
-    allTestCases.value = response.data.items;
-  } catch (error) {
-    console.error("Failed to load all test cases:", error);
-    // 失败时使用当前页数据作为备选
-    allTestCases.value = [...testCases.value];
-  }
-};
-
-const handleAddSuite = () => {
-  isEditSuite.value = false;
-  isContextMenuAction.value = false;
-  resetSuiteForm();
-
-  // 确保项目、迭代、需求参数为空
-  suiteForm.project_id = null;
-  suiteForm.iteration_id = null;
-  suiteForm.version_requirement_id = null;
-
-  suiteDialogVisible.value = true;
-  // 加载项目列表
-  loadProjects();
-};
-
-const handleAddSuiteFromMenu = () => {
-  isEditSuite.value = false;
-  isContextMenuAction.value = true;
-  resetSuiteForm();
-
-  // 在重置表单后设置parent_id，避免被重置
-  if (selectedNode.value) {
-    suiteForm.parent_id = selectedNode.value.id;
-  }
-
-  // 确保项目、迭代、需求参数为空
-  suiteForm.project_id = null;
-  suiteForm.iteration_id = null;
-  suiteForm.version_requirement_id = null;
-
-  suiteDialogVisible.value = true;
-  closeContextMenu();
-
-  // 加载项目列表
-  loadProjects();
-};
-
-const handleEditSuite = () => {
-  if (!selectedNode.value) return;
-  isEditSuite.value = true;
-  isContextMenuAction.value = true;
-
-  const suiteData = selectedNode.value;
-
-  // 设置初始化标志，跳过观察者触发的字段重置
-  isInitializingForm.value = true;
-
-  // 直接填充套件表单数据，不等待API调用
-  suiteForm.id = suiteData.id;
-  suiteForm.suite_name = suiteData.suite_name;
-  suiteForm.description = suiteData.description || "";
-  suiteForm.type = suiteData.type;
-  suiteForm.parent_id = suiteData.parent_id;
-  suiteForm.project_id = suiteData.project_id;
-  suiteForm.iteration_id = suiteData.iteration_id || null;
-  suiteForm.version_requirement_id = suiteData.version_requirement_id || null;
-
-  // 立即显示对话框，避免用户等待
-  suiteDialogVisible.value = true;
-  closeContextMenu();
-
-  // 异步加载数据，不阻塞UI
-  const loadDataAsync = async () => {
     try {
-      // 加载项目列表
-      await loadProjects();
-
-      // 如果有项目ID，加载对应的迭代和需求
-      if (suiteData.project_id) {
-        await loadIterations(suiteData.project_id);
-        // 如果有迭代ID，加载对应的需求
-        if (suiteData.iteration_id) {
-          await loadRequirements(suiteData.project_id, suiteData.iteration_id);
-        }
-      }
-    } catch (error) {
-      console.error("加载套件数据失败:", error);
-      ElMessage.error("加载套件数据失败，请刷新重试");
-    } finally {
-      // 初始化完成，恢复观察者功能
-      isInitializingForm.value = false;
+      await createTestSuite({
+        suite_name: createTypeForm.folderName.trim(),
+        type: "folder",
+        parent_id: createTypeForm.parentId || null,
+      });
+      ElMessage.success("文件夹创建成功");
+      createTypeDialogVisible.value = false;
+      await loadFolderTree();
+    } catch {
+      ElMessage.error("创建文件夹失败");
     }
-  };
-
-  // 启动异步加载
-  loadDataAsync();
-};
-
-const handleDeleteSuite = async () => {
-  if (!selectedNode.value) return;
-
-  // 根据套件类型生成带套件名称的确认提示
-  let confirmMessage = "";
-  if (selectedNode.value.type === "folder") {
-    // 文件夹删除提示，带套件名称
-    confirmMessage = `确定删除文件夹"${selectedNode.value.suite_name}"及其文件夹下所有内容吗？`;
-  } else {
-    // 用例集删除提示，带套件名称
-    confirmMessage = `确定删除用例集"${selectedNode.value.suite_name}"吗？`;
+    return;
   }
-
-  ElMessageBox.confirm(confirmMessage, "警告", {
-    confirmButtonText: "确定",
-    cancelButtonText: "取消",
-    type: "warning",
-  })
-    .then(async () => {
-      try {
-        await deleteTestSuite(selectedNode.value.id);
-        ElMessage.success(
-          selectedNode.value.type === "folder"
-            ? `文件夹"${selectedNode.value.suite_name}"及其文件夹下所有内容已成功删除`
-            : `用例集"${selectedNode.value.suite_name}"已成功删除`,
-        );
-        loadTreeData();
-      } catch (error) {
-        console.error("删除测试套件失败:", error);
-        // 400 等错误已由 request 拦截器统一弹出 message，此处仅处理无 response 的情况（如网络错误）
-        if (!error.response?.data?.message) {
-          ElMessage.error("删除测试套件失败");
-        }
-      } finally {
-        closeContextMenu();
-      }
-    })
-    .catch(() => {
-      // 取消删除
-      closeContextMenu();
-    });
-};
-
-const handleCancelSuite = () => {
-  suiteDialogVisible.value = false;
-  parentSuitePopoverVisible.value = false;
-  // 重置右键菜单操作标志
-  isContextMenuAction.value = false;
-};
-
-const handleSaveSuite = async () => {
+  if (!createTypeForm.suite_name.trim()) {
+    ElMessage.warning("用例集名称不能为空");
+    return;
+  }
+  if (!createTypeForm.project_id) {
+    ElMessage.warning("请选择关联项目");
+    return;
+  }
+  const parentId = (createTypeForm.parentId === 0 || createTypeForm.parentId === null || createTypeForm.parentId === undefined) ? null : createTypeForm.parentId;
   try {
-    await suiteFormRef.value.validate();
-
-    if (isEditSuite.value) {
-      // 编辑套件
-      await updateTestSuite(suiteForm.id, suiteForm);
-      ElMessage.success("测试套件已更新");
-    } else {
-      // 新增套件
-      await createTestSuite(suiteForm);
-      ElMessage.success("测试套件已创建");
-    }
-    suiteDialogVisible.value = false;
-    parentSuitePopoverVisible.value = false;
-    isContextMenuAction.value = false;
-    loadTreeData();
-  } catch (error) {
-    console.error("保存测试套件失败:", error);
-    // 表单验证失败时，Element Plus会自动显示错误信息，不需要额外提示
-    // 只有当API请求失败时，才显示错误信息
-    if (error.response || (error.message && !error.name.includes("Validate"))) {
-      ElMessage.error(
-        isEditSuite.value ? "更新测试套件失败" : "创建测试套件失败",
-      );
-    }
+    const res = await createTestSuite({
+      suite_name: createTypeForm.suite_name.trim(),
+      description: createTypeForm.description || "",
+      type: "suite",
+      parent_id: parentId,
+      status: "active",
+      version_requirement_id: createTypeForm.version_requirement_id || null,
+      project_id: createTypeForm.project_id,
+    });
+    ElMessage.success("用例集创建成功");
+    createTypeDialogVisible.value = false;
+    await loadFolderTree();
+    await loadCaseSets();
+    if (res.data?.id) nextTick(() => openMindmap(res.data));
+  } catch {
+    ElMessage.error("创建用例集失败");
   }
-};
+}
 
-const resetSuiteForm = () => {
-  suiteForm.id = null;
+function handleRenameFolder() {
+  contextMenu.visible = false;
+  if (contextMenu.data?._virtual || contextMenu.data?.id === 0) {
+    ElMessage.warning("「全部」不能重命名");
+    return;
+  }
+  folderDialogTitle.value = "重命名文件夹";
+  folderForm.name = contextMenu.data?.suite_name || "";
+  folderForm.id = contextMenu.data?.id;
+  folderForm.parentId = contextMenu.data?.parent_id;
+  folderDialogVisible.value = true;
+}
+
+async function submitFolder() {
+  if (!folderForm.name.trim()) {
+    ElMessage.warning("文件夹名称不能为空");
+    return;
+  }
+  try {
+    if (folderForm.id) {
+      await updateTestSuite(folderForm.id, { suite_name: folderForm.name.trim() });
+      ElMessage.success("重命名成功");
+    } else {
+      await createTestSuite({
+        suite_name: folderForm.name.trim(),
+        type: "folder",
+        parent_id: folderForm.parentId || null,
+        project_id: folderForm.parentId ? undefined : (filterProjectId.value || undefined),
+      });
+      ElMessage.success("文件夹创建成功");
+    }
+    folderDialogVisible.value = false;
+    await loadFolderTree();
+  } catch {
+    ElMessage.error("操作失败");
+  }
+}
+
+async function handleDeleteFolder() {
+  contextMenu.visible = false;
+  const folder = contextMenu.data;
+  if (!folder) return;
+  if (folder._virtual || folder.id === 0) {
+    ElMessage.warning("「全部」不能删除");
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确定删除文件夹"${folder.suite_name}"吗？其下用例集将移入回收站，文件夹将从目录中移除。`,
+      "确认删除",
+      { type: "warning" }
+    );
+    await deleteTestSuite(folder.id, { logical: true });
+    ElMessage.success("已删除，其下用例集已移入回收站");
+    if (selectedFolder.value?.id === folder.id) {
+      selectedFolder.value = null;
+      caseSets.value = [];
+    }
+    await loadFolderTree();
+    if (showRecycleDrawer.value) await loadRecycled();
+  } catch { /* cancelled */ }
+}
+
+function handleAddSuite() {
   suiteForm.suite_name = "";
   suiteForm.description = "";
-  suiteForm.type = "folder";
-  suiteForm.parent_id = null;
-  suiteForm.project_id = null;
   suiteForm.version_requirement_id = null;
-  suiteForm.iteration_id = null;
+  suiteForm.project_id = filterProjectId.value ?? projectOptions.value[0]?.id ?? null;
+  suiteForm.parentId = selectedFolder.value?.id !== undefined && selectedFolder.value?.id !== null ? selectedFolder.value.id : 0;
+  suiteFormFolderTree.value = folderTree.value;
+  suiteDialogVisible.value = true;
+}
 
-  if (suiteFormRef.value) {
-    suiteFormRef.value.resetFields();
-  }
-};
+async function onSuiteDialogOpen() {
+  suiteFormFolderTree.value = folderTree.value;
+  await loadRequirementOptionsByProject(suiteForm.project_id ?? filterProjectId.value);
+}
 
-const handleRefresh = () => {
-  loadTreeData();
-  ElMessage.success("已刷新测试套件");
-};
-
-const getFolderTreeData = () => {
-  const filterFolderNodes = (nodes) => {
-    const folderNodes = nodes.filter((node) => {
-      const isFolder = node.type === "folder";
-      return isFolder;
-    });
-
-    return folderNodes.map((node) => ({
-      ...node,
-      children: node.children ? filterFolderNodes(node.children) : [],
-    }));
-  };
-
-  const folderTreeData = filterFolderNodes(treeData.value);
-  return folderTreeData;
-};
-
-const getSelectedParentPath = () => {
-  if (!suiteForm.parent_id) return "";
-
-  const findNodePath = (nodes, id, path = []) => {
-    for (const node of nodes) {
-      if (node.id === id) {
-        return [...path, node.suite_name];
-      }
-      if (node.children) {
-        const result = findNodePath(node.children, id, [
-          ...path,
-          node.suite_name,
-        ]);
-        if (result) return result;
-      }
-    }
-    return null;
-  };
-
-  const path = findNodePath(treeData.value, suiteForm.parent_id);
-  return path ? path.join(" / ") : "";
-};
-
-const getSelectedCaseSuitePath = () => {
-  let selectedId;
-  if (createCaseType.value === "manual" || isEditCase.value) {
-    selectedId = caseForm.suite_id;
-  } else if (autoCaseForm.generateMode === "append") {
-    selectedId = autoCaseForm.append_suite_id;
-  } else {
-    selectedId = autoCaseForm.parent_id;
-  }
-
-  if (!selectedId) return "";
-
-  const findNodePath = (nodes, id, path = []) => {
-    for (const node of nodes) {
-      if (node.id === id) {
-  return [...path, node.suite_name];
-      }
-      if (node.children) {
-        const result = findNodePath(node.children, id, [
-          ...path,
-          node.suite_name,
-        ]);
-        if (result) return result;
-      }
-    }
-    return null;
-  };
-
-  const path = findNodePath(treeData.value, selectedId);
-  return path ? path.join(" / ") : "";
-};
-
-const getSuiteTreeData = () => {
-  return treeData.value;
-};
-
-watch(
-  () => suiteForm.parent_id,
-  () => {
-    selectedParentSuitePath.value = getSelectedParentPath();
-  },
-);
-
-watch(
-  () => caseForm.suite_id,
-  () => {
-    selectedCaseSuitePath.value = getSelectedCaseSuitePath();
-  },
-);
-
-watch(
-  () => [autoCaseForm.parent_id, autoCaseForm.append_suite_id, autoCaseForm.generateMode],
-  () => {
-    selectedCaseSuitePath.value = getSelectedCaseSuitePath();
-  },
-);
-
-// 所属文件夹/用例集下拉：打开时对齐宽度；关闭时若未选择则触发校验
-watch(
-  () => caseSuitePopoverVisible.value,
-  (visible) => {
-    if (visible) {
-      if (createCaseType.value === "auto" && autoCaseSuiteSelectorRef.value) {
-        nextTick(() => {
-          const w = autoCaseSuiteSelectorRef.value?.offsetWidth;
-          if (w && w > 0) autoCaseSuitePopoverWidth.value = w;
-        });
-      }
-    } else {
-      // 仅当「自动生成」且关闭的是所属文件夹/用例集下拉」时：未选择才校验
-      if (createCaseType.value !== "auto" || !autoCaseFormRef.value) return;
-      const mode = autoCaseForm.generateMode;
-      const needParent = mode === "new" && (autoCaseForm.parent_id === null || autoCaseForm.parent_id === "");
-      const needAppend = mode === "append" && (autoCaseForm.append_suite_id === null || autoCaseForm.append_suite_id === "");
-      nextTick(() => {
-        if (needParent) autoCaseFormRef.value.validateField("parent_id");
-        else if (needAppend) autoCaseFormRef.value.validateField("append_suite_id");
-      });
-    }
-  },
-);
-
-// 监听创建方式变化，更新显示路径
-watch(
-  () => createCaseType.value,
-  () => {
-    selectedCaseSuitePath.value = getSelectedCaseSuitePath();
-  },
-);
-
-watch(
-  () => suiteForm.project_id,
-  (newProjectId, oldProjectId) => {
-    // 初始化表单时跳过观察者
-    if (isInitializingForm.value) return;
-
-    if (newProjectId !== oldProjectId && newProjectId !== undefined) {
-      // 重置迭代和需求列表
-      iterations.value = [];
-      requirements.value = [];
-
-      // 重置迭代和需求ID
-      suiteForm.iteration_id = null;
-      suiteForm.version_requirement_id = null;
-
-      // 加载新的迭代列表
-      if (newProjectId) {
-        loadIterations(newProjectId);
-      }
-    }
-  },
-);
-
-watch(
-  () => suiteForm.iteration_id,
-  (newIterationId, oldIterationId) => {
-    // 初始化表单时跳过观察者
-    if (isInitializingForm.value) return;
-
-    if (newIterationId !== oldIterationId && newIterationId !== undefined) {
-      // 重置需求列表
-      requirements.value = [];
-
-      // 重置需求ID
-      suiteForm.version_requirement_id = null;
-
-      // 加载新的需求列表
-      if (suiteForm.project_id && newIterationId) {
-        loadRequirements(suiteForm.project_id, newIterationId);
-      }
-    }
-  },
-);
-
-const clearParentSuiteSelection = () => {
-  suiteForm.parent_id = null;
-  selectedParentSuitePath.value = "";
-  // 关闭弹出的下拉页面
-  parentSuitePopoverVisible.value = false;
-};
-
-const clearCaseSuiteSelection = () => {
-  caseForm.suite_id = null;
-  selectedCaseSuitePath.value = "";
-};
-
-const handleParentSuiteSelect = (data) => {
-  suiteForm.parent_id = data.id;
-  selectedParentSuitePath.value = getSelectedParentPath();
-  // 选择后关闭弹出框
-  parentSuitePopoverVisible.value = false;
-};
-
-const handleCaseSuiteSelect = (data) => {
-  if (createCaseType.value === "manual" || isEditCase.value) {
-    if (data.type === "suite") {
-      caseForm.suite_id = data.id;
-      selectedCaseSuitePath.value = getSelectedCaseSuitePath();
-      caseSuitePopoverVisible.value = false;
-    } else {
-      ElMessage.warning("手动创建用例只能选择用例集");
-    }
-  } else {
-    // 自动生成：追加模式选用例集，新建模式选文件夹
-    if (autoCaseForm.generateMode === "append") {
-      if (data.type === "suite") {
-        autoCaseForm.append_suite_id = data.id;
-        selectedCaseSuitePath.value = getSelectedCaseSuitePath();
-        caseSuitePopoverVisible.value = false;
-      } else {
-        ElMessage.warning("追加到已选用例集时，请选择用例集（非文件夹）");
-      }
-    } else {
-      if (data.type === "folder") {
-        autoCaseForm.parent_id = data.id;
-        selectedCaseSuitePath.value = getSelectedCaseSuitePath();
-        caseSuitePopoverVisible.value = false;
-        loadExistingSuitesInFolder(data.id);
-        if (autoCaseForm.suite_name) {
-          nextTick(() => autoCaseFormRef.value?.validateField("suite_name"));
-        }
-      } else {
-        ElMessage.warning("生成到新用例集时，请选择文件夹");
-      }
-    }
-  }
-};
-
-// 自动生成时点击树节点（委托给 handleCaseSuiteSelect，追加/新建逻辑已在内）
-const handleAutoCaseSuiteSelect = (data) => {
-  handleCaseSuiteSelect(data);
-};
-
-// 加载当前文件夹下已有的用例集
-const loadExistingSuitesInFolder = async (folderId) => {
-  if (!folderId) {
-    existingSuitesInFolder.value = [];
-    return;
-  }
-  
-  try {
-    const { getTestSuiteTree } = await import("@/api/testSuite");
-    const response = await getTestSuiteTree();
-    
-    // 查找指定文件夹下的所有用例集
-    const findSuitesInFolder = (nodes, targetId) => {
-      for (const node of nodes) {
-        if (node.id === targetId) {
-          // 找到目标文件夹，返回其子节点中的用例集
-          return (node.children || []).filter(child => child.type === 'suite');
-        }
-        if (node.children && node.children.length > 0) {
-          const found = findSuitesInFolder(node.children, targetId);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-    
-    const suites = findSuitesInFolder(response.data, folderId);
-    existingSuitesInFolder.value = suites || [];
-    
-    console.log('[文件夹用例集] 加载成功，共', existingSuitesInFolder.value.length, '个用例集');
-  } catch (error) {
-    console.error('[文件夹用例集] 加载失败:', error);
-    existingSuitesInFolder.value = [];
-  }
-};
-
-// 检查用例集名称是否重复
-const checkSuiteNameDuplicate = async () => {
-  if (autoCaseFormRef.value) {
-    await autoCaseFormRef.value.validateField('suite_name');
-  }
-};
-
-const handleRequirementFileChange = (file) => {
-  if (!file || !file.raw) {
-    ElMessage.error("文件选择失败，请重试");
-    return;
-  }
-
-  const maxSize = 10 * 1024 * 1024;
-  if (file.raw.size > maxSize) {
-    ElMessage.error("文件大小不能超过 10MB");
-    requirementFileList.value = [];
-    autoCaseForm.file = null;
-    return;
-  }
-
-  if (file.raw.size === 0) {
-    ElMessage.error("文件大小为0，请选择有效的文件");
-    requirementFileList.value = [];
-    autoCaseForm.file = null;
-    return;
-  }
-
-  const fileName = file.name.toLowerCase();
-  const validExtensions = [".docx", ".pdf", ".txt"];
-  const isValidType = validExtensions.some((ext) => fileName.endsWith(ext));
-
-  if (!isValidType) {
-    ElMessage.error("只支持 .docx、.pdf 和 .txt 格式的文件");
-    requirementFileList.value = [];
-    autoCaseForm.file = null;
-    return;
-  }
-
-  if (fileName.endsWith(".doc") && !fileName.endsWith(".docx")) {
-    ElMessage.error("不支持旧版 .doc 格式，请使用 Word 另存为 .docx 格式");
-    requirementFileList.value = [];
-    autoCaseForm.file = null;
-    return;
-  }
-
-  autoCaseForm.file = file.raw;
-  requirementFileList.value = [file];
-  ElMessage.success(`文件 ${file.name} 选择成功`);
-};
-
-const handleRequirementFileRemove = () => {
-  autoCaseForm.file = null;
-  requirementFileList.value = [];
-};
-
-const handleRequirementFileExceed = () => {
-  ElMessage.warning("只能上传一个需求文档文件");
-};
-
-const handleGenerateCase = async () => {
-  try {
-    await autoCaseFormRef.value.validate();
-
-    const isAppend = autoCaseForm.generateMode === "append";
-    const { getTestSuiteDetail, createTestSuite } = await import("@/api/testSuite");
-    let targetSuiteId;
-    let suiteDetailRes;
-
-    if (isAppend) {
-      targetSuiteId = autoCaseForm.append_suite_id;
-      if (!targetSuiteId) {
-        ElMessage.warning("请选择所属用例集");
-        return;
-      }
-      suiteDetailRes = await getTestSuiteDetail(targetSuiteId);
-    } else {
-      const suiteName =
-        autoCaseForm.suite_name ||
-        `${selectedRequirement.value?.requirement_name || "AI生成用例集"}_${new Date().toLocaleDateString().replace(/\//g, "-")}`;
-      const newSuiteData = {
-        suite_name: suiteName,
-        type: "suite",
-        project_id: autoCaseForm.project_id,
-        parent_id: autoCaseForm.parent_id,
-        iteration_id: autoCaseForm.iteration_id,
-        version_requirement_id: autoCaseForm.version_requirement_id,
-        description: autoCaseForm.description || "AI自动生成的测试用例集",
-      };
-      const newSuiteResponse = await createTestSuite(newSuiteData);
-      targetSuiteId = newSuiteResponse.data.id;
-      suiteDetailRes = await getTestSuiteDetail(targetSuiteId);
-    }
-
-    caseDialogVisible.value = false;
-    await loadTreeData();
-
-    selectedSuite.value = suiteDetailRes.data;
-    testCases.value = [];
-
-    let documentContent = "";
-    if (autoCaseForm.file) {
-      const { parseDocument } = await import("@/utils/documentParser");
-      documentContent = await parseDocument(autoCaseForm.file);
-    }
-
-    const suiteDetail = suiteDetailRes.data;
-    const { createGenerateCasesTask } = await import("@/api/aiTasks");
-    const taskResponse = await createGenerateCasesTask({
-      suite_id: targetSuiteId,
-      projectId: suiteDetail.project_id ?? autoCaseForm.project_id,
-      iterationId: suiteDetail.iteration_id ?? autoCaseForm.iteration_id,
-      requirementId: suiteDetail.version_requirement_id ?? autoCaseForm.version_requirement_id,
-      projectName: suiteDetail.project_name || selectedProject.value?.project_name || "",
-      iterationName: suiteDetail.iteration_name || selectedIteration.value?.iteration_name || "",
-      requirementName: suiteDetail.version_requirement_name || selectedRequirement.value?.requirement_name || "",
-      description: autoCaseForm.description,
-      documentContent,
-    });
-
-    const taskId = taskResponse.data.task_id;
-    isGeneratingCases.value = true;
-    currentTaskId.value = taskId;
-    generatingSuiteId.value = targetSuiteId;
-    taskProgress.value = 0;
-    taskMessage.value = isAppend ? "任务已创建，正在向已选用例集追加生成测试用例..." : "任务已创建，正在后台生成测试用例...";
-
-    ElMessage.success({
-      message: isAppend ? "追加任务已创建！可在该用例集页面查看生成进度，新用例将接续现有编号。" : "任务已创建成功！可在用例集页面查看生成进度及生成的测试用例。",
-      duration: 5000,
-      showClose: true,
-    });
-
-    startTaskPolling(taskId, targetSuiteId);
-  } catch (error) {
-    console.error("[前端AI调用] handleGenerateCase 失败:", error);
-    ElMessage.error(`创建用例集或启动生成任务失败：${error.message}`);
-    isGeneratingCases.value = false;
-    generatingSuiteId.value = null;
-  }
-};
-
-// 开始任务轮询
-const startTaskPolling = async (taskId, suiteId) => {
-  const { getTaskStatus } = await import("@/api/aiTasks");
-  
-  const pollTask = async () => {
+async function onSuiteFormProjectChange(projectId) {
+  loadRequirementOptionsByProject(projectId);
+  if (projectId) {
     try {
-      const response = await getTaskStatus(taskId);
-      const taskStatus = response.data;
-      
-      // 更新任务状态
-      taskProgress.value = taskStatus.progress || 0;
-      taskMessage.value = taskStatus.message || "正在生成中...";
-      
-      console.log("[任务轮询] 任务状态:", taskStatus.status, "进度:", taskProgress.value);
-      
-      if (taskStatus.status === "completed") {
-        // 任务完成
-        console.log("[任务轮询] 任务完成");
-        isGeneratingCases.value = false;
-        currentTaskId.value = null;
-        generatingSuiteId.value = null;
-        
-        // 停止轮询
-        if (taskPollingTimer) {
-          clearInterval(taskPollingTimer);
-          taskPollingTimer = null;
-        }
-        
-        // 刷新用例列表
-        await loadTestCases(suiteId);
-        
-        // 显示成功消息
-        const totalCases = taskStatus.result?.total_cases || 0;
-        ElMessage.success(`成功生成${totalCases}条测试用例`);
-        
-      } else if (taskStatus.status === "failed") {
-        // 任务失败
-        console.error("[任务轮询] 任务失败:", taskStatus.error);
-        isGeneratingCases.value = false;
-        currentTaskId.value = null;
-        generatingSuiteId.value = null;
-        
-        // 停止轮询
-        if (taskPollingTimer) {
-          clearInterval(taskPollingTimer);
-          taskPollingTimer = null;
-        }
-        
-        ElMessage.error(`生成测试用例失败: ${taskStatus.error || "未知错误"}`);
-      }
-      // pending 或 running 状态继续轮询
-      
-    } catch (error) {
-      console.error("[任务轮询] 查询任务状态失败:", error);
-      // 不停止轮询，继续尝试
+      const res = await getFolderTree({ project_id: projectId });
+      const payload = res.data || {};
+      const tree = payload.tree || payload || [];
+      const rootSuiteCount = payload.root_suite_count || 0;
+      const treeArr = Array.isArray(tree) ? tree : [];
+      suiteFormFolderTree.value = [
+        { id: 0, suite_name: "全部", type: "folder", parent_id: null, suite_count: rootSuiteCount, children: treeArr, _virtual: true },
+      ];
+    } catch {
+      suiteFormFolderTree.value = [{ id: 0, suite_name: "全部", type: "folder", children: [], _virtual: true }];
     }
-  };
-  
-  // 立即执行一次
-  await pollTask();
-  
-  // 每3秒轮询一次
-  taskPollingTimer = setInterval(pollTask, 3000);
-};
-
-// 组件卸载时清理定时器
-onUnmounted(() => {
-  if (taskPollingTimer) {
-    clearInterval(taskPollingTimer);
-    taskPollingTimer = null;
-  }
-});
-
-// 获取优先级对应的标签类型
-const getPriorityType = (priority) => {
-  const priorityMap = {
-    P0: "danger",
-    P1: "warning",
-    P2: "success",
-    P3: "info",
-    P4: "info",
-  };
-  return priorityMap[priority] || "info";
-};
-
-// 构建嵌套的套件选项
-const buildSuiteOptions = () => {
-  const options = [];
-
-  const traverse = (nodes, level = 0) => {
-    nodes.forEach((node) => {
-      if (node.type === "folder") {
-        // 只有文件夹可以包含子套件
-        const indent = level > 0 ? "".padStart(level, " ") + "└ " : "";
-        options.push({
-          value: node.id,
-          label: `${indent}${node.suite_name}`,
-          level,
-        });
-
-        if (node.children && node.children.length > 0) {
-          traverse(node.children, level + 1);
-        }
-      }
-    });
-  };
-
-  traverse(treeData.value);
-  return options;
-};
-
-const handleAddCase = () => {
-  isEditCase.value = false;
-  resetCaseForm();
-
-  createCaseType.value = "manual";
-
-  Object.assign(autoCaseForm, {
-    generateMode: "new",
-    append_suite_id: null,
-    suite_name: "",
-    parent_id: null,
-    type: "suite",
-    project_id: null,
-    iteration_id: null,
-    version_requirement_id: null,
-    description: "",
-    file: null,
-  });
-
-  requirementFileList.value = [];
-
-  // 如果有选中的套件且类型为用例集，设置为默认值
-  if (selectedSuite.value && selectedSuite.value.type === "suite") {
-    caseForm.suite_id = selectedSuite.value.id;
-
-    // 自动生成下一个用例编号
-    generateNextCaseNumber(selectedSuite.value.id);
-  }
-
-  caseDialogVisible.value = true;
-};
-
-// 自动生成下一个用例编号
-const generateNextCaseNumber = async (suiteId) => {
-  try {
-    // 加载所有用例以获取最新编号
-    const response = await getSuiteCases(suiteId, {
-      page: 1,
-      page_size: 10000,
-    });
-
-    const cases = response.data.items;
-    if (cases.length === 0) {
-      // 没有用例，设置默认值，直接从001开始
-      caseNumberParts.part1 = "Proj";
-      caseNumberParts.part2 = "Iter";
-      caseNumberParts.part3 = "Req";
-      caseNumberParts.part4 = "001";
-      updateCaseNumber();
-      return;
-    }
-
-    // 找到最新的用例编号
-    let latestNumber = 0;
-    let prefix1 = "";
-    let prefix2 = "";
-    let prefix3 = "";
-
-    cases.forEach((caseItem) => {
-      const caseNumber = caseItem.case_number;
-      if (!caseNumber) return;
-
-      // 解析用例编号格式：xxx-xxx-xxx001
-      const regex = /^(.*?)-(.*?)-(.*?)(\d{3})$/g;
-      const match = regex.exec(caseNumber);
-      if (match) {
-        const num = parseInt(match[4]);
-        if (num > latestNumber) {
-          latestNumber = num;
-          prefix1 = match[1];
-          prefix2 = match[2];
-          prefix3 = match[3];
-        }
-      }
-    });
-
-    // 设置下一个编号，格式化为3位
-    caseNumberParts.part1 = prefix1;
-    caseNumberParts.part2 = prefix2;
-    caseNumberParts.part3 = prefix3;
-    caseNumberParts.part4 = (latestNumber + 1).toString().padStart(3, "0");
-    updateCaseNumber();
-  } catch (error) {
-    console.error("生成用例编号失败:", error);
-    // 失败时设置默认值
-    caseNumberParts.part1 = "";
-    caseNumberParts.part2 = "";
-    caseNumberParts.part3 = "";
-    caseNumberParts.part4 = "001";
-    updateCaseNumber();
-  }
-};
-
-const handleEditCase = (row) => {
-  isEditCase.value = true;
-  Object.assign(caseForm, row);
-
-  // 解析用例编号到分段输入框
-  parseCaseNumber(row.case_number);
-
-  caseDialogVisible.value = true;
-};
-
-// 解析用例编号到分段输入框
-const parseCaseNumber = (caseNumber) => {
-  if (!caseNumber) {
-    caseNumberParts.part1 = "";
-    caseNumberParts.part2 = "";
-    caseNumberParts.part3 = "";
-    caseNumberParts.part4 = "";
-    return;
-  }
-
-  // 解析用例编号格式：xxx-xxx-xxx001
-  const regex = /^(.*?)-(.*?)-(.*?)(\d{3})$/g;
-  const match = regex.exec(caseNumber);
-  if (match) {
-    caseNumberParts.part1 = match[1];
-    caseNumberParts.part2 = match[2];
-    caseNumberParts.part3 = match[3];
-    // 保持数字部分为3位格式
-    caseNumberParts.part4 = match[4];
   } else {
-    // 解析失败，设置默认值
-    caseNumberParts.part1 = "";
-    caseNumberParts.part2 = "";
-    caseNumberParts.part3 = "";
-    caseNumberParts.part4 = "";
+    suiteFormFolderTree.value = [];
   }
-};
+}
 
-const handleDeleteCase = async (row) => {
-  ElMessageBox.confirm("确定要删除该测试用例吗？删除后将无法恢复。", "警告", {
-    confirmButtonText: "确定",
-    cancelButtonText: "取消",
-    type: "warning",
-  })
-    .then(async () => {
-      try {
-        // 调用删除API
-        await deleteTestCase(row.id);
-        ElMessage.success("测试用例已删除");
-        loadTestCases(selectedSuite.value?.id);
-      } catch (error) {
-        console.error("删除测试用例失败:", error);
-        ElMessage.error("删除测试用例失败");
-      }
-    })
-    .catch(() => {
-      // 取消删除
-    });
-};
-
-const handleCancelCase = () => {
-  caseDialogVisible.value = false;
-  caseSuitePopoverVisible.value = false;
-};
-
-const handleSaveCase = async () => {
+async function loadRequirementOptionsByProject(projectId) {
+  if (!projectId) {
+    requirementOptions.value = [];
+    return;
+  }
   try {
-    await caseFormRef.value.validate();
-
-    // 获取测试套件详情，获取项目相关信息
-    const suiteDetail = await getTestSuiteDetail(caseForm.suite_id);
-
-    // 创建完整的caseData对象，包含从测试套件获取的项目相关信息
-    const caseData = {
-      ...caseForm,
-      project_id: suiteDetail.data.project_id,
-      version_requirement_id: suiteDetail.data.version_requirement_id,
-      iteration_id: suiteDetail.data.iteration_id,
-    };
-
-    if (isEditCase.value) {
-      await updateTestCase(caseForm.id, caseData);
-      ElMessage.success("测试用例已更新");
-    } else {
-      await createTestCase(caseData);
-      ElMessage.success("测试用例已创建");
-    }
-    caseDialogVisible.value = false;
-    caseSuitePopoverVisible.value = false;
-    loadTestCases(selectedSuite.value?.id);
-  } catch (error) {
-    // 表单验证失败时，Element Plus会自动显示错误信息，不需要额外提示
-    // 只有当API请求失败时，才显示错误信息
-    if (error.response || (error.message && !error.name.includes("Validate"))) {
-      console.error("保存测试用例失败:", error);
-      ElMessage.error(
-        isEditCase.value ? "更新测试用例失败" : "创建测试用例失败",
-      );
-    }
+    const res = await getProjectVersionRequirements(projectId);
+    const data = res.data || res;
+    requirementOptions.value = data.items || data || [];
+  } catch {
+    requirementOptions.value = [];
   }
-};
+}
 
-const resetCaseForm = () => {
-  caseForm.id = null;
-  caseForm.case_number = "";
-  caseForm.case_name = "";
-  caseForm.case_description = "";
-  caseForm.priority = "P1";
-  caseForm.status = "";
-  caseForm.suite_id = null;
-  caseForm.preconditions = "";
-  caseForm.steps = "";
-  caseForm.expected_result = "";
-  caseForm.test_data = "";
-  caseForm.actual_result = "";
-
-  caseNumberParts.part1 = "";
-  caseNumberParts.part2 = "";
-  caseNumberParts.part3 = "";
-  caseNumberParts.part4 = "";
-
-  // 重置表单验证状态
-  if (caseFormRef.value) {
-    caseFormRef.value.resetFields();
-  }
-};
-
-// 切换视图模式
-const toggleViewMode = async () => {
-  viewMode.value = viewMode.value === "list" ? "mindmap" : "list";
-  // 切换到脑图视图时，先拉取当前用例集全部用例再生成脑图
-  if (viewMode.value === "mindmap" && selectedSuite.value?.type === "suite") {
-    await loadAllTestCases(selectedSuite.value.id);
-    generateMindMapData();
-  } else if (viewMode.value === "mindmap") {
-    generateMindMapData();
-  }
-};
-
-const mindMapData = ref({});
-
-// 生成脑图数据
-const generateMindMapData = () => {
-  // 检查是否有当前选中的用例集
-  if (!selectedSuite.value || selectedSuite.value.type !== "suite") {
-    mindMapData.value = {
-      template: "right",
-      root: {
-        data: {
-          text: "请先选择一个用例集",
-        },
-        children: [],
-      },
-    };
+async function submitSuite() {
+  if (!suiteForm.suite_name.trim()) {
+    ElMessage.warning("用例集名称不能为空");
     return;
   }
-
-  // 使用当前选中的用例集作为根节点
-  const currentSuite = selectedSuite.value;
-
-  // 构建脑图数据（template: "right" 使所有子节点全部向右展开）
-  const mindMapRoot = {
-    template: "right",
-    root: {
-      data: {
-        text: currentSuite.suite_name,
-        type: "suite",
-      },
-      children: [],
-    },
-  };
-
-  // 脑图使用当前用例集全部数据（allTestCases），而非列表分页数据
-  const casesForMindMap = allTestCases.value || [];
-  if (casesForMindMap.length === 0) {
-    mindMapRoot.root.children.push({
-      id: "no-cases",
-      data: {
-        text: "当前用例集下暂无测试用例",
-      },
+  if (!suiteForm.project_id) {
+    ElMessage.warning("请选择所属项目");
+    return;
+  }
+  const parentId = (suiteForm.parentId === 0 || suiteForm.parentId === null || suiteForm.parentId === undefined) ? null : suiteForm.parentId;
+  try {
+    const res = await createTestSuite({
+      suite_name: suiteForm.suite_name.trim(),
+      description: suiteForm.description || "",
+      type: "suite",
+      parent_id: parentId,
+      status: "active",
+      version_requirement_id: suiteForm.version_requirement_id || null,
+      project_id: suiteForm.project_id,
+      iteration_id: null,
     });
-    mindMapData.value = mindMapRoot;
+    ElMessage.success("用例集创建成功");
+    suiteDialogVisible.value = false;
+    await loadFolderTree();
+    await loadCaseSets();
+
+    if (res.data?.id) {
+      nextTick(() => openMindmap(res.data));
+    }
+  } catch {
+    ElMessage.error("创建用例集失败");
+  }
+}
+
+function handleMoveSuite(row) {
+  movingSuite.value = row;
+  moveTargetId.value = null;
+  moveDialogVisible.value = true;
+}
+
+async function confirmMove() {
+  if (!moveTargetId.value) {
+    ElMessage.warning("请选择目标文件夹");
     return;
   }
+  try {
+    await moveTestSuite(movingSuite.value.id, { target_folder_id: moveTargetId.value });
+    ElMessage.success("移动成功");
+    moveDialogVisible.value = false;
+    await loadFolderTree();
+    await loadCaseSets();
+  } catch {
+    ElMessage.error("移动失败");
+  }
+}
 
-  // 遍历当前用例集中的全部用例
-  casesForMindMap.forEach((testCase) => {
-    // 优先级图标映射（用例库不展示执行状态）
-    const priorityIconMap = {
-      P0: "🔴P0",
-      P1: "🔴P1",
-      P2: "🟡P2",
-      P3: "🔵P3",
-      P4: "🟢P4",
-    };
+async function handleCopySuite(row) {
+  try {
+    await ElMessageBox.confirm(`确定复制用例集"${row.suite_name}"吗？`, "确认复制");
+    await copyTestSuite(row.id, { target_folder_id: selectedFolder.value?.id });
+    ElMessage.success("复制成功");
+    await loadFolderTree();
+    await loadCaseSets();
+  } catch { /* cancelled */ }
+}
 
-    // 获取当前用例的优先级（用例库不展示执行状态，执行通过计划进行）
-    const priority = testCase.priority || "P3";
-    const priorityIcon =
-      priorityIconMap[priority] || `🔵 ${priority.replace("P", "")}`;
+async function handleDeleteSuite(row) {
+  const isGenerating = !!generatingMap[row.id];
+  const message = isGenerating
+    ? `用例集"${row.suite_name}"正在AI生成中。确定终止生成并移至回收站吗？`
+    : `确定将用例集"${row.suite_name}"移至回收站吗？`;
+  try {
+    await ElMessageBox.confirm(message, "确认删除", { type: "warning" });
+    await deleteTestSuite(row.id, { logical: true });
+    delete generatingMap[row.id];
+    ElMessage.success("已移至回收站");
+    await loadFolderTree();
+    await loadCaseSets();
+    if (showRecycleDrawer.value) await loadRecycled();
+  } catch { /* cancelled */ }
+}
 
-    // 用例名称作为同级子节点，仅显示优先级与名称
-    const caseNameNode = {
-      id: `case-name-${testCase.id}`,
-      data: {
-        text: `${priorityIcon} ${testCase.case_name}`,
-        type: "case-name",
-      },
-      children: [],
-    };
+/** 评审按钮悬浮文案：按当前用户角色与用例集评审状态显示 */
+function getReviewButtonTooltip(row) {
+  const status = row.review_status || "not_reviewed";
+  const me = userStore.userInfo?.id != null ? String(userStore.userInfo.id) : null;
+  const creatorId = row.creator_id != null ? String(row.creator_id) : null;
+  const initiatorId = row.review_initiator_id != null ? String(row.review_initiator_id) : null;
+  const reviewerId = row.review_reviewer_id != null ? String(row.review_reviewer_id) : null;
 
-    // 用例ID为用例名称的子节点
-    const caseIdNode = {
-      id: `case-id-${testCase.id}`,
-      data: {
-        text: `用例ID: ${testCase.id}`,
-        type: "case-id",
-      },
-      children: [],
-    };
+  if (status === "not_reviewed") {
+    return me === creatorId ? "创建者未发起评审" : "未发起评审";
+  }
+  if (status === "pending") {
+    if (me === reviewerId) return "待我评审";
+    if (me === initiatorId) return "待评审人评审";
+    return "待评审";
+  }
+  if (status === "in_review") {
+    if (me === reviewerId) return "我评审中";
+    if (me === initiatorId) return "评审人评审中";
+    return "评审人评审中";
+  }
+  if (status === "completed") return "评审已完成（已通过）";
+  if (status === "rejected") return "评审已完成（已拒绝）";
+  return "评审";
+}
 
-    // 用例属性作为用例ID的子节点（用例库不包含实际结果，仅定义：测试数据、前置条件、步骤、预期结果）
-    const caseProperties = [
-      { key: "test_data", label: "测试数据", value: testCase.test_data || "-" },
+function handleReviewSuite(row) {
+  router.push({ path: "/case-reviews", query: { suiteId: row.id } });
+}
+
+function handleGenerateCases() {
+  generateForm.mode = "append";
+  generateForm.folderId = null;
+  generateForm.suiteId = null;
+  generateForm.newSuiteName = "";
+  generateForm.documentContent = "";
+  generateFolderTree.value = [];
+  generateSuiteOptions.value = [];
+  generateDialogVisible.value = true;
+}
+
+async function onGenerateDialogOpen() {
+  generateFolderTree.value = await loadGenerateFolderTree();
+  if (generateForm.folderId != null) {
+    try {
+      const res = await getCaseSets(generateForm.folderId);
+      generateSuiteOptions.value = res.data?.items || [];
+    } catch {
+      generateSuiteOptions.value = [];
+    }
+  }
+}
+
+/** 加载目录树（仅文件夹），供「用例集目录定位」使用 */
+async function loadGenerateFolderTree() {
+  try {
+    const res = await getFolderTree();
+    const payload = res.data || {};
+    const tree = payload.tree || [];
+    return [
       {
-        key: "preconditions",
-        label: "前置条件",
-        value: testCase.preconditions || "-",
-      },
-      { key: "steps", label: "测试步骤", value: testCase.steps || "-" },
-      {
-        key: "expected_result",
-        label: "预期结果",
-        value: testCase.expected_result || "-",
+        id: 0,
+        suite_name: "全部",
+        type: "folder",
+        children: tree,
       },
     ];
-
-    // 添加用例属性节点
-    caseProperties.forEach((prop) => {
-      caseIdNode.children.push({
-        id: `case-prop-${testCase.id}-${prop.key}`,
-        data: {
-          text: `${prop.label}: ${prop.value}`,
-          type: "case-prop",
-        },
-      });
-    });
-
-    // 构建层级关系：根节点 -> 用例名称 -> 用例ID -> 用例属性
-    caseNameNode.children.push(caseIdNode);
-    mindMapRoot.root.children.push(caseNameNode);
-  });
-
-  mindMapData.value = mindMapRoot;
-};
-
-// 刷新脑图（先拉取当前用例集全部用例再生成）
-const refreshMindMap = async () => {
-  if (selectedSuite.value?.type === "suite") {
-    await loadAllTestCases(selectedSuite.value.id);
-  }
-  generateMindMapData();
-};
-
-// 新标签页全屏查看脑图
-const openMindmapFullscreen = () => {
-  if (!selectedSuite.value || selectedSuite.value.type !== "suite") {
-    ElMessage.warning("请先选择一个用例集");
-    return;
-  }
-  const resolved = router.resolve({
-    name: "MindmapFullscreen",
-    query: {
-      suite_id: selectedSuite.value.id,
-      suite_name: selectedSuite.value.suite_name || "",
-    },
-  });
-  const fullUrl = resolved.href.startsWith("http")
-    ? resolved.href
-    : `${window.location.origin}${resolved.href}`;
-  window.open(fullUrl, "_blank");
-};
-
-// 脑图节点选择事件处理
-const handleMindMapNodeSelect = (node) => {
-  console.log("脑图节点被选中:", node);
-  // 可以在这里实现点击脑图节点跳转到用例详情等功能
-};
-
-// 脑图内容变化事件处理
-const handleMindMapContentChange = (data) => {
-  console.log("脑图内容发生变化:", data);
-  // 可以在这里实现自动保存脑图数据到后端
-};
-
-const isLeftPanelCollapsed = ref(false);
-
-const toggleLeftPanel = () => {
-  isLeftPanelCollapsed.value = !isLeftPanelCollapsed.value;
-};
-
-const uploadRef = ref(null);
-const excelFile = ref(null);
-
-// 导出Excel（默认导出当前用例集全部用例，支持勾选导出属性）
-const handleExportExcel = async () => {
-  try {
-    const selectedKeys = (exportColumnKeys.value || []).slice();
-    if (selectedKeys.length === 0) {
-      ElMessage.warning("请至少勾选一项导出属性");
-      return;
-    }
-
-    let suiteId = importExportForm.suite_id;
-    if (
-      !suiteId &&
-      selectedSuite.value &&
-      selectedSuite.value.type === "suite"
-    ) {
-      suiteId = selectedSuite.value.id;
-    }
-
-    if (!suiteId) {
-      ElMessage.error("请选择要导出的用例集");
-      return;
-    }
-
-    ElMessage.info("正在准备导出数据，请稍候...");
-
-    const response = await getSuiteCases(suiteId, {
-      page: 1,
-      page_size: 10000,
-    });
-
-    const cases = response.data.items || [];
-
-    if (cases.length === 0) {
-      ElMessage.warning("该用例集下没有测试用例");
-      return;
-    }
-
-    const suiteDetail = await getTestSuiteDetail(suiteId);
-
-    const fullRow = (caseItem) => ({
-      用例编号: caseItem.case_number || "",
-      用例名称: caseItem.case_name || "",
-      用例描述: caseItem.case_description || "",
-      所属项目: suiteDetail.data.project_name || "",
-      所属迭代: suiteDetail.data.iteration_name || "",
-      关联需求: suiteDetail.data.version_requirement_name || "",
-      优先级: caseItem.priority || "",
-      前置条件: caseItem.preconditions || "",
-      测试数据: caseItem.test_data || "",
-      操作步骤: caseItem.steps || "",
-      预期结果: caseItem.expected_result || "",
-    });
-
-    const exportData = cases.map((caseItem) => {
-      const row = fullRow(caseItem);
-      const picked = {};
-      selectedKeys.forEach((k) => {
-        if (Object.prototype.hasOwnProperty.call(row, k)) picked[k] = row[k];
-      });
-      return picked;
-    });
-
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "测试用例");
-
-    const colWidths = selectedKeys.map(
-      (k) => EXPORT_COLUMN_OPTIONS.find((o) => o.key === k)?.wch ?? 20,
-    );
-    ws["!cols"] = colWidths.map((wch) => ({ wch }));
-
-    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    const blob = new Blob([excelBuffer], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
-    saveAs(blob, `测试用例_${new Date().toISOString().slice(0, 10)}.xlsx`);
-
-    ElMessage.success(`已导出 ${cases.length} 条用例`);
-  } catch (error) {
-    console.error("导出Excel失败:", error);
-    ElMessage.error("导出Excel失败，请重试");
-  }
-};
-
-// 导入Excel
-const handleImportExcel = () => {
-  // 直接触发隐藏的上传按钮点击
-  if (uploadBtnRef.value) {
-    uploadBtnRef.value.click();
-  }
-};
-
-// 下载Excel模板（表头与导出属性一致，便于填写后导入）
-const downloadExcelTemplate = () => {
-  try {
-    const templateData = [
-      {
-        用例编号: "示例-需求-功能001",
-        用例名称: "示例用例名称",
-        用例描述: "用例描述（可选）",
-        所属项目: "",
-        所属迭代: "",
-        关联需求: "",
-        优先级: "P1",
-        前置条件: "前置条件示例",
-        测试数据: "测试数据示例",
-        操作步骤: "步骤1\n步骤2\n步骤3",
-        预期结果: "预期结果示例",
-      },
-    ];
-
-    const ws = XLSX.utils.json_to_sheet(templateData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "测试用例模板");
-
-    ws["!cols"] = EXPORT_COLUMN_OPTIONS.map((o) => ({ wch: o.wch }));
-
-    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    const blob = new Blob([excelBuffer], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
-    saveAs(blob, "测试用例导入模板.xlsx");
-
-    ElMessage.success("模板下载成功");
-  } catch (error) {
-    console.error("下载模板失败:", error);
-    ElMessage.error("下载模板失败");
-  }
-};
-
-// 导入/导出用例对话框相关
-const importExportVisible = ref(false);
-const importExportFormRef = ref(null);
-const importParentSuiteVisible = ref(false);
-const importSelectedParentSuitePath = ref("");
-const exportCaseSuiteVisible = ref(false);
-const exportSelectedCaseSuitePath = ref("");
-const importUploadRef = ref(null);
-const uploadBtnRef = ref(null);
-
-// 全局点击：点击在任意“触发区域”或“下拉面板”外时，关闭所有用例集/父套件下拉
-const handleSuitePopoverGlobalClick = (event) => {
-  const triggers = document.querySelectorAll(
-    ".parent-suite-selector, .case-suite-selector",
-  );
-  const panels = document.querySelectorAll(".el-popover");
-  const isInsideAny = (el) => {
-    if (!el) return false;
-    for (const t of triggers) {
-      if (t.contains(el)) return true;
-    }
-    for (const p of panels) {
-      if (p.contains(el)) return true;
-    }
-    return false;
-  };
-  if (!isInsideAny(event.target)) {
-    parentSuitePopoverVisible.value = false;
-    caseSuitePopoverVisible.value = false;
-    importParentSuiteVisible.value = false;
-    exportCaseSuiteVisible.value = false;
-    reviewSuitePopoverVisible.value = false;
-  }
-};
-
-// 任一用例集/父套件下拉打开时注册全局点击，全部关闭时移除
-watch(
-  () => [
-    parentSuitePopoverVisible.value,
-    caseSuitePopoverVisible.value,
-    importParentSuiteVisible.value,
-    exportCaseSuiteVisible.value,
-    reviewSuitePopoverVisible.value,
-  ],
-  (vals) => {
-    const anyOpen = vals.some(Boolean);
-    if (anyOpen) {
-      document.addEventListener("click", handleSuitePopoverGlobalClick);
-    } else {
-      document.removeEventListener("click", handleSuitePopoverGlobalClick);
-    }
-  },
-  { immediate: true },
-);
-
-// 导入状态管理
-const isImporting = ref(false);
-
-// 存储导入的文件数据
-const importedFile = ref(null);
-
-// 文件列表
-const fileList = ref([]);
-
-// 导入导出表单数据
-const importExportForm = reactive({
-  type: "import", // 默认导入
-  fileName: "",
-  parent_id: null,
-  suite_id: null,
-  targetPath: "",
-});
-// 导出属性：选中的列 key 列表，默认全选（与用例列表属性一致）
-const exportColumnKeys = ref(EXPORT_COLUMN_OPTIONS.map((o) => o.key));
-
-// 显示导入导出对话框
-const showImportExportDialog = () => {
-  importExportVisible.value = true;
-  // 导出时默认导出属性全选
-  if (importExportForm.type === "export") {
-    exportColumnKeys.value = EXPORT_COLUMN_OPTIONS.map((o) => o.key);
-  }
-};
-
-// 切换到导出时，默认导出属性全选
-watch(
-  () => importExportForm.type,
-  (t) => {
-    if (t === "export") {
-      exportColumnKeys.value = EXPORT_COLUMN_OPTIONS.map((o) => o.key);
-    }
-  },
-);
-
-// 处理文件选择变化
-const handleFileChange = (file, fileList) => {
-  // on-change事件传递的file参数直接是文件对象
-  const isExcel =
-    file.raw.type === "application/vnd.ms-excel" ||
-    file.raw.type ===
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-  const isLt10M = file.raw.size / 1024 / 1024 < 10;
-
-  if (!isExcel) {
-    ElMessage.error("只能上传Excel文件！");
-    return;
-  }
-  if (!isLt10M) {
-    ElMessage.error("上传文件大小不能超过 10MB！");
-    return;
-  }
-
-  // 保存文件和文件名
-  importedFile.value = file.raw;
-  importExportForm.fileName = file.name;
-  // 更新文件列表，只保留最新选择的文件
-  fileList.value = fileList.slice(-1);
-};
-
-// 处理文件移除
-const handleFileRemove = () => {
-  importedFile.value = null;
-  importExportForm.fileName = "";
-  fileList.value = [];
-};
-
-// 处理文件超出限制
-const handleFileExceed = () => {
-  ElMessage.error("一次只能导入一个文件");
-};
-
-// 清除导入父套件选择
-const clearImportParentSuiteSelection = () => {
-  importExportForm.parent_id = null;
-  importSelectedParentSuitePath.value = "";
-  importParentSuiteVisible.value = false;
-};
-
-// 处理导入父套件选择
-const handleImportParentSuiteSelect = (data) => {
-  importExportForm.parent_id = data.id;
-  // 更新显示路径
-  const findPath = (nodes, id, path = []) => {
-    for (const node of nodes) {
-      if (node.id === id) {
-        return [...path, node.suite_name];
-      }
-      if (node.children && node.children.length) {
-        const result = findPath(node.children, id, [...path, node.suite_name]);
-        if (result) return result;
-      }
-    }
-    return null;
-  };
-  const path = findPath(treeData.value, data.id);
-  importSelectedParentSuitePath.value = path ? path.join(" / ") : "";
-  importParentSuiteVisible.value = false;
-};
-
-// 处理导出用例集选择
-const handleExportCaseSuiteSelect = (data) => {
-  if (data.type === "suite") {
-    importExportForm.suite_id = data.id;
-    // 更新显示路径
-    const findPath = (nodes, id, path = []) => {
-      for (const node of nodes) {
-        if (node.id === id) {
-          return [...path, node.suite_name];
-        }
-        if (node.children && node.children.length) {
-          const result = findPath(node.children, id, [
-            ...path,
-            node.suite_name,
-          ]);
-          if (result) return result;
-        }
-      }
-      return null;
-    };
-    const path = findPath(treeData.value, data.id);
-    exportSelectedCaseSuitePath.value = path ? path.join(" / ") : "";
-    exportCaseSuiteVisible.value = false;
-  }
-};
-
-// 选择导出路径
-const selectExportPath = () => {
-  // 在实际应用中，这里应该调用系统文件选择对话框
-  // 由于浏览器限制，我们可以模拟一个路径选择
-  const defaultPath = `D:/测试用例_${new Date().toISOString().slice(0, 10)}.xlsx`;
-  importExportForm.targetPath = defaultPath;
-  ElMessage.success(`已设置默认导出路径：${defaultPath}`);
-};
-
-// 处理导入导出操作
-const handleImportExportAction = async () => {
-  try {
-    if (importExportForm.type === "import") {
-      // 处理导入逻辑
-      if (!importExportForm.fileName) {
-        ElMessage.error("请选择要导入的文件");
-        return;
-      }
-      if (!importExportForm.parent_id) {
-        ElMessage.error("请选择导入的目标位置");
-        return;
-      }
-      if (!importedFile.value) {
-        ElMessage.error("请选择要导入的文件");
-        return;
-      }
-
-      // 设置导入状态为true
-      isImporting.value = true;
-
-      // 显示导入进度提示
-      const loading = ElLoading.service({
-        lock: true,
-        text: "正在导入测试用例，请稍候...",
-        background: "rgba(0, 0, 0, 0.7)",
-      });
-
-      // 处理导入的文件
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: "array" });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-
-          // 解析Excel数据（第一行为表头，按表头名称匹配字段；多余列忽略，缺失列取默认值）
-          const excelData = XLSX.utils.sheet_to_json(worksheet);
-
-          if (excelData.length === 0) {
-            ElMessage.warning("Excel文件中没有测试用例数据");
-            // 关闭加载提示和重置状态
-            loading.close();
-            isImporting.value = false;
-            return;
-          }
-
-          // 获取当前登录用户信息
-          const { userInfo } = useUserStore();
-
-          // 根据所选父节点获取 project_id 等，满足 DB NOT NULL 约束
-          const parentDetailRes = await getTestSuiteDetail(importExportForm.parent_id);
-          const parentSuite = parentDetailRes?.data || {};
-          const parentProjectId = parentSuite.project_id;
-          const parentIterationId = parentSuite.iteration_id ?? null;
-          const parentRequirementId = parentSuite.version_requirement_id ?? null;
-          if (!parentProjectId) {
-            ElMessage.error("所选目标位置无关联项目，无法导入");
-            loading.close();
-            isImporting.value = false;
-            return;
-          }
-
-          // 创建测试套件名称（使用文件名，去掉后缀）
-          const suiteName = importExportForm.fileName.replace(
-            /\.(xlsx|xls)$/,
-            "",
-          );
-
-          // 创建测试套件（项目必填，迭代/需求与父节点一致）
-          const suiteData = {
-            suite_name: suiteName,
-            type: "suite",
-            parent_id: importExportForm.parent_id,
-            project_id: parentProjectId,
-            iteration_id: parentIterationId,
-            version_requirement_id: parentRequirementId,
-          };
-
-          const createSuiteResponse = await createTestSuite(suiteData);
-          const newSuiteId = createSuiteResponse.data.id;
-
-          // 处理导入的用例数据
-          let importedCount = 0;
-          let errorCount = 0;
-
-          // 遍历处理每条数据（仅使用与表头名称匹配的字段，未出现的表头对应值为默认/空）
-          for (const item of excelData) {
-            try {
-              // 用例库不维护执行状态，导入时状态留空；project_id 必填，与套件一致
-              const caseData = {
-                case_number: item["用例编号"] ?? "",
-                case_name: item["用例名称"] ?? "",
-                case_description: item["用例描述"] ?? "",
-                priority: item["优先级"] ?? "P1",
-                status: "",
-                preconditions: item["前置条件"] ?? "",
-                test_data: item["测试数据"] ?? "",
-                steps: item["操作步骤"] ?? "",
-                expected_result: item["预期结果"] ?? "",
-                suite_id: newSuiteId,
-                project_id: parentProjectId,
-                version_requirement_id: parentRequirementId,
-                iteration_id: parentIterationId,
-              };
-
-              await createTestCase(caseData);
-              importedCount++;
-              // 添加延迟，避免请求过于频繁
-              await new Promise((resolve) => setTimeout(resolve, 100));
-            } catch (error) {
-              console.error("导入单条测试用例失败:", error);
-              errorCount++;
-            }
-          }
-
-          // 刷新用例树
-          await loadTreeData();
-
-          // 关闭加载提示和重置状态
-          loading.close();
-          isImporting.value = false;
-
-          // 显示导入结果
-          ElMessage.success(
-            `成功导入 ${importedCount} 条测试用例，失败 ${errorCount} 条`,
-          );
-
-          // 关闭对话框
-          importExportVisible.value = false;
-        } catch (error) {
-          console.error("导入测试用例失败:", error);
-          // 关闭加载提示和重置状态
-          loading.close();
-          isImporting.value = false;
-          ElMessage.error("导入测试用例失败，请检查文件格式和内容");
-        }
-      };
-      reader.readAsArrayBuffer(importedFile.value);
-    } else if (importExportForm.type === "export") {
-      // 处理导出逻辑
-      if (!importExportForm.suite_id) {
-        ElMessage.error("请选择要导出的用例集");
-        return;
-      }
-
-      // 调用现有的导出Excel函数
-      handleExportExcel();
-      importExportVisible.value = false;
-    }
-  } catch (error) {
-    console.error("导入导出操作失败:", error);
-    ElMessage.error("操作失败，请重试");
-  }
-};
-
-// 用例内联编辑相关方法
-const startCaseEdit = (row, field) => {
-  editingCaseId.value = row.id;
-  editingField.value = field;
-  editingValue.value = row[field] || "";
-
-  // 跟踪是否正在进行拖动选择操作
-  let isDragging = false;
-
-  // 添加鼠标按下事件监听，检测是否在编辑区域内开始拖动
-  const handleMouseDown = (event) => {
-    const editInputs = document.querySelectorAll(
-      ".el-table__cell .el-input, .el-table__cell .el-textarea, .el-table__cell .el-select",
-    );
-    const isInside = Array.from(editInputs).some((input) =>
-      input.contains(event.target),
-    );
-    if (isInside) {
-      isDragging = true;
-    }
-  };
-
-  // 添加鼠标释放事件监听，重置拖动状态
-  const handleMouseUp = () => {
-    isDragging = false;
-  };
-
-  // 添加点击外部区域取消编辑的事件监听
-  const handleClickOutside = (event) => {
-    // 如果是拖动选择操作，不取消编辑
-    if (isDragging) {
-      return;
-    }
-
-    const editInputs = document.querySelectorAll(
-      ".el-table__cell .el-input, .el-table__cell .el-textarea, .el-table__cell .el-select",
-    );
-    const isClickInside = Array.from(editInputs).some((input) =>
-      input.contains(event.target),
-    );
-
-    if (!isClickInside) {
-      cancelCaseEdit();
-      // 移除所有事件监听器
-      document.removeEventListener("click", handleClickOutside);
-      document.removeEventListener("mousedown", handleMouseDown);
-      document.removeEventListener("mouseup", handleMouseUp);
-    }
-  };
-
-  // 延迟添加事件监听，避免触发当前点击事件
-  setTimeout(() => {
-    document.addEventListener("click", handleClickOutside);
-    document.addEventListener("mousedown", handleMouseDown);
-    document.addEventListener("mouseup", handleMouseUp);
-  }, 0);
-
-  // 保存事件监听器引用，以便后续移除
-  window.__editClickOutsideHandler = handleClickOutside;
-  window.__editMouseDownHandler = handleMouseDown;
-  window.__editMouseUpHandler = handleMouseUp;
-};
-
-const saveCaseEdit = async (row) => {
-  try {
-    // 如果编辑的是用例编号，验证格式
-    if (editingField.value === "case_number") {
-      const value = editingValue.value.trim();
-      const regex = /^.+-.+-.+\d{3}$/;
-      if (!regex.test(value)) {
-        ElMessage.error(
-          "用例编号格式不正确，应为：xxx-xxx-xxx001~xxx-xxx-xxx999",
-        );
-        return;
-      } else {
-        // 验证数字部分在1-999之间
-        const numRegex = /\d{3}$/;
-        const match = value.match(numRegex);
-        if (match) {
-          const num = parseInt(match[0]);
-          if (num < 1 || num > 999) {
-            ElMessage.error("用例编号数字部分必须在001-999之间");
-            return;
-          }
-        } else {
-          ElMessage.error(
-            "用例编号格式不正确，应为：xxx-xxx-xxx001~xxx-xxx-xxx999",
-          );
-          return;
-        }
-      }
-    }
-
-    const updatedData = {
-      [editingField.value]: editingValue.value,
-    };
-
-    // 调用实际的API更新测试用例
-    await updateTestCase(row.id, updatedData);
-
-    // 更新本地数据
-    Object.assign(row, updatedData);
-
-    ElMessage.success("测试用例已更新");
-
-    // 重置编辑状态
-    editingCaseId.value = null;
-    editingField.value = null;
-    editingValue.value = "";
-
-    // 移除所有事件监听器
-    if (window.__editClickOutsideHandler) {
-      document.removeEventListener("click", window.__editClickOutsideHandler);
-      window.__editClickOutsideHandler = null;
-    }
-    if (window.__editMouseDownHandler) {
-      document.removeEventListener("mousedown", window.__editMouseDownHandler);
-      window.__editMouseDownHandler = null;
-    }
-    if (window.__editMouseUpHandler) {
-      document.removeEventListener("mouseup", window.__editMouseUpHandler);
-      window.__editMouseUpHandler = null;
-    }
-  } catch (error) {
-    console.error("更新测试用例失败:", error);
-    ElMessage.error("更新测试用例失败");
-  }
-};
-
-const cancelCaseEdit = () => {
-  editingCaseId.value = null;
-  editingField.value = "";
-  editingValue.value = "";
-
-  // 移除所有事件监听器
-  if (window.__editClickOutsideHandler) {
-    document.removeEventListener("click", window.__editClickOutsideHandler);
-    window.__editClickOutsideHandler = null;
-  }
-  if (window.__editMouseDownHandler) {
-    document.removeEventListener("mousedown", window.__editMouseDownHandler);
-    window.__editMouseDownHandler = null;
-  }
-  if (window.__editMouseUpHandler) {
-    document.removeEventListener("mouseup", window.__editMouseUpHandler);
-    window.__editMouseUpHandler = null;
-  }
-};
-
-// 用例列表顶部筛选：关键词（编号/名称）
-const caseFilterKeyword = ref("");
-
-// 优先级筛选状态
-const priorityFilterAll = ref(false);
-const priorityFilterValues = ref([]);
-
-// 各优先级在当前用例列表中的数量（用于筛选条件旁显示 n）
-const priorityFilterCounts = computed(() => {
-  const list = testCases.value || [];
-  const counts = { P0: 0, P1: 0, P2: 0, P3: 0, P4: 0 };
-  list.forEach((item) => {
-    const p = item.priority;
-    if (Object.prototype.hasOwnProperty.call(counts, p)) counts[p]++;
-  });
-  return counts;
-});
-
-// 当前用例列表总数（用于「全选」旁显示数量）
-const priorityFilterTotal = computed(() => {
-  const c = priorityFilterCounts.value;
-  return (c.P0 || 0) + (c.P1 || 0) + (c.P2 || 0) + (c.P3 || 0) + (c.P4 || 0);
-});
-
-// 过滤后的测试用例
-const filteredTestCases = computed(() => {
-  if (!testCases.value || testCases.value.length === 0) {
+  } catch (e) {
+    console.error("加载目录失败", e);
+    ElMessage.error("加载目录失败，请重试");
     return [];
   }
+}
 
-  let result = [...testCases.value];
+/** 目录变更时加载该目录下用例集，并清空已选用例集 */
+async function onGenerateFolderChange() {
+  generateForm.suiteId = null;
+  if (generateForm.folderId == null) {
+    generateSuiteOptions.value = [];
+    return;
+  }
+  try {
+    const res = await getCaseSets(generateForm.folderId);
+    generateSuiteOptions.value = res.data?.items || [];
+  } catch {
+    generateSuiteOptions.value = [];
+  }
+}
 
-  // 关键词筛选（编号、名称）
-  const kw = (caseFilterKeyword.value || "").trim().toLowerCase();
-  if (kw) {
-    result = result.filter(
-      (item) =>
-        (item.case_number && String(item.case_number).toLowerCase().includes(kw)) ||
-        (item.case_name && String(item.case_name).toLowerCase().includes(kw))
+function onGenerateFileChange(file) {
+  const raw = file.raw;
+  if (!raw) return;
+  const ext = (raw.name || "").toLowerCase().split(".").pop();
+  if (ext === "txt" || ext === "md") {
+    const reader = new FileReader();
+    reader.onload = () => {
+      generateForm.documentContent = reader.result ?? "";
+    };
+    reader.readAsText(raw, "UTF-8");
+  } else {
+    ElMessage.warning("请上传 .txt 或 .md 格式的需求文档，以便正确读取内容");
+  }
+}
+
+function onGenerateFileRemove() {
+  generateForm.documentContent = "";
+}
+
+function handleGenerateForSuite(row) {
+  generateForm.folderId = row.parent_id ?? 0;
+  generateForm.suiteId = row.id;
+  generateForm.documentContent = "";
+  generateSuiteOptions.value = [];
+  generateDialogVisible.value = true;
+}
+
+async function submitGenerate() {
+  if (!generateForm.documentContent?.trim()) {
+    ElMessage.warning("需求文档内容不能为空");
+    return;
+  }
+  generateDialogVisible.value = false;
+  if (generateForm.mode === "append") {
+    if (!generateForm.suiteId) {
+      ElMessage.warning("请选择目标用例集");
+      return;
+    }
+    await startGenerateForSuite(generateForm.suiteId, generateForm.documentContent);
+    return;
+  }
+  // 创建新用例集并生成
+  const parentId = generateForm.folderId === 0 ? null : generateForm.folderId;
+  try {
+    const createRes = await createTestSuite({
+      suite_name: generateForm.newSuiteName.trim(),
+      description: "",
+      type: "suite",
+      parent_id: parentId,
+      status: "active",
+      version_requirement_id: null,
+      project_id: null,
+      iteration_id: null,
+    });
+    const newSuite = createRes.data;
+    if (!newSuite?.id) {
+      ElMessage.error("创建用例集失败");
+      return;
+    }
+    await startGenerateForSuite(newSuite.id, generateForm.documentContent);
+    selectFolderById(newSuite.parent_id ?? 0);
+    await loadCaseSets();
+  } catch (e) {
+    ElMessage.error(e?.response?.data?.message || "创建用例集失败");
+  }
+}
+
+/** 在目录树中根据 id 选中文件夹（用于创建新用例集后定位） */
+function selectFolderById(folderId) {
+  const find = (nodes) => {
+    for (const n of nodes) {
+      if (n.id === folderId) return n;
+      if (n.children?.length) { const r = find(n.children); if (r) return r; }
+    }
+    return null;
+  };
+  const node = find(folderTree.value);
+  if (node) selectedFolder.value = node;
+  else selectedFolder.value = folderTree.value[0] || null;
+}
+
+async function startGenerateForSuite(suiteId, documentContent) {
+  try {
+    generatingMap[suiteId] = 'pending';
+    const res = await createGenerateCasesTask({
+      suite_id: suiteId,
+      documentContent,
+    });
+    const taskId = res.data?.task_id;
+    if (taskId) {
+      generatingMap[suiteId] = taskId;
+      ElMessage.success("任务已创建，正在后台生成用例...");
+      pollTaskStatus(taskId, suiteId);
+    } else {
+      delete generatingMap[suiteId];
+    }
+  } catch (e) {
+    delete generatingMap[suiteId];
+    ElMessage.error("创建生成任务失败");
+  }
+}
+
+function pollTaskStatus(taskId, suiteId) {
+  let interval = setInterval(async () => {
+    try {
+      const res = await getTaskStatus(taskId);
+      const status = res.data?.status;
+      if (status === 'completed') {
+        clearInterval(interval);
+        delete generatingMap[suiteId];
+        ElMessage.success("用例生成完成！");
+        await loadFolderTree();
+        await loadCaseSets();
+      } else if (status === 'failed') {
+        clearInterval(interval);
+        delete generatingMap[suiteId];
+        ElMessage.error(res.data?.error || "用例生成失败");
+      }
+    } catch {
+      clearInterval(interval);
+      delete generatingMap[suiteId];
+    }
+  }, 3000);
+}
+
+function handleFolderContextMenu(event, data) {
+  event.preventDefault();
+  contextMenu.visible = true;
+  contextMenu.x = event.clientX;
+  contextMenu.y = event.clientY;
+  contextMenu.data = data;
+}
+
+function hideContextMenu() {
+  contextMenu.visible = false;
+}
+
+/** 仅允许拖拽真实文件夹节点，不允许拖拽「全部」虚拟节点 */
+function allowFolderDrag(node) {
+  const data = node.data;
+  return data && !data._virtual && data.id !== 0;
+}
+
+/** 允许放入文件夹或「全部」下；不允许放入用例集或拖入自身及子孙内（type 为 prev/next/inner） */
+function allowFolderDrop(draggingNode, dropNode, type) {
+  const dropData = dropNode.data;
+  if (dropData._virtual || dropData.id === 0) {
+    return type === "inner";
+  }
+  if (dropData.type !== "folder") return false;
+  if (type === "inner") {
+    let p = dropNode;
+    while (p) {
+      if (p.data && p.data.id === draggingNode.data.id) return false;
+      p = p.parent;
+    }
+  }
+  return true;
+}
+
+/**
+ * 文件夹拖拽放下后同步到后端并刷新树。
+ * 参数：draggingNode/dropNode 为 el-tree 的 Node，dropType 为 'before'|'after'|'inner'。
+ * 根据 dropType 与 dropNode 计算新 parent_id 与 sort_order。
+ */
+async function handleFolderDrop(draggingNode, dropNode, dropType) {
+  const dragData = draggingNode?.data;
+  if (!dragData || dragData._virtual || dragData.id === 0) return;
+  const dragId = dragData.id;
+
+  let parentId = null;
+  let sortOrder = 1;
+
+  if (dropType === "inner") {
+    const dropData = dropNode?.data;
+    if (!dropData) return;
+    parentId = dropData.id === 0 ? null : dropData.id;
+    const childNodes = dropNode.childNodes || [];
+    const idx = childNodes.findIndex((n) => n.data && n.data.id === dragId);
+    sortOrder = idx >= 0 ? idx + 1 : childNodes.length || 1;
+  } else {
+    const parent = dropNode?.parent;
+    const parentData = parent?.data;
+    parentId =
+      parentData != null && parentData.id != null && parentData.id !== 0
+        ? parentData.id
+        : null;
+    const siblings = parent?.childNodes || [];
+    const dropIdx = siblings.findIndex(
+      (n) => n.data && n.data.id === dropNode?.data?.id
     );
+    if (dropIdx >= 0) {
+      sortOrder = dropType === "before" ? dropIdx + 1 : dropIdx + 2;
+    }
   }
-
-  // 优先级筛选
-  if (priorityFilterValues.value.length > 0) {
-    result = result.filter((item) => priorityFilterValues.value.includes(item.priority));
-  }
-
-  return result;
-});
-
-// 优先级全选变化
-const handlePriorityAllChange = (checked) => {
-  if (checked) {
-    priorityFilterValues.value = ['P0', 'P1', 'P2', 'P3', 'P4'];
-  } else {
-    priorityFilterValues.value = [];
-  }
-};
-
-// 优先级筛选变化
-const handlePriorityFilterChange = (values) => {
-  // 检查是否全部选中
-  if (values.length === 5) {
-    priorityFilterAll.value = true;
-  } else {
-    priorityFilterAll.value = false;
-  }
-};
-
-// 优先级重置
-const handlePriorityReset = () => {
-  priorityFilterAll.value = true;
-  priorityFilterValues.value = ["P0", "P1", "P2", "P3", "P4"];
-};
-
-// 用例列表顶部筛选重置
-const resetCaseFilter = () => {
-  caseFilterKeyword.value = "";
-  priorityFilterAll.value = true;
-  priorityFilterValues.value = ["P0", "P1", "P2", "P3", "P4"];
-};
-
-const handleCellClick = () => {
-  // 点击单元格时关闭编辑状态
-  cancelCaseEdit();
-};
-
-// 切换选择模式
-const toggleSelectionMode = () => {
-  showSelection.value = true;
-  selectedCases.value = [];
-  // 重置选中ID集合
-  selectedCaseIds.value = new Set();
-};
-
-// 取消选择模式
-const cancelSelectionMode = () => {
-  showSelection.value = false;
-  selectedCases.value = [];
-  selectedCaseIds.value = new Set();
-};
-
-// 处理选择变化
-const handleSelectionChange = (selection) => {
-  // 更新选中的用例数组（当前页）
-  selectedCases.value = selection;
-};
-
-// 处理单个用例选中状态变化
-const handleSelect = (selection, row) => {
-  if (selection.includes(row)) {
-    // 选中，添加到集合
-    selectedCaseIds.value.add(row.id);
-  } else {
-    // 取消选中，从集合移除
-    selectedCaseIds.value.delete(row.id);
-  }
-};
-
-// 获取所有测试用例ID
-const getAllCaseIds = async (suiteId) => {
-  if (!suiteId) return [];
-
-  let allIds = [];
-  let page = 1;
-  const pageSize = 1000; // 每次查询1000条
 
   try {
-    while (true) {
-      const response = await getSuiteCases(suiteId, {
-        page: page,
-        page_size: pageSize,
-      });
-
-      const currentIds = response.data.items.map((item) => item.id);
-      allIds = [...allIds, ...currentIds];
-
-      if (currentIds.length < pageSize) {
-        // 已经获取到所有数据
-        break;
-      }
-
-      page++;
-    }
-  } catch (error) {
-    console.error("获取所有测试用例ID失败:", error);
-    ElMessage.error("获取测试用例数据失败");
+    await updateTestSuite(dragId, { parent_id: parentId, sort_order: sortOrder });
+    ElMessage.success("排序已更新");
+    await loadFolderTree();
+  } catch (e) {
+    ElMessage.error(e?.response?.data?.message || "排序更新失败");
+    await loadFolderTree();
   }
+}
 
-  return allIds;
-};
+function reviewStatusLabel(status) {
+  const map = {
+    not_reviewed: "未评审",
+    pending: "待评审",
+    in_review: "评审中",
+    completed: "已通过",
+    rejected: "已拒绝",
+  };
+  return map[status] || "未评审";
+}
 
-// 处理全选状态变化
-const handleSelectAll = async (selection) => {
-  if (!selectedSuite.value || selectedSuite.value.type !== "suite") {
-    return;
+function reviewStatusType(status) {
+  const map = {
+    not_reviewed: "info",    // 灰蓝 - 未评审
+    pending: "warning",      // 橙黄 - 待评审
+    in_review: "primary",   // 蓝色 - 评审中
+    completed: "success",   // 绿色 - 已通过
+    rejected: "danger",     // 红色 - 已拒绝
+  };
+  return map[status] || "info";
+}
+
+function formatTime(iso) {
+  if (!iso) return "-";
+  return iso.replace("T", " ").slice(0, 19);
+}
+
+/** 回收站列表：删除时间友好显示 */
+function formatRecycleTime(iso) {
+  if (!iso) return "-";
+  const s = iso.replace("T", " ").slice(0, 19);
+  const d = new Date(iso);
+  const now = new Date();
+  const today = now.getFullYear() === d.getFullYear() && now.getMonth() === d.getMonth() && now.getDate() === d.getDate();
+  if (today) return `今天 ${s.slice(11, 16)}`;
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.getFullYear() === yesterday.getFullYear() && d.getMonth() === yesterday.getMonth() && d.getDate() === yesterday.getDate()) return `昨天 ${s.slice(11, 16)}`;
+  return s.slice(0, 16);
+}
+
+/** 回收站删除时间完整显示：年月日 时分秒 */
+function formatRecycleTimeFull(iso) {
+  if (!iso) return "—";
+  return iso.replace("T", " ").slice(0, 19);
+}
+
+/** 回收站行悬浮提示：三行显示 所属项目、所属需求、用例数 */
+function getRecycleRowTooltip(item) {
+  const project = item.project_name != null && item.project_name !== "" ? item.project_name : "—";
+  const requirement = item.version_requirement_name != null && item.version_requirement_name !== "" ? item.version_requirement_name : "—";
+  const count = item.case_count != null ? item.case_count : "—";
+  return `所属项目：${project}\n所属需求：${requirement}\n用例数：${count}`;
+}
+
+watch(showRecycleDrawer, (open) => {
+  if (open) {
+    recyclePagination.page = 1;
+    loadRecycled();
   }
+});
 
-  const currentPageIds = new Set(testCases.value.map((item) => item.id));
+onMounted(() => {
+  loadProjects();
+  loadFolderTree();
+  document.addEventListener("click", hideContextMenu);
+});
 
-  if (selection.length >= currentPageIds.size) {
-    // 全选，获取所有分页的测试用例ID
-    const allIds = await getAllCaseIds(selectedSuite.value.id);
-    selectedCaseIds.value = new Set(allIds);
-
-    // 更新当前页的选中状态
-    nextTick(() => {
-      if (caseTableRef.value) {
-        testCases.value.forEach((caseItem) => {
-          caseTableRef.value.toggleRowSelection(caseItem, true);
-        });
-      }
-    });
-  } else {
-    // 取消全选，清空所有选中的ID
-    selectedCaseIds.value.clear();
-
-    // 更新当前页的选中状态
-    nextTick(() => {
-      if (caseTableRef.value) {
-        testCases.value.forEach((caseItem) => {
-          caseTableRef.value.toggleRowSelection(caseItem, false);
-        });
-      }
-    });
+// 打开生成弹窗时清空上传列表
+watch(generateDialogVisible, (visible) => {
+  if (!visible && generateUploadRef.value) {
+    generateUploadRef.value.clearFiles();
   }
-};
+});
 
-// 删除选中的用例
-const handleDeleteSelection = async () => {
-  if (selectedCaseIds.value.size === 0) {
-    ElMessage.warning("请先选择要删除的测试用例");
-    return;
-  }
-
-  ElMessageBox.confirm(
-    `确定要删除选中的 ${selectedCaseIds.value.size} 个测试用例吗？删除后将无法恢复。`,
-    "警告",
-    {
-      confirmButtonText: "确定",
-      cancelButtonText: "取消",
-      type: "warning",
-    },
-  )
-    .then(async () => {
-      try {
-        // 批量删除用例
-        const caseIds = Array.from(selectedCaseIds.value);
-        await batchDeleteTestCases(caseIds);
-        ElMessage.success("测试用例已删除");
-
-        // 清空选中集合
-        selectedCaseIds.value.clear();
-
-        // 重新加载测试用例
-        loadTestCases(selectedSuite.value?.id);
-
-        // 重置选择模式
-        showSelection.value = false;
-        selectedCases.value = [];
-      } catch (error) {
-        console.error("删除测试用例失败:", error);
-        ElMessage.error("删除测试用例失败");
-      }
-    })
-    .catch(() => {
-      // 取消删除
-    });
-};
-
-// 分页相关
-const handleSizeChange = (size) => {
-  pageSize.value = size;
-  loadTestCases(selectedSuite.value?.id);
-};
-
-const handleCurrentChange = (page) => {
-  currentPage.value = page;
-  loadTestCases(selectedSuite.value?.id);
-};
+onBeforeUnmount(() => {
+  document.removeEventListener("click", hideContextMenu);
+});
 </script>
 
 <style scoped>
-.case-number-input-group {
-  display: flex;
-  align-items: center;
-  width: 100%;
-}
-
-.case-number-part {
-  flex: 1;
-  margin: 0;
-  min-width: 0;
-}
-
-.case-number-part.number-part {
-  width: 100px;
-  flex: none;
-}
-
-.case-number-separator {
-  margin: 0 5px;
-  color: #606266;
-  width: 10px;
-  text-align: center;
-}
-</style>
-
-<style lang="scss" scoped>
-/* 评审详情弹窗内容：全屏时避免横向滚动 */
-.review-detail-content {
-  overflow-x: hidden;
-  max-height: calc(100vh - 120px);
-  overflow-y: auto;
-}
-
-/* 用例评审列表：百分比列宽铺满容器，不出现横向滚动 */
-.review-case-table {
-  table-layout: fixed;
-}
-.review-case-table :deep(.el-table__body),
-.review-case-table :deep(.el-table__header) {
-  width: 100% !important;
-}
-
-/* 内联编辑输入框样式优化 */
-:deep(.el-table__cell) {
-  position: relative;
-
-  /* 普通输入框样式 - 与文本域保持一致 */
-  .el-input:not(.el-input--textarea) {
-    width: 100%;
-    margin: 0;
-
-    .el-input__wrapper {
-      box-shadow: none;
-      border: 1px solid #ebeef5;
-      border-radius: 0;
-      padding: 10px;
-      background-color: transparent;
-      min-height: auto;
-
-      &:hover,
-      &.is-focus {
-        box-shadow: none;
-        border-color: #409eff;
-      }
-    }
-
-    .el-input__inner {
-      border: none;
-      box-shadow: none;
-      background: transparent;
-      padding: 0;
-      height: auto;
-      line-height: 1.5;
-      font-size: inherit;
-      color: inherit;
-      text-align: center;
-      resize: none;
-    }
-  }
-
-  /* 文本域样式 */
-  .el-textarea,
-  .el-input--textarea {
-    width: 100%;
-    margin: 0;
-
-    .el-textarea__wrapper,
-    .el-input__wrapper {
-      box-shadow: none;
-      border: 1px solid #ebeef5;
-      border-radius: 0;
-      padding: 10px;
-      min-height: auto;
-      background-color: transparent;
-
-      &:hover,
-      &.is-focus {
-        box-shadow: none;
-        border-color: #409eff;
-      }
-    }
-
-    .el-textarea__inner,
-    .el-input__inner {
-      border: none;
-      box-shadow: none;
-      background: transparent;
-      padding: 0;
-      resize: none;
-      font-size: inherit;
-      color: inherit;
-      line-height: 1.5;
-      text-align: center;
-      min-height: auto;
-    }
-  }
-
-  /* 下拉选择框样式 */
-  .el-select {
-    width: 100%;
-    margin: 0;
-
-    .el-select__wrapper {
-      box-shadow: none;
-      border: 1px solid #ebeef5;
-      border-radius: 0;
-      padding: 10px;
-      background-color: transparent;
-      min-height: auto;
-
-      &:hover,
-      &.is-focus {
-        box-shadow: none;
-        border-color: #409eff;
-      }
-    }
-
-    .el-select__input {
-      font-size: inherit;
-      color: inherit;
-      height: auto;
-      line-height: 1.5;
-    }
-  }
-
-  /* 确保非编辑状态下的文本与编辑状态一致 */
-  > div {
-    padding: 10px;
-    text-align: center;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-
-  /* 确保编辑状态下的文本也居中显示 */
-  .el-input__inner,
-  .el-textarea__inner {
-    text-align: center;
-  }
-}
-
 .test-case-management {
-  padding: 0;
-  background-color: white;
-  height: 100vh;
-  overflow: hidden;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-/* 进度条样式 */
-.panel-header {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-.case-progress-container {
-  flex: 1;
-  min-width: 300px;
-  background-color: transparent;
-  border-radius: 4px;
-  padding: 5px 0;
-  box-sizing: border-box;
-  position: relative;
-}
-
-.progress-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 5px;
-  font-size: 14px;
-  color: #303133;
-}
-
-.progress-title {
-  font-weight: 500;
-}
-
-.progress-percentage {
-  color: #606266;
-  font-size: 12px;
-}
-
-.progress-wrapper {
-  position: relative;
-  margin: 20px 0 20px 0; /* 增加上方空白，为执行情况文字预留空间 */
-  height: 30px; /* 固定高度 */
-  display: flex;
-  align-items: center;
-}
-
-/* 执行情况文字样式 */
-.progress-execution-info {
-  position: absolute;
-  top: -22px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--el-text-color-primary, #303133);
-  white-space: nowrap;
-  background-color: transparent;
-  z-index: 10;
-}
-
-.progress-bar {
-  flex: 1;
-  margin-right: 35px; /* 右侧间隔 */
-  display: flex;
-  height: 9px; /* 进度条高度 */
-  border-radius: 6px;
-  overflow: hidden;
-  background-color: var(--el-border-color-lighter, #e4e7ed);
-  transition: height 0.2s ease;
-  position: relative;
-  z-index: 1;
-
-  &:hover {
-    height: 11px; /* 悬停高度 */
-  }
-}
-
-/* 右侧进度数据 */
-.progress-data-right {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 11px;
-  color: var(--el-text-color-regular, #606266);
-  margin-left: 5px; /* 减小与进度条的间隔 */
-  white-space: nowrap;
-  pointer-events: auto;
-}
-
-.progress-segment {
-  height: 100%;
-  transition: width 0.3s ease;
-  position: relative;
-
-  &::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(
-      to top,
-      rgba(0, 0, 0, 0.1) 0%,
-      transparent 100%
-    );
-  }
-}
-
-/* 水平分布的属性标签 */
-.progress-labels-horizontal {
-  position: absolute;
-  left: 0;
-  right: 10px; /* 右侧预留空间，与进度条保持一致 */
-  top: 100%;
-  margin-top: 8px;
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-  flex-wrap: wrap;
-  z-index: 2;
-}
-
-/* 水平分布的状态项（图例） */
-:deep(.stat-item.horizontal) {
-  margin: 0;
-  padding: 2px 5px;
-  border-radius: 3px;
-  background-color: var(--el-fill-color-light, #f5f7fa) !important;
-  color: var(--el-text-color-primary, #303133);
-  transition: all 0.2s ease;
-
-  &:hover {
-    background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
-    color: var(--el-color-primary);
-  }
-}
-
-.label-text {
-  pointer-events: auto;
-}
-
-/* 状态颜色 */
-.progress-segment.status-pass {
-  background-color: #67c23a;
-}
-
-.progress-segment.status-fail {
-  background-color: #f56c6c;
-}
-
-.progress-segment.status-blocked {
-  background-color: #e6a23c;
-}
-
-.progress-segment.status-not_applicable {
-  background-color: #9370db;
-}
-
-.progress-segment.status-none {
-  background-color: #e4e7ed;
-}
-
-.progress-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 15px;
-  font-size: 12px;
-  color: var(--el-text-color-regular, #606266);
-  justify-content: flex-end;
-}
-
-:deep(.stat-item) {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 1px 0;
-  background-color: transparent !important;
-  border-radius: 0 !important;
-  transition: all 0.2s ease;
-  cursor: pointer;
-  box-shadow: none !important;
-  font-size: 12px;
-  line-height: 1;
-  color: var(--el-text-color-primary, #303133);
-
-  &:hover {
-    background-color: transparent !important;
-    transform: none !important;
-    box-shadow: none !important;
-    color: var(--el-color-primary);
-  }
-}
-
-:deep(.stat-item::before) {
-  content: "";
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
-}
-
-:deep(.stat-item.status-pass::before) {
-  background-color: #67c23a;
-}
-
-:deep(.stat-item.status-fail::before) {
-  background-color: #f56c6c;
-}
-
-:deep(.stat-item.status-blocked::before) {
-  background-color: #e6a23c;
-}
-
-:deep(.stat-item.status-not_applicable::before) {
-  background-color: #9370db;
-}
-
-:deep(.stat-item.status-none::before) {
-  background-color: #e4e7ed;
-}
-
 .page-header {
-  margin-bottom: 0;
-  padding: 20px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--el-border-color-light, #e4e7ed);
-  background: var(--el-bg-color, white);
-  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e4e7ed;
+  background: #fff;
+}
 
-  .header-content {
-    h1 {
-      margin: 0 0 2px 0;
-      font-size: 24px;
-      font-weight: 600;
-      color: var(--el-text-color-primary, #303133);
-    }
-    // 描述删掉了
-    .description {
-      margin: 0;
-      color: var(--el-text-color-secondary, #909399);
-      font-size: 14px;
-    }
-  }
+.page-header h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.header-project-select {
+  width: 180px;
 }
 
 .main-content {
-  display: flex;
-  align-items: stretch;
-  flex-wrap: nowrap;
-  min-width: 900px;
   flex: 1;
+  display: flex;
   overflow: hidden;
-  margin-bottom: 0;
+}
 
   .left-panel {
-    min-width: 280px;
-    max-width: 70%;
-    width: fit-content;
-    height: 100%;
-    background: var(--el-bg-color, white);
-    box-shadow: none;
-    border-right: 1px solid var(--el-border-color-light, #e4e7ed);
+  width: 220px;
+  min-width: 220px;
+  border-right: 1px solid #e4e7ed;
+  background: #fafafa;
     display: flex;
     flex-direction: column;
-    transition: all 0.3s ease;
-    flex-shrink: 0;
+  transition: width 0.2s;
+}
 
-    /* 收起状态 */
-    &.collapsed {
-      min-width: 50px;
-      width: 50px;
-
-      .panel-header {
-        justify-content: center;
-
-        .el-input {
-          display: none;
-        }
-
-        .header-actions {
-          .el-button:not(:last-child) {
-            display: none; /* 隐藏除了最后一个按钮（展开按钮）外的所有按钮 */
-          }
-        }
-      }
-
-      .tree-container {
-        display: none;
-      }
-    }
-
-    .panel-header {
-      padding: 12px 15px;
-      border-bottom: 1px solid var(--el-border-color-lighter, #f0f2f5);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background-color: var(--el-bg-color, white);
-      flex-shrink: 0;
-
-      .el-input {
-        flex: 1;
+.left-panel.collapsed {
+  width: 0;
         min-width: 0;
+  overflow: hidden;
+  border-right: none;
+}
 
-        /* 增大搜索框 */
-        --el-input-height: 32px;
-        transition: all 0.3s ease;
-      }
-
-      .el-input__wrapper {
-        font-size: 14px;
-      }
-
-      .el-input__inner {
-        font-size: 14px;
-        height: 32px;
-        line-height: 32px;
-      }
-
-      .header-actions {
+.collapsed-expand-btn {
         display: flex;
         align-items: center;
-        flex-shrink: 0;
-        width: fit-content;
-        gap: 3px;
-      }
-
-      .header-actions .el-button {
-        padding: 1px;
-        margin: 0 !important;
-        min-width: 24px; /* 按钮大小 */
-        height: 24px; /* 按钮高度 */
-        font-size: 15px; /* 图标大小 */
-        display: flex;
         justify-content: center;
-        align-items: center;
-      }
-    }
-
-    .tree-container {
-      flex: 1;
-      padding: 15px 15px 15px 20px;
-      overflow-x: auto;
-      overflow-y: auto;
-      background-color: var(--el-bg-color, #ffffff);
-      max-width: 320px;
-      transition: all 0.3s ease;
-      scroll-behavior: smooth;
-    }
-
-    /* 确保树节点内容不被截断 */
-    :deep(.el-tree) {
-      width: fit-content;
-      min-width: 100%;
-      font-size: 14px;
-    }
-
-    :deep(.el-tree-node) {
-      white-space: nowrap;
-    }
-
-    :deep(.el-tree-node__content) {
-      white-space: nowrap;
-      height: 36px;
-      line-height: 36px;
-    }
-
-    /* 选中节点高亮样式 */
-    :deep(.el-tree-node.is-current > .el-tree-node__content) {
-      background-color: var(--el-color-primary-light-9, #e6f4ff) !important;
-      color: var(--el-color-primary);
-      font-weight: 600;
-    }
-
-    :deep(.el-tree-node.is-current > .el-tree-node__content .node-icon) {
-      color: var(--el-color-primary);
-    }
-
-    /* 增大展开收起图标 */
-    :deep(.el-tree-node__expand-icon) {
-      font-size: 16px;
       width: 24px;
-      height: 24px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    /* 增大节点图标 */
-    .node-icon {
-      font-size: 18px;
-      margin-right: 8px;
-    }
-  }
-
-  /* 父套件选择器样式 */
-  .parent-suite-selector {
-    .suite-tree-popover {
-      .pop-footer {
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-        margin-top: 10px;
-        padding-top: 10px;
-        border-top: 1px solid #ebeef5;
-      }
-    }
-  }
-
-  /* 用例集/父套件下拉树：统一最大高度与垂直滚动条，数据多时可滚动 */
-  :deep(.suite-tree-popover) {
-    max-height: 320px;
-    overflow-y: auto;
-  }
-  :deep(.suite-tree-popover .el-tree) {
-    min-height: 0;
-  }
-
-  .right-panel {
-    flex: 1;
-    min-width: 400px;
-    height: 100%;
-    background: var(--el-bg-color, white);
-    box-shadow: none;
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 1;
-    position: relative;
+  min-width: 24px;
+  cursor: pointer;
+  background: #f0f2f5;
+  border-right: 1px solid #e4e7ed;
+  color: #606266;
+  transition: background 0.2s;
+}
+.collapsed-expand-btn:hover {
+  background: #e6f7ff;
+  color: #409eff;
+}
 
     .panel-header {
-      padding: 15px;
-      border-bottom: 1px solid var(--el-border-color-light, #e4e7ed);
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      gap: 20px;
-      background-color: var(--el-bg-color, white);
-      min-height: 0;
+  padding: 10px 12px;
+  gap: 6px;
+  border-bottom: 1px solid #e4e7ed;
+}
 
-      .header-content {
+.tree-container {
         flex: 1;
-        min-width: 0;
-      }
+  overflow: auto;
+  padding: 8px 4px;
+}
 
-      h3 {
-        margin: 0 0 10px 0;
-        font-size: 16px;
-        font-weight: 600;
-        color: var(--el-text-color-primary, #303133);
-      }
+.recycle-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-top: 1px solid #e4e7ed;
+  cursor: pointer;
+  font-size: 13px;
+  color: #606266;
+  background: #fafafa;
+}
+.recycle-trigger:hover {
+  background: #f0f2f5;
+  color: #409eff;
+}
 
-      .suite-info {
-        display: flex;
-        gap: 20px;
-        flex-wrap: wrap;
-        margin-top: 8px;
-      }
-
-      .info-item {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        font-size: 14px;
-      }
-
-      .label {
-        color: var(--el-text-color-secondary, #909399);
-        font-weight: 400;
-      }
-
-      .value {
-        color: var(--el-text-color-primary, #303133);
-        font-weight: 500;
-      }
-
-      .value.link {
-        cursor: pointer;
-        color: var(--el-color-primary, #409eff);
-        text-decoration: none;
-        &:hover:not(.disabled) {
-          text-decoration: underline;
-        }
-        &.disabled {
-          cursor: default;
-          color: var(--el-text-color-secondary, #909399);
-        }
-      }
-
-      .case-list-filter {
-        flex-shrink: 0;
+.tree-node-label {
         display: flex;
         align-items: center;
-        gap: 12px;
-      }
-    }
+  gap: 6px;
+  font-size: 13px;
+}
 
-    .case-list {
+.right-panel {
       flex: 1;
-      padding: 15px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
 
-    .table-wrapper {
+.panel-content {
       flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
       overflow: auto;
-      margin-bottom: 0;
-    }
-
-    .table-wrapper :deep(.el-table) {
-      width: 100%;
-    }
-
-    /* 为特定属性列添加左对齐样式 */
-    /* 测试数据列 */
-    .table-wrapper :deep(.el-table__header-wrapper th[aria-label="测试数据"]),
-    .table-wrapper :deep(.el-table__body-wrapper td:nth-child(7)) {
-      text-align: left !important;
-    }
-
-    /* 前置条件列 */
-    .table-wrapper :deep(.el-table__header-wrapper th[aria-label="前置条件"]),
-    .table-wrapper :deep(.el-table__body-wrapper td:nth-child(8)) {
-      text-align: left !important;
-    }
-
-    /* 操作步骤列 */
-    .table-wrapper :deep(.el-table__header-wrapper th[aria-label="操作步骤"]),
-    .table-wrapper :deep(.el-table__body-wrapper td:nth-child(9)) {
-      text-align: left !important;
-    }
-
-    /* 预期结果列 */
-    .table-wrapper :deep(.el-table__header-wrapper th[aria-label="预期结果"]),
-    .table-wrapper :deep(.el-table__body-wrapper td:nth-child(10)) {
-      text-align: left !important;
-    }
-
-    .table-wrapper :deep(.el-table__body-wrapper) {
-      overflow: auto;
-    }
-  }
 }
 
-/* 表格空数据：AI 生成中 */
-.table-empty-generating {
-  padding: 40px 0;
-  text-align: center;
+.form-item-hint {
+  font-size: 12px;
   color: var(--el-text-color-secondary);
-}
-.table-empty-generating .empty-generating-icon {
-  font-size: 36px;
-  color: var(--el-color-primary);
-  margin-bottom: 12px;
-}
-.table-empty-generating .empty-generating-text {
-  margin: 0 0 12px;
-  font-size: 14px;
-}
-/* 表格空数据：默认暂无数据 */
-.table-empty-default {
-  padding: 40px 0;
-  text-align: center;
-  color: var(--el-text-color-secondary);
-}
-.table-empty-default .empty-default-icon {
-  font-size: 48px;
-  color: var(--el-text-color-placeholder, #c0c4cc);
-  margin-bottom: 12px;
-}
-.table-empty-default p {
-  margin: 0;
-  font-size: 14px;
-}
-
-/* 树形节点样式 */
-.tree-node-content {
-  display: flex;
-  align-items: center;
-
-  .node-icon {
-    margin-right: 5px;
-    font-size: 16px;
-    color: var(--el-text-color-regular, #606266);
-  }
-
-  .tree-node-loading {
-    margin-left: 6px;
-    font-size: 14px;
-    color: var(--el-color-primary);
-  }
-
-  .case-count {
-    margin-left: 5px;
-    font-size: 12px;
-    color: var(--el-text-color-secondary, #909399);
-  }
-}
-
-/* 状态下拉列表样式 */
-.status-cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.status-color-indicator {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 8px;
-}
-
-/* 不同状态的颜色 */
-.status-pass {
-  background-color: #67c23a;
-}
-
-.status-fail {
-  background-color: #f56c6c;
-}
-
-.status-blocked {
-  background-color: #e6a23c;
-}
-
-.status-not_applicable {
-  background-color: #9370db;
-}
-
-.status-none {
-  background-color: #e4e7ed;
-}
-
-/* 状态选项内容 */
-.status-option-content {
-  display: flex;
-  align-items: center;
-}
-
-.status-option-text {
-  flex: 1;
-}
-
-/* 下拉列表样式 */
-.status-select-popper {
-  min-width: 120px;
-}
-
-/* 标题用例数量样式 */
-.case-count-title {
-  font-size: 14px;
-  font-weight: normal;
-  color: var(--el-text-color-secondary, #909399);
-  margin-left: 8px;
-}
-
-/* 分页组件样式 */
-.pagination-container {
-  position: fixed;
-  bottom: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: var(--el-bg-color, white);
-  padding: 15px 20px;
-  border-top: 1px solid var(--el-border-color-light, #e4e7ed);
-  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.1);
-  z-index: 100;
-}
-
-.pagination-container .el-pagination {
-  margin: 0;
-  text-align: center;
-}
-
-/* 为固定分页留出空间 */
-.main-content {
-  margin-bottom: 70px;
-}
-
-/* 选中节点样式 */
-.tree-node-content.current-node {
-  background-color: var(--el-color-primary-light-9, #ecf5ff);
-  color: var(--el-color-primary);
-  font-weight: bold;
-  padding: 4px 8px;
-  border-radius: 4px;
-  margin: 0 -8px;
-}
-
-.tree-node-content.current-node .node-icon {
-  color: var(--el-color-primary);
-}
-
-/* 右键菜单样式 */
-.context-menu {
-  background: var(--el-bg-color, white);
-  border: 1px solid var(--el-border-color-light, #e4e7ed);
-  border-radius: 4px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  padding: 5px 0;
-
-  .menu-item {
-    padding: 8px 16px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-
-    &:hover {
-      background-color: var(--el-fill-color-light, #f5f7fa);
-    }
-  }
-}
-
-/* 表单帮助文本样式 */
-.form-help-text {
   margin-top: 6px;
-  font-size: 12px;
-  color: var(--el-text-color-secondary, #909399);
-  line-height: 1.5;
-}
-
-/* 右侧缺省页面：未选择套件或选中文件夹时显示 */
-.case-list-default {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--el-fill-color-light, #fafafa);
-}
-
-.case-list-default .default-placeholder {
-  text-align: center;
-  color: var(--el-text-color-secondary, #909399);
-}
-
-.case-list-default .default-icon {
-  font-size: 64px;
-  color: var(--el-text-color-placeholder, #c0c4cc);
-  margin-bottom: 16px;
-}
-
-.case-list-default .default-text {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--el-text-color-regular, #606266);
-}
-
-/* 脑图缺省页面样式 */
-.mindmap-view-wrapper {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.mindmap-fullscreen-btn {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 10;
-}
-
-.mindmap-view-wrapper .mindmap-view {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  background-color: var(--el-fill-color-blank, #f5f7fa);
-}
-
-.mindmap-default-page {
-  width: 100%;
-  max-width: 600px;
-  text-align: center;
-  padding: 40px;
-  background-color: var(--el-bg-color, white);
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-}
-
-/* AI生成用例结果对话框样式 */
-.generate-result-container {
-  padding: 10px;
-}
-
-.result-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 15px;
-  gap: 10px;
-}
-
-.case-count {
-  font-weight: bold;
-  color: #606266;
-}
-
-.cases-list {
-  overflow: auto;
-}
-
-.steps-container {
-  max-height: 100px;
-  overflow: hidden;
-}
-
-.step-item {
-  margin-bottom: 5px;
-  font-size: 12px;
-}
-
-.steps-text {
-  font-size: 12px;
-  white-space: pre-wrap;
-}
-
-/* 优化表格列宽和内容显示 */
-.el-table__body-wrapper {
-  overflow-x: auto;
-}
-
-.el-table .cell {
-  font-size: 12px;
   line-height: 1.4;
 }
 
-/* 用例列表：编辑边界 = 列表单元格边界（绝对定位铺满单元格） */
-.case-list-table .cell {
-  position: relative;
-}
-.case-list-table .cell .cell-edit-wrap {
-  position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1;
-}
-.case-list-table .cell .cell-edit-wrap .cell-full-edit {
-  width: 100% !important;
-  height: 100% !important;
-  min-height: 100%;
-  display: block;
-  box-sizing: border-box;
-}
-.case-list-table .cell .cell-edit-wrap .cell-full-edit :deep(.el-input__wrapper) {
-  width: 100%;
-  height: 100%;
-  min-height: 100%;
-  padding: 10px;
-  border-radius: 0;
-  box-shadow: inset 0 0 0 1px var(--el-border-color, #dcdfe6);
-  box-sizing: border-box;
-}
-.case-list-table .cell .cell-edit-wrap .cell-full-edit :deep(.el-input__wrapper:hover) {
-  box-shadow: inset 0 0 0 1px var(--el-border-color-hover, #c0c4cc);
-}
-.case-list-table .cell .cell-edit-wrap .cell-full-edit :deep(.el-input__wrapper.is-focus) {
-  box-shadow: inset 0 0 0 1px var(--el-color-primary, #409eff);
-}
-.case-list-table .cell .cell-edit-wrap .cell-full-edit :deep(.el-input__inner) {
-  height: 100%;
-  min-height: 0;
-}
-.case-list-table .cell .cell-edit-wrap .cell-full-edit :deep(.el-textarea__inner) {
-  width: 100%;
-  height: 100% !important;
-  min-height: 100%;
-  padding: 10px;
-  border-radius: 0;
-  box-shadow: inset 0 0 0 1px var(--el-border-color, #dcdfe6);
-  border: none;
-  box-sizing: border-box;
-  resize: none;
-}
-.case-list-table .cell .cell-edit-wrap .cell-full-edit :deep(.el-textarea__inner:hover) {
-  box-shadow: inset 0 0 0 1px var(--el-border-color-hover, #c0c4cc);
-}
-.case-list-table .cell .cell-edit-wrap .cell-full-edit :deep(.el-textarea__inner:focus) {
-  box-shadow: inset 0 0 0 1px var(--el-color-primary, #409eff);
-}
-.case-list-table .cell .cell-edit-wrap .cell-full-edit.el-select {
-  width: 100% !important;
-}
-.case-list-table .cell .cell-edit-wrap .cell-full-edit.el-select :deep(.el-input__wrapper) {
-  min-height: 0;
-}
-
-/* 调整标签样式 */
-.el-tag {
-  font-size: 11px;
-  padding: 2px 8px;
-}
-
-/* 筛选面板样式 */
-.filter-panel {
-  padding: 8px;
-  
-  :deep(.el-checkbox) {
-    width: 100%;
-    margin-right: 0;
-    padding: 0;
-    height: auto;
-  }
-  
-  :deep(.el-checkbox__label) {
-    width: 100%;
-    font-size: 12px;
-    padding-left: 6px;
-  }
-  
-  :deep(.el-checkbox__input) {
-    line-height: 1;
-  }
-  
-  :deep(.el-checkbox-group) {
-    display: flex;
-    flex-direction: column;
-  }
-  
-  :deep(.el-button) {
-    padding: 4px 8px;
-    font-size: 12px;
-  }
-}
-
-/* 自动生成表单：所属文件夹/选择所属用例集 与表单项右对齐，不超出边界 */
-.auto-case-suite-selector {
-  width: 100%;
-  max-width: 100%;
-}
-.auto-case-suite-selector .auto-case-suite-input,
-.auto-case-suite-selector :deep(.el-input) {
-  width: 100% !important;
-  min-width: 0;
-}
-/* 所属文件夹/用例集下拉：与输入框同宽，由 JS 设置 :width，此处保证内容填满 */
-.auto-case-suite-popover.el-popper {
-  min-width: 0;
-}
-.auto-case-suite-selector .suite-tree-popover {
-  width: 100%;
-  min-width: 0;
-}
-
-/* 用例集名称输入容器 - 两列布局 */
-.suite-name-container {
+.table-toolbar {
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.toolbar-left-area {
+  display: flex;
+  align-items: center;
+}
+
+.action-btns {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 1px;
+}
+.action-btns .el-button {
+  margin-left: 0;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+.action-btns .el-button + .el-button {
+  margin-left: 0;
+}
+
+.suite-name-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.suite-name-cell--editing {
   width: 100%;
-  max-width: 100%;
+  min-width: 0;
+  margin: 0 -6px;
+  padding: 0 2px;
+  justify-content: stretch;
 }
-
-.existing-suites-selector {
-  flex: 0 0 200px;
-  min-width: 200px;
-}
-
-.existing-suites-selector .view-only-select {
+.suite-name-cell--editing .el-input {
   width: 100%;
+  min-width: 0;
 }
-
-.selector-hint {
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--el-text-color-secondary, #909399);
-  line-height: 1.2;
+.suite-name-cell--editing .el-input :deep(.el-input__wrapper) {
+  padding: 4px 10px;
+  border-radius: 4px;
 }
-
-/* 查看用例集下拉框样式 */
-.existing-suites-selector :deep(.el-select) {
-  width: 100%;
+.suite-name-cell .suite-name-edit-btn {
+  padding: 2px 4px;
+  margin-left: 2px;
+  color: var(--el-text-color-secondary);
 }
-
-.existing-suites-selector :deep(.el-input__wrapper) {
-  background-color: var(--el-fill-color-light, #f5f7fa);
-  cursor: pointer;
-}
-
-.existing-suites-selector :deep(.el-input__wrapper):hover {
-  background-color: var(--el-fill-color, #ebeef5);
-}
-
-.existing-suites-selector :deep(.el-input__inner) {
-  cursor: pointer;
-  color: var(--el-text-color-regular, #606266);
-  font-size: 13px;
-}
-
-.existing-suites-selector :deep(.el-select__prefix) {
+.suite-name-cell .suite-name-edit-btn:hover {
   color: var(--el-color-primary);
 }
-
-/* 下拉选项样式 */
-.suite-view-popper :deep(.el-select-dropdown__item.is-disabled) {
-  color: #606266;
-  cursor: default;
-  background-color: transparent;
-  padding-left: 20px;
+.generating-icon {
+  color: #e6a23c;
+  font-size: 14px;
 }
 
-.suite-view-popper :deep(.el-select-dropdown__item.is-disabled):hover {
-  background-color: #f5f7fa;
-}
-
-/* 空状态提示 */
-.empty-suite-tip {
+.pagination-bar {
   display: flex;
-  flex-direction: column;
+  justify-content: flex-end;
+  padding: 12px 0 0;
+}
+
+.empty-tip {
+  flex: 1;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 20px 10px;
-  color: var(--el-text-color-secondary, #909399);
+  justify-content: center;
+}
+
+.context-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: transparent;
+}
+
+.context-menu {
+  position: fixed;
+  z-index: 9999;
+  background: #fff;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+  padding: 4px 0;
+  min-width: 120px;
+}
+
+.context-menu-item {
+  padding: 8px 16px;
+  cursor: pointer;
   font-size: 13px;
 }
 
-.empty-suite-tip .el-icon {
-  font-size: 32px;
-  color: var(--el-text-color-placeholder, #c0c4cc);
+.context-menu-item:hover {
+  background: #ecf5ff;
+  color: #409eff;
 }
 
-/* 未选择文件夹时的占位提示 */
-.placeholder-tip {
+.context-menu-item.danger:hover {
+  background: #fef0f0;
+  color: #f56c6c;
+}
+
+.form-tip {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-top: 4px;
+}
+
+.upload-tip {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-top: 4px;
+}
+
+.document-preview {
+  font-size: 12px;
+  color: var(--el-color-success);
+  margin-top: 8px;
+}
+
+.recycle-drawer :deep(.el-drawer__body) {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  background-color: var(--el-fill-color-light, #f5f7fa);
-  border: 1px solid var(--el-border-color, #dcdfe6);
-  border-radius: 4px;
-  color: var(--el-text-color-secondary, #909399);
-  font-size: 14px;
-  height: 32px;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 16px;
+  box-sizing: border-box;
 }
-
-.placeholder-tip .el-icon {
-  color: var(--el-text-color-placeholder, #c0c4cc);
-  font-size: 14px;
-}
-
-.suite-name-input {
+.recycle-list {
+  padding: 0;
+  min-height: 120px;
+  overflow-x: hidden;
+  overflow-y: auto;
   flex: 1;
   min-width: 0;
 }
-
-.suite-name-input :deep(.el-input) {
+.recycle-table {
   width: 100%;
+  max-width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  table-layout: fixed;
+  box-sizing: border-box;
+}
+.recycle-table th,
+.recycle-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #ebeef5;
+  vertical-align: middle;
+}
+.recycle-table-center th,
+.recycle-table-center td {
+  text-align: center;
+}
+.recycle-table th {
+  color: var(--el-text-color-secondary);
+  font-weight: 600;
+  font-size: 12px;
+  background: #f5f7fa;
+  padding: 10px 8px;
+}
+.recycle-table tbody tr:hover {
+  background: #fafafa;
+}
+.recycle-table .col-path {
+  width: 24%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recycle-table .col-name {
+  width: 22%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.recycle-table .col-time {
+  width: 12%;
+  white-space: nowrap;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+.recycle-table .col-check {
+  width: 40px;
+  text-align: center;
+}
+.recycle-toolbar {
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+.recycle-pagination {
+  margin-top: 12px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+.recycle-table .cell-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recycle-table .col-operator {
+  width: 12%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.recycle-table .col-actions {
+  width: 22%;
+  white-space: nowrap;
+}
+.recycle-table .col-actions .el-button {
+  padding: 0 6px;
+  margin-left: 0;
+}
+</style>
+
+<style>
+/* 回收站用例集名称 tooltip 多行显示（popper 挂载到 body，需非 scoped） */
+.recycle-name-tooltip-multiline {
+  white-space: pre-line;
 }
 </style>

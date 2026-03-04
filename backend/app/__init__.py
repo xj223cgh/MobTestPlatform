@@ -122,7 +122,7 @@ def setup_logging(app):
 
 def register_blueprints(app):
     """注册蓝图"""
-    from app.routes import auth, users, devices, test_cases, test_tasks, home, projects, iterations, suite_case_relations, test_suites, review_tasks, files, reports, settings_routes, ai_tasks, notifications, roles
+    from app.routes import auth, users, devices, test_cases, test_tasks, home, projects, iterations, suite_case_relations, test_suites, review_tasks, files, reports, settings_routes, ai_tasks, notifications, roles, mindmap
 
     app.register_blueprint(auth.bp, url_prefix='/api/auth')
     app.register_blueprint(roles.bp)
@@ -141,6 +141,7 @@ def register_blueprints(app):
     app.register_blueprint(files.files_bp, url_prefix='/api/files')
     app.register_blueprint(reports.bp)
     app.register_blueprint(ai_tasks.bp)  # AI异步任务接口
+    app.register_blueprint(mindmap.bp)  # 脑图数据接口
 
 
 def register_error_handlers(app):

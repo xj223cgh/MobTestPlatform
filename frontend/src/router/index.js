@@ -43,6 +43,12 @@ const routes = [
     meta: { title: "脑图全屏", requiresAuth: true, hidden: true },
   },
   {
+    path: "/mindmap-editor",
+    name: "MindmapEditor",
+    component: () => import("@/views/testCase/MindmapEditor.vue"),
+    meta: { title: "用例脑图编辑", requiresAuth: true, hidden: true },
+  },
+  {
     path: "/",
     name: "Layout",
     component: () => import("@/components/layout/Layout.vue"),

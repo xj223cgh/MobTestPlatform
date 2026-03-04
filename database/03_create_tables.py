@@ -204,9 +204,17 @@ def create_tables():
                 version_requirement_id INT NULL COMMENT '关联的版本需求ID',
                 iteration_id INT NULL COMMENT '所属迭代ID',
                 sort_order INT DEFAULT 0 COMMENT '排序顺序',
+                deleted_at DATETIME NULL COMMENT '逻辑删除时间，非空表示已入回收站',
+                case_mindmap_data LONGTEXT NULL COMMENT '脑图JSON数据',
+                case_count INT DEFAULT 0 COMMENT '用例数量',
+                review_status VARCHAR(20) DEFAULT 'not_reviewed' COMMENT '评审展示状态',
+                case_edit_status VARCHAR(20) DEFAULT 'drafting' COMMENT '用例编辑状态',
+                last_saved_at DATETIME NULL COMMENT '脑图最后保存时间',
+                last_saved_by INT NULL COMMENT '最后保存人ID',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                 FOREIGN KEY (parent_id) REFERENCES test_suites(id) ON DELETE SET NULL,
+                FOREIGN KEY (last_saved_by) REFERENCES users(id) ON DELETE SET NULL,
                 FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE CASCADE,
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
                 FOREIGN KEY (version_requirement_id) REFERENCES version_requirements(id) ON DELETE SET NULL,
@@ -217,7 +225,8 @@ def create_tables():
                 INDEX idx_version_requirement_id (version_requirement_id),
                 INDEX idx_iteration_id (iteration_id),
                 INDEX idx_type (type),
-                INDEX idx_sort_order (sort_order)
+                INDEX idx_sort_order (sort_order),
+                INDEX idx_deleted_at (deleted_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='测试套件表'""")
             
             # 创建test_cases表
@@ -245,6 +254,11 @@ def create_tables():
                 reviewer_id INT COMMENT '审核人ID',
                 review_comments TEXT COMMENT '审核意见',
                 last_reviewed_at TIMESTAMP NULL COMMENT '最后评审时间',
+                mindmap_node_id VARCHAR(100) NULL COMMENT '脑图节点ID',
+                tags JSON NULL COMMENT '标签JSON数组',
+                markers JSON NULL COMMENT '标记JSON数组',
+                group_path VARCHAR(500) NULL COMMENT '脑图分组路径',
+                automation_case_id INT NULL COMMENT '关联自动化用例ID',
                 FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE CASCADE,
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
                 FOREIGN KEY (version_requirement_id) REFERENCES version_requirements(id) ON DELETE SET NULL,
@@ -266,6 +280,45 @@ def create_tables():
             
 
             
+            # 创建case_tags表
+            cursor.execute("""CREATE TABLE IF NOT EXISTS case_tags (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tag_name VARCHAR(50) NOT NULL COMMENT '标签名称',
+                tag_color VARCHAR(20) DEFAULT '#409EFF' COMMENT '标签颜色',
+                project_id INT NOT NULL COMMENT '所属项目ID',
+                creator_id INT NOT NULL COMMENT '创建者ID',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE CASCADE,
+                INDEX idx_project_id (project_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用例标签字典表'""")
+
+            # 创建case_markers表
+            cursor.execute("""CREATE TABLE IF NOT EXISTS case_markers (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                marker_name VARCHAR(50) NOT NULL COMMENT '标记名称',
+                marker_type VARCHAR(20) DEFAULT 'system' COMMENT 'system/custom',
+                project_id INT NOT NULL COMMENT '所属项目ID',
+                creator_id INT NOT NULL COMMENT '创建者ID',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE CASCADE,
+                INDEX idx_project_id (project_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用例标记字典表'""")
+
+            # 创建 mindmap_versions 表（脑图版本快照，用于回退）
+            cursor.execute("""CREATE TABLE IF NOT EXISTS mindmap_versions (
+                id INT AUTO_INCREMENT PRIMARY KEY COMMENT '版本ID',
+                suite_id INT NOT NULL COMMENT '用例集ID',
+                snapshot LONGTEXT NOT NULL COMMENT '脑图JSON快照',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                created_by INT NULL COMMENT '保存人ID',
+                FOREIGN KEY (suite_id) REFERENCES test_suites(id) ON DELETE CASCADE,
+                FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+                INDEX idx_suite_id (suite_id),
+                INDEX idx_created_at (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='脑图编辑版本快照'""")
+
             # 创建 task_folders 表（任务文件夹，按任务类型分开）
             cursor.execute("""CREATE TABLE IF NOT EXISTS task_folders (
                 id INT AUTO_INCREMENT PRIMARY KEY COMMENT '文件夹ID',
@@ -555,6 +608,32 @@ def create_tables():
                 INDEX idx_user_read (user_id, is_read),
                 INDEX idx_user_deleted (user_id, deleted_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消息通知表'""")
+
+            # ---------- 迁移逻辑（与 08_migrate 合并：对已有库补全 deleted_at、mindmap_versions）----------
+            def _column_exists(cursor, table, column):
+                cursor.execute("SHOW COLUMNS FROM `%s` LIKE %%s" % table, (column,))
+                return cursor.fetchone() is not None
+
+            def _table_exists(cursor, table):
+                cursor.execute("SHOW TABLES LIKE %s", (table,))
+                return cursor.fetchone() is not None
+
+            if _table_exists(cursor, "test_suites") and not _column_exists(cursor, "test_suites", "deleted_at"):
+                cursor.execute("ALTER TABLE test_suites ADD COLUMN deleted_at DATETIME NULL COMMENT '逻辑删除时间' AFTER sort_order")
+                cursor.execute("ALTER TABLE test_suites ADD INDEX idx_deleted_at (deleted_at)")
+                print("  [迁移] test_suites.deleted_at 已添加")
+            if not _table_exists(cursor, "mindmap_versions"):
+                cursor.execute("""CREATE TABLE mindmap_versions (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    suite_id INT NOT NULL,
+                    snapshot LONGTEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    created_by INT NULL,
+                    FOREIGN KEY (suite_id) REFERENCES test_suites(id) ON DELETE CASCADE,
+                    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+                    INDEX idx_suite_id (suite_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci""")
+                print("  [迁移] mindmap_versions 表已创建")
 
             connection.commit()
             print("所有数据表创建成功！")

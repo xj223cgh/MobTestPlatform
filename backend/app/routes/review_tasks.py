@@ -70,7 +70,8 @@ def initiate_review(suite_id):
             )
             db.session.add(case_review)
         
-        # 不需要更新用例集状态，评审状态由评审任务管理
+        # 同步用例集列表的评审展示状态，便于列表筛选与展示
+        suite.review_status = 'pending'
         db.session.commit()
         from app.services.notification_service import notify_users
         notify_users([reviewer_id], 'review_pending', '待评审', f'你有新的用例集评审任务待处理（{suite.suite_name}）', 'review_task', review_task.id, exclude_user_id=current_user.id)
@@ -138,10 +139,13 @@ def update_case_review(task_id, case_id):
         case_review.comments = comments
         case_review.updated_at = datetime.now(LOCAL_TIMEZONE)
         
-        # 如果评审任务状态是待评审，则更新为评审中并设置开始时间
+        # 如果评审任务状态是待评审，则更新为评审中并设置开始时间，并同步用例集展示状态
         if case_review.review_task.status == 'pending':
             case_review.review_task.status = 'in_review'
             case_review.review_task.start_time = datetime.now(LOCAL_TIMEZONE)
+            suite = TestSuite.query.get(case_review.review_task.suite_id)
+            if suite:
+                suite.review_status = 'in_review'
         
         # 更新评审任务的更新时间
         case_review.review_task.updated_at = datetime.now(LOCAL_TIMEZONE)
@@ -233,6 +237,11 @@ def complete_review(task_id):
         review_task.end_time = now
         review_task.overall_comments = overall_comments
         review_task.updated_at = now
+        
+        # 同步用例集列表的评审展示状态（前端：completed=已通过，rejected=已拒绝）
+        suite = TestSuite.query.get(review_task.suite_id)
+        if suite:
+            suite.review_status = 'completed' if suite_review_status == 'approved' else 'rejected'
         
         # 4. 更新每条用例的最终评审结果，并写入用例评审的评审时间
         for case_review in case_reviews:
@@ -419,6 +428,11 @@ def restart_review(task_id):
         review_task.status = 'in_review'
         review_task.updated_at = datetime.now(LOCAL_TIMEZONE)
         
+        # 同步用例集列表的评审展示状态
+        suite = TestSuite.query.get(review_task.suite_id)
+        if suite:
+            suite.review_status = 'in_review'
+        
         db.session.commit()
         
         if review_task.initiator_id and review_task.initiator_id != current_user.id:
@@ -459,6 +473,11 @@ def reinitiate_review(task_id):
         review_task.status = 'pending'
         review_task.end_time = None
         review_task.updated_at = datetime.now(LOCAL_TIMEZONE)
+        
+        # 同步用例集列表的评审展示状态
+        suite = TestSuite.query.get(review_task.suite_id)
+        if suite:
+            suite.review_status = 'pending'
         
         db.session.commit()
         
@@ -551,6 +570,11 @@ def reject_review(task_id):
             review_task.end_time = now
         review_task.overall_comments = overall_comments
         review_task.updated_at = now
+        
+        # 同步用例集列表的评审展示状态
+        suite = TestSuite.query.get(review_task.suite_id)
+        if suite:
+            suite.review_status = 'rejected'
         
         db.session.commit()
         if review_task.initiator_id and review_task.initiator_id != current_user.id:
