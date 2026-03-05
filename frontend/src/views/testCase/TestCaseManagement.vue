@@ -5,20 +5,6 @@
         <h1>用例管理</h1>
       </div>
       <div class="header-actions">
-        <el-button type="warning" icon="MagicStick" :loading="isGeneratingAny" @click="handleGenerateCases">
-          AI生成用例
-        </el-button>
-        <el-button type="primary" icon="Plus" @click="handleAddFolder">
-          新建文件夹
-        </el-button>
-        <el-button
-          v-if="selectedFolder"
-          type="success"
-          icon="Plus"
-          @click="handleAddSuite"
-        >
-          新建用例集
-        </el-button>
         <el-select
           v-model="filterProjectId"
           placeholder="所属项目"
@@ -33,6 +19,12 @@
             :value="p.id"
           />
         </el-select>
+        <el-button icon="Upload" @click="openImportSuiteDialog">
+          导入用例集
+        </el-button>
+        <el-button type="warning" icon="MagicStick" :loading="isGeneratingAny" @click="handleGenerateCases">
+          AI生成用例
+        </el-button>
       </div>
     </div>
 
@@ -431,7 +423,6 @@
       <div class="context-menu-item" @click="handleRenameFolder">重命名</div>
       <div class="context-menu-item" @click="handleCtxNewFolder">新建文件夹</div>
       <div class="context-menu-item" @click="handleCtxNewSuite">新建用例集</div>
-      <div class="context-menu-item" @click="handleCtxImportSuite">导入用例集</div>
       <div class="context-menu-item danger" @click="handleDeleteFolder">删除</div>
     </div>
 
@@ -1002,6 +993,15 @@ async function submitCtxSuite() {
     await loadCaseSets();
     if (res.data?.id) nextTick(() => openMindmap(res.data));
   } catch { ElMessage.error("创建用例集失败"); }
+}
+
+/** 顶部「导入用例集」按钮：导入到当前选中文件夹或项目根 */
+function openImportSuiteDialog() {
+  importParentId = selectedFolder.value?.id ?? null;
+  importForm.project_id = filterProjectId.value ?? projectOptions.value[0]?.id ?? null;
+  importForm.file = null;
+  importUploadRef.value?.clearFiles();
+  importDialogVisible.value = true;
 }
 
 function handleCtxImportSuite() {
