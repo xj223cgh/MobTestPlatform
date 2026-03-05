@@ -648,6 +648,8 @@ def get_case_sets(folder_id):
                 t = latest_by_suite.get(it['id'])
                 it['review_initiator_id'] = t.initiator_id if t else None
                 it['review_reviewer_id'] = t.reviewer_id if t else None
+                if t and t.status in ('pending', 'in_review'):
+                    it['review_status'] = t.status
         return success_response({
             'items': items,
             'total': pagination.total,
@@ -751,6 +753,149 @@ def copy_suite(suite_id):
     except Exception as e:
         db.session.rollback()
         return error_response(500, f'复制失败: {str(e)}')
+
+
+@bp.route('/import', methods=['POST'])
+@login_required
+def import_suite():
+    """导入用例集（支持 JSON / Excel / CSV）"""
+    import json as _json, uuid as _uuid, io, csv
+    try:
+        file = request.files.get('file')
+        if not file or not file.filename:
+            return error_response(400, '请选择文件')
+
+        parent_id = request.form.get('parent_id', type=int) or None
+        project_id = request.form.get('project_id', type=int) or None
+        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+
+        cases_data = []
+
+        if ext == 'json':
+            raw = _json.load(file)
+            if isinstance(raw, dict):
+                root = raw.get('root') or raw
+                suite_name = root.get('text', root.get('data', {}).get('text', file.filename.rsplit('.', 1)[0]))
+                mindmap_data = raw
+            else:
+                suite_name = file.filename.rsplit('.', 1)[0]
+                mindmap_data = None
+                cases_data = raw if isinstance(raw, list) else []
+        elif ext in ('xlsx', 'xls'):
+            try:
+                import openpyxl
+            except ImportError:
+                return error_response(400, '服务端缺少 openpyxl 依赖，无法解析 Excel')
+            wb = openpyxl.load_workbook(io.BytesIO(file.read()), data_only=True)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+            if not rows:
+                return error_response(400, 'Excel 为空')
+            headers = [str(h or '').strip().lower() for h in rows[0]]
+            for row in rows[1:]:
+                d = dict(zip(headers, row))
+                cases_data.append({
+                    'case_name': d.get('用例名称') or d.get('case_name') or d.get('name', ''),
+                    'priority': d.get('优先级') or d.get('priority', 'P1'),
+                    'preconditions': d.get('前置条件') or d.get('preconditions', ''),
+                    'steps': d.get('操作步骤') or d.get('steps', ''),
+                    'expected_result': d.get('预期结果') or d.get('expected_result', ''),
+                    'test_data': d.get('测试数据') or d.get('test_data', ''),
+                })
+            suite_name = file.filename.rsplit('.', 1)[0]
+            mindmap_data = None
+        elif ext == 'csv':
+            text = file.read().decode('utf-8-sig')
+            reader = csv.DictReader(io.StringIO(text))
+            for row in reader:
+                cases_data.append({
+                    'case_name': row.get('用例名称') or row.get('case_name') or row.get('name', ''),
+                    'priority': row.get('优先级') or row.get('priority', 'P1'),
+                    'preconditions': row.get('前置条件') or row.get('preconditions', ''),
+                    'steps': row.get('操作步骤') or row.get('steps', ''),
+                    'expected_result': row.get('预期结果') or row.get('expected_result', ''),
+                    'test_data': row.get('测试数据') or row.get('test_data', ''),
+                })
+            suite_name = file.filename.rsplit('.', 1)[0]
+            mindmap_data = None
+        else:
+            return error_response(400, '不支持的文件格式，请上传 JSON / Excel / CSV')
+
+        max_order = db.session.query(db.func.max(TestSuite.sort_order)).filter_by(parent_id=parent_id).scalar() or 0
+        new_suite = TestSuite(
+            suite_name=suite_name[:30],
+            description=f'由文件 {file.filename} 导入',
+            parent_id=parent_id,
+            type='suite',
+            status='active',
+            creator_id=current_user.id,
+            project_id=project_id,
+            sort_order=max_order + 1,
+            review_status='not_reviewed',
+        )
+        db.session.add(new_suite)
+        db.session.flush()
+
+        case_count = 0
+        if mindmap_data:
+            new_suite.case_mindmap_data = _json.dumps(mindmap_data, ensure_ascii=False)
+        if cases_data:
+            from datetime import datetime, timezone, timedelta
+            _now = datetime.now(timezone(timedelta(hours=8)))
+            children_nodes = []
+            for idx, c in enumerate(cases_data):
+                cname = str(c.get('case_name', '')).strip()
+                if not cname:
+                    continue
+                case_count += 1
+                case_number = f'TC-{new_suite.id}-{case_count:03d}'
+                tc = TestCase(
+                    case_number=case_number,
+                    case_name=cname,
+                    priority=c.get('priority', 'P1'),
+                    preconditions=c.get('preconditions', ''),
+                    steps=c.get('steps', ''),
+                    expected_result=c.get('expected_result', ''),
+                    test_data=c.get('test_data', ''),
+                    suite_id=new_suite.id,
+                    project_id=project_id,
+                    creator_id=current_user.id,
+                    assignee_id=current_user.id,
+                )
+                db.session.add(tc)
+                nid = str(_uuid.uuid4())[:8]
+                chain = []
+                if c.get('preconditions'):
+                    chain.append({'id': f'pc-{nid}', 'text': c['preconditions'], 'attribute': 'precondition', 'children': []})
+                if c.get('steps'):
+                    step_node = {'id': f'st-{nid}', 'text': c['steps'], 'attribute': 'step', 'children': []}
+                    if c.get('expected_result'):
+                        step_node['children'].append({'id': f'er-{nid}', 'text': c['expected_result'], 'attribute': 'expected_result'})
+                    if chain:
+                        chain[-1]['children'] = [step_node]
+                    else:
+                        chain.append(step_node)
+                elif c.get('expected_result'):
+                    er_node = {'id': f'er-{nid}', 'text': c['expected_result'], 'attribute': 'expected_result'}
+                    if chain:
+                        chain[-1]['children'] = [er_node]
+                    else:
+                        chain.append(er_node)
+                td_chain = chain
+                if c.get('test_data'):
+                    td_chain = [{'id': f'td-{nid}', 'text': c['test_data'], 'attribute': 'test_data', 'children': chain}]
+                case_node = {'id': f'ct-{nid}', 'text': cname, 'attribute': 'case_title', 'priority': c.get('priority', 'P1'), 'children': td_chain}
+                children_nodes.append(case_node)
+            if children_nodes and not mindmap_data:
+                mm = {'data': {'text': suite_name[:30]}, 'children': [{'data': n} for n in children_nodes]}
+                new_suite.case_mindmap_data = _json.dumps(mm, ensure_ascii=False)
+
+        new_suite.case_count = case_count
+        db.session.commit()
+        return success_response({'message': f'导入成功，共 {case_count} 条用例', 'suite_id': new_suite.id}, 201)
+    except Exception as e:
+        db.session.rollback()
+        return error_response(500, f'导入失败: {str(e)}')
 
 
 @bp.route('/<int:suite_id>/tree', methods=['GET'])

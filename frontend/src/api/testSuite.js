@@ -140,6 +140,16 @@ export const batchPermanentDeleteRecycledSuites = (ids) => {
   });
 };
 
+// 导入用例集（上传文件）
+export const importTestSuite = (formData) => {
+  return request({
+    url: "/test-suites/import",
+    method: "post",
+    data: formData,
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
 export const testSuiteApi = {
   getTestSuiteList,
   getTestSuiteTree,

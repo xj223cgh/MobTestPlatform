@@ -3,6 +3,10 @@ import request from "../utils/request";
 export const getMindmap = (suiteId) =>
   request({ url: `/mindmap/${suiteId}`, method: "get" });
 
+/** 仅获取脑图版本号（用于多人编辑轮询） */
+export const getMindmapVersion = (suiteId) =>
+  request({ url: `/mindmap/${suiteId}/version`, method: "get" });
+
 export const saveMindmap = (suiteId, data) =>
   request({ url: `/mindmap/${suiteId}`, method: "put", data });
 

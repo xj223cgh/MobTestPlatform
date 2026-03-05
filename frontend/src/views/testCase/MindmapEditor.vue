@@ -8,6 +8,16 @@
           <span class="suite-name-text">{{ suiteName }}</span>
         </el-button>
         <el-divider direction="vertical" />
+        <el-tooltip content="撤销" placement="bottom">
+          <el-button size="small" :disabled="!canUndo" @click="handleUndo">
+            <el-icon><RefreshLeft /></el-icon>
+          </el-button>
+        </el-tooltip>
+        <el-tooltip content="前进" placement="bottom">
+          <el-button size="small" :disabled="!canRedo" @click="handleRedo">
+            <el-icon><RefreshRight /></el-icon>
+          </el-button>
+        </el-tooltip>
         <el-dropdown trigger="click" @command="handleStatusChange">
           <span class="status-badge" :class="caseEditStatus">
             {{ statusLabel }}
@@ -40,27 +50,118 @@
             </el-dropdown-menu>
           </template>
         </el-dropdown>
+        <el-tooltip content="检查更新" placement="bottom">
+          <el-button size="small" @click="handleCheckUpdate">
+            <el-icon><Upload /></el-icon>
+          </el-button>
+        </el-tooltip>
         <el-button size="small" @click="showVersionDrawer = true">版本记录</el-button>
       </div>
     </div>
 
-    <!-- 搜索替换面板 -->
+    <!-- 搜索替换与高级筛选面板 -->
     <div v-if="showSearch" class="search-panel">
-      <el-input v-model="searchKeyword" placeholder="搜索节点内容" size="small" clearable
-        style="width: 200px" @keyup.enter="doSearch(false)" @input="searchResults = []; searchIdx = 0" />
-      <el-button size="small" :disabled="!searchKeyword" @click="doSearch(false)">查找</el-button>
-      <span v-if="searchResults.length" class="search-nav">
-        <el-button size="small" text @click="doSearch(true, -1)">上一个</el-button>
-        <span class="search-index">{{ searchIdx + 1 }} / {{ searchResults.length }}</span>
-        <el-button size="small" text @click="doSearch(true, 1)">下一个</el-button>
-      </span>
-      <el-input v-model="replaceKeyword" placeholder="替换为" size="small" clearable
-        style="width: 160px; margin-left: 8px" />
-      <el-button size="small" :disabled="!searchKeyword" @click="doReplace">替换当前</el-button>
-      <el-button size="small" :disabled="!searchKeyword" @click="doReplaceAll">全部替换</el-button>
-      <el-button size="small" text @click="showSearch = false">
-        <el-icon><Close /></el-icon>
-      </el-button>
+      <div class="search-row">
+        <el-input v-model="searchKeyword" placeholder="按关键词筛选" size="small" clearable
+          style="width: 200px" @keyup.enter="doSearch(false)" @input="searchResults = []; searchIdx = 0" />
+        <el-button size="small" :disabled="!searchKeyword" @click="doSearch(false)">查找</el-button>
+        <el-popover :visible="showAdvancedFilter" placement="bottom-start" :width="420" trigger="click"
+          @update:visible="(v) => (showAdvancedFilter = v)">
+          <template #reference>
+            <el-button size="small" :type="hasAdvancedFilterActive ? 'primary' : ''">
+              更多筛选 {{ showAdvancedFilter ? '▲' : '▼' }}
+            </el-button>
+          </template>
+          <div class="advanced-filter-popover">
+            <div class="filter-group">
+              <div class="filter-group-label">节点类型</div>
+              <div class="filter-tags">
+                <el-check-tag v-for="a in filterNodeTypeOptions" :key="a.value"
+                  :checked="advancedFilter.nodeType.includes(a.value)"
+                  @change="(checked) => toggleFilterNodeType(a.value, checked)">
+                  {{ a.label }}
+                </el-check-tag>
+              </div>
+            </div>
+            <div class="filter-group">
+              <div class="filter-group-label">优先级</div>
+              <div class="filter-tags">
+                <el-check-tag v-for="p in priorities" :key="p.value"
+                  :checked="advancedFilter.priority === p.value"
+                  @change="(checked) => advancedFilter.priority = checked ? p.value : ''">
+                  {{ p.value }}
+                </el-check-tag>
+              </div>
+            </div>
+            <div class="filter-group">
+              <div class="filter-group-label">标记</div>
+              <div class="filter-tags wrap">
+                <el-check-tag v-for="m in markerOptions" :key="m.marker_name"
+                  :checked="advancedFilter.markers.includes(m.marker_name)"
+                  @change="(checked) => toggleFilterArr(advancedFilter.markers, m.marker_name, checked)">
+                  {{ m.marker_name }}
+                </el-check-tag>
+              </div>
+            </div>
+            <div class="filter-group">
+              <div class="filter-group-label">标签</div>
+              <div class="filter-tags wrap">
+                <el-check-tag v-for="t in tagOptions" :key="t.tag_name"
+                  :checked="advancedFilter.tags.includes(t.tag_name)"
+                  @change="(checked) => toggleFilterArr(advancedFilter.tags, t.tag_name, checked)">
+                  {{ t.tag_name }}
+                </el-check-tag>
+              </div>
+            </div>
+            <div class="filter-group">
+              <div class="filter-group-label">涉及自动化</div>
+              <div class="filter-tags">
+                <el-check-tag v-for="opt in automationOptions" :key="opt.value"
+                  :checked="advancedFilter.automation === opt.value"
+                  @change="(checked) => advancedFilter.automation = checked ? opt.value : ''">
+                  {{ opt.label }}
+                </el-check-tag>
+              </div>
+            </div>
+            <div class="filter-group">
+              <div class="filter-group-label">用例覆盖端</div>
+              <div class="filter-tags wrap">
+                <el-check-tag v-for="opt in coverageOptions" :key="opt.value"
+                  :checked="advancedFilter.coverage.includes(opt.value)"
+                  @change="(checked) => toggleFilterArr(advancedFilter.coverage, opt.value, checked)">
+                  {{ opt.label }}
+                </el-check-tag>
+              </div>
+            </div>
+            <div class="filter-group">
+              <div class="filter-group-label">公私网海外</div>
+              <div class="filter-tags wrap">
+                <el-check-tag v-for="opt in networkOptions" :key="opt.value"
+                  :checked="advancedFilter.network.includes(opt.value)"
+                  @change="(checked) => toggleFilterArr(advancedFilter.network, opt.value, checked)">
+                  {{ opt.label }}
+                </el-check-tag>
+              </div>
+            </div>
+            <div class="filter-actions">
+              <el-button size="small" @click="clearAdvancedFilter">清除筛选</el-button>
+              <el-button size="small" type="primary" @click="applyAdvancedFilter">筛选查找</el-button>
+            </div>
+          </div>
+        </el-popover>
+        <span v-if="filterResults.length" class="search-nav">
+          <el-button size="small" text @click="goFilterResult(-1)">上一个</el-button>
+          <span class="search-index">{{ filterIdx + 1 }} / {{ filterResults.length }}</span>
+          <el-button size="small" text @click="goFilterResult(1)">下一个</el-button>
+        </span>
+        <el-input v-model="replaceKeyword" placeholder="替换为" size="small" clearable
+          style="width: 160px; margin-left: 8px" />
+        <el-button size="small" :disabled="!searchKeyword" @click="doReplace">替换当前</el-button>
+        <el-button size="small" :disabled="!searchKeyword" @click="doReplaceAll">全部替换</el-button>
+        <el-button size="small" text @click="showSearch = false">
+          <el-icon><Close /></el-icon>
+        </el-button>
+      </div>
     </div>
 
     <!-- 生成中的全屏加载遮罩 -->
@@ -74,64 +175,121 @@
 
     <!-- 主体区域 -->
     <div v-show="!isGenerating" class="editor-body">
-      <div ref="mindmapContainer" class="mindmap-canvas" tabindex="0" />
+      <div class="mindmap-wrap">
+        <div ref="mindmapContainer" class="mindmap-canvas" tabindex="0" />
+      </div>
 
-      <!-- 右侧属性面板 -->
-      <div class="property-panel" :class="{ hidden: selectedNodes.length === 0 }">
-        <!-- 优先级 -->
-        <div class="prop-section">
-          <div class="prop-label">优先级</div>
-          <div class="priority-btns">
-            <button v-for="p in priorities" :key="p.value"
-              class="pri-btn" :class="{ active: currentPriority === p.value, [p.cls]: true }"
-              @click="setPriority(p.value)">
-              {{ p.value }}
-            </button>
-          </div>
+      <!-- 右侧属性面板：固定后始终显示面板组件，未选中节点时也显示（空状态） -->
+      <div class="property-panel" :class="{ hidden: !isPropertyPanelVisible }">
+        <div class="property-panel-header">
+          <el-tooltip :content="propertyPanelPinned ? '取消固定' : '固定面板（固定后不随节点选中关闭）'" placement="bottom">
+            <el-button size="small" :type="propertyPanelPinned ? 'primary' : ''" text
+              @click="propertyPanelPinned = !propertyPanelPinned">
+              <el-icon><Unlock v-if="propertyPanelPinned" /><Lock v-else /></el-icon>
+            </el-button>
+          </el-tooltip>
         </div>
-
-        <!-- 标记 -->
-        <div class="prop-section">
-          <div class="prop-label">标记</div>
-          <el-select :model-value="currentMarkers" multiple collapse-tags collapse-tags-tooltip
-            placeholder="选择标记" size="small" style="width: 100%" @change="setMarkers">
-            <el-option v-for="m in markerOptions" :key="m.marker_name"
-              :label="m.marker_name" :value="m.marker_name" />
-            <template #footer>
-              <div class="select-footer">
-                <el-input v-model="newMarkerName" size="small" placeholder="自定义标记" />
-                <el-button size="small" type="primary" :disabled="!newMarkerName.trim()"
-                  @click="createCustomMarker">添加</el-button>
+        <div class="property-panel-body">
+          <!-- 未选中节点：固定面板时仍显示完整面板组件，但不显示任何选中节点的值，控件为占位/禁用 -->
+          <template v-if="selectedNodes.length === 0">
+            <div class="prop-section prop-section-first">
+              <div class="prop-label">节点内容</div>
+              <el-input :model-value="''" placeholder="未选中节点" size="small" disabled class="node-content-textarea" />
+            </div>
+            <div class="prop-section">
+              <div class="prop-label">优先级 <span class="prop-hint">（仅用例标题）</span></div>
+              <div class="priority-btns">
+                <button v-for="p in priorities" :key="p.value" class="pri-btn" :class="[p.cls]" disabled>{{ p.value }}</button>
               </div>
-            </template>
-          </el-select>
+            </div>
+            <div class="prop-section">
+              <div class="prop-label">标记 <span class="prop-hint">（非自定义标记唯一）</span></div>
+              <el-select model-value="[]" placeholder="未选中节点" size="small" style="width: 100%" disabled />
+            </div>
+            <div class="prop-section">
+              <div class="prop-label">节点属性</div>
+              <div class="attr-readonly">—</div>
+            </div>
+            <div class="prop-section">
+              <div class="prop-label">标签</div>
+              <el-select model-value="[]" placeholder="未选中节点" size="small" style="width: 100%" disabled />
+            </div>
+          </template>
+          <template v-else>
+            <!-- 节点内容：单行显示，可拖拽右下角变为多行（仅单选时可编辑） -->
+            <div v-if="selectedNodes.length === 1" class="prop-section prop-section-first">
+              <div class="prop-label">节点内容</div>
+              <el-input
+                v-model="currentNodeText"
+                type="textarea"
+                placeholder="修改节点文字"
+                :autosize="{ minRows: 1, maxRows: 8 }"
+                size="small"
+                clearable
+                class="node-content-textarea"
+                @blur="applyNodeText"
+                @keyup.enter.exact.prevent="applyNodeText"
+              />
+            </div>
+            <div class="prop-section">
+              <div class="prop-label">优先级 <span v-if="!canSetPriority" class="prop-hint">（仅用例标题）</span></div>
+              <div class="priority-btns">
+                <button v-for="p in priorities" :key="p.value"
+                  class="pri-btn" :class="{ active: currentPriority === p.value, [p.cls]: true }"
+                  :disabled="!canSetPriority"
+                  @click="setPriority(p.value)">
+                  {{ p.value }}
+                </button>
+              </div>
+            </div>
+            <div class="prop-section">
+              <div class="prop-label">标记 <span class="prop-hint">（非自定义标记唯一）</span></div>
+              <el-select :model-value="currentMarkers" multiple collapse-tags collapse-tags-tooltip
+                placeholder="选择标记" size="small" style="width: 100%" @change="setMarkers">
+                <el-option v-for="m in markerOptions" :key="m.marker_name"
+                  :label="m.marker_name" :value="m.marker_name" />
+                <template #footer>
+                  <div class="select-footer">
+                    <el-input v-model="newMarkerName" size="small" placeholder="自定义标记" />
+                    <el-button size="small" type="primary" :disabled="!newMarkerName.trim()"
+                      @click="createCustomMarker">添加</el-button>
+                  </div>
+                </template>
+              </el-select>
+            </div>
+            <div class="prop-section">
+              <div class="prop-label">节点属性</div>
+              <div v-if="canChangeAttribute" class="attr-grid">
+                <button v-for="a in attributeOptionsForChainChild" :key="a.value"
+                  class="attr-btn" :class="{ active: currentAttribute === a.value }"
+                  @click="setAttribute(a.value)">
+                  {{ a.label }}
+                </button>
+              </div>
+              <div v-else-if="isChainNodeAttrReadonly" class="attr-readonly">
+                {{ ATTR_LABEL[currentAttribute] || '—' }}
+              </div>
+              <div v-else class="attr-grid">
+                <button v-for="a in attrOptions" :key="a.value"
+                  class="attr-btn" :class="{ active: currentAttribute === a.value }"
+                  @click="setAttribute(a.value)">
+                  {{ a.label }}
+                </button>
+              </div>
+            </div>
+            <div class="prop-section">
+              <div class="prop-label">标签</div>
+              <el-select :model-value="currentTags" multiple filterable allow-create
+                default-first-option collapse-tags collapse-tags-tooltip
+                placeholder="搜索或创建标签" size="small" style="width: 100%"
+                :no-data-text="'按回车创建该标签'" :no-match-text="'按回车创建该标签'"
+                @change="setTags">
+                <el-option v-for="t in tagOptions" :key="t.tag_name"
+                  :label="t.tag_name" :value="t.tag_name" />
+              </el-select>
+            </div>
+          </template>
         </div>
-
-        <!-- 节点属性 -->
-        <div class="prop-section">
-          <div class="prop-label">节点属性</div>
-          <div class="attr-grid">
-            <button v-for="a in attrOptions" :key="a.value"
-              class="attr-btn" :class="{ active: currentAttribute === a.value }"
-              @click="setAttribute(a.value)">
-              {{ a.label }}
-            </button>
-          </div>
-        </div>
-
-        <!-- 标签 -->
-        <div class="prop-section">
-          <div class="prop-label">标签</div>
-          <el-select :model-value="currentTags" multiple filterable allow-create
-            default-first-option collapse-tags collapse-tags-tooltip
-            placeholder="搜索或创建标签" size="small" style="width: 100%"
-            :no-data-text="'按回车创建该标签'" :no-match-text="'按回车创建该标签'"
-            @change="setTags">
-            <el-option v-for="t in tagOptions" :key="t.tag_name"
-              :label="t.tag_name" :value="t.tag_name" />
-          </el-select>
-        </div>
-
       </div>
     </div>
 
@@ -140,7 +298,7 @@
       <div class="version-tip">仅在点击保存时记录版本，用于回退</div>
       <div v-loading="versionLoading" class="version-list">
         <div v-for="v in mindmapVersions" :key="v.id" class="version-item">
-          <span class="version-meta">{{ v.created_at }} {{ v.created_by_name ? `· ${v.created_by_name}` : '' }}</span>
+          <span class="version-meta">{{ formatVersionTime(v.created_at) }} {{ v.created_by_name ? `· ${v.created_by_name}` : '' }}</span>
           <el-button size="small" type="primary" text @click="rollbackToVersion(v.id)">回退到此版本</el-button>
         </div>
         <el-empty v-if="!versionLoading && !mindmapVersions.length" description="暂无版本记录，保存后会自动记录" />
@@ -173,15 +331,18 @@
 <script setup>
 import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { ArrowLeft, ArrowDown, Close, Check, Loading } from "@element-plus/icons-vue";
+import { ArrowLeft, ArrowDown, Close, Check, Loading, RefreshRight, RefreshLeft, Upload, Lock, Unlock } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
-  getMindmap, saveMindmap, validateMindmap, updateEditStatus,
+  getMindmap, getMindmapVersion, saveMindmap, validateMindmap, updateEditStatus,
   getMindmapVersions, rollbackMindmapVersion,
   getTags, getMarkers, createTag, createMarker,
 } from "@/api/mindmap";
 import { getTaskStatus, getSuiteGeneratingStatus } from "@/api/aiTasks";
 import MindMap from "simple-mind-map";
+import Drag from "simple-mind-map/src/plugins/Drag.js";
+
+MindMap.usePlugin(Drag);
 
 const MAX_DEPTH = 10;
 /** 用例链上的节点类型，链上节点不能添加同级；预期结果还不能添加子节点 */
@@ -216,8 +377,65 @@ const searchKeyword = ref("");
 const replaceKeyword = ref("");
 let searchResults = [];
 let searchIdx = 0;
+const filterTags = ref([]);
+const filterMarkers = ref([]);
+const filterPriority = ref("");
+const filterResults = ref([]);
+const filterIdx = ref(0);
+
+const showAdvancedFilter = ref(false);
+const advancedFilter = reactive({
+  nodeType: [],
+  priority: "",
+  markers: [],
+  tags: [],
+  automation: "",
+  coverage: [],
+  network: [],
+});
+const filterNodeTypeOptions = [
+  { label: "用例标题", value: "case_title" },
+  { label: "测试数据", value: "test_data" },
+  { label: "前置条件", value: "precondition" },
+  { label: "操作步骤", value: "step" },
+  { label: "预期结果", value: "expected_result" },
+];
+const automationOptions = [
+  { label: "接口自动化", value: "api" },
+  { label: "UI自动化", value: "ui" },
+  { label: "不涉及", value: "none" },
+];
+const coverageOptions = [
+  { label: "三端", value: "all" },
+  { label: "仅PC", value: "pc" },
+  { label: "仅移动端", value: "mobile" },
+  { label: "Web", value: "web" },
+  { label: "Pad", value: "pad" },
+  { label: "仅Android", value: "android" },
+  { label: "仅IOS", value: "ios" },
+];
+const networkOptions = [
+  { label: "仅公网", value: "public" },
+  { label: "仅私网", value: "private" },
+  { label: "仅海外", value: "overseas" },
+  { label: "无差异", value: "none" },
+  { label: "公私网实现不一致", value: "inconsistent" },
+];
+const hasAdvancedFilterActive = computed(() =>
+  advancedFilter.nodeType.length > 0 || advancedFilter.priority ||
+  advancedFilter.markers.length > 0 || advancedFilter.tags.length > 0 ||
+  advancedFilter.automation || advancedFilter.coverage.length > 0 || advancedFilter.network.length > 0
+);
+
+const canUndo = ref(false);
+const canRedo = ref(false);
+const currentNodeText = ref("");
 
 const selectedNodes = ref([]);
+/** 固定节点编辑面板：为 true 时面板始终显示，不随节点选中/取消而关闭 */
+const propertyPanelPinned = ref(false);
+/** 是否显示右侧属性面板：固定时始终显示，未固定时仅选中节点时显示 */
+const isPropertyPanelVisible = computed(() => propertyPanelPinned.value || selectedNodes.value.length > 0);
 const currentPriority = ref("");
 const currentAttribute = ref("");
 const currentMarkers = ref([]);
@@ -250,6 +468,30 @@ const ctxCanAddChild = computed(() => {
 const ctxCanAddSibling = computed(() => !CHAIN_ATTRS.includes(currentAttribute.value));
 const ctxCanAddParent = computed(() => !ctxMenuIsRoot && !CHAIN_ATTRS.includes(currentAttribute.value));
 
+const canSetPriority = computed(() => selectedNodes.value.length === 1 && currentAttribute.value === "case_title");
+
+/** 仅当选中「用例标题」的直接子节点且为测试数据/前置条件时，允许在二者间切换；其他用例链节点属性固定不可改 */
+const canChangeAttribute = computed(() => {
+  const list = mindMapInstance?.renderer?.activeNodeList;
+  if (!list?.length || list.length > 1) return false;
+  const node = list[0];
+  const attr = node.getData?.().attribute;
+  const parentAttr = node.parent?.getData?.().attribute;
+  return parentAttr === "case_title" && (attr === "test_data" || attr === "precondition");
+});
+
+const attributeOptionsForChainChild = [
+  { label: "测试数据", value: "test_data" },
+  { label: "前置条件", value: "precondition" },
+];
+
+/** 用例链节点且不可改属性时显示为只读文案 */
+const isChainNodeAttrReadonly = computed(() => {
+  if (selectedNodes.value.length !== 1) return false;
+  const attr = currentAttribute.value;
+  return CHAIN_ATTRS.includes(attr) && !canChangeAttribute.value;
+});
+
 const ctxMenu = reactive({ visible: false, x: 0, y: 0 });
 const ctxMenuIsRoot = ref(false);
 const ctxMenuTargetNode = ref(null);
@@ -261,12 +503,23 @@ const isGenerating = ref(route.query.generating === '1');
 const generatingTaskId = ref(route.query.task_id || '');
 /** 从 URL 带 generating=1 进入为“正在生成”；从列表进入发现生成中为“等待生成后查看” */
 const generatingMessage = ref('AI 正在生成用例，请稍候...');
+/** 脑图版本号，用于多人编辑冲突检测与轮询 */
+const mindmapVersion = ref(0);
+/** 多人编辑：轮询检测他人是否已保存（30 秒一次） */
+const VERSION_POLL_INTERVAL = 30 * 1000;
+let versionPollTimer = null;
 const showVersionDrawer = ref(false);
 const versionLoading = ref(false);
 const mindmapVersions = ref([]);
 watch(showVersionDrawer, (open) => {
   if (open && suiteId.value) loadMindmapVersions();
 });
+
+/** 版本记录时间显示：将 ISO 中的 T 改为空格，如 2026-03-05 15:33:39 */
+function formatVersionTime(createdAt) {
+  if (!createdAt) return "";
+  return String(createdAt).replace("T", " ");
+}
 
 async function loadMindmapVersions() {
   versionLoading.value = true;
@@ -342,6 +595,27 @@ onMounted(async () => {
   }
   loadMindmap();
 
+  versionPollTimer = setInterval(async () => {
+    if (!suiteId.value || saving) return;
+    try {
+      const res = await getMindmapVersion(suiteId.value);
+      const v = res.data?.mindmap_version;
+      if (v != null && v !== mindmapVersion.value) {
+        try {
+          await ElMessageBox.confirm("脑图已有新版本，是否刷新？", "提示", {
+            confirmButtonText: "刷新",
+            cancelButtonText: "暂不",
+          });
+          await loadMindmap();
+        } catch {
+          /* 用户选择暂不 */
+        }
+      }
+    } catch {
+      /* 轮询失败忽略 */
+    }
+  }, VERSION_POLL_INTERVAL);
+
   nextTick(() => {
     const el = mindmapContainer.value;
     if (el) el.addEventListener("wheel", preventBrowserZoom, { passive: false, capture: true });
@@ -351,6 +625,8 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   clearTimeout(saveTimer);
   clearInterval(generatingPollTimer);
+  if (versionPollTimer) clearInterval(versionPollTimer);
+  versionPollTimer = null;
   window.removeEventListener("keydown", onKeydown, true);
   document.removeEventListener("keydown", preventBrowserZoomKeydown, true);
   window.removeEventListener("beforeunload", onBeforeUnload);
@@ -363,6 +639,7 @@ onBeforeUnmount(() => {
 
 async function loadMindmap() {
   if (!suiteId.value) return;
+  if (isGenerating.value) return;
   try {
     const res = await getMindmap(suiteId.value);
     const d = res.data || {};
@@ -370,12 +647,48 @@ async function loadMindmap() {
     caseEditStatus.value = d.case_edit_status || "drafting";
     caseCount.value = d.case_count || 0;
     projectId.value = d.project_id;
-    initMindmap(d.mindmap_data);
+    mindmapVersion.value = d.mindmap_version ?? 0;
+    await ensureContainerSizeAndInit(d.mindmap_data);
     loadTagsAndMarkers(d.project_id);
   } catch (e) {
     if (!isGenerating.value) ElMessage.error("加载脑图数据失败");
     console.error(e);
   }
+}
+
+/** 等待容器有宽高后再初始化脑图，避免 simple-mind-map 报「宽高不能为 0」 */
+function ensureContainerSizeAndInit(mindmapData) {
+  const MAX_TRIES = 50;
+  let tries = 0;
+  return new Promise((resolve) => {
+    const tryInit = () => {
+      tries += 1;
+      const el = mindmapContainer.value;
+      if (!el) {
+        if (tries >= MAX_TRIES) {
+          resolve();
+          return;
+        }
+        nextTick(tryInit);
+        return;
+      }
+      const w = el.offsetWidth || 0;
+      const h = el.offsetHeight || 0;
+      if (w > 0 && h > 0) {
+        initMindmap(mindmapData);
+        resolve();
+        return;
+      }
+      if (tries >= MAX_TRIES) {
+        resolve();
+        return;
+      }
+      nextTick(() => {
+        requestAnimationFrame(tryInit);
+      });
+    };
+    tryInit();
+  });
 }
 
 function startGeneratingPoll() {
@@ -427,11 +740,16 @@ const PRI_BADGE = {
   P3: { bg: '#e6f7ff', border: '#1890ff', color: '#1890ff' },
 };
 
+const MARKER_BADGE = { bg: "#f5f5f5", border: "#d9d9d9", color: "#595959" };
+const TAG_BADGE = { bg: "#e6f7ff", border: "#91d5ff", color: "#1890ff" };
+
 function buildPrefixBadges(node) {
   const d = node.getData();
   const badges = [];
   if (d.attribute && BADGE_STYLES[d.attribute]) badges.push(BADGE_STYLES[d.attribute]);
   if (d.priority && PRI_BADGE[d.priority]) badges.push({ text: d.priority, ...PRI_BADGE[d.priority] });
+  (d.markers || []).forEach((m) => badges.push({ text: m, ...MARKER_BADGE }));
+  (d.userTags || []).forEach((t) => badges.push({ text: t, ...TAG_BADGE }));
   if (!badges.length) return null;
 
   const FONT_SIZE = 11;
@@ -475,20 +793,62 @@ function initMindmap(data) {
   const rootData = data?.root || { id: "root", text: suiteName.value, children: [] };
   const smmData = toSMM(rootData);
 
+  const isReadonly = caseEditStatus.value === "completed";
   mindMapInstance = new MindMap({
     el: mindmapContainer.value,
     data: smmData,
     theme: "classic4",
     layout: "logicalStructure",
-    readonly: false,
-    isDisableDrag: false,
-    beforeDragStart(nodes) {
-      if (!nodes?.length) return false;
-      for (const node of nodes) {
-        const attr = node.getData?.().attribute;
-        if (CHAIN_ATTRS.includes(attr) && attr !== "case_title") {
-          ElMessage.warning("仅支持拖拽「用例标题」节点，整条用例链会一起移动；链上其他节点不可单独拖拽");
+    readonly: isReadonly,
+    isDisableDrag: isReadonly,
+    beforeDragStart() {
+      return false;
+    },
+    async beforeDragEnd(dragInfo) {
+      const { overlapNodeUid, prevNodeUid, nextNodeUid, beingDragNodeList } = dragInfo || {};
+      const renderer = mindMapInstance.renderer;
+      const dragged = beingDragNodeList && beingDragNodeList.length ? beingDragNodeList : renderer?.activeNodeList || [];
+      if (!dragged.length) return false;
+      const find = (uid) => (uid && renderer?.findNodeByUid) ? renderer.findNodeByUid(uid) : null;
+      const getUid = (n) => n?.getData?.()?.uid ?? n?.uid;
+      const getAttr = (n) => n?.getData?.()?.attribute;
+
+      if (overlapNodeUid) {
+        const toNode = find(overlapNodeUid);
+        if (!toNode) return false;
+        const toAttr = getAttr(toNode);
+        const draggedAttrs = dragged.map(getAttr).filter(Boolean);
+        if (CHAIN_ATTRS.includes(toAttr) && draggedAttrs.some((a) => CHAIN_ATTRS.includes(a))) {
+          ElMessage.warning("用例链节点不允许拖拽到其他节点下作为子节点");
           return true;
+        }
+        return false;
+      }
+
+      if (prevNodeUid || nextNodeUid) {
+        const refNode = find(prevNodeUid) || find(nextNodeUid);
+        if (!refNode?.parent) return false;
+        const parent = refNode.parent;
+        const siblings = [...(parent.children || [])];
+        const draggedSet = new Set(dragged.map(getUid));
+        const withoutDragged = siblings.filter((c) => !draggedSet.has(getUid(c)));
+        const refUid = getUid(refNode);
+        let insertIdx = prevNodeUid
+          ? withoutDragged.findIndex((c) => getUid(c) === refUid) + 1
+          : withoutDragged.findIndex((c) => getUid(c) === refUid);
+        if (insertIdx < 0) insertIdx = 0;
+        const newOrder = [...withoutDragged];
+        dragged.forEach((n) => newOrder.splice(insertIdx++, 0, n));
+        const chainIndices = CHAIN_ATTRS.reduce((acc, a, i) => {
+          acc[a] = i;
+          return acc;
+        }, {});
+        const attrs = newOrder.map(getAttr).filter((a) => CHAIN_ATTRS.includes(a));
+        for (let i = 1; i < attrs.length; i++) {
+          if (chainIndices[attrs[i]] < chainIndices[attrs[i - 1]]) {
+            ElMessage.warning("用例链子节点顺序须为：用例标题 → 测试数据 → 前置条件 → 操作步骤 → 预期结果");
+            return true;
+          }
         }
       }
       return false;
@@ -496,6 +856,8 @@ function initMindmap(data) {
     createNodePrefixContent: buildPrefixBadges,
     isLimitMindMapInCanvas: false,
     enableShortcutOnlyWhenMouseInSvg: false,
+    /** 编辑节点时隐藏原节点文字，只显示编辑框，避免旧内容与新内容重叠 */
+    openRealtimeRenderOnNodeTextEdit: true,
     customQuickCreateChildBtnClick(node) {
       const attr = node.getData().attribute;
       if (attr === "expected_result") {
@@ -511,34 +873,34 @@ function initMindmap(data) {
       node.mindMap.execCommand("INSERT_CHILD_NODE", true, [node], appointData);
       if (nextAttr) countCases();
     },
-    marginX: 60,
-    marginY: 30,
+    marginX: 96,
+    marginY: 56,
     themeConfig: {
-      marginX: 60,
-      marginY: 30,
+      marginX: 96,
+      marginY: 56,
       root: {
         fillColor: 'transparent',
         color: '#303133',
         borderColor: '#549688',
         borderWidth: 2,
-        marginX: 60,
-        marginY: 30,
+        marginX: 96,
+        marginY: 56,
       },
       second: {
         fillColor: 'transparent',
         color: '#303133',
         borderColor: '#909399',
         borderWidth: 1,
-        marginX: 50,
-        marginY: 26,
+        marginX: 80,
+        marginY: 48,
       },
       node: {
         fillColor: 'transparent',
         color: '#303133',
         borderColor: '#c0c4cc',
         borderWidth: 1,
-        marginX: 40,
-        marginY: 22,
+        marginX: 64,
+        marginY: 40,
       },
     },
   });
@@ -559,15 +921,39 @@ function initMindmap(data) {
       currentAttribute.value = nd.attribute || "";
       currentMarkers.value = nd.markers || [];
       currentTags.value = nd.userTags || [];
+      currentNodeText.value = nd.text ?? "";
     } else if (list?.length > 1) {
       currentPriority.value = "";
       currentAttribute.value = "";
       currentMarkers.value = [];
       currentTags.value = [];
+      currentNodeText.value = "";
     }
   });
+  mindMapInstance.on("back_forward", (index, length) => {
+    canUndo.value = index > 0;
+    canRedo.value = length > 0 && index < length - 1;
+    const cmd = mindMapInstance.command;
+    if (cmd && cmd.history && cmd.history[index]) {
+      try {
+        const data = JSON.parse(cmd.history[index]);
+        mindMapInstance.renderer.setData(data);
+        mindMapInstance.render();
+      } catch (_) {}
+    }
+  });
+  canUndo.value = mindMapInstance.command?.activeHistoryIndex > 0;
+  canRedo.value = false;
 
-  mindMapInstance.on("data_change", () => { countCases(); debounceSave(); });
+  mindMapInstance.on("data_change", () => {
+    countCases();
+    debounceSave();
+    const cmd = mindMapInstance.command;
+    if (cmd) {
+      canUndo.value = cmd.activeHistoryIndex > 0;
+      canRedo.value = cmd.activeHistoryIndex < cmd.history.length - 1;
+    }
+  });
   mindMapInstance.on("node_contextmenu", (e, node) => {
     e.preventDefault?.(); e.stopPropagation?.();
     ctxMenuTargetNode.value = node || null;
@@ -579,6 +965,7 @@ function initMindmap(data) {
       currentPriority.value = nd.priority || "";
       currentMarkers.value = nd.markers || [];
       currentTags.value = nd.userTags || [];
+      currentNodeText.value = nd.text ?? "";
     }
     ctxMenu.visible = true;
     ctxMenu.x = e.clientX ?? e.pageX ?? 0;
@@ -808,9 +1195,14 @@ function setPriority(p) {
   if (!mindMapInstance) return;
   const nodes = mindMapInstance.renderer.activeNodeList;
   if (!nodes?.length) return;
-  const toggle = nodes.length === 1 && nodes[0].getData().priority === p;
+  const caseTitleNodes = nodes.filter((n) => n.getData().attribute === "case_title");
+  if (!caseTitleNodes.length) {
+    ElMessage.warning("仅「用例标题」节点可设置优先级");
+    return;
+  }
+  const toggle = caseTitleNodes.length === 1 && caseTitleNodes[0].getData().priority === p;
   const val = toggle ? undefined : p;
-  nodes.forEach((n) => {
+  caseTitleNodes.forEach((n) => {
     n.setData({ priority: val });
     rebuildTag(n);
   });
@@ -822,6 +1214,10 @@ function setAttribute(attr) {
   if (!mindMapInstance) return;
   const nodes = mindMapInstance.renderer.activeNodeList;
   if (!nodes?.length) return;
+  if (CHAIN_ATTRS.includes(nodes[0].getData().attribute)) {
+    if (!canChangeAttribute.value) return;
+    if (attr !== "test_data" && attr !== "precondition") return;
+  }
   nodes.forEach((n) => {
     const cur = n.getData().attribute;
     n.setData({ attribute: cur === attr ? undefined : attr });
@@ -831,10 +1227,16 @@ function setAttribute(attr) {
   countCases();
 }
 
+/** 现成（系统）标记只能选一个，自定义标记可多选 */
 function setMarkers(val) {
   if (!mindMapInstance) return;
-  mindMapInstance.renderer.activeNodeList?.forEach((n) => n.setData({ markers: [...val] }));
-  currentMarkers.value = [...val];
+  const systemNames = markerOptions.value.filter((m) => m.marker_type === "system").map((m) => m.marker_name);
+  const isSystem = (name) => systemNames.includes(name);
+  const systemSelected = (val || []).filter(isSystem);
+  const customSelected = (val || []).filter((n) => !isSystem(n));
+  const normalized = [...customSelected, ...(systemSelected.length ? [systemSelected[systemSelected.length - 1]] : [])];
+  mindMapInstance.renderer.activeNodeList?.forEach((n) => n.setData({ markers: [...normalized] }));
+  currentMarkers.value = [...normalized];
   mindMapInstance.render();
 }
 
@@ -871,6 +1273,55 @@ function rebuildTag() {
 async function handleStatusChange(status) {
   caseEditStatus.value = status;
   try { await updateEditStatus(suiteId.value, { case_edit_status: status }); } catch {}
+  if (mindMapInstance?.setMode) {
+    mindMapInstance.setMode(status === "completed" ? "readonly" : "edit");
+  }
+}
+
+function handleUndo() {
+  if (!mindMapInstance?.command || caseEditStatus.value === "completed") return;
+  mindMapInstance.execCommand("BACK");
+}
+function handleRedo() {
+  if (!mindMapInstance?.command || caseEditStatus.value === "completed") return;
+  mindMapInstance.execCommand("FORWARD");
+}
+
+/** 检查脑图是否被他人更新：拉取服务端版本，若更新则提示并可选拉取最新数据 */
+async function handleCheckUpdate() {
+  if (!suiteId.value) return;
+  try {
+    const res = await getMindmapVersion(suiteId.value);
+    const serverVersion = res.data?.mindmap_version ?? 0;
+    const localVersion = mindmapVersion.value ?? 0;
+    if (serverVersion > localVersion) {
+      try {
+        await ElMessageBox.confirm(
+          "脑图已被他人更新保存，是否拉取最新内容？未保存的本地修改将丢失。",
+          "检查更新",
+          { confirmButtonText: "拉取最新", cancelButtonText: "取消" }
+        );
+        await loadMindmap();
+        ElMessage.success("已拉取最新脑图数据");
+      } catch {
+        // 用户取消
+      }
+    } else {
+      ElMessage.success("当前已是最新状态");
+    }
+  } catch (e) {
+    ElMessage.error("检查更新失败");
+    console.error(e);
+  }
+}
+
+function applyNodeText() {
+  if (!mindMapInstance || selectedNodes.value.length !== 1) return;
+  const node = selectedNodes.value[0];
+  const text = (currentNodeText.value ?? "").trim();
+  if (node.getData().text === text) return;
+  node.setData({ text: text || " " });
+  mindMapInstance.render();
 }
 
 // ── 展开/收起 n 层 ──
@@ -917,6 +1368,82 @@ function doSearch(goNext, delta) {
   }
   mindMapInstance.execCommand("GO_TARGET_NODE", searchResults[searchIdx]);
   ElMessage.success(`找到 ${searchResults.length} 个匹配，当前 ${searchIdx + 1}/${searchResults.length}`);
+}
+
+function toggleFilterNodeType(value, checked) {
+  const arr = advancedFilter.nodeType;
+  if (checked) arr.push(value);
+  else advancedFilter.nodeType = arr.filter((v) => v !== value);
+}
+function toggleFilterArr(arr, value, checked) {
+  if (checked) arr.push(value);
+  else arr.splice(arr.indexOf(value), 1);
+}
+function clearAdvancedFilter() {
+  advancedFilter.nodeType = [];
+  advancedFilter.priority = "";
+  advancedFilter.markers = [];
+  advancedFilter.tags = [];
+  advancedFilter.automation = "";
+  advancedFilter.coverage = [];
+  advancedFilter.network = [];
+  filterResults.value = [];
+  showAdvancedFilter.value = false;
+}
+function applyAdvancedFilter() {
+  if (!mindMapInstance) return;
+  const a = advancedFilter;
+  const hasAny =
+    a.nodeType.length > 0 || a.priority || a.markers.length > 0 || a.tags.length > 0 ||
+    a.automation || a.coverage.length > 0 || a.network.length > 0;
+  if (!hasAny) {
+    ElMessage.info("请至少选择一项筛选条件");
+    return;
+  }
+  const list = [];
+  const walk = (node) => {
+    if (!node || node.isRoot) {
+      (node?.children || []).forEach(walk);
+      return;
+    }
+    const d = node.getData?.() || {};
+    const matchNodeType = !a.nodeType.length || a.nodeType.includes(d.attribute);
+    const matchPri = !a.priority || d.priority === a.priority;
+    const nodeMarkers = d.markers || [];
+    const matchMarker = !a.markers.length || a.markers.some((m) => nodeMarkers.includes(m));
+    const nodeTags = d.userTags || [];
+    const matchTag = !a.tags.length || a.tags.some((t) => nodeTags.includes(t));
+    const nodeAutomation = d.automation_type || d.automation;
+    const matchAutomation = !a.automation || nodeAutomation === a.automation;
+    const nodeCoverage = d.coverage_platform || d.coverage || [];
+    const covArr = Array.isArray(nodeCoverage) ? nodeCoverage : [nodeCoverage];
+    const matchCoverage = !a.coverage.length || a.coverage.some((c) => covArr.includes(c));
+    const nodeNetwork = d.network_type || d.network || [];
+    const netArr = Array.isArray(nodeNetwork) ? nodeNetwork : [nodeNetwork];
+    const matchNetwork = !a.network.length || a.network.some((n) => netArr.includes(n));
+    if (matchNodeType && matchPri && matchMarker && matchTag && matchAutomation && matchCoverage && matchNetwork) list.push(node);
+    (node.children || []).forEach(walk);
+  };
+  walk(mindMapInstance.renderer.root);
+  filterResults.value = list;
+  filterIdx.value = 0;
+  showAdvancedFilter.value = false;
+  if (!list.length) {
+    ElMessage.info("未找到符合筛选条件的节点");
+    return;
+  }
+  mindMapInstance.execCommand("GO_TARGET_NODE", list[0]);
+  ElMessage.success(`找到 ${list.length} 个匹配，当前 1/${list.length}`);
+}
+
+function doFilterSearch() {
+  applyAdvancedFilter();
+}
+
+function goFilterResult(delta) {
+  if (!mindMapInstance || !filterResults.value.length) return;
+  filterIdx.value = (filterIdx.value + delta + filterResults.value.length) % filterResults.value.length;
+  mindMapInstance.execCommand("GO_TARGET_NODE", filterResults.value[filterIdx.value]);
 }
 
 function doReplace() {
@@ -981,14 +1508,68 @@ async function doSave(silent) {
   saving = true;
   const smmData = mindMapInstance.getData();
   const json = { version: "2.0", root: fromSMM(smmData), metadata: {} };
+  const payload = {
+    mindmap_data: json,
+    case_edit_status: caseEditStatus.value,
+    mindmap_version: mindmapVersion.value,
+  };
   try {
-    const res = await saveMindmap(suiteId.value, { mindmap_data: json, case_edit_status: caseEditStatus.value });
+    const res = await saveMindmap(suiteId.value, payload);
+    if (res.data?.mindmap_version != null) mindmapVersion.value = res.data.mindmap_version;
     if (!silent) ElMessage.success("保存成功");
+    caseCount.value = res.data?.case_count ?? caseCount.value;
+  } catch (e) {
+    if (e?.response?.status === 409) {
+      try {
+        const action = await ElMessageBox.confirm(
+          "脑图已被他人更新，请刷新后重新编辑再保存，或选择强制覆盖（将覆盖他人最新内容）。",
+          "版本冲突",
+          {
+            confirmButtonText: "刷新并放弃本地修改",
+            cancelButtonText: "强制覆盖",
+            type: "warning",
+            distinguishCancelAndClose: true,
+          }
+        );
+        if (action === "confirm") {
+          await loadMindmap();
+          if (!silent) ElMessage.success("已刷新为最新版本");
+        }
+      } catch (userChoice) {
+        if (userChoice === "cancel") {
+          await doSaveForceOverwrite(silent);
+        }
+      }
+      return;
+    }
+    if (!silent) ElMessage.error("保存失败");
+    console.error(e);
+  } finally {
+    saving = false;
+  }
+}
+
+async function doSaveForceOverwrite(silent) {
+  if (!mindMapInstance || !suiteId.value || saving) return;
+  saving = true;
+  const smmData = mindMapInstance.getData();
+  const json = { version: "2.0", root: fromSMM(smmData), metadata: {} };
+  try {
+    const res = await saveMindmap(suiteId.value, {
+      mindmap_data: json,
+      case_edit_status: caseEditStatus.value,
+      mindmap_version: mindmapVersion.value,
+      force_overwrite: true,
+    });
+    if (res.data?.mindmap_version != null) mindmapVersion.value = res.data.mindmap_version;
+    if (!silent) ElMessage.success("已强制覆盖保存");
     caseCount.value = res.data?.case_count ?? caseCount.value;
   } catch (e) {
     if (!silent) ElMessage.error("保存失败");
     console.error(e);
-  } finally { saving = false; }
+  } finally {
+    saving = false;
+  }
 }
 
 // ── 键盘快捷键 ──
@@ -1099,12 +1680,26 @@ function hideCtxMenu() {
 
 /* ── 搜索面板 ── */
 .search-panel {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; flex-direction: column; gap: 8px;
   padding: 8px 16px; background: #fafafa;
   border-bottom: 1px solid #e4e7ed; flex-shrink: 0;
 }
+.search-row, .filter-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.filter-label { font-size: 12px; color: #606266; white-space: nowrap; }
 .search-nav { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; }
 .search-index { font-size: 12px; color: #909399; min-width: 48px; text-align: center; }
+.prop-hint { font-size: 11px; color: #909399; font-weight: normal; }
+
+.advanced-filter-popover { padding: 4px; max-height: 70vh; overflow-y: auto; }
+.filter-group { margin-bottom: 14px; }
+.filter-group-label { font-size: 12px; color: #606266; margin-bottom: 6px; font-weight: 600; }
+.filter-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.filter-tags.wrap { flex-wrap: wrap; }
+.filter-actions { margin-top: 12px; padding-top: 12px; border-top: 1px solid #ebeef5; display: flex; gap: 8px; }
+.prop-section-first { margin-top: 0; }
+/* 节点内容：单行起，可拖拽变多行 */
+.node-content-textarea { width: 100%; }
+.node-content-textarea .el-textarea__inner { resize: vertical; min-height: 32px; }
 
 /* ── 版本记录 ── */
 .version-tip { font-size: 12px; color: #909399; padding: 8px 12px; border-bottom: 1px solid #ebeef5; }
@@ -1116,17 +1711,38 @@ function hideCtxMenu() {
 .version-meta { font-size: 13px; color: #606266; }
 
 /* ── 主体 ── */
-.editor-body { flex: 1; display: flex; min-height: 0; overflow: visible; }
-.mindmap-canvas { flex: 1; min-width: 0; background: #f5f5f5; overflow: visible; outline: none; }
+.editor-body { flex: 1; display: flex; min-height: 0; overflow: hidden; }
+.mindmap-wrap {
+  flex: 1; min-width: 0; min-height: 0; overflow: visible;
+  display: flex; flex-direction: column;
+}
+.mindmap-canvas {
+  flex: 1; min-width: 0; min-height: 0;
+  background: #f5f5f5; overflow: visible; outline: none;
+  /* 非编辑状态下节点文字不可拖拽选中，避免误选 */
+  user-select: none;
+}
 
 /* ── 右侧属性面板 ── */
 .property-panel {
-  width: 220px; min-width: 220px;
+  width: 260px; min-width: 260px;
   border-left: 1px solid #e4e7ed;
-  padding: 16px 14px; overflow-y: auto;
+  padding: 12px 14px 16px; overflow-y: auto;
   background: #fff; transition: width .2s;
+  display: flex; flex-direction: column;
+}
+.property-panel-header {
+  flex-shrink: 0; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #ebeef5;
+}
+.property-panel-body {
+  flex: 1; min-height: 0; overflow-y: auto;
+}
+.property-panel-empty {
+  display: flex; align-items: center; justify-content: center; padding: 24px 0; min-height: 80px;
 }
 .property-panel.hidden { width: 0; min-width: 0; padding: 0; border: none; overflow: hidden; }
+.property-panel.hidden .property-panel-header,
+.property-panel.hidden .property-panel-body { display: none; }
 
 .prop-section { margin-bottom: 18px; }
 .prop-label { font-size: 13px; font-weight: 600; color: #303133; margin-bottom: 8px; }
@@ -1151,6 +1767,7 @@ function hideCtxMenu() {
 }
 .attr-btn:hover { border-color: #409eff; color: #409eff; }
 .attr-btn.active { background: #ecf5ff; border-color: #409eff; color: #409eff; }
+.attr-readonly { font-size: 13px; color: #606266; padding: 6px 0; }
 
 .select-footer { display: flex; gap: 6px; padding: 6px 8px; }
 
@@ -1183,11 +1800,13 @@ function hideCtxMenu() {
   outline: none !important;
 }
 
-/* 编辑框内的 contenteditable 区域 */
+/* 编辑框内的 contenteditable 区域：仅在此处允许拖拽选中文字 */
 .smm-node-edit-wrap [contenteditable],
+.smm-node-text-edit-wrap [contenteditable],
 .smm-richtext-node-edit-wrap [contenteditable] {
   background: transparent !important;
   caret-color: #303133;
+  user-select: text;
 }
 
 /* 节点形状 SVG — 不做 transition 避免闪烁 */

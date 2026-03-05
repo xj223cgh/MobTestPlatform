@@ -134,6 +134,11 @@ request.interceptors.response.use(
           if (error && typeof error === "object") error._messageShown = true;
           break;
 
+        case 409:
+          // 版本冲突等由业务层弹窗处理，此处不自动提示
+          if (error && typeof error === "object") error._versionConflict = true;
+          break;
+
         case 500:
           // 只有在悬浮状态下或非设备相关请求才显示错误提示
           if (config?.isHovering || !isDeviceDisconnected(response)) {

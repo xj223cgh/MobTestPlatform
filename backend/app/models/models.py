@@ -501,6 +501,7 @@ class TestSuite(db.Model):
     case_edit_status = db.Column(db.String(20), default='drafting', comment='用例编辑状态：drafting/completed')
     last_saved_at = db.Column(db.DateTime(timezone=True), nullable=True, comment='脑图最后保存时间')
     last_saved_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='最后保存人ID')
+    mindmap_version = db.Column(db.Integer, default=0, nullable=False, comment='脑图版本号，用于多人编辑冲突检测')
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     
@@ -559,7 +560,7 @@ class MindmapVersion(db.Model):
         return {
             'id': self.id,
             'suite_id': self.suite_id,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
             'created_by': self.created_by,
             'created_by_name': self.creator.real_name if self.creator else None,
         }

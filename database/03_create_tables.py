@@ -211,6 +211,7 @@ def create_tables():
                 case_edit_status VARCHAR(20) DEFAULT 'drafting' COMMENT '用例编辑状态',
                 last_saved_at DATETIME NULL COMMENT '脑图最后保存时间',
                 last_saved_by INT NULL COMMENT '最后保存人ID',
+                mindmap_version INT NOT NULL DEFAULT 0 COMMENT '脑图版本号，用于多人编辑冲突检测',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                 FOREIGN KEY (parent_id) REFERENCES test_suites(id) ON DELETE SET NULL,
@@ -622,6 +623,9 @@ def create_tables():
                 cursor.execute("ALTER TABLE test_suites ADD COLUMN deleted_at DATETIME NULL COMMENT '逻辑删除时间' AFTER sort_order")
                 cursor.execute("ALTER TABLE test_suites ADD INDEX idx_deleted_at (deleted_at)")
                 print("  [迁移] test_suites.deleted_at 已添加")
+            if _table_exists(cursor, "test_suites") and not _column_exists(cursor, "test_suites", "mindmap_version"):
+                cursor.execute("ALTER TABLE test_suites ADD COLUMN mindmap_version INT NOT NULL DEFAULT 0 COMMENT '脑图版本号，用于多人编辑冲突检测' AFTER last_saved_by")
+                print("  [迁移] test_suites.mindmap_version 已添加")
             if not _table_exists(cursor, "mindmap_versions"):
                 cursor.execute("""CREATE TABLE mindmap_versions (
                     id INT AUTO_INCREMENT PRIMARY KEY,

@@ -43,6 +43,9 @@ def get_mindmap(suite_id):
             mindmap_data = from_cases or _build_default_mindmap(suite)
 
         case_count = (from_cases['metadata']['total_cases'] if from_cases else None) or suite.case_count or 0
+        mindmap_version = getattr(suite, 'mindmap_version', None)
+        if mindmap_version is None:
+            mindmap_version = 0
         return success_response({
             'suite_id': suite.id,
             'suite_name': suite.suite_name,
@@ -50,6 +53,7 @@ def get_mindmap(suite_id):
             'case_count': case_count,
             'review_status': suite.review_status or 'not_reviewed',
             'mindmap_data': mindmap_data,
+            'mindmap_version': mindmap_version,
             'project_id': suite.project_id,
             'version_requirement_id': suite.version_requirement_id,
             'version_requirement_name': suite.version_requirement.requirement_name if suite.version_requirement else None,
@@ -72,10 +76,24 @@ def save_mindmap(suite_id):
         if not mindmap_data or 'root' not in mindmap_data:
             return error_response(400, '脑图数据格式无效')
 
+        # 多人编辑：版本冲突检测（支持 force_overwrite 强制覆盖）
+        client_version = data.get('mindmap_version')
+        force_overwrite = data.get('force_overwrite') is True
+        current_version = getattr(suite, 'mindmap_version', None)
+        if current_version is None:
+            current_version = 0
+        if not force_overwrite and client_version is not None and client_version != current_version:
+            return error_response(
+                409,
+                '脑图已被他人更新，请刷新后重新编辑再保存，或选择强制覆盖。',
+                data={'server_version': current_version}
+            )
+
         depth = _get_tree_depth(mindmap_data['root'])
         if depth > MAX_DEPTH:
             return error_response(400, f'脑图层级不能超过{MAX_DEPTH}层，当前{depth}层')
 
+        suite.mindmap_version = current_version + 1
         suite.case_mindmap_data = json.dumps(mindmap_data, ensure_ascii=False)
         suite.last_saved_at = datetime.now(LOCAL_TIMEZONE)
         suite.last_saved_by = current_user.id
@@ -109,10 +127,27 @@ def save_mindmap(suite_id):
             'suite_id': suite.id,
             'case_count': suite.case_count,
             'last_saved_at': suite.last_saved_at.isoformat(),
+            'mindmap_version': suite.mindmap_version,
         })
     except Exception as e:
         db.session.rollback()
         return error_response(500, f'保存脑图失败: {str(e)}')
+
+
+@bp.route('/<int:suite_id>/version', methods=['GET'])
+@login_required
+def get_mindmap_version(suite_id):
+    """仅返回脑图版本号，用于多人编辑时轮询检测他人是否已保存"""
+    try:
+        suite = TestSuite.query.get_or_404(suite_id)
+        if suite.type != 'suite':
+            return error_response(400, '只有用例集才有脑图数据')
+        version = getattr(suite, 'mindmap_version', None)
+        if version is None:
+            version = 0
+        return success_response({'mindmap_version': version})
+    except Exception as e:
+        return error_response(500, f'获取版本失败: {str(e)}')
 
 
 @bp.route('/<int:suite_id>/versions', methods=['GET'])

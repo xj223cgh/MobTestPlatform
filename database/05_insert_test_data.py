@@ -65,7 +65,7 @@ def insert_wps_email_business_data(connection):
         INSERT INTO projects (project_name, description, status, owner_id, creator_id, start_date, end_date, tags, priority, doc_url, pipeline_url)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """, (
-        'WPS邮箱业务',
+        'WPS邮箱',
         'WPS 邮箱客户端相关功能与专项测试，包含写邮件、收件箱、设置、账号同步等模块。',
         'in_progress', uid_owner, uid_creator, proj_start, proj_end,
         json.dumps(['WPS', '邮箱', '移动端']), 'high',
@@ -129,12 +129,49 @@ def insert_wps_email_business_data(connection):
         ))
         requirement_ids.append(cursor.lastrowid)
 
-    print("插入用例库（邮箱功能模块）...")
-    cursor.execute("""
-        INSERT INTO test_suites (suite_name, description, parent_id, `type`, creator_id, project_id, version_requirement_id, iteration_id, sort_order)
-        VALUES (%s, %s, NULL, 'folder', %s, %s, NULL, NULL, 0)
-    """, ('WPS邮箱用例库', '按邮箱功能模块划分：写邮件、收件箱、发件箱、草稿、标签、搜索、账号、通知、专项等', uid_creator, project_id))
-    root_folder_id = cursor.lastrowid
+    print("插入用例库（邮箱功能模块 - 多层目录 + 多用例集）...")
+
+    def _mk_folder(name, desc, parent_id, sort=0):
+        cursor.execute("""
+            INSERT INTO test_suites (suite_name, description, parent_id, `type`, creator_id, project_id, version_requirement_id, iteration_id, sort_order)
+            VALUES (%s, %s, %s, 'folder', %s, %s, NULL, NULL, %s)
+        """, (name, desc, parent_id, uid_creator, project_id, sort))
+        return cursor.lastrowid
+
+    def _mk_suite(name, desc, parent_id, req_id, iter_id, sort=0):
+        cursor.execute("""
+            INSERT INTO test_suites (suite_name, description, parent_id, `type`, creator_id, project_id, version_requirement_id, iteration_id, sort_order)
+            VALUES (%s, %s, %s, 'suite', %s, %s, %s, %s, %s)
+        """, (name, desc, parent_id, uid_creator, project_id, req_id, iter_id, sort))
+        return cursor.lastrowid
+
+    root_folder_id = _mk_folder('WPS邮箱用例库', '按邮箱功能模块划分', None)
+
+    # ── 第一大类：邮件收发（二级目录，下含子目录 + 用例集）──
+    f_send_recv = _mk_folder('邮件收发', '写邮件、收件、发件相关', root_folder_id, 0)
+    f_compose = _mk_folder('写邮件与发信', '新建邮件、编辑、发送', f_send_recv, 0)
+    f_attachment = _mk_folder('附件与签名', '附件添加、签名管理', f_send_recv, 1)
+    f_inbox = _mk_folder('收件箱与阅读', '邮件列表、阅读、标记已读', f_send_recv, 2)
+    f_sent = _mk_folder('发件箱与已发送', '已发送邮件管理', f_send_recv, 3)
+    f_draft = _mk_folder('草稿箱', '草稿保存与恢复', f_send_recv, 4)
+    f_schedule = _mk_folder('定时发送与模板', '定时发送、模板管理', f_send_recv, 5)
+
+    # ── 第二大类：邮件管理（二级目录）──
+    f_manage = _mk_folder('邮件管理', '标签、搜索、过滤、回执', root_folder_id, 1)
+    f_label = _mk_folder('标签与分类', '标签管理、自动分类', f_manage, 0)
+    f_search = _mk_folder('搜索', '关键字、高级搜索', f_manage, 1)
+    f_filter = _mk_folder('过滤与规则', '自定义过滤规则', f_manage, 2)
+    f_receipt = _mk_folder('已读回执与撤回', '回执请求、邮件撤回', f_manage, 3)
+
+    # ── 第三大类：账号与系统（二级目录）──
+    f_system = _mk_folder('账号与系统', '账号同步、通知、多账号', root_folder_id, 2)
+    f_account = _mk_folder('账号与同步', 'IMAP/POP3 同步设置', f_system, 0)
+    f_notify = _mk_folder('通知与显示', '推送通知、显示设置', f_system, 1)
+    f_multi = _mk_folder('多账号切换', '多账号登录与切换', f_system, 2)
+
+    # ── 第四大类：专项测试（根级同级目录，无子目录）──
+    f_special = _mk_folder('专项测试', '性能、兼容、稳定性', root_folder_id, 3)
+
     MODULES = [
         ('写邮件与发信', requirement_ids[0], 28),
         ('附件与签名', requirement_ids[1], 18),
@@ -151,19 +188,40 @@ def insert_wps_email_business_data(connection):
         ('多账号切换', requirement_ids[12], 14),
         ('专项-性能与兼容', requirement_ids[14], 25),
     ]
+
+    folder_map = {
+        '写邮件与发信': f_compose, '附件与签名': f_attachment,
+        '收件箱与阅读': f_inbox, '发件箱与已发送': f_sent,
+        '草稿箱': f_draft, '定时发送与模板': f_schedule,
+        '标签与分类': f_label, '搜索': f_search,
+        '过滤与规则': f_filter, '已读回执与撤回': f_receipt,
+        '账号与同步': f_account, '通知与显示': f_notify,
+        '多账号切换': f_multi, '专项-性能与兼容': f_special,
+    }
+
+    # 部分目录下创建多个用例集
+    extra_suites_config = {
+        '写邮件与发信': ['基本发信用例集', '编辑格式用例集', '发信异常用例集'],
+        '收件箱与阅读': ['邮件列表用例集', '阅读操作用例集'],
+        '标签与分类': ['标签管理用例集', '自动分类用例集'],
+        '搜索': ['关键字搜索用例集', '高级搜索用例集'],
+        '账号与同步': ['同步设置用例集', '多协议用例集'],
+    }
+
     suite_rows = []
     for idx, (mod_name, req_id, case_count) in enumerate(MODULES):
-        cursor.execute("""
-            INSERT INTO test_suites (suite_name, description, parent_id, `type`, creator_id, project_id, version_requirement_id, iteration_id, sort_order)
-            VALUES (%s, %s, %s, 'folder', %s, %s, NULL, NULL, %s)
-        """, (mod_name, f'{mod_name} 功能模块', root_folder_id, uid_creator, project_id, idx))
-        folder_id = cursor.lastrowid
+        parent_fid = folder_map.get(mod_name, root_folder_id)
         iter_id = iteration_ids[idx % len(iteration_ids)]
-        cursor.execute("""
-            INSERT INTO test_suites (suite_name, description, parent_id, `type`, creator_id, project_id, version_requirement_id, iteration_id, sort_order)
-            VALUES (%s, %s, %s, 'suite', %s, %s, %s, %s, 0)
-        """, (f'{mod_name}用例集', f'{mod_name} 相关用例', folder_id, uid_creator, project_id, req_id, iter_id))
-        suite_rows.append((cursor.lastrowid, project_id, req_id, mod_name, case_count))
+
+        if mod_name in extra_suites_config:
+            names = extra_suites_config[mod_name]
+            per_count = max(1, case_count // len(names))
+            for si, sname in enumerate(names):
+                sid = _mk_suite(sname, f'{mod_name} - {sname}', parent_fid, req_id, iter_id, si)
+                suite_rows.append((sid, project_id, req_id, mod_name, per_count if si < len(names) - 1 else case_count - per_count * (len(names) - 1)))
+        else:
+            sid = _mk_suite(f'{mod_name}用例集', f'{mod_name} 相关用例', parent_fid, req_id, iter_id, 0)
+            suite_rows.append((sid, project_id, req_id, mod_name, case_count))
 
     print("插入测试用例（真实 WPS 邮箱场景）...")
     # 每个模块的真实用例：(场景分组, [(用例名, 测试数据, 前置条件, 操作步骤, 预期结果, 优先级)])
@@ -487,7 +545,7 @@ def insert_wps_email_business_data(connection):
         case_suite_map.setdefault(sid, []).append(cid)
         case_id_by_number[cnum] = cid
 
-    # ---------- 为每个用例集生成脑图 JSON（单步链）并回写 ----------
+    # ---------- 为每个用例集生成脑图 JSON（多样化链深度）并回写 ----------
     print("生成脑图数据并回写...")
     for suite_id, proj_id, req_id, mod_name, _n in suite_rows:
         module_cases = WPS_CASES.get(mod_name, {})
@@ -501,7 +559,7 @@ def insert_wps_email_business_data(connection):
                 continue
             group_id = f'g-{suite_id}-{case_idx}'
             case_nodes = []
-            for c in group_cases:
+            for ci, c in enumerate(group_cases):
                 cname, td, pre, step, er, pri = c
                 case_idx += 1
                 node_id = f'c-{suite_id}-{case_idx}'
@@ -515,12 +573,16 @@ def insert_wps_email_business_data(connection):
                     cursor.execute("UPDATE test_cases SET mindmap_node_id=%s, group_path=%s WHERE id=%s",
                                    (node_id, group_name, db_id))
 
-                chain = []
-                chain.append({'id': f'pc-{suite_id}-{case_idx}', 'text': pre, 'attribute': 'precondition',
-                    'children': [{'id': f'st-{suite_id}-{case_idx}', 'text': step, 'attribute': 'step',
-                        'children': [{'id': f'er-{suite_id}-{case_idx}', 'text': er, 'attribute': 'expected_result'}]}]})
+                # 用例链完整：(test_data →) precondition → step → expected_result
+                # test_data 可选，取决于原始数据是否有 td
+                sid_ci = f'{suite_id}-{case_idx}'
+                er_node = {'id': f'er-{sid_ci}', 'text': er, 'attribute': 'expected_result'}
+                st_node = {'id': f'st-{sid_ci}', 'text': step, 'attribute': 'step', 'children': [er_node]}
+                pc_node = {'id': f'pc-{sid_ci}', 'text': pre, 'attribute': 'precondition', 'children': [st_node]}
                 if td:
-                    chain = [{'id': f'td-{suite_id}-{case_idx}', 'text': td, 'attribute': 'test_data', 'children': chain}]
+                    chain = [{'id': f'td-{sid_ci}', 'text': td, 'attribute': 'test_data', 'children': [pc_node]}]
+                else:
+                    chain = [pc_node]
 
                 case_nodes.append({
                     'id': node_id, 'text': cname, 'attribute': 'case_title', 'priority': pri, 'children': chain,
@@ -864,31 +926,64 @@ def insert_wps_meeting_business_data(connection):
         ))
         requirement_ids.append(cursor.lastrowid)
 
-    print("插入用例库（WPS 会议功能模块）...")
-    cursor.execute("""
-        INSERT INTO test_suites (suite_name, description, parent_id, `type`, creator_id, project_id, version_requirement_id, iteration_id, sort_order)
-        VALUES (%s, %s, NULL, 'folder', %s, %s, NULL, NULL, 0)
-    """, ('WPS会议用例库', '按会议功能划分：预约、入会、会中控制、录制、会管会控等', uid_creator, project_id))
-    root_folder_id = cursor.lastrowid
+    print("插入用例库（WPS 会议功能模块 - 多层目录 + 多用例集）...")
+
+    def _mk_folder_m(name, desc, parent_id, sort=0):
+        cursor.execute("""
+            INSERT INTO test_suites (suite_name, description, parent_id, `type`, creator_id, project_id, version_requirement_id, iteration_id, sort_order)
+            VALUES (%s, %s, %s, 'folder', %s, %s, NULL, NULL, %s)
+        """, (name, desc, parent_id, uid_creator, project_id, sort))
+        return cursor.lastrowid
+
+    def _mk_suite_m(name, desc, parent_id, req_id, iter_id, sort=0):
+        cursor.execute("""
+            INSERT INTO test_suites (suite_name, description, parent_id, `type`, creator_id, project_id, version_requirement_id, iteration_id, sort_order)
+            VALUES (%s, %s, %s, 'suite', %s, %s, %s, %s, %s)
+        """, (name, desc, parent_id, uid_creator, project_id, req_id, iter_id, sort))
+        return cursor.lastrowid
+
+    root_folder_id = _mk_folder_m('WPS会议用例库', '按会议功能划分', None)
+
+    # 二级分类
+    f_before = _mk_folder_m('会前', '预约与入会', root_folder_id, 0)
+    f_during = _mk_folder_m('会中', '会中控制、录制', root_folder_id, 1)
+    f_admin = _mk_folder_m('会管', '主持人权限管理', root_folder_id, 2)
+
+    # 三级目录
+    f_reserve = _mk_folder_m('预约会议', '预约相关场景', f_before, 0)
+    f_join = _mk_folder_m('入会与音视频', '入会方式和音视频', f_before, 1)
+    f_control = _mk_folder_m('会中控制与录制', '共享、聊天、录制', f_during, 0)
+
     MODULES = [
         ('预约会议', requirement_ids[0], 12),
         ('入会与音视频', requirement_ids[1], 15),
         ('会中控制与录制', requirement_ids[2], 18),
         ('会管会控', requirement_ids[4], 10),
     ]
+    m_folder_map = {
+        '预约会议': f_reserve, '入会与音视频': f_join,
+        '会中控制与录制': f_control, '会管会控': f_admin,
+    }
+
+    # 部分目录下多个用例集
+    m_extra = {
+        '入会与音视频': ['入会方式用例集', '音视频控制用例集'],
+        '会中控制与录制': ['共享与聊天用例集', '录制与回放用例集'],
+    }
+
     suite_rows = []
     for idx, (mod_name, req_id, case_count) in enumerate(MODULES):
-        cursor.execute("""
-            INSERT INTO test_suites (suite_name, description, parent_id, `type`, creator_id, project_id, version_requirement_id, iteration_id, sort_order)
-            VALUES (%s, %s, %s, 'folder', %s, %s, NULL, NULL, %s)
-        """, (mod_name, f'{mod_name} 功能模块', root_folder_id, uid_creator, project_id, idx))
-        folder_id = cursor.lastrowid
+        parent_fid = m_folder_map.get(mod_name, root_folder_id)
         iter_id = iteration_ids[idx % len(iteration_ids)]
-        cursor.execute("""
-            INSERT INTO test_suites (suite_name, description, parent_id, `type`, creator_id, project_id, version_requirement_id, iteration_id, sort_order)
-            VALUES (%s, %s, %s, 'suite', %s, %s, %s, %s, 0)
-        """, (f'{mod_name}用例集', f'{mod_name} 相关用例', folder_id, uid_creator, project_id, req_id, iter_id))
-        suite_rows.append((cursor.lastrowid, project_id, req_id, mod_name, case_count))
+        if mod_name in m_extra:
+            names = m_extra[mod_name]
+            per = max(1, case_count // len(names))
+            for si, sname in enumerate(names):
+                sid = _mk_suite_m(sname, f'{mod_name} - {sname}', parent_fid, req_id, iter_id, si)
+                suite_rows.append((sid, project_id, req_id, mod_name, per if si < len(names) - 1 else case_count - per * (len(names) - 1)))
+        else:
+            sid = _mk_suite_m(f'{mod_name}用例集', f'{mod_name} 相关用例', parent_fid, req_id, iter_id, 0)
+            suite_rows.append((sid, project_id, req_id, mod_name, case_count))
 
     # 会议场景用例数据：(模块名 -> [(用例名, 测试数据, 前置条件, 步骤, 预期结果, 优先级)])
     WPS_MEETING_CASES = {
@@ -1141,13 +1236,13 @@ def insert_test_data():
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, initial_users)
             users_data = [
-                ('zhaomin', '13800138004', '赵敏', 'female', '测试部', password_hash, 'tester'),
-                ('chenjing', '13800138005', '陈静', 'female', '测试部', password_hash, 'tester'),
-                ('yangfan', '13800138006', '杨帆', 'male', '开发部', password_hash, 'manager'),
-                ('zhoujie', '13800138007', '周杰', 'male', '产品部', password_hash, 'admin'),
-                ('wulei', '13800138008', '吴磊', 'male', '测试部', password_hash, 'tester'),
-                ('zhengli', '13800138009', '郑丽', 'female', '测试部', password_hash, 'tester'),
-                ('sunhao', '13800138010', '孙浩', 'male', '开发部', password_hash, 'manager')
+                ('linyuming', '13800138004', '林裕铭', 'male', '测试部', password_hash, 'manager'),
+                ('zhoujin', '13800138005', '周瑾', 'female', '测试部', password_hash, 'manager'),
+                ('chenguohui', '13800138006', '陈国慧', 'male', '测试部', password_hash, 'manager'),
+                ('linsen', '13800138007', '林森', 'male', '测试部', password_hash, 'manager'),
+                ('zhangjunhao', '13800138008', '张俊浩', 'male', '测试部', password_hash, 'manager'),
+                ('wanghaoran', '13800138009', '王灏然', 'male', '测试部', password_hash, 'manager'),
+                ('cuhongli', '13800138010', '储宏丽', 'female', '测试部', password_hash, 'manager'),
             ]
             cursor.executemany("""
                 INSERT INTO users (username, phone, real_name, gender, department, password_hash, role)
@@ -1165,8 +1260,8 @@ def insert_test_data():
         print("所有测试数据插入成功！")
         print("测试账号信息：")
         print("   - 特殊账号（保留）：Lethe(超级管理员), Manager(项目经理), Tester(测试主管), Admin(系统管理员)")
-        print("   - 测试用户：赵敏、陈静、杨帆、周杰、吴磊、郑丽、孙浩")
-        print("   - 密码统一为：123321")
+        print("   - 测试用户：林裕铭、周瑾、陈国慧、林森、张俊浩、王灏然、储宏丽")
+        print("   - 用户名为姓名拼音，密码统一为：123321，角色均为 manager（管理员）")
         return True
 
     except Exception as e:

@@ -12,7 +12,7 @@
           新建文件夹
         </el-button>
         <el-button
-          v-if="selectedFolder && selectedFolder.id !== 0"
+          v-if="selectedFolder"
           type="success"
           icon="Plus"
           @click="handleAddSuite"
@@ -81,7 +81,7 @@
             <template #default="{ node, data }">
               <span class="tree-node-label">
                 <el-icon><Folder /></el-icon>
-                <span>{{ data.suite_name }}{{ (data._virtual || data.id === 0) ? '' : `（${data.suite_count ?? 0}）` }}</span>
+                <span>{{ data.suite_name }}{{ data._virtual ? '' : `（${data.suite_count ?? 0}）` }}</span>
               </span>
             </template>
           </el-tree>
@@ -260,7 +260,7 @@
             placeholder="选择项目"
             filterable
             style="width: 100%"
-            @change="onSuiteFormProjectChange"
+            disabled
           >
             <el-option
               v-for="p in projectOptions"
@@ -269,7 +269,6 @@
               :value="p.id"
             />
           </el-select>
-          <div class="form-item-hint">新建时默认当前页所选项目；若选择某文件夹下创建，用例集将归属该文件夹所在项目。</div>
         </el-form-item>
         <el-form-item label="所属文件夹" required>
           <el-tree-select
@@ -315,21 +314,23 @@
       </template>
     </el-dialog>
 
-    <!-- 移动用例集对话框 -->
+    <!-- 移动用例集对话框：目录过多时树区域可滚动 -->
     <el-dialog v-model="moveDialogVisible" title="移动用例集" width="440px">
       <p style="margin-bottom: 12px">选择目标文件夹：</p>
-                  <el-tree
-        :data="folderTree"
-        :props="treeProps"
-                    node-key="id"
-        highlight-current
-        default-expand-all
-        @node-click="(data) => (moveTargetId = data.id)"
-      >
-        <template #default="{ data }">
-          <span><el-icon><Folder /></el-icon> {{ data.suite_name }}</span>
-                    </template>
-                  </el-tree>
+      <div class="move-dialog-tree-wrap">
+        <el-tree
+          :data="folderTree"
+          :props="treeProps"
+          node-key="id"
+          highlight-current
+          default-expand-all
+          @node-click="(data) => (moveTargetId = data.id)"
+        >
+          <template #default="{ data }">
+            <span><el-icon><Folder /></el-icon> {{ data.suite_name }}</span>
+          </template>
+        </el-tree>
+      </div>
       <template #footer>
         <el-button @click="moveDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="confirmMove">确定</el-button>
@@ -351,7 +352,7 @@
             :data="generateFolderTree"
             :props="{ label: 'suite_name', value: 'id' }"
             node-key="id"
-            placeholder="先选择目录（全部或文件夹）"
+            placeholder="请选择文件夹"
             style="width: 100%"
             clearable
             check-strictly
@@ -428,66 +429,96 @@
       @click.stop
     >
       <div class="context-menu-item" @click="handleRenameFolder">重命名</div>
-      <div class="context-menu-item" @click="handleNewUnderNode">新建</div>
+      <div class="context-menu-item" @click="handleCtxNewFolder">新建文件夹</div>
+      <div class="context-menu-item" @click="handleCtxNewSuite">新建用例集</div>
+      <div class="context-menu-item" @click="handleCtxImportSuite">导入用例集</div>
       <div class="context-menu-item danger" @click="handleDeleteFolder">删除</div>
     </div>
 
-    <!-- 新建类型对话框：选择文件夹/用例集后展示对应表单 -->
-    <el-dialog v-model="createTypeDialogVisible" title="新建" width="520px" @close="resetCreateTypeForm">
-      <el-form :model="createTypeForm" label-width="100px">
-        <el-form-item label="创建类型">
-          <el-radio-group v-model="createTypeForm.createType">
-            <el-radio value="folder">文件夹</el-radio>
-            <el-radio value="suite">用例集</el-radio>
-          </el-radio-group>
+    <!-- 右键新建文件夹对话框 -->
+    <el-dialog v-model="ctxFolderDialogVisible" title="新建文件夹" width="440px">
+      <el-form label-width="100px">
+        <el-form-item label="名称" required>
+          <el-input v-model="ctxFolderName" placeholder="请输入文件夹名称" maxlength="30" show-word-limit />
         </el-form-item>
-        <template v-if="createTypeForm.createType === 'folder'">
-          <el-form-item label="名称" required>
-            <el-input v-model="createTypeForm.folderName" placeholder="请输入文件夹名称" />
-          </el-form-item>
-        </template>
-        <template v-else>
-          <el-form-item label="关联项目" required>
-            <el-select v-model="createTypeForm.project_id" placeholder="选择项目" filterable style="width: 100%" @change="onCreateTypeProjectChange">
-              <el-option v-for="p in projectOptions" :key="p.id" :label="p.project_name" :value="p.id" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="所属文件夹" required>
-            <el-tree-select
-              v-model="createTypeForm.parentId"
-              :data="createTypeFolderTree"
-              :props="{ label: 'suite_name', value: 'id' }"
-              node-key="id"
-              placeholder="选择存放位置"
-              style="width: 100%"
-              check-strictly
-              default-expand-all
-              filterable
-              clearable
-            />
-          </el-form-item>
-          <el-form-item label="用例集名称" required>
-            <el-input v-model="createTypeForm.suite_name" placeholder="请输入用例集名称" maxlength="30" show-word-limit />
-          </el-form-item>
-          <el-form-item label="描述">
-            <el-input v-model="createTypeForm.description" type="textarea" :rows="2" placeholder="选填" />
-          </el-form-item>
-          <el-form-item label="关联需求">
-            <el-select v-model="createTypeForm.version_requirement_id" placeholder="可选" clearable filterable style="width: 100%">
-              <el-option v-for="r in requirementOptions" :key="r.id" :label="r.requirement_name" :value="r.id" />
-            </el-select>
-          </el-form-item>
-        </template>
       </el-form>
       <template #footer>
-        <el-button @click="createTypeDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitCreateType">确定</el-button>
+        <el-button @click="ctxFolderDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitCtxFolder">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 右键新建用例集对话框 -->
+    <el-dialog v-model="ctxSuiteDialogVisible" title="新建用例集" width="520px">
+      <el-form :model="ctxSuiteForm" label-width="100px">
+        <el-form-item label="关联项目" required>
+          <el-select v-model="ctxSuiteForm.project_id" placeholder="选择项目" filterable style="width: 100%" disabled>
+            <el-option v-for="p in projectOptions" :key="p.id" :label="p.project_name" :value="p.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="用例集名称" required>
+          <el-input v-model="ctxSuiteForm.suite_name" placeholder="请输入用例集名称" maxlength="30" show-word-limit />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="ctxSuiteForm.description" type="textarea" :rows="2" placeholder="选填" />
+        </el-form-item>
+        <el-form-item label="关联需求">
+          <el-select v-model="ctxSuiteForm.version_requirement_id" placeholder="可选" clearable filterable style="width: 100%">
+            <el-option v-for="r in requirementOptions" :key="r.id" :label="r.requirement_name" :value="r.id" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="ctxSuiteDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitCtxSuite">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 导入用例集对话框 -->
+    <el-dialog v-model="importDialogVisible" title="导入用例集" width="520px">
+      <el-form label-width="100px">
+        <el-form-item label="关联项目">
+          <el-select v-model="importForm.project_id" disabled style="width: 100%">
+            <el-option v-for="p in projectOptions" :key="p.id" :label="p.project_name" :value="p.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="上传文件" required>
+          <el-upload
+            ref="importUploadRef"
+            action=""
+            :auto-upload="false"
+            :limit="1"
+            accept=".json,.xlsx,.xls,.csv"
+            :on-change="onImportFileChange"
+            :on-remove="() => (importForm.file = null)"
+          >
+            <el-button type="primary">选择文件</el-button>
+            <template #tip>
+              <div class="el-upload__tip">支持 JSON / Excel / CSV 格式</div>
+            </template>
+          </el-upload>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="importDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="importLoading" @click="submitImport">确定导入</el-button>
       </template>
     </el-dialog>
 
     <!-- 回收站抽屉（仅用例集，按当前所属项目区分） -->
     <el-drawer v-model="showRecycleDrawer" :title="recycleDrawerTitle" size="960" direction="rtl" class="recycle-drawer">
       <div class="recycle-toolbar">
+        <span class="recycle-toolbar-label">所属项目：</span>
+        <el-select
+          v-model="recycleFilterProjectId"
+          placeholder="选择项目"
+          clearable
+          filterable
+          class="recycle-project-select"
+          @change="loadRecycled"
+        >
+          <el-option v-for="p in projectOptions" :key="p.id" :label="p.project_name" :value="p.id" />
+        </el-select>
         <el-button
           type="danger"
           plain
@@ -568,7 +599,7 @@ import {
   restoreRecycledSuite,
   batchPermanentDeleteRecycledSuites,
 } from "@/api/testSuite";
-import { moveTestSuite, copyTestSuite } from "@/api/testSuite";
+import { moveTestSuite, copyTestSuite, importTestSuite } from "@/api/testSuite";
 import { getProjects, getProjectVersionRequirements } from "@/api/project";
 import { createGenerateCasesTask, getTaskStatus } from "@/api/aiTasks";
 
@@ -612,23 +643,29 @@ const contextMenu = reactive({ visible: false, x: 0, y: 0, data: null });
 const filterProjectId = ref(null);
 const projectOptions = ref([]);
 const showRecycleDrawer = ref(false);
+/** 回收站内独立选择的所属项目，不受外层 filterProjectId 限制 */
+const recycleFilterProjectId = ref(null);
 const recycleLoading = ref(false);
 const recycledList = ref([]);
 const recyclePagination = reactive({ page: 1, pageSize: 10, total: 0 });
 const recycleSelectedIds = ref([]);
 const recycleSelectAll = ref(false);
-const createTypeDialogVisible = ref(false);
-const createTypeFolderTree = ref([]);
-const createTypeForm = reactive({
-  createType: "folder",
-  folderName: "",
-  parentFolderName: "",
-  parentId: null,
-  project_id: null,
-  suite_name: "",
-  description: "",
-  version_requirement_id: null,
-});
+/** 右键新建文件夹 */
+const ctxFolderDialogVisible = ref(false);
+const ctxFolderName = ref("");
+let ctxFolderParentId = null;
+
+/** 右键新建用例集 */
+const ctxSuiteDialogVisible = ref(false);
+const ctxSuiteForm = reactive({ project_id: null, suite_name: "", description: "", version_requirement_id: null });
+let ctxSuiteParentId = null;
+
+/** 导入用例集 */
+const importDialogVisible = ref(false);
+const importLoading = ref(false);
+const importUploadRef = ref(null);
+const importForm = reactive({ project_id: null, file: null });
+let importParentId = null;
 
 const generateDialogVisible = ref(false);
 const generateForm = reactive({
@@ -663,16 +700,22 @@ const folderParentName = computed(() => {
       }
       return null;
     };
-    return find(folderTree.value) || '全部';
+    return find(folderTree.value) || '根目录';
   }
-  return selectedFolder.value?.suite_name || '全部';
+  return selectedFolder.value?.suite_name || '根目录';
 });
 
 const recycleDrawerTitle = computed(() => {
-  if (!filterProjectId.value) return "回收站";
-  const p = projectOptions.value?.find((x) => x.id === filterProjectId.value);
+  if (!recycleFilterProjectId.value) return "回收站";
+  const p = projectOptions.value?.find((x) => x.id === recycleFilterProjectId.value);
   return p ? `回收站（${p.project_name}）` : "回收站";
 });
+
+/** 为弹窗构建带「根」的树，便于选择「根目录」或某文件夹 */
+function buildFolderTreeWithRoot() {
+  const tree = folderTree.value || [];
+  return [{ id: 0, suite_name: "根", type: "folder", parent_id: null, children: tree, _virtual: true }];
+}
 
 watch(searchText, (val) => {
   folderTreeRef.value?.filter(val);
@@ -692,18 +735,7 @@ async function loadFolderTree() {
     const rootSuiteCount = payload.root_suite_count || 0;
 
     const treeArr = Array.isArray(tree) ? tree : [];
-    // 「全部」作为唯一根节点，其 children 为所有根级文件夹，便于拖拽到「全部」下（即移为根级）
-    folderTree.value = [
-      {
-        id: 0,
-        suite_name: "全部",
-        type: "folder",
-        parent_id: null,
-        suite_count: rootSuiteCount,
-        children: treeArr,
-        _virtual: true,
-      },
-    ];
+    folderTree.value = treeArr;
   } catch {
     ElMessage.error("加载文件夹目录失败");
   }
@@ -758,7 +790,7 @@ async function loadRecycled() {
     const params = {
       page: recyclePagination.page,
       page_size: recyclePagination.pageSize,
-      ...(filterProjectId.value ? { project_id: filterProjectId.value } : {}),
+      ...(recycleFilterProjectId.value ? { project_id: recycleFilterProjectId.value } : {}),
     };
     const res = await getRecycledSuites(params);
     const data = res.data || {};
@@ -918,90 +950,94 @@ function handleAddSubFolder() {
   folderDialogVisible.value = true;
 }
 
-function handleNewUnderNode() {
+function _ctxParentId() {
+  const d = contextMenu.data;
+  return (d?._virtual || d?.id === 0) ? null : (d?.id ?? null);
+}
+
+function handleCtxNewFolder() {
   contextMenu.visible = false;
-  const parent = contextMenu.data;
-  createTypeForm.createType = "folder";
-  createTypeForm.folderName = "";
-  createTypeForm.parentFolderName = parent?.suite_name ?? "全部";
-  createTypeForm.parentId = (parent?.id !== undefined && parent?.id !== null) ? parent.id : 0;
-  createTypeForm.project_id = filterProjectId.value ?? projectOptions.value[0]?.id ?? null;
-  createTypeForm.suite_name = "";
-  createTypeForm.description = "";
-  createTypeForm.version_requirement_id = null;
-  createTypeFolderTree.value = folderTree.value;
-  if (createTypeForm.project_id) loadRequirementOptionsByProject(createTypeForm.project_id);
-  createTypeDialogVisible.value = true;
+  ctxFolderParentId = _ctxParentId();
+  ctxFolderName.value = "";
+  ctxFolderDialogVisible.value = true;
 }
 
-function onCreateTypeProjectChange(projectId) {
-  loadRequirementOptionsByProject(projectId);
+async function submitCtxFolder() {
+  if (!ctxFolderName.value.trim()) { ElMessage.warning("文件夹名称不能为空"); return; }
+  try {
+    await createTestSuite({ suite_name: ctxFolderName.value.trim(), type: "folder", parent_id: ctxFolderParentId });
+    ElMessage.success("文件夹创建成功");
+    ctxFolderDialogVisible.value = false;
+    await loadFolderTree();
+  } catch { ElMessage.error("创建文件夹失败"); }
 }
 
-function resetCreateTypeForm() {
-  createTypeForm.createType = "folder";
-  createTypeForm.folderName = "";
-  createTypeForm.parentFolderName = "";
-  createTypeForm.parentId = null;
-  createTypeForm.project_id = null;
-  createTypeForm.suite_name = "";
-  createTypeForm.description = "";
-  createTypeForm.version_requirement_id = null;
+function handleCtxNewSuite() {
+  contextMenu.visible = false;
+  ctxSuiteParentId = _ctxParentId();
+  ctxSuiteForm.project_id = filterProjectId.value ?? projectOptions.value[0]?.id ?? null;
+  ctxSuiteForm.suite_name = "";
+  ctxSuiteForm.description = "";
+  ctxSuiteForm.version_requirement_id = null;
+  if (ctxSuiteForm.project_id) loadRequirementOptionsByProject(ctxSuiteForm.project_id);
+  ctxSuiteDialogVisible.value = true;
 }
 
-async function submitCreateType() {
-  if (createTypeForm.createType === "folder") {
-    if (!createTypeForm.folderName.trim()) {
-      ElMessage.warning("文件夹名称不能为空");
-      return;
-    }
-    try {
-      await createTestSuite({
-        suite_name: createTypeForm.folderName.trim(),
-        type: "folder",
-        parent_id: createTypeForm.parentId || null,
-      });
-      ElMessage.success("文件夹创建成功");
-      createTypeDialogVisible.value = false;
-      await loadFolderTree();
-    } catch {
-      ElMessage.error("创建文件夹失败");
-    }
-    return;
-  }
-  if (!createTypeForm.suite_name.trim()) {
-    ElMessage.warning("用例集名称不能为空");
-    return;
-  }
-  if (!createTypeForm.project_id) {
-    ElMessage.warning("请选择关联项目");
-    return;
-  }
-  const parentId = (createTypeForm.parentId === 0 || createTypeForm.parentId === null || createTypeForm.parentId === undefined) ? null : createTypeForm.parentId;
+async function submitCtxSuite() {
+  if (!ctxSuiteForm.suite_name.trim()) { ElMessage.warning("用例集名称不能为空"); return; }
+  if (!ctxSuiteForm.project_id) { ElMessage.warning("请选择关联项目"); return; }
   try {
     const res = await createTestSuite({
-      suite_name: createTypeForm.suite_name.trim(),
-      description: createTypeForm.description || "",
+      suite_name: ctxSuiteForm.suite_name.trim(),
+      description: ctxSuiteForm.description || "",
       type: "suite",
-      parent_id: parentId,
+      parent_id: ctxSuiteParentId,
       status: "active",
-      version_requirement_id: createTypeForm.version_requirement_id || null,
-      project_id: createTypeForm.project_id,
+      version_requirement_id: ctxSuiteForm.version_requirement_id || null,
+      project_id: ctxSuiteForm.project_id,
     });
     ElMessage.success("用例集创建成功");
-    createTypeDialogVisible.value = false;
+    ctxSuiteDialogVisible.value = false;
     await loadFolderTree();
     await loadCaseSets();
     if (res.data?.id) nextTick(() => openMindmap(res.data));
-  } catch {
-    ElMessage.error("创建用例集失败");
-  }
+  } catch { ElMessage.error("创建用例集失败"); }
+}
+
+function handleCtxImportSuite() {
+  contextMenu.visible = false;
+  importParentId = _ctxParentId();
+  importForm.project_id = filterProjectId.value ?? projectOptions.value[0]?.id ?? null;
+  importForm.file = null;
+  importUploadRef.value?.clearFiles();
+  importDialogVisible.value = true;
+}
+
+function onImportFileChange(uploadFile) {
+  importForm.file = uploadFile.raw;
+}
+
+async function submitImport() {
+  if (!importForm.file) { ElMessage.warning("请选择要导入的文件"); return; }
+  importLoading.value = true;
+  try {
+    const fd = new FormData();
+    fd.append("file", importForm.file);
+    if (importParentId) fd.append("parent_id", importParentId);
+    if (importForm.project_id) fd.append("project_id", importForm.project_id);
+    const res = await importTestSuite(fd);
+    ElMessage.success(res.data?.message || "导入成功");
+    importDialogVisible.value = false;
+    await loadFolderTree();
+    await loadCaseSets();
+  } catch { ElMessage.error("导入失败"); }
+  finally { importLoading.value = false; }
 }
 
 function handleRenameFolder() {
   contextMenu.visible = false;
   if (contextMenu.data?._virtual || contextMenu.data?.id === 0) {
-    ElMessage.warning("「全部」不能重命名");
+    ElMessage.warning("「根」不能重命名");
     return;
   }
   folderDialogTitle.value = "重命名文件夹";
@@ -1041,7 +1077,7 @@ async function handleDeleteFolder() {
   const folder = contextMenu.data;
   if (!folder) return;
   if (folder._virtual || folder.id === 0) {
-    ElMessage.warning("「全部」不能删除");
+    ElMessage.warning("「根」不能删除");
     return;
   }
   try {
@@ -1067,12 +1103,13 @@ function handleAddSuite() {
   suiteForm.version_requirement_id = null;
   suiteForm.project_id = filterProjectId.value ?? projectOptions.value[0]?.id ?? null;
   suiteForm.parentId = selectedFolder.value?.id !== undefined && selectedFolder.value?.id !== null ? selectedFolder.value.id : 0;
-  suiteFormFolderTree.value = folderTree.value;
+  suiteFormFolderTree.value = buildFolderTreeWithRoot();
   suiteDialogVisible.value = true;
 }
 
 async function onSuiteDialogOpen() {
-  suiteFormFolderTree.value = folderTree.value;
+  suiteForm.project_id = filterProjectId.value ?? projectOptions.value?.[0]?.id ?? null;
+  suiteFormFolderTree.value = buildFolderTreeWithRoot();
   await loadRequirementOptionsByProject(suiteForm.project_id ?? filterProjectId.value);
 }
 
@@ -1086,10 +1123,10 @@ async function onSuiteFormProjectChange(projectId) {
       const rootSuiteCount = payload.root_suite_count || 0;
       const treeArr = Array.isArray(tree) ? tree : [];
       suiteFormFolderTree.value = [
-        { id: 0, suite_name: "全部", type: "folder", parent_id: null, suite_count: rootSuiteCount, children: treeArr, _virtual: true },
+        { id: 0, suite_name: "根", type: "folder", parent_id: null, suite_count: rootSuiteCount, children: treeArr, _virtual: true },
       ];
     } catch {
-      suiteFormFolderTree.value = [{ id: 0, suite_name: "全部", type: "folder", children: [], _virtual: true }];
+      suiteFormFolderTree.value = [{ id: 0, suite_name: "根", type: "folder", children: [], _virtual: true }];
     }
   } else {
     suiteFormFolderTree.value = [];
@@ -1254,7 +1291,7 @@ async function loadGenerateFolderTree() {
     return [
       {
         id: 0,
-        suite_name: "全部",
+        suite_name: "根",
         type: "folder",
         children: tree,
       },
@@ -1359,7 +1396,7 @@ function selectFolderById(folderId) {
   };
   const node = find(folderTree.value);
   if (node) selectedFolder.value = node;
-  else selectedFolder.value = folderTree.value[0] || null;
+  else selectedFolder.value = null;
 }
 
 async function startGenerateForSuite(suiteId, documentContent) {
@@ -1424,12 +1461,9 @@ function allowFolderDrag(node) {
   return data && !data._virtual && data.id !== 0;
 }
 
-/** 允许放入文件夹或「全部」下；不允许放入用例集或拖入自身及子孙内（type 为 prev/next/inner） */
+/** 允许放入文件夹下或放在某节点前/后（type 为 prev/next/inner）；根层节点前/后即为根级 */
 function allowFolderDrop(draggingNode, dropNode, type) {
   const dropData = dropNode.data;
-  if (dropData._virtual || dropData.id === 0) {
-    return type === "inner";
-  }
   if (dropData.type !== "folder") return false;
   if (type === "inner") {
     let p = dropNode;
@@ -1544,6 +1578,7 @@ function getRecycleRowTooltip(item) {
 
 watch(showRecycleDrawer, (open) => {
   if (open) {
+    recycleFilterProjectId.value = filterProjectId.value;
     recyclePagination.page = 1;
     loadRecycled();
   }
@@ -1551,7 +1586,6 @@ watch(showRecycleDrawer, (open) => {
 
 onMounted(() => {
   loadProjects();
-  loadFolderTree();
   document.addEventListener("click", hideContextMenu);
 });
 
@@ -1825,6 +1859,14 @@ onBeforeUnmount(() => {
   margin-top: 8px;
 }
 
+.move-dialog-tree-wrap {
+  max-height: 360px;
+  overflow-y: auto;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 4px;
+  padding: 8px;
+}
+
 .recycle-drawer :deep(.el-drawer__body) {
   display: flex;
   flex-direction: column;
@@ -1894,6 +1936,16 @@ onBeforeUnmount(() => {
 .recycle-toolbar {
   margin-bottom: 12px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.recycle-toolbar-label {
+  color: var(--el-text-color-regular);
+  white-space: nowrap;
+}
+.recycle-project-select {
+  width: 220px;
 }
 .recycle-pagination {
   margin-top: 12px;
