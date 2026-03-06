@@ -14,15 +14,9 @@
           <el-icon><VideoPlay /></el-icon>
           开始执行
         </el-button>
-        <el-button
-          v-if="taskStatus === 'running' && executing"
-          type="danger"
-          :loading="stopping"
-          @click="handleStopExecute"
-        >
-          <el-icon><VideoPause /></el-icon>
-          终止执行
-        </el-button>
+        <span v-if="taskStatus === 'running' && executing" class="async-hint">
+          任务在后台执行中，可关闭或离开本页；再次进入本页将自动拉取最新进度
+        </span>
         <template v-if="taskStatus === 'completed' && reportAutoGenerate === 'auto'">
           <span class="report-hint">
             任务完成时已自动生成报告；如需改为手动生成，请前往
@@ -84,7 +78,7 @@
                 任务已执行完成，请前往报告详情中查看各设备的终端输出及执行状态
               </span>
               <span v-else-if="!executing" class="terminal-header-hint">
-                点击「开始执行」后，将在此处实时显示各设备的脚本执行输出
+                点击「开始执行」后，任务在后台执行，本页轮询显示进度与终端输出；可关闭页面，再次进入可查看结果
               </span>
             </div>
           </div>
@@ -101,12 +95,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { ArrowLeft, VideoPlay, VideoPause, Document, Loading } from "@element-plus/icons-vue";
+import { ArrowLeft, VideoPlay, Document, Loading } from "@element-plus/icons-vue";
 import testTaskApi from "@/api/testTask";
-import deviceApi from "@/api/device";
 import { getReportList, manualGenerateReport } from "@/api/report";
 import { getUserSettings } from "@/api/settings";
 import { isPermissionError } from "@/utils/request";
@@ -117,14 +110,14 @@ const taskId = route.params.id;
 
 const loading = ref(true);
 const starting = ref(false);
-const stopping = ref(false);
 const executing = ref(false);
 const generatingReport = ref(false);
 const taskInfo = ref({});
 const devices = ref([]);
 const terminalOutput = ref("");
 const terminalRef = ref(null);
-const abortRequested = ref(false);
+/** 轮询定时器，离开页面时清除 */
+let pollTimer = null;
 /** 报告生成方式：auto 时显示「查看报告」，否则显示「生成报告」 */
 const reportAutoGenerate = ref("manual");
 
@@ -198,12 +191,6 @@ const loadTaskDetail = async () => {
   }
 };
 
-const appendOutput = (text, label) => {
-  const line = label ? `[${label}] ${text}` : text;
-  terminalOutput.value += (terminalOutput.value ? "\n" : "") + line;
-  nextTickScrollToBottom();
-};
-
 function nextTickScrollToBottom() {
   if (terminalRef.value) {
     requestAnimationFrame(() => {
@@ -212,29 +199,47 @@ function nextTickScrollToBottom() {
   }
 }
 
-const runDeviceScript = async (device) => {
-  let taskType = "shell";
-  if (taskInfo.value.script_file) {
-    const ext = taskInfo.value.script_file.toLowerCase().split(".").pop();
-    if (ext === "py") taskType = "python";
+/** 停止轮询 */
+function stopPolling() {
+  if (pollTimer) {
+    clearTimeout(pollTimer);
+    pollTimer = null;
   }
-  const requestData = {
-    task_type: taskType,
-    command: taskInfo.value.command || "",
-    task_id: parseInt(taskId, 10),
-  };
-  if (taskInfo.value.file_path) {
-    requestData.file_path = taskInfo.value.file_path;
-    requestData.script_file = taskInfo.value.script_file;
+}
+
+/** 轮询设备脚本异步任务状态，更新终端输出与执行状态 */
+async function pollDeviceScriptStatus() {
+  if (!taskId) return;
+  try {
+    const res = await testTaskApi.getDeviceScriptTaskStatus(taskId);
+    const data = res.data || {};
+    if (data.terminal_log != null) {
+      terminalOutput.value = data.terminal_log;
+      nextTickScrollToBottom();
+    }
+    const status = data.status;
+    if (status === "completed") {
+      stopPolling();
+      executing.value = false;
+      await loadTaskDetail();
+      ElMessage.success("任务已完成");
+      return;
+    }
+    if (status === "failed") {
+      stopPolling();
+      executing.value = false;
+      await loadTaskDetail();
+      ElMessage.error(data.error || data.message || "任务执行失败");
+      return;
+    }
+    if (status === "pending" || status === "running") {
+      pollTimer = setTimeout(pollDeviceScriptStatus, 1800);
+    }
+  } catch (e) {
+    if (isPermissionError(e)) return;
+    pollTimer = setTimeout(pollDeviceScriptStatus, 3000);
   }
-  const res = await deviceApi.executeDeviceTask(device.id, requestData);
-  const data = res.data || {};
-  const name = device.device_id || device.device_name || `设备 ${device.id}`;
-  if (data.stdout) appendOutput(data.stdout.trim(), name);
-  if (data.stderr) appendOutput(data.stderr.trim(), `${name} (stderr)`);
-  if (data.exit_code !== undefined) appendOutput(`退出码: ${data.exit_code}`, name);
-  return data;
-};
+}
 
 const handleStartExecute = async () => {
   if (!devices.value.length) {
@@ -242,125 +247,24 @@ const handleStartExecute = async () => {
     return;
   }
   starting.value = true;
-  abortRequested.value = false;
   terminalOutput.value = "";
-  const executionResults = [];
   try {
-    // 执行前检查设备是否在线（ADB 连接），避免离线时点击执行却无终端输出
-    const offlineList = [];
-    for (const d of devices.value) {
-      try {
-        const res = await deviceApi.getDeviceStatus(d.id);
-        if (res.data?.status !== "connected") {
-          offlineList.push(formatDeviceDisplay(d));
-        }
-      } catch {
-        offlineList.push(formatDeviceDisplay(d));
-      }
-    }
-    if (offlineList.length) {
-      starting.value = false;
-      ElMessage.warning(`以下设备未连接，请连接后再执行：${offlineList.join("、")}`);
+    const res = await testTaskApi.startDeviceScriptExecution(taskId);
+    const data = res.data || {};
+    if (!data.task_id) {
+      ElMessage.error(data.message || "启动异步执行失败");
       return;
     }
-
-    await testTaskApi.executeTestTask(taskId);
     await loadTaskDetail();
     executing.value = true;
-    ElMessage.success("任务已开始执行");
-
-    for (const device of devices.value) {
-      if (abortRequested.value) {
-        appendOutput("用户终止执行", "系统");
-        break;
-      }
-      const deviceName = device.device_id || device.device_name || `设备 ${device.id}`;
-      try {
-        appendOutput(`开始执行设备: ${deviceName}`, "系统");
-        const startTime = Date.now();
-        const data = await runDeviceScript(device);
-        const executionTime = Math.round((Date.now() - startTime) / 1000);
-        const success = data && (data.exit_code === 0 || data.exit_code === undefined);
-        executionResults.push({
-          device_id: device.device_id || device.device_name,
-          device_name: device.device_name || device.device_id || "-",
-          status: success ? "success" : "failed",
-          execution_time: executionTime,
-          exit_code: data?.exit_code ?? (success ? 0 : -1),
-          output: data?.stdout ?? "",
-          error_output: data?.stderr ?? "",
-        });
-      } catch (err) {
-        const msg = err.response?.data?.message || err.message || "执行失败";
-        appendOutput(`执行失败: ${msg}`, device.device_id || device.device_name || "设备");
-        executionResults.push({
-          device_id: device.device_id || device.device_name,
-          device_name: device.device_name || device.device_id || "-",
-          status: "failed",
-          execution_time: 0,
-          exit_code: -1,
-          output: "",
-          error_output: String(msg),
-        });
-      }
-    }
-
-    // 终止时补全未执行设备为 cancelled，保证报告设备列表与状态一致
-    if (abortRequested.value && devices.value.length) {
-      const executedIds = new Set(executionResults.map((e) => e.device_id || e.device_name));
-      for (const device of devices.value) {
-        const key = device.device_id || device.device_name || device.id;
-        if (key != null && !executedIds.has(key)) {
-          executionResults.push({
-            device_id: device.device_id || device.device_name,
-            device_name: device.device_name || device.device_id || "-",
-            status: "cancelled",
-            execution_time: 0,
-            exit_code: null,
-            output: "",
-            error_output: "用户终止执行",
-          });
-          executedIds.add(key);
-        }
-      }
-    }
-
-    const resultPayload = {
-      executions: executionResults,
-      terminal_log: terminalOutput.value || "",
-    };
-    if (abortRequested.value) {
-      await testTaskApi.completeTestTask(taskId, { result: resultPayload });
-      ElMessage.info("任务已终止");
-    } else {
-      await testTaskApi.completeTestTask(taskId, { result: resultPayload });
-      ElMessage.success("任务已完成");
-    }
-    await loadTaskDetail();
+    ElMessage.success("任务已在后台开始执行，可关闭本页；再次进入将看到最新进度");
+    pollDeviceScriptStatus();
   } catch (err) {
     if (isPermissionError(err)) return;
-    console.error("执行失败", err);
-    ElMessage.error(err.response?.data?.message || err.message || "执行失败");
+    console.error("启动执行失败", err);
+    ElMessage.error(err.response?.data?.message || err.message || "启动执行失败");
   } finally {
     starting.value = false;
-    executing.value = false;
-  }
-};
-
-const handleStopExecute = async () => {
-  try {
-    await ElMessageBox.confirm("确定要终止当前执行吗？", "终止执行", {
-      confirmButtonText: "确定",
-      cancelButtonText: "取消",
-      type: "warning",
-    });
-    abortRequested.value = true;
-    stopping.value = true;
-    ElMessage.info("正在终止…");
-  } catch {
-    // 用户取消
-  } finally {
-    stopping.value = false;
   }
 };
 
@@ -421,9 +325,17 @@ const handleBack = () => {
   router.push({ name: "TestTasks", query: { tab: "device_script" } });
 };
 
-onMounted(() => {
+onMounted(async () => {
   loadReportSetting();
-  loadTaskDetail();
+  await loadTaskDetail();
+  if (taskInfo.value?.status === "running" && taskInfo.value?.task_type === "device_script") {
+    executing.value = true;
+    pollDeviceScriptStatus();
+  }
+});
+
+onUnmounted(() => {
+  stopPolling();
 });
 </script>
 
@@ -467,6 +379,11 @@ onMounted(() => {
     &:hover {
       text-decoration: underline;
     }
+  }
+
+  .async-hint {
+    font-size: 12px;
+    color: var(--el-text-color-secondary, #909399);
   }
 }
 

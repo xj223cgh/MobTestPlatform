@@ -3,7 +3,7 @@ import os
 import re
 import shlex
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from flask import Blueprint, request
 from flask_login import login_required, current_user
 
@@ -13,6 +13,8 @@ from app.utils.helpers import (
     validate_json_data
 )
 from app.utils.scheduler import add_scheduled_task, remove_scheduled_task, get_scheduled_tasks
+from app.services.device_task_executor import execute_device_task_impl
+
 bp = Blueprint('devices', __name__)
 
 
@@ -440,287 +442,38 @@ def execute_adb_command():
 @bp.route('/<device_id>/tasks', methods=['POST'])
 @login_required
 def execute_task(device_id):
-    """执行测试任务"""
-    data = request.get_json()
-
-    task_type = data.get('task_type')  # 'shell', 'python', or 'install'
-    command = data.get('command', '')
-    file_path = data.get('file_path', '')
-    file_content = data.get('file_content', '')
-    task_id = data.get('task_id')  # 可选的测试任务ID，用于执行完成后更新任务状态
+    """执行测试任务（单设备），委托给 device_task_executor 实现。"""
+    data = request.get_json() or {}
+    task_id = data.get('task_id')
 
     try:
-        # 计算项目根目录路径
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        
-        # 获取设备对象，以便使用device.device_id构建adb命令
-        from app.models.models import Device
-        # 尝试根据设备ID查询（数据库主键）
-        try:
-            device = Device.query.get(int(device_id))
-        except ValueError:
-            device = None
-        
-        # 如果根据数据库主键查询不到，尝试根据设备序列号查询
-        if not device:
-            device = Device.query.filter_by(device_id=device_id).first()
-        
-        # 如果仍然查询不到设备，返回404
-        if not device:
-            return error_response(404, "设备不存在")
-
-        if task_type == 'install' and (file_path or file_content):
-            # 安装 APK
-            adb_path = os.path.join(
-                project_root,
-                'escrcpy', 'electron', 'resources', 'extra', 'win', 'scrcpy', 'adb.exe'
-            )
-
-            # 构建环境变量
-            env = os.environ.copy()
-            env['ADB'] = adb_path
-
-            # 如果有文件内容，先保存到临时文件
-            if file_content:
-                import tempfile
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.apk', delete=False, encoding='utf-8') as f:
-                    f.write(file_content)
-                    file_path = f.name
-
-            # 安装选项：覆盖安装(-r)、降级安装(-d)
-            install_flags = []
-            if data.get('install_replace', True):
-                install_flags.append('-r')
-            if data.get('install_downgrade', False):
-                install_flags.append('-d')
-            command_parts = [adb_path, '-s', device.device_id, 'install'] + install_flags + [file_path]
-
-            # 执行安装命令
-            result = subprocess.run(
-                command_parts,
-                capture_output=True,
-                text=True,
-                check=False,
-                env=env,
-                encoding='utf-8',
-                errors='ignore'
-            )
-
-            # 清理临时文件
-            if file_content and os.path.exists(file_path):
-                os.unlink(file_path)
-
-            # 检查安装是否成功
-            if result.returncode == 0:
-                # 如果提供了任务ID，更新测试任务状态
-                if task_id:
-                    try:
-                        from app.models.models import TestTask
-                        test_task = TestTask.query.get(task_id)
-                        if test_task and test_task.status == 'running':
-                            test_task.status = 'completed'
-                            test_task.completed_time = datetime.now(timezone(timedelta(hours=8)))
-                            db.session.commit()
-                    except Exception as e:
-                        # 更新任务状态失败，不影响脚本执行结果
-                        pass
-                
-                return success_response({
-                    'stdout': result.stdout,
-                    'stderr': result.stderr,
-                    'exit_code': result.returncode,
-                    'message': '应用安装成功'
-                })
-            else:
-                error_message = result.stderr or result.stdout or "应用安装失败"
-                return error_response(500, f"应用安装失败: {error_message}")
-
-        elif task_type == 'shell':
-            # 执行 Shell 脚本
-            adb_path = os.path.join(
-                project_root,
-                'escrcpy', 'electron', 'resources', 'extra', 'win', 'scrcpy', 'adb.exe'
-            )
-
-            # 构建环境变量
-            env = os.environ.copy()
-            env['ADB'] = adb_path
-
-            if file_content:
-                # 执行脚本内容
-                command_parts = [adb_path, '-s', device.device_id, 'shell', file_content]
-            elif file_path:
-                # 执行脚本文件
-                # 将相对路径转换为完整路径
-                from flask import current_app
-                full_file_path = os.path.join(current_app.config['SCRIPT_STORAGE_PATH'], file_path)
-                with open(full_file_path, 'r', encoding='utf-8') as f:
-                    script_content = f.read()
-                command_parts = [adb_path, '-s', device.device_id, 'shell', script_content]
-            elif command:
-                # 执行命令
-                command_parts = [adb_path, '-s', device.device_id, 'shell'] + command.split()
-            else:
-                return error_response(400, "请提供脚本文件或命令")
-
-            # 执行 Shell 命令
-            result = subprocess.run(
-                command_parts,
-                capture_output=True,
-                text=True,
-                check=False,
-                env=env,
-                encoding='utf-8',
-                errors='ignore'
-            )
-
-            # 检查命令是否成功
-            if result.returncode == 0:
-                # 如果提供了任务ID，更新测试任务状态
-                if task_id:
-                    try:
-                        from app.models.models import TestTask
-                        test_task = TestTask.query.get(task_id)
-                        if test_task and test_task.status == 'running':
-                            test_task.status = 'completed'
-                            test_task.completed_time = datetime.now(timezone(timedelta(hours=8)))
-                            db.session.commit()
-                    except Exception as e:
-                        # 更新任务状态失败，不影响脚本执行结果
-                        pass
-                
-                return success_response({
-                    'stdout': result.stdout,
-                    'stderr': result.stderr,
-                    'exit_code': result.returncode,
-                    'message': '命令执行成功'
-                })
-            else:
-                error_message = result.stderr or result.stdout or "命令执行失败"
-                return error_response(500, f"命令执行失败: {error_message}")
-
-        elif task_type == 'python':
-            # 执行 Python 脚本（使用本地Python解释器）
-            import tempfile
-            import sys
-            
-            if file_content:
-                # 执行 Python 脚本内容
-                script_content = file_content
-            elif file_path:
-                # 执行 Python 脚本文件
-                # 将相对路径转换为完整路径
-                from flask import current_app
-                full_file_path = os.path.join(current_app.config['SCRIPT_STORAGE_PATH'], file_path)
-                with open(full_file_path, 'r', encoding='utf-8') as f:
-                    script_content = f.read()
-            else:
-                # 直接执行 Python 命令
-                script_content = command
-
-            # 保存到临时文件
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as f:
-                f.write(script_content)
-                temp_script_path = f.name
-
+        result = execute_device_task_impl(device_id, data)
+        if task_id:
             try:
-                # 设置环境变量，传递设备ID
-                env = os.environ.copy()
-                env['DEVICE_ID'] = device.device_id
-                env['ADB_PATH'] = os.path.join(
-                    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
-                    'escrcpy', 'electron', 'resources', 'extra', 'win', 'scrcpy', 'adb.exe'
-                )
-
-                # 添加参数
-                python_args = [temp_script_path]
-                if command:
-                    python_args.extend(command.split())
-
-                # 使用字节流捕获输出，避免编码问题
-                result = subprocess.run(
-                    [sys.executable] + python_args,
-                    capture_output=True,
-                    check=False,
-                    env=env
-                )
-
-                # 尝试多种编码方式解码输出
-                def decode_output(data):
-                    for encoding in ['utf-8', 'gbk', 'gb2312', 'latin-1']:
-                        try:
-                            return data.decode(encoding)
-                        except (UnicodeDecodeError, LookupError):
-                            continue
-                    # 如果所有编码都失败，使用 replace 模式
-                    return data.decode('utf-8', errors='replace')
-
-                stdout = decode_output(result.stdout)
-                stderr = decode_output(result.stderr)
-
-                # 检查命令是否成功
-                if result.returncode == 0:
-                    # 如果提供了任务ID，更新测试任务状态
-                    if task_id:
-                        try:
-                            from app.models.models import TestTask
-                            test_task = TestTask.query.get(task_id)
-                            if test_task and test_task.status == 'running':
-                                test_task.status = 'completed'
-                                test_task.completed_time = datetime.now(timezone(timedelta(hours=8)))
-                                db.session.commit()
-                        except Exception as e:
-                            # 更新任务状态失败，不影响脚本执行结果
-                            pass
-                    
-                    return success_response({
-                        'stdout': stdout,
-                        'stderr': stderr,
-                        'exit_code': result.returncode,
-                        'message': 'Python 脚本执行成功'
-                    })
-                else:
-                    error_message = stderr or stdout or "Python 脚本执行失败"
-                    return error_response(500, f"Python 脚本执行失败: {error_message}")
-            except Exception as e:
-                # 清理临时文件
-                if os.path.exists(temp_script_path):
-                    os.unlink(temp_script_path)
-                raise e
-            finally:
-                # 清理临时文件
-                if os.path.exists(temp_script_path):
-                    os.unlink(temp_script_path)
-
-        else:
-            return error_response(400, "不支持的任务类型")
-
-    except subprocess.CalledProcessError as e:
-        stderr = e.stderr or ""
-        # 检查是否是设备断开连接导致的错误
-        if "disconnected" in stderr.lower() or "offline" in stderr.lower():
-            return error_response(500, "设备已断开连接")
-        # 检查是否是找不到设备导致的错误
-        elif "device not found" in stderr.lower() or "no devices/emulators found" in stderr.lower():
-            return error_response(500, "找不到设备")
-        # 其他错误返回简化的错误信息
-        else:
-            return error_response(500, "任务执行失败")
+                test_task = TestTask.query.get(task_id)
+                if test_task and test_task.status == 'running':
+                    test_task.status = 'completed'
+                    test_task.completed_time = datetime.now(timezone(timedelta(hours=8)))
+                    db.session.commit()
+            except Exception:
+                pass
+        message = '命令执行成功' if data.get('task_type') != 'install' else '应用安装成功'
+        return success_response({**result, 'message': message})
+    except ValueError as e:
+        return error_response(400, str(e))
+    except RuntimeError as e:
+        return error_response(500, str(e))
     except FileNotFoundError as e:
-        # 检查是找不到adb.exe还是找不到脚本文件
-        if "adb.exe" in str(e) or "adb" in str(e):
+        if 'adb' in str(e).lower():
             return error_response(500, "执行任务失败: 找不到adb可执行文件")
-        else:
-            return error_response(500, f"执行任务失败: 找不到文件: {str(e)}")
+        return error_response(500, f"执行任务失败: 找不到文件: {str(e)}")
     except Exception as e:
-        error_str = str(e).lower()
-        # 检查是否是设备断开连接导致的错误
-        if "disconnected" in error_str or "offline" in error_str:
+        err = str(e).lower()
+        if 'disconnected' in err or 'offline' in err:
             return error_response(500, "设备已断开连接")
-        elif "device not found" in error_str or "no devices/emulators found" in error_str:
+        if 'device not found' in err or 'no devices' in err:
             return error_response(500, "找不到设备")
-        else:
-            return error_response(500, "任务执行失败")
+        return error_response(500, str(e) or "任务执行失败")
 
 
 @bp.route('/batch-tasks', methods=['POST'])

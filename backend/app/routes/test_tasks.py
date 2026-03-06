@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import joinedload, selectinload
@@ -12,6 +12,7 @@ from app.utils.helpers import (
     success_response, error_response, get_pagination_params, log_user_action,
     validate_json_data
 )
+from app.utils.task_manager import task_manager, TaskStatus
 
 bp = Blueprint('test_tasks', __name__, url_prefix='/api/test-tasks')
 
@@ -795,6 +796,242 @@ def execute_test_task(task_id):
     except Exception as e:
         db.session.rollback()
         return error_response(500, "测试任务执行失败，请稍后重试")
+
+
+def _run_device_script_task(test_task_id, task_manager, task_id, _app=None, executor_id=None):
+    """
+    设备脚本任务后台执行：在应用上下文中依次对每台设备执行脚本，更新进度与终端日志，
+    完成后写入 TestTask.result 并可选生成报告。供 task_manager 在后台线程调用。
+    """
+    import time
+    import json as _json
+    if not _app:
+        raise RuntimeError("缺少应用上下文，无法在后台执行设备脚本任务")
+    with _app.app_context():
+        from app.services.device_task_executor import execute_device_task_impl
+        from app.routes.reports import create_report_for_task
+        try:
+            task_manager.update_task_status(
+                task_id, message='正在加载任务与设备...', progress=0
+            )
+            test_task = TestTask.query.options(selectinload(TestTask.devices)).get(test_task_id)
+            if not test_task:
+                task_manager.update_task_status(
+                    task_id, status=TaskStatus.FAILED, message='任务不存在',
+                    completed_at=datetime.now(_LOCAL_TZ).isoformat()
+                )
+                return
+            if test_task.task_type != 'device_script':
+                task_manager.update_task_status(
+                    task_id, status=TaskStatus.FAILED, message='该任务不是设备脚本任务',
+                    completed_at=datetime.now(_LOCAL_TZ).isoformat()
+                )
+                return
+            devices = list(test_task.devices)
+            if not devices:
+                task_manager.update_task_status(
+                    task_id, status=TaskStatus.FAILED, message='未关联设备',
+                    completed_at=datetime.now(_LOCAL_TZ).isoformat()
+                )
+                return
+            test_task.status = 'running'
+            test_task.started_time = datetime.now(_LOCAL_TZ)
+            test_task.completed_time = None
+            test_task.executor_id = executor_id
+            db.session.commit()
+
+            task_type = 'shell'
+            if test_task.script_file and (test_task.script_file or '').lower().endswith('.py'):
+                task_type = 'python'
+            request_data = {
+                'task_type': task_type,
+                'command': test_task.command or '',
+                'file_path': getattr(test_task, 'file_path', None) or '',
+                'script_file': test_task.script_file or '',
+            }
+            terminal_lines = []
+            executions = []
+            total = len(devices)
+            for i, device in enumerate(devices):
+                name = device.device_id or device.device_name or ('设备 %s' % device.id)
+                task_manager.update_task_status(
+                    task_id,
+                    message='正在执行设备 %d/%d: %s' % (i + 1, total, name),
+                    progress=int((i + 1) / total * 90) if total else 0,
+                    current=i + 1,
+                    total=total
+                )
+                terminal_lines.append('[系统] 开始执行设备: %s' % name)
+                try:
+                    start_t = time.time()
+                    result = execute_device_task_impl(device.id, request_data)
+                    elapsed = int(round(time.time() - start_t))
+                    if result.get('stdout'):
+                        terminal_lines.append('[%s] %s' % (name, (result['stdout'] or '').strip()))
+                    if result.get('stderr'):
+                        terminal_lines.append('[%s] (stderr) %s' % (name, (result['stderr'] or '').strip()))
+                    terminal_lines.append('[%s] 退出码: %s' % (name, result.get('exit_code', 0)))
+                    success = result.get('exit_code') == 0
+                    executions.append({
+                        'device_id': device.device_id or device.device_name,
+                        'device_name': device.device_name or device.device_id or '-',
+                        'status': 'success' if success else 'failed',
+                        'execution_time': elapsed,
+                        'exit_code': result.get('exit_code', -1 if not success else 0),
+                        'output': result.get('stdout') or '',
+                        'error_output': result.get('stderr') or '',
+                    })
+                except Exception as e:
+                    terminal_lines.append('[%s] 执行失败: %s' % (name, str(e)))
+                    executions.append({
+                        'device_id': device.device_id or device.device_name,
+                        'device_name': device.device_name or device.device_id or '-',
+                        'status': 'failed',
+                        'execution_time': 0,
+                        'exit_code': -1,
+                        'output': '',
+                        'error_output': str(e),
+                    })
+                terminal_log = '\n'.join(terminal_lines)
+                task_manager.update_task_status(task_id, terminal_log=terminal_log)
+
+            result_payload = {'executions': executions, 'terminal_log': terminal_log}
+            test_task.status = 'completed'
+            test_task.completed_time = datetime.now(_LOCAL_TZ)
+            try:
+                test_task.result = _json.dumps(result_payload)
+            except (TypeError, ValueError):
+                pass
+            auto_gen = True
+            if executor_id:
+                setting = UserSetting.query.filter_by(
+                    user_id=executor_id, setting_key='report_auto_generate'
+                ).first()
+                if setting and setting.setting_value == 'manual':
+                    auto_gen = False
+            if auto_gen:
+                create_report_for_task(test_task)
+            db.session.commit()
+            log_user_action("完成测试任务(后台)", "任务ID: %s" % test_task_id)
+            try:
+                from app.services.notification_service import notify_users
+                user_ids = [test_task.creator_id]
+                if test_task.executor_id and test_task.executor_id != test_task.creator_id:
+                    user_ids.append(test_task.executor_id)
+                notify_users(
+                    user_ids, 'task_completed', '任务执行完成',
+                    '测试任务「%s」已执行完成' % test_task.task_name,
+                    'test_task', test_task_id, exclude_user_id=executor_id
+                )
+            except Exception:
+                pass
+            task_manager.update_task_status(
+                task_id,
+                status=TaskStatus.COMPLETED,
+                message='任务已完成',
+                progress=100,
+                result={'terminal_log': terminal_log, 'executions': executions},
+                completed_at=datetime.now(_LOCAL_TZ).isoformat()
+            )
+        except Exception as e:
+            db.session.rollback()
+            task_manager.update_task_status(
+                task_id,
+                status=TaskStatus.FAILED,
+                message='执行失败: %s' % str(e),
+                error=str(e),
+                completed_at=datetime.now(_LOCAL_TZ).isoformat()
+            )
+            raise
+
+
+@bp.route('/<int:task_id>/execute-device-script-async', methods=['POST'])
+@login_required
+def execute_device_script_async(task_id):
+    """
+    创建设备脚本任务的异步执行（后端驱动）。任务在后台继续执行，关闭页面不影响。
+    返回 async_task_id，前端可轮询 GET /<task_id>/device-script-task-status 获取进度与结果。
+    """
+    test_task = TestTask.query.get_or_404(task_id)
+    if test_task.task_type != 'device_script':
+        return error_response(400, "该任务不是设备脚本任务")
+    if test_task.status not in ('pending', 'completed'):
+        return error_response(400, "只能对待执行或已完成状态的任务发起异步执行")
+    devices = list(test_task.devices)
+    if not devices:
+        return error_response(400, "任务未关联设备")
+    try:
+        if test_task.status == 'completed':
+            test_task.status = 'pending'
+            test_task.started_time = None
+            test_task.completed_time = None
+            test_task.executor_id = None
+        db.session.commit()
+        async_task_id = task_manager.create_task(
+            task_name='设备脚本执行 - %s' % test_task.task_name,
+            task_func=_run_device_script_task,
+            test_task_id=task_id,
+            _app=current_app._get_current_object(),
+            executor_id=current_user.id
+        )
+        task_manager.update_task_status(async_task_id, test_task_id=task_id)
+        test_task.status = 'running'
+        test_task.started_time = datetime.now(_LOCAL_TZ)
+        test_task.executor_id = current_user.id
+        db.session.commit()
+        log_user_action("创建设备脚本异步执行任务", "测试任务ID: %s, 异步任务ID: %s" % (task_id, async_task_id))
+        from app.services.notification_service import notify_users
+        user_ids = [test_task.creator_id]
+        if test_task.executor_id and test_task.executor_id != test_task.creator_id:
+            user_ids.append(test_task.executor_id)
+        notify_users(user_ids, 'task_started', '任务开始执行', '测试任务「%s」已在后台开始执行' % test_task.task_name, 'test_task', task_id, exclude_user_id=current_user.id)
+        return success_response({
+            'task_id': async_task_id,
+            'test_task_id': task_id,
+            'message': '任务已在后台执行，可关闭页面；通过任务状态页或轮询接口查看进度'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return error_response(500, "创建设备脚本异步任务失败: %s" % str(e))
+
+
+@bp.route('/<int:task_id>/device-script-task-status', methods=['GET'])
+@login_required
+def get_device_script_task_status(task_id):
+    """
+    查询本测试任务对应的设备脚本异步任务状态（用于执行页轮询）。
+    返回当前或最近一次与该 test_task_id 关联的异步任务状态。
+    """
+    TestTask.query.get_or_404(task_id)
+    with task_manager.lock:
+        candidates = [
+            t for t in task_manager.tasks.values()
+            if t.get('test_task_id') == task_id
+        ]
+    if not candidates:
+        return success_response({
+            'task_id': None,
+            'status': None,
+            'message': '暂无关联的异步执行任务',
+            'progress': 0,
+            'terminal_log': None,
+            'result': None,
+        })
+    candidates.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+    task_info = candidates[0]
+    out = {
+        'task_id': task_info.get('task_id'),
+        'status': task_info.get('status'),
+        'message': task_info.get('message'),
+        'progress': task_info.get('progress', 0),
+        'current': task_info.get('current'),
+        'total': task_info.get('total'),
+        'terminal_log': task_info.get('terminal_log'),
+        'result': task_info.get('result'),
+        'error': task_info.get('error'),
+        'completed_at': task_info.get('completed_at'),
+    }
+    return success_response(out)
 
 
 @bp.route('/<int:task_id>/pause', methods=['POST'])

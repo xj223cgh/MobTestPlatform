@@ -118,6 +118,23 @@ export function getTaskDevices(taskId) {
   });
 }
 
+// ---------- 设备脚本异步执行（后端驱动，关闭页面任务继续执行） ----------
+// 发起设备脚本任务的异步执行，返回 async task_id
+export function startDeviceScriptExecution(taskId) {
+  return request({
+    url: `/test-tasks/${taskId}/execute-device-script-async`,
+    method: "post",
+  });
+}
+
+// 轮询设备脚本异步任务状态（进度、终端日志、完成结果）
+export function getDeviceScriptTaskStatus(taskId) {
+  return request({
+    url: `/test-tasks/${taskId}/device-script-task-status`,
+    method: "get",
+  });
+}
+
 // 获取测试任务关联的测试用例列表
 export function getTaskTestCases(taskId) {
   return request({
@@ -187,6 +204,8 @@ export default {
   getTaskDevices,
   getTaskTestCases,
   getTaskOptions,
+  startDeviceScriptExecution,
+  getDeviceScriptTaskStatus,
   getTaskFolderTree,
   createTaskFolder,
   updateTaskFolder,
