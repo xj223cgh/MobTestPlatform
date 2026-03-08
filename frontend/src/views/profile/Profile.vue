@@ -471,7 +471,7 @@ const getRoleText = (role) => {
     super: "超级管理员",
     manager: "管理员",
     tester: "测试员",
-    admin: "普通成员",
+    admin: "普通用户",
   };
   return roleMap[role] || role;
 };

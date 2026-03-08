@@ -63,7 +63,7 @@
               value="tester"
             />
             <el-option
-              label="普通成员"
+              label="普通用户"
               value="admin"
             />
           </el-select>
@@ -418,7 +418,7 @@
               value="tester"
             />
             <el-option
-              label="普通成员"
+              label="普通用户"
               value="admin"
             />
           </el-select>
@@ -1067,7 +1067,7 @@ const handleCurrentChange = (page) => {
 const getRoleLabel = (role) => {
   const roleMap = {
     super: "超级管理员",
-    admin: "普通成员",
+    admin: "普通用户",
     manager: "管理员",
     tester: "测试人员",
   };

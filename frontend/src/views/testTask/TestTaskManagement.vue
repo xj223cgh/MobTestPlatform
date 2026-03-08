@@ -102,6 +102,21 @@
       <div class="right-content">
         <div class="list-toolbar">
           <div class="toolbar-left">
+            <el-select
+              v-model="filterForm.project_id"
+              placeholder="请选择项目"
+              clearable
+              filterable
+              style="width: 180px"
+              @change="handleSearch"
+            >
+              <el-option
+                v-for="p in projectOptions"
+                :key="p.id"
+                :label="p.project_name"
+                :value="p.id"
+              />
+            </el-select>
             <el-input
               v-model="filterForm.search"
               placeholder="搜索任务名称/描述"
@@ -393,6 +408,7 @@ const taskList = reactive({
   deviceScript: [],
 });
 const userOptions = ref([]);
+const projectOptions = ref([]);
 const taskDialogRef = ref(null);
 const router = useRouter();
 const route = useRoute();
@@ -777,6 +793,7 @@ const currentLoading = computed(() =>
 );
 
 const filterForm = reactive({
+  project_id: "",
   search: "",
   status: "",
   priority: "",
@@ -866,6 +883,14 @@ const formatDateTime = (dateString) => {
 };
 
 const loadTasks = async () => {
+  if (!filterForm.project_id) {
+    taskList.testCase = [];
+    taskList.deviceScript = [];
+    pagination.testCase.total = 0;
+    pagination.deviceScript.total = 0;
+    return;
+  }
+
   const folderIdParam =
     selectedFolderId.value != null && selectedFolderId.value !== "__all__"
       ? selectedFolderId.value
@@ -923,6 +948,15 @@ const loadUsers = async () => {
   }
 };
 
+const loadProjects = async () => {
+  try {
+    const res = await projectApi.getProjects({ size: 1000 });
+    projectOptions.value = res.data?.items || res.data?.projects || [];
+  } catch (error) {
+    console.error("加载项目列表失败:", error);
+  }
+};
+
 const handleSearch = () => {
   pagination.testCase.page = 1;
   pagination.deviceScript.page = 1;
@@ -931,6 +965,7 @@ const handleSearch = () => {
 
 const handleReset = () => {
   Object.assign(filterForm, {
+    project_id: "",
     search: "",
     status: "",
     priority: "",
@@ -1119,9 +1154,13 @@ const onFolderContextMenuMousedown = (e) => {
   }
 };
 
-onMounted(() => {
+onMounted(async () => {
   if (route.query.tab === "device_script") {
     activeTab.value = "device_script";
+  }
+  await loadProjects();
+  if (projectOptions.value.length > 0 && !filterForm.project_id) {
+    filterForm.project_id = projectOptions.value[0].id;
   }
   loadFolderTree();
   loadTasks();

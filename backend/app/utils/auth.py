@@ -32,14 +32,14 @@ def token_required(f):
     """API接口认证装饰器，确保用户已登录"""
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not current_user.is_authenticated:
+        if current_user is None or not getattr(current_user, 'is_authenticated', False):
             return error_response(401, "用户未认证，请先登录")
         return f(*args, **kwargs)
     return decorated
 
 def get_user_info():
     """获取当前登录用户信息"""
-    if not current_user.is_authenticated:
+    if current_user is None or not getattr(current_user, 'is_authenticated', False):
         return None
     return {
         'id': current_user.id,
@@ -55,7 +55,7 @@ def role_required(roles):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            if not current_user.is_authenticated:
+            if current_user is None or not getattr(current_user, 'is_authenticated', False):
                 return error_response(401, "用户未认证，请先登录")
             
             if current_user.role not in roles:

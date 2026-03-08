@@ -54,7 +54,7 @@ def permission_required(permission_code):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            if not current_user.is_authenticated:
+            if current_user is None or not getattr(current_user, 'is_authenticated', False):
                 return error_response(401, "用户未登录")
             if not has_permission(current_user, permission_code):
                 return error_response(403, "权限不足")

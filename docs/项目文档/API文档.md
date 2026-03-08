@@ -293,7 +293,7 @@ Content-Type: application/json
 | super | 超级管理员 |
 | manager | 管理员 |
 | tester | 测试人员 |
-| admin | 普通成员 |
+| admin | 普通用户 |
 
 ---
 

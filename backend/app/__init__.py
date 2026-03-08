@@ -90,7 +90,7 @@ def create_app(config_name='default'):
 
     @socketio.on('connect')
     def on_connect():
-        if not current_user.is_authenticated:
+        if current_user is None or not getattr(current_user, 'is_authenticated', False):
             disconnect()
             return
         join_room(f'user:{current_user.id}')

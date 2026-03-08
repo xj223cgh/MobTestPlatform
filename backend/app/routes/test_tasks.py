@@ -909,8 +909,9 @@ def _run_device_script_task(test_task_id, task_manager, task_id, _app=None, exec
                 ).first()
                 if setting and setting.setting_value == 'manual':
                     auto_gen = False
+            report = None
             if auto_gen:
-                create_report_for_task(test_task)
+                report = create_report_for_task(test_task)
             db.session.commit()
             log_user_action("完成测试任务(后台)", "任务ID: %s" % test_task_id)
             try:
@@ -923,6 +924,18 @@ def _run_device_script_task(test_task_id, task_manager, task_id, _app=None, exec
                     '测试任务「%s」已执行完成' % test_task.task_name,
                     'test_task', test_task_id, exclude_user_id=executor_id
                 )
+                if report:
+                    report_user_ids = [test_task.creator_id]
+                    if test_task.executor_id and test_task.executor_id not in report_user_ids:
+                        report_user_ids.append(test_task.executor_id)
+                    notify_users(
+                        report_user_ids,
+                        'report_generated',
+                        '报告已生成',
+                        '任务「%s」的测试报告已生成，可点击查看' % test_task.task_name,
+                        'report',
+                        report.id,
+                    )
             except Exception:
                 pass
             task_manager.update_task_status(
@@ -1116,11 +1129,28 @@ def complete_test_task(task_id):
         ).first()
         if setting and setting.setting_value == 'manual':
             auto_gen = False
+        report = None
         if auto_gen:
             from app.routes.reports import create_report_for_task
-            create_report_for_task(test_task)
+            report = create_report_for_task(test_task)
 
         db.session.commit()
+
+        if report:
+            try:
+                report_user_ids = [test_task.creator_id]
+                if test_task.executor_id and test_task.executor_id not in report_user_ids:
+                    report_user_ids.append(test_task.executor_id)
+                notify_users(
+                    report_user_ids,
+                    'report_generated',
+                    '报告已生成',
+                    f'任务「{test_task.task_name}」的测试报告已生成，可点击查看',
+                    'report',
+                    report.id,
+                )
+            except Exception:
+                pass
 
         log_user_action("完成测试任务", f"任务ID: {task_id}")
 

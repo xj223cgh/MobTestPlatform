@@ -99,7 +99,7 @@ const roleOptions = [
   { value: "super", label: "超级管理员" },
   { value: "manager", label: "管理员" },
   { value: "tester", label: "测试人员" },
-  { value: "admin", label: "普通成员" },
+  { value: "admin", label: "普通用户" },
 ];
 
 const ROLE_CONFIG_PERMISSION = {

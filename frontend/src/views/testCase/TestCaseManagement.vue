@@ -332,6 +332,17 @@
     <!-- AI生成用例对话框 -->
     <el-dialog v-model="generateDialogVisible" title="AI 生成用例" width="600px" @open="onGenerateDialogOpen">
       <el-form :model="generateForm" label-width="110px">
+        <el-form-item label="项目" required>
+          <el-select
+            v-model="generateForm.projectId"
+            placeholder="请先选择项目"
+            filterable
+            style="width: 100%"
+            @change="onGenerateProjectChange"
+          >
+            <el-option v-for="p in projectOptions" :key="p.id" :label="p.project_name" :value="p.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="生成方式" required>
           <el-radio-group v-model="generateForm.mode">
             <el-radio value="append">追加到已有用例集</el-radio>
@@ -344,15 +355,17 @@
             :data="generateFolderTree"
             :props="{ label: 'suite_name', value: 'id' }"
             node-key="id"
-            placeholder="请选择文件夹"
+            :placeholder="generateForm.projectId ? '请选择文件夹' : '请先选择项目'"
             style="width: 100%"
             clearable
             check-strictly
             :render-after-expand="false"
             default-expand-all
             filterable
+            :disabled="!generateForm.projectId"
             @change="onGenerateFolderChange"
           />
+          <div v-if="generateForm.projectId && !generateFolderTree.length" class="form-tip">该项目下暂无文件夹，可先选择「创建新用例集并生成」</div>
         </el-form-item>
         <el-form-item v-if="generateForm.mode === 'append'" label="用例集选择" required>
           <el-select
@@ -660,6 +673,7 @@ let importParentId = null;
 
 const generateDialogVisible = ref(false);
 const generateForm = reactive({
+  projectId: null,
   mode: "append",
   folderId: null,
   suiteId: null,
@@ -674,6 +688,7 @@ const editingSuiteName = ref("");
 const suiteNameInputRef = ref(null);
 
 const canSubmitGenerate = computed(() => {
+  if (!generateForm.projectId) return false;
   if (!generateForm.documentContent?.trim()) return false;
   if (generateForm.mode === "append") return !!generateForm.suiteId;
   return generateForm.folderId != null && !!generateForm.newSuiteName?.trim();
@@ -1261,6 +1276,7 @@ function handleReviewSuite(row) {
 
 function handleGenerateCases() {
   generateForm.mode = "append";
+  generateForm.projectId = filterProjectId.value ?? projectOptions.value[0]?.id ?? null;
   generateForm.folderId = null;
   generateForm.suiteId = null;
   generateForm.newSuiteName = "";
@@ -1271,10 +1287,14 @@ function handleGenerateCases() {
 }
 
 async function onGenerateDialogOpen() {
-  generateFolderTree.value = await loadGenerateFolderTree();
-  if (generateForm.folderId != null) {
+  if (!generateForm.projectId && projectOptions.value.length) {
+    generateForm.projectId = filterProjectId.value ?? projectOptions.value[0].id;
+  }
+  generateFolderTree.value = await loadGenerateFolderTree(generateForm.projectId);
+  if (generateForm.projectId != null && (generateForm.folderId != null || generateForm.suiteId != null)) {
     try {
-      const res = await getCaseSets(generateForm.folderId);
+      const folderIdForApi = generateForm.folderId == null ? 0 : generateForm.folderId;
+      const res = await getCaseSets(folderIdForApi, { project_id: generateForm.projectId });
       generateSuiteOptions.value = res.data?.items || [];
     } catch {
       generateSuiteOptions.value = [];
@@ -1282,20 +1302,22 @@ async function onGenerateDialogOpen() {
   }
 }
 
-/** 加载目录树（仅文件夹），供「用例集目录定位」使用 */
-async function loadGenerateFolderTree() {
+/** 项目变更时：清空目标文件夹与用例集，重新加载该项目的目录树 */
+async function onGenerateProjectChange() {
+  generateForm.folderId = null;
+  generateForm.suiteId = null;
+  generateSuiteOptions.value = [];
+  generateFolderTree.value = await loadGenerateFolderTree(generateForm.projectId);
+}
+
+/** 加载目录树（仅文件夹），按项目筛选，供 AI 生成用例「目标文件夹」使用；不显示根节点，直接展示项目下顶层文件夹 */
+async function loadGenerateFolderTree(projectId) {
+  if (projectId == null) return [];
   try {
-    const res = await getFolderTree();
+    const res = await getFolderTree({ project_id: projectId });
     const payload = res.data || {};
     const tree = payload.tree || [];
-    return [
-      {
-        id: 0,
-        suite_name: "根",
-        type: "folder",
-        children: tree,
-      },
-    ];
+    return Array.isArray(tree) ? tree : [];
   } catch (e) {
     console.error("加载目录失败", e);
     ElMessage.error("加载目录失败，请重试");
@@ -1310,8 +1332,13 @@ async function onGenerateFolderChange() {
     generateSuiteOptions.value = [];
     return;
   }
+  if (!generateForm.projectId) {
+    generateSuiteOptions.value = [];
+    return;
+  }
   try {
-    const res = await getCaseSets(generateForm.folderId);
+    const folderIdForApi = generateForm.folderId == null ? 0 : generateForm.folderId;
+    const res = await getCaseSets(folderIdForApi, { project_id: generateForm.projectId });
     generateSuiteOptions.value = res.data?.items || [];
   } catch {
     generateSuiteOptions.value = [];
@@ -1338,7 +1365,8 @@ function onGenerateFileRemove() {
 }
 
 function handleGenerateForSuite(row) {
-  generateForm.folderId = row.parent_id ?? 0;
+  generateForm.projectId = row.project_id ?? filterProjectId.value ?? projectOptions.value[0]?.id ?? null;
+  generateForm.folderId = row.parent_id ?? null;
   generateForm.suiteId = row.id;
   generateForm.documentContent = "";
   generateSuiteOptions.value = [];
@@ -1359,8 +1387,8 @@ async function submitGenerate() {
     await startGenerateForSuite(generateForm.suiteId, generateForm.documentContent);
     return;
   }
-  // 创建新用例集并生成
-  const parentId = generateForm.folderId === 0 ? null : generateForm.folderId;
+  // 创建新用例集并生成（未选文件夹或选根时 parent_id 为 null）
+  const parentId = (generateForm.folderId == null || generateForm.folderId === 0) ? null : generateForm.folderId;
   try {
     const createRes = await createTestSuite({
       suite_name: generateForm.newSuiteName.trim(),
@@ -1369,7 +1397,7 @@ async function submitGenerate() {
       parent_id: parentId,
       status: "active",
       version_requirement_id: null,
-      project_id: null,
+      project_id: generateForm.projectId,
       iteration_id: null,
     });
     const newSuite = createRes.data;

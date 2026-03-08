@@ -110,7 +110,7 @@ def create_tables():
                 id INT AUTO_INCREMENT PRIMARY KEY COMMENT '成员ID',
                 project_id INT NOT NULL COMMENT '项目ID',
                 user_id INT NOT NULL COMMENT '用户ID',
-                role ENUM('owner', 'manager', 'tester', 'viewer') DEFAULT 'tester' COMMENT '项目角色',
+                role ENUM('owner', 'manager', 'tester') DEFAULT 'tester' COMMENT '项目角色',
                 joined_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '加入时间',
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
                 FOREIGN KEY (user_id) REFERENCES users(id),

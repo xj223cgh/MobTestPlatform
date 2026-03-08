@@ -37,6 +37,7 @@ export const NOTIFICATION_TYPE_LABELS = {
   task_started: "任务开始",
   task_completed: "任务完成",
   task_failed: "任务失败",
+  report_generated: "报告已生成",
   user_registered: "用户注册",
   project_created: "项目负责人",
   project_owner_changed: "负责人变更",

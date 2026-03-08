@@ -108,7 +108,7 @@ def format_json_field(data):
 
 def log_user_action(action, details=None):
     """记录用户操作日志"""
-    if current_user.is_authenticated:
+    if current_user is not None and getattr(current_user, 'is_authenticated', False):
         import logging
         logger = logging.getLogger(__name__)
         log_message = f"用户 {current_user.username} 执行了 {action}"
