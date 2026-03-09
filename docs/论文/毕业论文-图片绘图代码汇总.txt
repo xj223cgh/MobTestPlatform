@@ -1,0 +1,878 @@
+================================================================================
+毕业论文 - 图片绘图代码汇总
+================================================================================
+
+--------------------------------------------------------------------------------
+【第二章 系统需求分析】
+--------------------------------------------------------------------------------
+
+---------- 图 3-1  用户角色与系统功能关系图 ----------
+位置：第二章 系统需求分析 → 3.1 用户角色分析 后
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryTextColor':'#000', 'secondaryTextColor':'#000', 'tertiaryTextColor':'#000', 'primaryBorderColor':'#333', 'lineColor':'#333', 'mainBkg':'#fff', 'secondBkg':'#f9f9f9'}}}%%
+flowchart LR
+    subgraph 用户角色
+        A[超级管理员]
+        B[管理员]
+        C[测试人员]
+        D[普通用户]
+    end
+    subgraph 系统功能模块
+        F0[用户与权限管理]
+        F1[项目管理]
+        F2[用例管理]
+        F3[设备管理]
+        F4[任务与执行]
+        F5[报告管理]
+    end
+    A --> F0 & F1 & F2 & F3 & F4 & F5
+    B --> F1 & F2 & F3 & F4 & F5
+    C --> F1 & F2 & F3 & F4 & F5
+    D --> F1 & F2 & F3 & F4 & F5
+```
+
+
+---------- 图 3-2  业务用例图 ----------
+位置：第二章 系统需求分析 → 3.2.5 报告管理需求 后
+
+```plantuml
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "用户" as U
+
+  usecase "项目管理" as UC1
+  usecase "用例管理" as UC2
+  usecase "设备管理" as UC3
+  usecase "任务与执行" as UC4
+  usecase "报告管理" as UC5
+  usecase "个人中心" as UC6
+  usecase "帮助中心" as UC7
+
+U --> UC1
+U --> UC2
+U --> UC3
+U --> UC4
+U --> UC5
+U --> UC6
+U --> UC7
+@enduml
+```
+
+
+---------- 图 3-3  系统功能层次结构图 ----------
+位置：第二章 系统需求分析 → 3.2 功能需求分析 后
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryTextColor':'#000', 'secondaryTextColor':'#000', 'tertiaryTextColor':'#000', 'primaryBorderColor':'#333', 'lineColor':'#333', 'mainBkg':'#fff', 'secondBkg':'#f9f9f9'}}}%%
+flowchart TB
+    Root[移动端测试平台]
+    Root --> M1[用户与权限]
+    Root --> M2[项目管理]
+    Root --> M3[用例管理]
+    Root --> M4[设备管理]
+    Root --> M5[任务与执行]
+    Root --> M6[报告管理]
+    Root --> M7[消息通知]
+    M1 --> M1a[注册与登录]
+    M1 --> M1b[用户管理]
+    M1 --> M1c[权限配置]
+    M1 --> M1d[系统设置]
+    M2 --> M2a[项目增删改查]
+    M2 --> M2b[成员与角色管理]
+    M2 --> M2c[迭代与需求管理]
+    M2 --> M2d[项目统计]
+    M3 --> M3a[树形用例库]
+    M3 --> M3b[用例增删改查]
+    M3 --> M3c[脑图编辑与同步]
+    M3 --> M3d[用例评审]
+    M3 --> M3e[AI 生成用例]
+    M3 --> M3f[标签与标记]
+    M4 --> M4a[设备登记与查询]
+    M4 --> M4b[设备状态刷新]
+    M4 --> M4c[ADB 与无线连接]
+    M4 --> M4d[投屏入口]
+    M5 --> M5a[任务文件夹管理]
+    M5 --> M5b[任务创建与关联]
+    M5 --> M5c[用例执行与结果记录]
+    M5 --> M5d[脚本任务执行]
+    M6 --> M6a[报告自动/手动生成]
+    M6 --> M6b[报告列表与详情]
+    M6 --> M6c[多格式导出]
+    M7 --> M7a[通知列表]
+    M7 --> M7b[实时推送]
+```
+
+
+--------------------------------------------------------------------------------
+【第三章 概要设计】
+--------------------------------------------------------------------------------
+
+---------- 图 4-1  系统功能结构图 ----------
+位置：第三章 概要设计 → 4.1 系统结构设计
+
+```mermaid
+---
+config:
+  theme: neutral
+---
+flowchart LR
+    Root[移动测试平台]
+    Root --> M1["用户与权限"]
+    Root --> M2["项目管理"]
+    Root --> M3["测试用例管理"]
+    Root --> M4["设备管理"]
+    Root --> M5["测试任务与执行"]
+    Root --> M6["报告管理"]
+    Root --> M7["消息通知"]
+    M1 --> M1a["注册与登录"]
+    M1 --> M1e[个人中心]
+    M1 --> M1b["用户管理"]
+    M1 --> M1c["权限配置"]
+    M1 --> M1d["系统设置"]
+    M1 --> M1f[帮助中心]
+    M2 --> M2a["项目增删改查"]
+    M2 --> M2c["迭代与需求管理"]
+    M3 --> M3a["测试用例库"]
+    M3 --> M3b["脑图编辑与同步"]
+    M3 --> M3c["用例评审"]
+    M3 --> M3d["AI生成用例"]
+    M4 --> M4a["设备列表"]
+    M4 --> M4b["ADB操作与投屏"]
+    M5 --> M5a["任务创建与关联"]
+    M5 --> M5b["执行与结果记录"]
+    M6 --> M6a["报告生成与查看"]
+    M7 --> M7a["通知列表"]
+    M7 --> M7b["实时推送"]
+```
+
+
+---------- 图 4-2  系统技术架构图 ----------
+位置：第三章 概要设计 → 4.1 系统结构设计（图 4-1 之后）
+
+```mermaid
+flowchart TB
+    subgraph 表现层
+        Browser[浏览器]
+        SPA[Vue 3 单页应用\nVite 构建]
+        Browser --> SPA
+    end
+    subgraph 业务逻辑层
+        API[RESTful API\nFlask 路由]
+        WS[WebSocket\nFlask-SocketIO]
+        API --- WS
+    end
+    subgraph 数据访问层
+        ORM[SQLAlchemy ORM]
+        MySQL[(MySQL 数据库)]
+        ORM --> MySQL
+    end
+    SPA -->|HTTP/JSON| API
+    SPA -->|Socket.IO| WS
+    API --> ORM
+```
+
+
+---------- 图 4-3  用户与权限模块结构 ----------
+位置：第三章 概要设计 → 4.2.1 用户与权限模块
+
+```mermaid
+
+flowchart LR
+    subgraph 用户与权限模块
+        A1[认证]
+        A2[用户管理]
+        A3[权限配置]
+        A4[系统/用户设置]
+    end
+    Client[前端] --> A1 & A2 & A3 & A4
+    A1 --> Session[会话]
+    A2 --> UserDB[(用户表)]
+    A3 --> RoleDB[(角色权限表)]
+    A4 --> SettingDB[(系统/用户设置)]
+```
+
+
+---------- 图 4-4  项目管理模块与关联实体 ----------
+位置：第三章 概要设计 → 4.2.2 项目管理模块
+
+```mermaid
+
+flowchart TB
+    P[项目]
+    I[迭代]
+    R[版本需求]
+    M[项目成员]
+    P --> I
+    P --> R
+    P --> M
+    I --> R
+    P --> U[用户-负责人]
+    M --> U
+```
+
+
+---------- 图 4-5  测试用例管理模块结构 ----------
+位置：第三章 概要设计 → 4.2.3 测试用例管理模块
+
+```mermaid
+
+flowchart LR
+    subgraph 用例管理
+        TS[用例集树]
+        TC[测试用例]
+        MM[脑图数据]
+        RV[评审任务]
+        AI[AI 生成]
+    end
+    TS --> TC
+    TS --> MM
+    TS --> RV
+    RV --> TC
+    AI --> TC
+    TS --> P[项目/迭代/需求]
+```
+
+
+---------- 图 4-6  设备管理模块与任务关系 ----------
+位置：第三章 概要设计 → 4.2.4 设备管理模块
+
+```mermaid
+flowchart LR
+    D[设备]
+    U[用户-负责人]
+    T[测试任务]
+    D --> U
+    T --> D
+```
+
+
+---------- 图 4-7  测试任务与执行模块流程 ----------
+位置：第三章 概要设计 → 4.2.5 测试任务与执行模块
+
+```mermaid
+flowchart LR
+    A[创
+    建
+    任
+    务] --> B[关联
+    用例集/设备]
+    B --> C[生成
+    任务快照]
+    C --> D[开
+    始
+    执
+    行]
+    D --> E[输出结果]
+    E --> F[完
+    成
+    任
+    务]
+    F --> G[报告生成]
+```
+
+
+---------- 图 4-8  报告管理模块与任务关系 ----------
+位置：第三章 概要设计 → 4.2.6 报告管理模块
+
+```mermaid
+flowchart LR
+    T[测试任务]
+    E[执行记录]
+    S[用例快照]
+    R[报告]
+    T --> E
+    T --> S
+    T --> R
+    E --> R
+    S --> R
+```
+
+
+---------- 图 4-9  消息通知模块数据流 ----------
+位置：第三章 概要设计 → 4.2.7 消息通知模块
+
+```mermaid
+flowchart LR
+    Event[业务事件\nAI完成/评审变更等]
+    Service[通知服务]
+    SocketIO[Socket.IO]
+    Client[前端]
+    Event --> Service
+    Service --> SocketIO
+    Service --> DB[(notifications)]
+    SocketIO --> Client
+```
+
+
+--------------------------------------------------------------------------------
+【第四章 数据库设计】
+--------------------------------------------------------------------------------
+
+---------- 图 4-10  系统 E-R 图（实体及实体间关系） ----------
+位置：第四章 数据库设计 → 4.3.2 概念结构设计（E-R 图）
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    E1[用户]
+    E2[项目]
+    E3[项目成员]
+    E4[迭代]
+    E5[版本需求]
+    E6[测试套件]
+    E7[测试用例]
+    E8[测试任务]
+    E9[设备]
+    E10[报告]
+    E11[通知]
+    R1{"负责/创建"}
+    R2{成员}
+    R3{所属项目}
+    R4{负责}
+    R5{"创建/执行"}
+    R6{接收}
+    R7{包含}
+    R8{包含}
+    R9{包含}
+    R10{所属}
+    R11{包含}
+    R12{关联}
+    R13{包含}
+    R14{关联套件}
+    R15{关联设备}
+    R16{生成}
+    E1 ---|1| R1
+    R1 ---|n| E2
+    E1 ---|1| R2
+    R2 ---|n| E3
+    E2 ---|1| R3
+    R3 ---|n| E3
+    E1 ---|1| R4
+    R4 ---|n| E9
+    E1 ---|1| R5
+    R5 ---|n| E8
+    E1 ---|1| R6
+    R6 ---|n| E11
+    E2 ---|1| R7
+    R7 ---|n| E4
+    E2 ---|1| R8
+    R8 ---|n| E5
+    E2 ---|1| R9
+    R9 ---|n| E6
+    E2 ---|1| R10
+    R10 ---|n| E7
+    E4 ---|1| R11
+    R11 ---|n| E5
+    E4 ---|1| R12
+    R12 ---|n| E6
+    E6 ---|1| R13
+    R13 ---|n| E7
+    E8 ---|n| R14
+    R14 ---|1| E6
+    E8 ---|n| R15
+    R15 ---|n| E9
+    E8 ---|1| R16
+    R16 ---|n| E10
+```
+
+
+---------- 图 4-11  用户与权限模块 E-R 图 ----------
+位置：第四章 数据库设计 → 4.3.2（1）用户与权限模块 E-R 图
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+    A[用户]
+    R1{配置}
+    B[角色权限配置]
+    A ---|1| R1
+    R1 ---|n| B
+```
+
+
+---------- 图 4-12  项目管理模块 E-R 图 ----------
+位置：第四章 数据库设计 → 4.3.2（2）项目管理模块 E-R 图
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    A[用户]
+    B[项目]
+    C[项目成员]
+    D[迭代]
+    E[版本需求]
+    R1{"负责/创建"}
+    R2{成员}
+    R3{所属项目}
+    R4{包含}
+    R5{包含}
+    R6{包含}
+    A ---|1| R1
+    R1 ---|n| B
+    A ---|1| R2
+    R2 ---|n| C
+    B ---|1| R3
+    R3 ---|n| C
+    B ---|1| R4
+    R4 ---|n| D
+    B ---|1| R5
+    R5 ---|n| E
+    D ---|1| R6
+    R6 ---|n| E
+```
+
+
+---------- 图 4-13  测试用例管理模块 E-R 图 ----------
+位置：第四章 数据库设计 → 4.3.2（3）测试用例管理模块 E-R 图
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    A[用户]
+    B[项目]
+    C[迭代]
+    D[版本需求]
+    E[测试套件]
+    F[测试用例]
+    R1{包含}
+    R2{关联}
+    R3{包含}
+    R4{所属}
+    R5{创建}
+    B ---|1| R1
+    R1 ---|n| E
+    C ---|1| R2
+    R2 ---|n| E
+    E ---|1| R3
+    R3 ---|n| F
+    B ---|1| R4
+    R4 ---|n| F
+    A ---|1| R5
+    R5 ---|n| F
+```
+
+
+---------- 图 4-14  设备管理模块 E-R 图 ----------
+位置：第四章 数据库设计 → 4.3.2（4）设备管理模块 E-R 图
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+    A[用户]
+    R1{负责}
+    B[设备]
+    A ---|1| R1
+    R1 ---|n| B
+```
+
+
+---------- 图 4-15  测试任务与执行模块 E-R 图 ----------
+位置：第四章 数据库设计 → 4.3.2（5）测试任务与执行模块 E-R 图
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    A[用户]
+    B[测试任务]
+    C[测试套件]
+    D[设备]
+    E[报告]
+    R1{"创建/执行"}
+    R2{关联套件}
+    R3{关联设备}
+    R4{生成}
+    A ---|1| R1
+    R1 ---|n| B
+    B ---|n| R2
+    R2 ---|1| C
+    B ---|n| R3
+    R3 ---|n| D
+    B ---|1| R4
+    R4 ---|n| E
+```
+
+
+---------- 图 4-16  报告管理模块 E-R 图 ----------
+位置：第四章 数据库设计 → 4.3.2（6）报告管理模块 E-R 图
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+    A[测试任务]
+    R1{生成}
+    B[报告]
+    A ---|1| R1
+    R1 ---|n| B
+```
+
+
+---------- 图 4-17  消息通知模块 E-R 图 ----------
+位置：第四章 数据库设计 → 4.3.2（7）消息通知模块 E-R 图
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+    A[用户]
+    R1{接收}
+    B[通知]
+    A ---|1| R1
+    R1 ---|n| B
+```
+
+
+--------------------------------------------------------------------------------
+【第五章 详细设计】
+--------------------------------------------------------------------------------
+
+---------- 图 5-1  用户登录时序图 ----------
+位置：第五章 详细设计 → 5.1 用户与权限模块详细设计
+
+```mermaid
+sequenceDiagram
+    participant 用户
+    participant 前端
+    participant 后端
+    participant 数据库
+
+    用户->>前端: 输入用户名、密码并提交
+    前端->>后端: 提交登录请求 (POST /login)
+    后端->>数据库: 查询用户信息 (User)
+    数据库-->>后端: 用户记录
+    后端->>后端: 校验密码、锁定与激活状态 (check_password)
+    后端->>数据库: 查询会话配置 (SystemSetting)
+    数据库-->>后端: 配置信息
+    后端->>后端: 创建会话 (login_user)
+    后端->>数据库: 查询角色权限 (get_user_permission_codes)
+    数据库-->>后端: 权限列表
+    后端-->>前端: 返回用户信息与权限
+    前端-->>用户: 登录成功，跳转首页
+```
+
+
+---------- 图 5-2  获取当前用户与权限校验时序图 ----------
+位置：第五章 详细设计 → 5.1 用户与权限模块详细设计（图 5-1 之后）
+
+```mermaid
+sequenceDiagram
+    participant 前端
+    participant 后端
+    participant 数据库
+
+    前端->>后端: 获取当前用户或权限 (GET /current-user、/permissions)
+    后端->>后端: 从会话获取 current_user (Flask-Login)
+    后端->>数据库: 查询用户信息、角色权限
+    数据库-->>后端: 用户、权限列表
+    后端-->>前端: 返回用户与权限
+
+    前端->>后端: 请求受保护接口（如用户管理）
+    后端->>后端: 鉴权 (@login_required、权限埋点)
+    alt 无权限
+        后端-->>前端: 403 无权限
+    else 有权限
+        后端->>数据库: 执行业务查询/更新
+        后端-->>前端: 返回业务数据
+    end
+```
+
+
+---------- 图 5-3  项目创建与成员添加时序图 ----------
+位置：第五章 详细设计 → 5.2 项目管理模块详细设计
+
+```mermaid
+sequenceDiagram
+    participant 用户
+    participant 前端
+    participant 后端
+    participant 通知服务 as notify_users
+    participant 数据库
+
+    用户->>前端: 填写项目名称、描述、负责人、成员
+    前端->>后端: 提交项目信息 (POST /api/projects/)
+    后端->>数据库: 创建项目 (Project)、项目成员 (ProjectMember)
+    后端->>通知服务: 通知负责人与成员 (notify_users)
+    通知服务->>数据库: 写入 notifications
+    通知服务->>通知服务: 实时推送 (emit)
+    后端-->>前端: 返回项目信息
+    前端-->>用户: 创建成功，跳转项目列表/详情
+```
+
+
+---------- 图 5-4  脑图保存与用例同步时序图 ----------
+位置：第五章 详细设计 → 5.3 测试用例管理模块详细设计
+
+```mermaid
+sequenceDiagram
+    participant 用户
+    participant 前端
+    participant 后端
+    participant 数据库
+
+    用户->>前端: 编辑脑图后点击保存
+    前端->>后端: 提交脑图数据 (PUT /api/mindmap/<suite_id>)
+    后端->>数据库: 查询用例集 (TestSuite)
+    后端->>后端: 校验类型与版本冲突
+    alt 版本冲突
+        后端-->>前端: 409 请刷新后重试或强制覆盖
+    end
+    后端->>后端: 解析脑图生成用例 (_parse_mindmap_to_cases、_sync_cases_to_db)
+    后端->>数据库: 同步用例并更新套件与版本历史 (test_cases, MindmapVersion)
+    后端-->>前端: 返回 suite_id、case_count、mindmap_version
+    前端-->>用户: 保存成功
+```
+
+
+---------- 图 5-5  用例集评审发起时序图 ----------
+位置：第五章 详细设计 → 5.3 测试用例管理模块详细设计（图 5-4 之后）
+
+```mermaid
+sequenceDiagram
+    participant 发起人
+    participant 前端
+    participant 后端
+    participant 通知服务 as notify_users
+    participant 数据库
+
+    发起人->>前端: 选择用例集、评审人，发起评审
+    前端->>后端: 发起评审 (POST .../initiate-review)
+    后端->>数据库: 查询用例集与用例，创建评审任务 (TestSuiteReviewTask) 与评审详情 (TestCaseReviewDetail)
+    后端->>数据库: 更新用例集 review_status
+    后端->>通知服务: 通知评审人 (notify_users)
+    通知服务->>数据库: 写入 notifications
+    通知服务->>通知服务: 实时推送 (emit)
+    后端-->>前端: 返回 review_task_id
+    前端-->>发起人: 发起成功
+```
+
+
+---------- 图 5-6  设备列表查询与状态刷新时序图 ----------
+位置：第五章 详细设计 → 5.4 设备管理模块详细设计
+
+```mermaid
+sequenceDiagram
+    participant 用户
+    participant 前端
+    participant 后端
+    participant 数据库
+    participant ADB as ADB
+
+    用户->>前端: 打开设备管理页 / 点击刷新状态
+    前端->>后端: 请求设备列表或状态 (GET /api/devices 或 /<id>/status)
+    alt 列表查询
+        后端->>数据库: 查询设备列表 (Device)
+        后端-->>前端: 返回设备列表
+    else 状态刷新
+        后端->>数据库: 查询设备信息
+        后端->>ADB: 获取连接状态 (adb get-state)
+        ADB-->>后端: device / disconnected
+        后端-->>前端: 返回连接状态
+    end
+    前端-->>用户: 展示列表或状态
+```
+
+
+---------- 图 5-7  测试任务创建与用例快照时序图 ----------
+位置：第五章 详细设计 → 5.5 测试任务与执行模块详细设计
+
+```mermaid
+sequenceDiagram
+    participant 用户
+    participant 前端
+    participant 后端
+    participant 数据库
+
+    用户->>前端: 选择用例集、设备等，创建任务
+    前端->>后端: 提交任务信息 (POST /api/test-tasks)
+    后端->>数据库: 校验套件与文件夹，创建任务 (TestTask)、关联用例或设备
+    alt 用例型任务且有关联套件
+        后端->>后端: 生成用例快照 (_save_task_case_snapshots)
+        后端->>数据库: 写入任务用例快照 (TaskCaseSnapshot)
+    end
+    后端->>数据库: 提交事务 (commit)
+    后端-->>前端: 返回 test_task
+    前端-->>用户: 任务创建成功
+```
+
+
+---------- 图 5-8  任务完成与报告自动生成时序图 ----------
+位置：第五章 详细设计 → 5.5 测试任务与执行模块详细设计（图 5-7 之后）
+
+```mermaid
+sequenceDiagram
+    participant 执行人
+    participant 前端
+    participant 后端
+    participant 报告服务 as create_report_for_task
+    participant 通知服务 as notify_users
+    participant 数据库
+
+    执行人->>前端: 填写执行结果并完成任务
+    前端->>后端: 提交执行结果或完成 (POST .../executions/... 或 .../complete)
+    后端->>数据库: 更新执行记录、任务状态为已完成
+    后端->>报告服务: 生成报告 (create_report_for_task)
+    报告服务->>数据库: 汇总执行记录与快照，写入 Report
+    报告服务-->>后端: 返回 Report
+    后端->>数据库: 提交事务
+    后端->>通知服务: 通知创建人/执行人 (notify_users)
+    通知服务->>数据库: 写入 notifications
+    通知服务->>通知服务: 实时推送 (emit)
+    后端-->>前端: 任务已完成
+    前端-->>执行人: 完成提示
+```
+
+
+---------- 图 5-9  报告手动生成与数据查询时序图 ----------
+位置：第五章 详细设计 → 5.6 报告管理模块详细设计
+
+```mermaid
+sequenceDiagram
+    participant 用户
+    participant 前端
+    participant 后端
+    participant 数据库
+
+    用户->>前端: 选择已完成任务，点击生成报告
+    前端->>后端: 触发生成 (POST /api/reports/generate/任务id)
+    后端->>后端: 校验任务已完成，调用 create_report_for_task
+    后端->>数据库: 写入 Report
+    后端-->>前端: 返回 report_id、report
+
+    用户->>前端: 打开报告详情
+    前端->>后端: 请求报告数据 (GET /api/reports/任务id/data)
+    后端->>数据库: 查询已落库报告 (Report)
+    alt 已有落库报告
+        后端-->>前端: 返回 summary、details
+    else 无落库报告
+        后端->>后端: 实时生成 (generate_test_case_report 等)
+        后端-->>前端: 返回 summary、details，不落库
+    end
+```
+
+
+---------- 图 5-10  消息通知创建与实时推送时序图 ----------
+位置：第五章 详细设计 → 5.7 消息通知模块详细设计
+
+```mermaid
+sequenceDiagram
+    participant 业务模块 as 任务/评审/AI等
+    participant 通知服务 as notify_users
+    participant 数据库
+    participant SocketIO as Flask-SocketIO
+    participant 前端
+
+    业务模块->>通知服务: 发起通知 (notify_users)
+    通知服务->>通知服务: 去重、排除操作者
+    通知服务->>数据库: 写入 notifications
+    通知服务->>SocketIO: 推送 (emit('notification', room='user:{id}'))
+    SocketIO->>前端: 推送 notification 事件
+    前端->>前端: 更新未读徽标与列表
+    通知服务-->>业务模块: 返回通知 id 列表
+```
+
+
+---------- 图 5-11  前端连接 WebSocket 与接收通知时序图 ----------
+位置：第五章 详细设计 → 5.7 消息通知模块详细设计（图 5-10 之后）
+
+```mermaid
+sequenceDiagram
+    participant 用户
+    participant 前端
+    participant SocketIO as Flask-SocketIO
+    participant 后端
+
+    用户->>前端: 登录成功，加载主界面
+    前端->>SocketIO: 建立连接 (connect)
+    SocketIO->>后端: 校验登录 (current_user.is_authenticated)
+    alt 未认证
+        SocketIO->>前端: 断开 (disconnect)
+    else 已认证
+        SocketIO->>SocketIO: 加入用户房间 (join_room('user:{id}'))
+        SocketIO-->>前端: 连接成功
+        前端->>前端: 监听 on('notification')
+    end
+```
+
+
+--------------------------------------------------------------------------------
+【第六章 系统实现】
+--------------------------------------------------------------------------------
+
+---------- 图 6-1  项目技术架构图 ----------
+位置：第六章 系统实现 → 6.1.2 项目技术架构
+
+```mermaid
+flowchart TB
+    subgraph 表现层
+        Browser[浏览器]
+        SPA[Vue 3 单页应用\nVite 构建]
+        Browser --> SPA
+    end
+    subgraph 业务逻辑层
+        API[RESTful API\nFlask Blueprint 路由]
+        WS[WebSocket\nFlask-SocketIO]
+        API --- WS
+    end
+    subgraph 数据访问层
+        ORM[SQLAlchemy ORM]
+        MySQL[(MySQL 数据库)]
+        ORM --> MySQL
+    end
+    SPA -->|HTTP/JSON| API
+    SPA -->|Socket.IO| WS
+    API --> ORM
+```
+
+
+---------- 图 6-2  后端核心目录结构 ----------
+位置：第六章 系统实现 → 6.1.2（2）后端目录与模块划分
+
+```
+backend/
+├── app/
+│   ├── __init__.py          # 应用工厂 create_app、扩展初始化、蓝图注册
+│   ├── config/              # 配置（如 default、development）
+│   ├── models/
+│   │   └── models.py        # 所有数据库模型（User、Project、TestSuite、TestCase 等）
+│   ├── routes/              # API 路由蓝图
+│   │   ├── auth.py          # 认证（登录、登出、验证码、找回/重置密码）
+│   │   ├── users.py         # 用户管理
+│   │   ├── projects.py      # 项目管理
+│   │   ├── iterations.py    # 迭代管理
+│   │   ├── devices.py       # 设备管理（含 ADB、无线连接）
+│   │   ├── test_cases.py / test_suites.py  # 用例与套件
+│   │   ├── mindmap.py       # 脑图数据与版本
+│   │   ├── test_tasks.py    # 测试任务与执行
+│   │   ├── reports.py       # 报告
+│   │   ├── review_tasks.py  # 用例评审
+│   │   ├── ai_tasks.py      # AI 生成用例（异步任务）
+│   │   ├── notifications.py # 消息通知
+│   │   └── ...
+│   ├── services/
+│   │   └── notification_service.py  # 通知服务（SocketIO 推送）
+│   └── utils/
+│       ├── helpers.py       # 统一响应封装
+│       └── task_manager.py  # 异步任务管理（如 AI 生成）
+├── requirements.txt
+└── run.py                   # 后端入口
+```
+
+
+--------------------------------------------------------------------------------
+【第七章 结语】
+--------------------------------------------------------------------------------
+本章为纯文字总结，无插图、无绘图代码。
+
+
+================================================================================
+汇总说明
+================================================================================
+- 第一章 可行性分析：无插图绘图代码。
+- 第二章 系统需求分析：图 3-1、3-2、3-3（mermaid/plantuml）。
+- 第三章 概要设计：图 4-1～4-9（mermaid flowchart）。
+- 第四章 数据库设计：图 4-10～4-17（mermaid E-R 图）。
+- 第五章 详细设计：图 5-1～5-11（mermaid sequenceDiagram）。
+- 第六章 系统实现：图 6-1（mermaid）、图 6-2（目录树文本）；图 6-3～6-26 为界面截图占位说明，无绘图代码。
+- 第七章 结语：无插图。
+================================================================================

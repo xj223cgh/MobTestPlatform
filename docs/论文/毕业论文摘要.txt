@@ -58,6 +58,18 @@ Enterprise test teams often face fragmented processes, inconvenient case mainten
 Keywords: mobile testing; test platform; case management; Flask
 
 
+
+
+
+企业测试团队在实际工作中普遍存在流程分散、用例维护不便、工具割裂等问题，特别是在移动端测试中，还面临真机设备调度缺少统一管理、状态跟踪依赖口头沟通、测试操作需在电脑端与真机设备间来回切换等特有痛点。对此，本毕业设计使用 Flask、Vue、MySQL 等技术开发一个面向移动端的测试平台，集成用例管理、设备管理、任务执行与报告生成等功能；支持项目流程与以 Android 真机为对象的设备统一管理，平台以脑图形式组织用例结构，实现多维度筛选与可视化执行，并结合 AI 模型探索测试用例的自动生成。目前该设计已在实习单位结合业务投入实际应用，实践表明能有效整合测试资源、规范执行流程，对测试团队具有较好适用性。
+关键词：移动端测试；测试平台；用例管理；设备管理；Flask
+
+Enterprise test teams often face fragmented processes, inconvenient case maintenance, and disconnected tools in their daily work; in mobile testing they additionally face lack of unified management for physical device scheduling, status tracking that relies on verbal communication, and frequent switching between desktop and devices. To address these issues, this graduation project develops a mobile-oriented test platform using Flask, Vue, MySQL and related technologies, integrating case management, device management, execution planning, and report generation. The platform supports unified management of project workflow and of Android devices, organizes case structure in mind-map form, provides multi-dimensional filtering and visible execution and results, and explores automatic test case generation with AI models. The design has been put into practical use in the author’s internship organization; practice shows that it can effectively integrate test resources and standardize execution workflows, with good applicability for test teams.
+Keywords: mobile testing; test platform; case management; Flask
+
+
+
+
 需求分析至少4页（去除插图，纯文字排版至少满2页）
 概要设计不包括数据库设计至少满5页（纯文字排版至少满3页）
 数据库设计部分（图表文字加起来）不能超过8页

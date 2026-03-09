@@ -1,0 +1,22 @@
+附录 A  数据库辅助表说明
+
+正文 4.3.2 节已给出主要业务表设计，以下以三线表形式汇总支撑系统运行的辅助数据表及其用途。
+
+表1  数据库辅助表一览
+
+表名	中文名称	用途
+email_verify_codes	邮箱验证码表	邮箱验证码登录、找回密码
+role_permissions	角色权限表	角色与功能埋点配置，权限控制
+system_settings	系统设置表	系统级键值配置（会话、密码策略等）
+user_settings	用户设置表	用户个人键值配置
+case_tags	用例标签表	用例标签名称与颜色，按项目
+case_markers	用例标记表	用例标记名称与类型，按项目
+mindmap_versions	脑图版本表	脑图JSON快照，版本回退
+task_folders	任务文件夹表	任务目录层级，按类型分组
+task_case_relation	任务-用例关联表	任务与用例多对多关联
+task_device_relation	任务-设备关联表	任务与设备多对多关联
+task_case_snapshots	任务用例快照表	任务关联用例快照，报告与追溯
+test_suite_review_tasks	用例集评审任务表	评审任务、发起人、评审人、状态
+test_case_review_details	用例评审详情表	单条用例评审状态与意见
+test_suite_review_history	用例集评审历史表	完成/打回评审整体快照
+test_case_review_history	用例评审历史表	评审历史下用例状态快照
