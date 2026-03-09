@@ -1800,13 +1800,15 @@ const handleSetAllApproved = async () => {
   });
   loading.value.updateReview = true;
   try {
-    for (const row of caseReviews.value) {
-      await reviewApi.updateCaseReview(row.review_task_id, row.case_id, {
-        review_status: "approved",
-        comments: row.comments || "",
-      });
-      row.review_status = "approved";
-    }
+    await Promise.all(
+      caseReviews.value.map((row) =>
+        reviewApi.updateCaseReview(row.review_task_id, row.case_id, {
+          review_status: "approved",
+          comments: row.comments || "",
+        })
+      )
+    );
+    caseReviews.value.forEach((row) => (row.review_status = "approved"));
     ElMessage.success("已全部设置为通过");
     if (activeTab.value === "my-tasks") getMyTasks();
     else getMyInitiated();
@@ -1826,13 +1828,15 @@ const handleResetAllStatus = async () => {
   });
   loading.value.updateReview = true;
   try {
-    for (const row of caseReviews.value) {
-      await reviewApi.updateCaseReview(row.review_task_id, row.case_id, {
-        review_status: "pending",
-        comments: row.comments || "",
-      });
-      row.review_status = "pending";
-    }
+    await Promise.all(
+      caseReviews.value.map((row) =>
+        reviewApi.updateCaseReview(row.review_task_id, row.case_id, {
+          review_status: "pending",
+          comments: row.comments || "",
+        })
+      )
+    );
+    caseReviews.value.forEach((row) => (row.review_status = "pending"));
     ElMessage.success("已全部重置为待审核");
     if (activeTab.value === "my-tasks") getMyTasks();
     else getMyInitiated();

@@ -66,7 +66,13 @@ def create_iteration_new():
         db.session.commit()
         if project.owner_id and project.owner_id != current_user.id:
             from app.services.notification_service import notify_users
-            notify_users([project.owner_id], 'iteration_created', '新建迭代', f'项目「{project.project_name}」下已创建迭代「{new_iteration.iteration_name}」', 'iteration', new_iteration.id, exclude_user_id=current_user.id)
+            creator_name = current_user.real_name or current_user.username
+            date_range = ''
+            if new_iteration.start_date and new_iteration.end_date:
+                date_range = f'，周期 {new_iteration.start_date.strftime("%Y-%m-%d")} ~ {new_iteration.end_date.strftime("%Y-%m-%d")}'
+            notify_users([project.owner_id], 'iteration_created', '新建迭代',
+                         f'{creator_name} 在项目「{project.project_name}」下创建了迭代「{new_iteration.iteration_name}」{date_range}',
+                         'iteration', new_iteration.id, exclude_user_id=current_user.id)
         return jsonify({
             'code': 201,
             'message': '迭代创建成功',
@@ -125,7 +131,13 @@ def create_iteration(project_id):
         db.session.commit()
         if project.owner_id and project.owner_id != current_user.id:
             from app.services.notification_service import notify_users
-            notify_users([project.owner_id], 'iteration_created', '新建迭代', f'项目「{project.project_name}」下已创建迭代「{new_iteration.iteration_name}」', 'iteration', new_iteration.id, exclude_user_id=current_user.id)
+            creator_name = current_user.real_name or current_user.username
+            date_range = ''
+            if new_iteration.start_date and new_iteration.end_date:
+                date_range = f'，周期 {new_iteration.start_date.strftime("%Y-%m-%d")} ~ {new_iteration.end_date.strftime("%Y-%m-%d")}'
+            notify_users([project.owner_id], 'iteration_created', '新建迭代',
+                         f'{creator_name} 在项目「{project.project_name}」下创建了迭代「{new_iteration.iteration_name}」{date_range}',
+                         'iteration', new_iteration.id, exclude_user_id=current_user.id)
         return jsonify({
             'code': 201,
             'message': '迭代创建成功',

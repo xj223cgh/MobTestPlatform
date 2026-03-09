@@ -6,7 +6,7 @@ from sqlalchemy.exc import OperationalError
 
 from app.models.models import (
     TestTask, db, TestSuite, TestCase, Device, TestCaseExecution, UserSetting,
-    TaskCaseSnapshot, TaskFolder, TEST_TASK_STATUS, TEST_EXECUTION_STATUS
+    TaskCaseSnapshot, TaskFolder, User, TEST_TASK_STATUS, TEST_EXECUTION_STATUS
 )
 from app.utils.helpers import (
     success_response, error_response, get_pagination_params, log_user_action,
@@ -785,10 +785,18 @@ def execute_test_task(task_id):
         db.session.commit()
         log_user_action("执行测试任务", f"任务ID: {task_id}")
         from app.services.notification_service import notify_users
+        executor_name = current_user.real_name or current_user.username
+        task_type_label = '设备脚本任务' if test_task.task_type == 'device_script' else '测试用例任务'
+        device_count = len(list(test_task.devices)) if test_task.task_type == 'device_script' else 0
+        detail = f'（{device_count} 台设备）' if device_count else ''
         user_ids = [test_task.creator_id]
         if test_task.executor_id and test_task.executor_id != test_task.creator_id:
             user_ids.append(test_task.executor_id)
-        notify_users(user_ids, 'task_started', '任务开始执行', f'测试任务「{test_task.task_name}」已开始执行', 'test_task', task_id, exclude_user_id=current_user.id)
+        notify_users(
+            user_ids, 'task_started', '任务开始执行',
+            f'{executor_name} 开始执行{task_type_label}「{test_task.task_name}」{detail}',
+            'test_task', task_id, exclude_user_id=current_user.id
+        )
         return success_response({
             'test_task': test_task.to_dict()
         }, "测试任务开始执行")
@@ -916,12 +924,17 @@ def _run_device_script_task(test_task_id, task_manager, task_id, _app=None, exec
             log_user_action("完成测试任务(后台)", "任务ID: %s" % test_task_id)
             try:
                 from app.services.notification_service import notify_users
+                executor_user = User.query.get(executor_id) if executor_id else None
+                executor_label = (executor_user.real_name or executor_user.username) if executor_user else '系统'
+                success_count = sum(1 for e in executions if e.get('status') == 'success')
+                fail_count = sum(1 for e in executions if e.get('status') == 'failed')
                 user_ids = [test_task.creator_id]
                 if test_task.executor_id and test_task.executor_id != test_task.creator_id:
                     user_ids.append(test_task.executor_id)
                 notify_users(
                     user_ids, 'task_completed', '任务执行完成',
-                    '测试任务「%s」已执行完成' % test_task.task_name,
+                    '设备脚本任务「%s」已执行完成（%s 执行，%d 台设备成功、%d 台失败）' % (
+                        test_task.task_name, executor_label, success_count, fail_count),
                     'test_task', test_task_id, exclude_user_id=executor_id
                 )
                 if report:
@@ -932,7 +945,7 @@ def _run_device_script_task(test_task_id, task_manager, task_id, _app=None, exec
                         report_user_ids,
                         'report_generated',
                         '报告已生成',
-                        '任务「%s」的测试报告已生成，可点击查看' % test_task.task_name,
+                        '设备脚本任务「%s」的测试报告已自动生成，可点击查看' % test_task.task_name,
                         'report',
                         report.id,
                     )
@@ -994,10 +1007,16 @@ def execute_device_script_async(task_id):
         db.session.commit()
         log_user_action("创建设备脚本异步执行任务", "测试任务ID: %s, 异步任务ID: %s" % (task_id, async_task_id))
         from app.services.notification_service import notify_users
+        executor_name = current_user.real_name or current_user.username
+        device_count = len(devices)
         user_ids = [test_task.creator_id]
         if test_task.executor_id and test_task.executor_id != test_task.creator_id:
             user_ids.append(test_task.executor_id)
-        notify_users(user_ids, 'task_started', '任务开始执行', '测试任务「%s」已在后台开始执行' % test_task.task_name, 'test_task', task_id, exclude_user_id=current_user.id)
+        notify_users(
+            user_ids, 'task_started', '任务开始执行',
+            '%s 发起了设备脚本任务「%s」的后台执行（%d 台设备）' % (executor_name, test_task.task_name, device_count),
+            'test_task', task_id, exclude_user_id=current_user.id
+        )
         return success_response({
             'task_id': async_task_id,
             'test_task_id': task_id,
@@ -1107,10 +1126,16 @@ def complete_test_task(task_id):
         test_task.status = 'completed'
         test_task.completed_time = datetime.now(timezone(timedelta(hours=8)))
         from app.services.notification_service import notify_users
+        completer_name = current_user.real_name or current_user.username
+        task_type_label = '设备脚本任务' if test_task.task_type == 'device_script' else '测试用例任务'
         user_ids = [test_task.creator_id]
         if test_task.executor_id and test_task.executor_id != test_task.creator_id:
             user_ids.append(test_task.executor_id)
-        notify_users(user_ids, 'task_completed', '任务执行完成', f'测试任务「{test_task.task_name}」已执行完成', 'test_task', task_id, exclude_user_id=current_user.id)
+        notify_users(
+            user_ids, 'task_completed', '任务执行完成',
+            f'{completer_name} 已完成{task_type_label}「{test_task.task_name}」的执行',
+            'test_task', task_id, exclude_user_id=current_user.id
+        )
 
         # 设备脚本任务：允许前端提交执行结果，用于报告详情
         data = request.get_json(silent=True) or {}
@@ -1145,7 +1170,7 @@ def complete_test_task(task_id):
                     report_user_ids,
                     'report_generated',
                     '报告已生成',
-                    f'任务「{test_task.task_name}」的测试报告已生成，可点击查看',
+                    f'{task_type_label}「{test_task.task_name}」的测试报告已自动生成，可点击查看',
                     'report',
                     report.id,
                 )
