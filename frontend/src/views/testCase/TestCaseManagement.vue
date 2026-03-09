@@ -5,6 +5,12 @@
         <h1>用例管理</h1>
       </div>
       <div class="header-actions">
+        <el-button type="success" icon="MagicStick" :loading="isGeneratingAny" @click="handleGenerateCases">
+          AI生成用例
+        </el-button>
+        <el-button type="primary" icon="Upload" @click="openImportSuiteDialog">
+          导入用例集
+        </el-button>
         <el-select
           v-model="filterProjectId"
           placeholder="所属项目"
@@ -19,12 +25,6 @@
             :value="p.id"
           />
         </el-select>
-        <el-button icon="Upload" @click="openImportSuiteDialog">
-          导入用例集
-        </el-button>
-        <el-button type="warning" icon="MagicStick" :loading="isGeneratingAny" @click="handleGenerateCases">
-          AI生成用例
-        </el-button>
       </div>
     </div>
 
@@ -1656,6 +1656,10 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+
+  .el-button {
+    margin-left: 0;
+  }
 }
 
 .header-project-select {
@@ -1895,11 +1899,15 @@ onBeforeUnmount(() => {
   padding: 8px;
 }
 
+.recycle-drawer :deep(.el-drawer__header) {
+  margin-bottom: 0;
+  padding-bottom: 12px;
+}
 .recycle-drawer :deep(.el-drawer__body) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 16px;
+  padding: 8px 16px 16px;
   box-sizing: border-box;
 }
 .recycle-list {

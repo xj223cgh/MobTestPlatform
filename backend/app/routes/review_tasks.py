@@ -74,7 +74,12 @@ def initiate_review(suite_id):
         suite.review_status = 'pending'
         db.session.commit()
         from app.services.notification_service import notify_users
-        notify_users([reviewer_id], 'review_pending', '待评审', f'你有新的用例集评审任务待处理（{suite.suite_name}）', 'review_task', review_task.id, exclude_user_id=current_user.id)
+        initiator_name = current_user.real_name or current_user.username
+        notify_users(
+            [reviewer_id], 'review_pending', '待评审',
+            f'{initiator_name} 发起了用例集「{suite.suite_name}」的评审（共 {len(cases)} 条用例），请及时处理',
+            'review_task', review_task.id, exclude_user_id=current_user.id
+        )
         return success_response({
             'message': f'成功发起评审，共{len(cases)}条用例待评审',
             'review_task_id': review_task.id,
@@ -253,7 +258,16 @@ def complete_review(task_id):
         db.session.commit()
         if review_task.initiator_id and review_task.initiator_id != current_user.id:
             from app.services.notification_service import notify_users
-            notify_users([review_task.initiator_id], 'review_completed', '评审已完成', f'用例集评审已结束，结果：{_review_status_label(suite_review_status)}', 'review_task', task_id, extra={'suite_review_status': suite_review_status}, exclude_user_id=current_user.id)
+            reviewer_name = current_user.real_name or current_user.username
+            suite_name = review_task.suite.suite_name if review_task.suite else '用例集'
+            status_label = _review_status_label(suite_review_status)
+            notify_users(
+                [review_task.initiator_id], 'review_completed', '评审已完成',
+                f'{reviewer_name} 已完成用例集「{suite_name}」的评审，结果：{status_label}',
+                'review_task', task_id,
+                extra={'suite_review_status': suite_review_status},
+                exclude_user_id=current_user.id
+            )
         return success_response({
             'message': '评审已完成',
             'review_task': review_task.to_dict(),
@@ -437,12 +451,13 @@ def restart_review(task_id):
         
         if review_task.initiator_id and review_task.initiator_id != current_user.id:
             from app.services.notification_service import notify_users
+            reviewer_name = current_user.real_name or current_user.username
             suite_name = review_task.suite.suite_name if review_task.suite else '用例集'
             notify_users(
                 [review_task.initiator_id],
                 'review_restarted',
                 '重新评审',
-                f'评审人已重新开始评审用例集（{suite_name}）',
+                f'评审人 {reviewer_name} 已重新开始评审用例集「{suite_name}」',
                 'review_task',
                 task_id,
                 exclude_user_id=current_user.id,
@@ -483,12 +498,13 @@ def reinitiate_review(task_id):
         
         if review_task.reviewer_id and review_task.reviewer_id != current_user.id:
             from app.services.notification_service import notify_users
+            initiator_name = current_user.real_name or current_user.username
             suite_name = review_task.suite.suite_name if review_task.suite else '用例集'
             notify_users(
                 [review_task.reviewer_id],
                 'review_pending',
                 '待评审',
-                f'发起人已重新发起评审，请处理（{suite_name}）',
+                f'{initiator_name} 已重新发起用例集「{suite_name}」的评审，请及时处理',
                 'review_task',
                 task_id,
                 exclude_user_id=current_user.id,
@@ -579,7 +595,14 @@ def reject_review(task_id):
         db.session.commit()
         if review_task.initiator_id and review_task.initiator_id != current_user.id:
             from app.services.notification_service import notify_users
-            notify_users([review_task.initiator_id], 'review_rejected', '评审被拒绝', '评审人已拒绝该评审任务', 'review_task', task_id, exclude_user_id=current_user.id)
+            reviewer_name = current_user.real_name or current_user.username
+            suite_name = review_task.suite.suite_name if review_task.suite else '用例集'
+            reject_reason = overall_comments or '无'
+            notify_users(
+                [review_task.initiator_id], 'review_rejected', '评审被打回',
+                f'评审人 {reviewer_name} 打回了用例集「{suite_name}」的评审，原因：{reject_reason}',
+                'review_task', task_id, exclude_user_id=current_user.id
+            )
         return success_response({
             'message': '打回评审成功',
             'review_task': review_task.to_dict()

@@ -89,9 +89,12 @@ def create_project():
         db.session.commit()
         # 通知：负责人若非当前用户则 project_created；新加入的成员（不含当前用户、不含 owner）project_member_added
         from app.services.notification_service import notify_users
+        creator_name = current_user.real_name or current_user.username
         owner_id = new_project.owner_id
         if owner_id and owner_id != current_user.id:
-            notify_users([owner_id], 'project_created', '项目负责人', f'你被设为项目「{new_project.project_name}」的负责人', 'project', new_project.id, exclude_user_id=current_user.id)
+            notify_users([owner_id], 'project_created', '项目负责人',
+                         f'{creator_name} 创建了项目「{new_project.project_name}」并指定你为负责人',
+                         'project', new_project.id, exclude_user_id=current_user.id)
         member_ids = []
         if 'members' in data:
             for member in data['members']:
@@ -99,7 +102,9 @@ def create_project():
                 if uid and uid != current_user.id and uid != owner_id:
                     member_ids.append(uid)
         if member_ids:
-            notify_users(member_ids, 'project_member_added', '加入项目', f'你已被加入项目「{new_project.project_name}」', 'project', new_project.id, exclude_user_id=current_user.id)
+            notify_users(member_ids, 'project_member_added', '加入项目',
+                         f'{creator_name} 将你加入了项目「{new_project.project_name}」',
+                         'project', new_project.id, exclude_user_id=current_user.id)
         return jsonify({'code': 200, 'message': '项目创建成功', 'data': new_project.to_dict()}), 201
     except Exception as e:
         db.session.rollback()
@@ -208,7 +213,10 @@ def update_project(project_id):
                 new_owner_id = data['owner_id']
                 if new_owner_id != project.owner_id and new_owner_id != current_user.id:
                     from app.services.notification_service import notify_users
-                    notify_users([new_owner_id], 'project_owner_changed', '项目负责人变更', f'你已成为项目「{project.project_name}」的负责人', 'project', project_id, exclude_user_id=current_user.id)
+                    operator_name = current_user.real_name or current_user.username
+                    notify_users([new_owner_id], 'project_owner_changed', '项目负责人变更',
+                                 f'{operator_name} 将项目「{project.project_name}」的负责人变更为你',
+                                 'project', project_id, exclude_user_id=current_user.id)
                 project.owner_id = new_owner_id
             else:
                 return jsonify({'error': '项目负责人不存在'}), 400
@@ -250,7 +258,10 @@ def update_project(project_id):
                             )
                             db.session.add(project_member)
                             from app.services.notification_service import notify_users
-                            notify_users([user_id], 'project_member_added', '加入项目', f'你已被加入项目「{project.project_name}」', 'project', project_id, exclude_user_id=current_user.id)
+                            operator_name = current_user.real_name or current_user.username
+                            notify_users([user_id], 'project_member_added', '加入项目',
+                                         f'{operator_name} 将你加入了项目「{project.project_name}」',
+                                         'project', project_id, exclude_user_id=current_user.id)
             
             for member in current_member_ids.values():
                 if member.user_id != current_owner_id:
@@ -505,7 +516,12 @@ def create_project_version_requirement(project_id):
         # 通知被指派人（若存在且非当前用户）
         if new_requirement.assigned_to and new_requirement.assigned_to != current_user.id:
             from app.services.notification_service import notify_users
-            notify_users([new_requirement.assigned_to], 'requirement_assigned', '需求指派', f'需求「{new_requirement.requirement_name}」已分配给你', 'version_requirement', new_requirement.id, exclude_user_id=current_user.id)
+            assigner_name = current_user.real_name or current_user.username
+            project = Project.query.get(project_id)
+            project_label = f'（项目「{project.project_name}」）' if project else ''
+            notify_users([new_requirement.assigned_to], 'requirement_assigned', '需求指派',
+                         f'{assigner_name} 将需求「{new_requirement.requirement_name}」{project_label}分配给你',
+                         'version_requirement', new_requirement.id, exclude_user_id=current_user.id)
         return jsonify({'code': 200, 'message': '版本需求创建成功', 'data': new_requirement.to_dict()}), 201
     except Exception as e:
         db.session.rollback()
@@ -547,7 +563,12 @@ def update_project_version_requirement(project_id, requirement_id):
             new_assigned = data['assigned_to']
             if new_assigned != requirement.assigned_to and new_assigned and new_assigned != current_user.id:
                 from app.services.notification_service import notify_users
-                notify_users([new_assigned], 'requirement_assigned', '需求指派', f'需求「{requirement.requirement_name}」已分配给你', 'version_requirement', requirement.id, exclude_user_id=current_user.id)
+                assigner_name = current_user.real_name or current_user.username
+                project = Project.query.get(project_id)
+                project_label = f'（项目「{project.project_name}」）' if project else ''
+                notify_users([new_assigned], 'requirement_assigned', '需求指派',
+                             f'{assigner_name} 将需求「{requirement.requirement_name}」{project_label}重新分配给你',
+                             'version_requirement', requirement.id, exclude_user_id=current_user.id)
             requirement.assigned_to = new_assigned
         if 'start_date' in data:
             try:

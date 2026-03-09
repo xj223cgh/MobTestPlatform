@@ -166,7 +166,12 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
             notify_creator_id = params.get('creatorId') or creator_id
             if notify_creator_id:
                 from app.services.notification_service import notify_users
-                notify_users([notify_creator_id], 'ai_case_generated', 'AI 用例生成完成', f'已成功生成并保存 {len(saved_cases)} 条测试用例', 'suite', suite_id, extra={'total_cases': len(saved_cases)})
+                suite_label = suite.suite_name if suite else '用例集'
+                notify_users(
+                    [notify_creator_id], 'ai_case_generated', 'AI 用例生成完成',
+                    f'用例集「{suite_label}」的 AI 用例生成已完成，共生成并保存 {len(saved_cases)} 条测试用例',
+                    'suite', suite_id, extra={'total_cases': len(saved_cases)}
+                )
             return {
                 'suite_id': suite_id,
                 'total_cases': len(saved_cases),
@@ -183,7 +188,13 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
             if notify_creator_id:
                 try:
                     from app.services.notification_service import notify_users
-                    notify_users([notify_creator_id], 'ai_case_generated', 'AI 用例生成失败', str(e)[:200] or '任务执行失败', 'suite', suite_id, extra={'error': str(e)[:200]})
+                    suite_obj = TestSuite.query.get(suite_id)
+                    suite_label = suite_obj.suite_name if suite_obj else '用例集'
+                    notify_users(
+                        [notify_creator_id], 'ai_case_generated', 'AI 用例生成失败',
+                        f'用例集「{suite_label}」的 AI 用例生成失败：{str(e)[:150]}',
+                        'suite', suite_id, extra={'error': str(e)[:200]}
+                    )
                 except Exception:
                     pass
             raise

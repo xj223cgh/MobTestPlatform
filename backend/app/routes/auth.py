@@ -442,7 +442,12 @@ def register():
         admin_users = User.query.filter(User.role.in_(['super', 'manager'])).all()
         if admin_users:
             from app.services.notification_service import notify_users
-            notify_users([u.id for u in admin_users], 'user_registered', '新用户注册', f'新用户 {username}（{real_name}）已注册', 'user', user.id)
+            dept_label = f'，部门：{department}' if department else ''
+            notify_users(
+                [u.id for u in admin_users], 'user_registered', '新用户注册',
+                f'新用户 {real_name}（账号 {username}）已注册{dept_label}，请及时审核',
+                'user', user.id
+            )
         return success_response({
             'user': user.to_dict()
         }, "注册成功")
