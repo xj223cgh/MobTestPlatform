@@ -206,24 +206,27 @@ class Project(db.Model):
         """转换为字典"""
         import json
         
-        # 计算用例统计
+        # 计算用例统计（直接使用用例自身 status 字段，避免加载 executions 关联导致 N+1 查询）
         total_cases = len(self.test_cases)
-        executed_cases = sum(1 for case in self.test_cases if hasattr(case, 'executions') and case.executions)
-        passed_cases = sum(1 for case in self.test_cases if hasattr(case, 'executions') and any(exec.status == 'pass' for exec in case.executions))
+        pass_count = sum(1 for case in self.test_cases if case.status == 'pass')
+        fail_count = sum(1 for case in self.test_cases if case.status == 'fail')
+        blocked_count = sum(1 for case in self.test_cases if case.status == 'blocked')
+        not_applicable_count = sum(1 for case in self.test_cases if case.status == 'not_applicable')
+        executed_count = pass_count + fail_count + blocked_count + not_applicable_count
         
-        # 计算通过率和执行进度
-        pass_rate = (passed_cases / executed_cases * 100) if executed_cases > 0 else 0
-        execution_progress = (executed_cases / total_cases * 100) if total_cases > 0 else 0
+        # 通过率：通过数 / 用例总数；执行进度：已执行数 / 用例总数
+        pass_rate = round(pass_count / total_cases * 100, 2) if total_cases > 0 else 0
+        execution_progress = round(executed_count / total_cases * 100, 2) if total_cases > 0 else 0
         
         # 计算用例按状态划分
         case_stats = {
             'total': total_cases,
-            'pass': sum(1 for case in self.test_cases if case.status == 'pass'),
-            'fail': sum(1 for case in self.test_cases if case.status == 'fail'),
-            'blocked': sum(1 for case in self.test_cases if case.status == 'blocked'),
-            'not_applicable': sum(1 for case in self.test_cases if case.status == 'not_applicable'),
-            'pass_rate': round(pass_rate, 2),
-            'execution_progress': round(execution_progress, 2)
+            'pass': pass_count,
+            'fail': fail_count,
+            'blocked': blocked_count,
+            'not_applicable': not_applicable_count,
+            'pass_rate': pass_rate,
+            'execution_progress': execution_progress
         }
         
         # 计算迭代统计
@@ -403,20 +406,13 @@ class Iteration(db.Model):
             'cancelled': sum(1 for req in self.version_requirements if req.status == 'cancelled')
         }
         
-        # 计算用例执行统计
-        executions = []
+        # 计算用例执行统计（使用用例自身 status 字段，避免懒加载 executions 关联导致 N*M 层 N+1 查询）
+        execution_stats = {'total': 0, 'pass': 0, 'fail': 0, 'blocked': 0, 'not_applicable': 0}
         for req in self.version_requirements:
-            if req.test_cases:
-                for test_case in req.test_cases:
-                    if test_case.executions:
-                        executions.extend(test_case.executions)
-        execution_stats = {
-            'total': len(executions),
-            'pass': sum(1 for exec in executions if exec.status == 'pass'),
-            'fail': sum(1 for exec in executions if exec.status == 'fail'),
-            'blocked': sum(1 for exec in executions if exec.status == 'blocked'),
-            'not_applicable': sum(1 for exec in executions if exec.status == 'not_applicable')
-        }
+            for test_case in (req.test_cases or []):
+                execution_stats['total'] += 1
+                if test_case.status in ('pass', 'fail', 'blocked', 'not_applicable'):
+                    execution_stats[test_case.status] += 1
         
         return {
             'id': self.id,
@@ -502,6 +498,7 @@ class TestSuite(db.Model):
     last_saved_at = db.Column(db.DateTime(timezone=True), nullable=True, comment='脑图最后保存时间')
     last_saved_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='最后保存人ID')
     mindmap_version = db.Column(db.Integer, default=0, nullable=False, comment='脑图版本号，用于多人编辑冲突检测')
+    case_number_prefix = db.Column(db.String(50), default='TC-', nullable=True, comment='用例编号前缀，如 TC-、MOB- 等，用于自动生成用例编号')
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), onupdate=lambda: datetime.now(LOCAL_TIMEZONE), comment='更新时间')
     

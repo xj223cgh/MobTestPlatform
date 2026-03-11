@@ -1205,6 +1205,14 @@ watch(
   { flush: "post" }
 );
 
+// 已在需求页时收到新通知跳转（query 变化）→ 重新加载列表以定位目标项
+watch(
+  () => route.query?.highlight_id,
+  (idVal, oldVal) => {
+    if (idVal && idVal !== oldVal) getRequirementList();
+  }
+);
+
 onMounted(() => {
   getRequirementList();
   getOptionData();

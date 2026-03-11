@@ -526,8 +526,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed, watch, nextTick } from "vue";
-import { useRoute } from "vue-router";
+import { ref, reactive, onMounted, onUnmounted, computed, watch, nextTick } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus, Search, Refresh } from "@element-plus/icons-vue";
 import {
@@ -556,14 +556,17 @@ const isEdit = ref(false);
 const dialogTitle = ref("");
 const userFormRef = ref();
 
-// 路由：从用例集信息（创建人）跳转时高亮指定行
+// 通知/活动跳转时高亮闪烁对应用户行（query: user_id）
 const route = useRoute();
+const router = useRouter();
 const highlightId = computed(() => {
   const id = route.query?.user_id;
   return id ? Number(id) : null;
 });
+const flashUserId = ref(null);
+let flashClearTimer = null;
 const getRowClassName = ({ row }) => {
-  if (highlightId.value && row.id === highlightId.value) return "highlight-row";
+  if (flashUserId.value && row.id === flashUserId.value) return "notification-flash-row";
   return "";
 };
 
@@ -1097,19 +1100,6 @@ const formatDateTime = (dateTime) => {
   return dateTime ? dayjs(dateTime).format("YYYY-MM-DD HH:mm:ss") : "-";
 };
 
-// 高亮行滚动到视口（仅当通过 user_id 跳转时）
-const scrollToHighlightRow = () => {
-  if (!highlightId.value || !userList.value.length) return;
-  nextTick(() => {
-    setTimeout(() => {
-      const table = userTableRef.value?.$el;
-      if (!table) return;
-      const row = table.querySelector("tr.highlight-row");
-      if (row) row.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }, 150);
-  });
-};
-
 // 仅 Lethe 可拥有超级管理员：用户名非 Lethe 时若当前选了 super 则重置为 admin
 watch(
   () => userForm.username,
@@ -1120,14 +1110,46 @@ watch(
   }
 );
 
+// 带 user_id 进入时，列表加载后定位并闪烁对应行
 watch(
-  () => [userList.value.length, highlightId.value],
-  () => scrollToHighlightRow(),
+  () => [userList.value, highlightId.value],
+  ([list, hid]) => {
+    if (!hid || !list.length) return;
+    const found = list.some((r) => r.id === hid);
+    if (!found) return;
+    if (flashClearTimer) { clearTimeout(flashClearTimer); flashClearTimer = null; }
+    flashUserId.value = hid;
+    nextTick(() => {
+      const table = userTableRef.value?.$el;
+      if (!table) return;
+      const row = table.querySelector("tr.notification-flash-row");
+      if (row) row.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    flashClearTimer = setTimeout(() => {
+      flashUserId.value = null;
+      flashClearTimer = null;
+      const q = { ...route.query };
+      delete q.user_id;
+      router.replace({ path: route.path, query: Object.keys(q).length ? q : undefined });
+    }, 2600);
+  },
   { flush: "post" }
+);
+
+// 已在用户页时收到新通知跳转（query 变化）→ 重新加载列表以定位目标项
+watch(
+  () => route.query?.user_id,
+  (idVal, oldVal) => {
+    if (idVal && idVal !== oldVal) fetchUserList();
+  }
 );
 
 onMounted(() => {
   fetchUserList();
+});
+
+onUnmounted(() => {
+  if (flashClearTimer) { clearTimeout(flashClearTimer); flashClearTimer = null; }
 });
 </script>
 
@@ -1224,13 +1246,6 @@ onMounted(() => {
   overflow-x: hidden !important;
 }
 
-/* 从用例集信息（创建人）跳转时的选中行高亮（直接显示，无边框） */
-.table-section :deep(tr.highlight-row > td) {
-  background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
-}
-.table-section :deep(tr.highlight-row:hover > td) {
-  background-color: var(--el-color-primary-light-8, #d9ecff) !important;
-}
 
 /* 固定分页组件样式 */
 .fixed-pagination {

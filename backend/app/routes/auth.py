@@ -10,7 +10,7 @@ from app.utils.helpers import (
     success_response, error_response, log_user_action,
     validate_json_data, validate_phone, validate_username, validate_qq_email,
 )
-from app.utils.auth_utils import SessionManager, PasswordManager, TwoFactorAuth
+from app.utils.auth_utils import PasswordManager
 from app.utils.auth import rate_limiter
 from app.services.permission_service import get_user_permission_codes
 from app.services.email_service import send_login_code, send_reset_password_link, send_bind_verify_code, send_unbind_verify_code
@@ -563,6 +563,8 @@ def reset_password():
         return error_response(400, message)
     
     user = User.query.get(user_id)
+    if not user:
+        return error_response(404, "用户不存在")
     user.set_password(password)
     
     try:
@@ -572,76 +574,6 @@ def reset_password():
     except Exception as e:
         db.session.rollback()
         return error_response(500, "密码重置失败，请稍后重试")
-
-
-@bp.route('/enable-2fa', methods=['POST'])
-@login_required
-def enable_2fa():
-    """启用双因素认证"""
-    secret = TwoFactorAuth.generate_secret()
-    qr_code = TwoFactorAuth.generate_qr_code(current_user.email, secret)
-    session['2fa_secret'] = secret
-    
-    return success_response({
-        'secret': secret,
-        'qr_code': qr_code
-    }, "双因素认证设置信息已生成")
-
-
-@bp.route('/verify-2fa', methods=['POST'])
-@login_required
-@validate_json_data(['token'])
-def verify_2fa():
-    """验证双因素认证"""
-    data = request.get_json()
-    token = data['token']
-    secret = session.get('2fa_secret')
-    
-    if not secret:
-        return error_response(400, "请先启用双因素认证")
-    
-    if TwoFactorAuth.verify_token(secret, token):
-        current_user.two_factor_secret = secret
-        current_user.two_factor_enabled = True
-        
-        try:
-            db.session.commit()
-            session.pop('2fa_secret', None)
-            
-            log_user_action("启用双因素认证", f"用户ID: {current_user.id}")
-            return success_response(message="双因素认证启用成功")
-        except Exception as e:
-            db.session.rollback()
-            return error_response(500, "双因素认证启用失败")
-    else:
-        return error_response(400, "验证码错误")
-
-
-@bp.route('/disable-2fa', methods=['POST'])
-@login_required
-@validate_json_data(['password', 'token'])
-def disable_2fa():
-    """禁用双因素认证"""
-    data = request.get_json()
-    password = data['password']
-    token = data['token']
-    
-    if not current_user.check_password(password):
-        return error_response(400, "密码错误")
-    
-    if not TwoFactorAuth.verify_token(current_user.two_factor_secret, token):
-        return error_response(400, "验证码错误")
-    
-    current_user.two_factor_enabled = False
-    current_user.two_factor_secret = None
-    
-    try:
-        db.session.commit()
-        log_user_action("禁用双因素认证", f"用户ID: {current_user.id}")
-        return success_response(message="双因素认证已禁用")
-    except Exception as e:
-        db.session.rollback()
-        return error_response(500, "双因素认证禁用失败")
 
 
 @bp.route('/permissions', methods=['GET'])

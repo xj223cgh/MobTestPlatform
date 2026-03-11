@@ -164,45 +164,24 @@
             align="center"
             sortable
             show-overflow-tooltip
-            min-width="105"
+            min-width="130"
           >
             <div
-              style="
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 100%;
-                height: 100%;
-                padding: 8px 0;
-              "
+              v-if="row.battery && row.battery.batteryPercentage !== null"
+              style="display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 8px; width: 100%; box-sizing: border-box;"
             >
-              <div
-                v-if="row.battery && row.battery.batteryPercentage !== null"
-                style="width: 100%; text-align: center"
-              >
-                <div
-                  style="
-                    display: inline-block;
-                    text-align: center;
-                    width: 120px;
-                  "
-                >
-                  <el-progress
-                    :percentage="row.battery.batteryPercentage"
-                    :stroke-width="8"
-                    :show-text="true"
-                    :color="getBatteryColor(row.battery.batteryPercentage)"
-                    style="width: 100% !important; margin: 0 auto !important"
-                  />
-                </div>
-              </div>
-              <div
-                v-else
-                style="width: 100%; text-align: center"
-              >
-                -
-              </div>
+              <el-progress
+                :percentage="row.battery.batteryPercentage"
+                :stroke-width="8"
+                :show-text="false"
+                :color="getBatteryColor(row.battery.batteryPercentage)"
+                style="width: 100%;"
+              />
+              <span
+                :style="{ color: getBatteryColor(row.battery.batteryPercentage), fontSize: '12px', lineHeight: 1 }"
+              >{{ row.battery.batteryPercentage }}%</span>
             </div>
+            <span v-else>-</span>
           </el-table-column>
 
           <el-table-column
@@ -367,7 +346,7 @@ import {
   nextTick,
   watch,
 } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   Refresh,
@@ -415,6 +394,7 @@ const deviceDetailDialogVisible = ref(false);
 const deviceDetailRow = ref(null);
 
 const route = useRoute();
+const router = useRouter();
 
 const openDeviceDetail = (row) => {
   deviceDetailRow.value = row;
@@ -428,22 +408,12 @@ const hasOnlineDevices = computed(() => {
   return deviceList.value.some((device) => device.status === "online");
 });
 
-// 从报告等页跳转时高亮对应设备行（query: highlight_device_id 为设备序列号）
-const highlightDeviceId = computed(() => route.query.highlight_device_id || "");
+// 通知/活动跳转时高亮闪烁对应设备行（query: highlight_device_id）
+const flashDeviceId = ref(null);
+let flashClearTimer = null;
 const getDeviceRowClassName = ({ row }) => {
-  if (highlightDeviceId.value && row.id === highlightDeviceId.value) return "highlight-row";
+  if (flashDeviceId.value && row.id === flashDeviceId.value) return "notification-flash-row";
   return "";
-};
-const scrollToHighlightRow = () => {
-  if (!highlightDeviceId.value || !deviceList.value.length) return;
-  nextTick(() => {
-    setTimeout(() => {
-      const table = tableRef.value?.$el;
-      if (!table) return;
-      const row = table.querySelector("tr.highlight-row");
-      if (row) row.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }, 150);
-  });
 };
 
 const getBatteryColor = (percentage) => {
@@ -828,10 +798,29 @@ watch(
   },
 );
 
-// 从报告等页带 highlight_device_id 进入时，列表加载后滚动到高亮行
+// 带 highlight_device_id 进入时，列表加载后定位并闪烁对应行
 watch(
-  () => [deviceList.value.length, highlightDeviceId.value],
-  () => scrollToHighlightRow(),
+  () => [deviceList.value, route.query.highlight_device_id],
+  ([list, hid]) => {
+    if (!hid || !list.length) return;
+    const found = list.some((r) => r.id === hid);
+    if (!found) return;
+    if (flashClearTimer) { clearTimeout(flashClearTimer); flashClearTimer = null; }
+    flashDeviceId.value = hid;
+    nextTick(() => {
+      const table = tableRef.value?.$el;
+      if (!table) return;
+      const row = table.querySelector("tr.notification-flash-row");
+      if (row) row.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    flashClearTimer = setTimeout(() => {
+      flashDeviceId.value = null;
+      flashClearTimer = null;
+      const q = { ...route.query };
+      delete q.highlight_device_id;
+      router.replace({ path: route.path, query: Object.keys(q).length ? q : undefined });
+    }, 2600);
+  },
   { flush: "post" },
 );
 
@@ -850,6 +839,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopAutoRefresh();
+  if (flashClearTimer) { clearTimeout(flashClearTimer); flashClearTimer = null; }
 });
 </script>
 
@@ -998,11 +988,6 @@ onUnmounted(() => {
     padding: 8px 0;
   }
 
-  .el-table tr.highlight-row > td {
-    background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
-  }
-  .el-table tr.highlight-row:hover > td {
-    background-color: var(--el-color-primary-light-8, #d9ecff) !important;
-  }
 }
+
 </style>

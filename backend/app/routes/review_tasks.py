@@ -27,9 +27,11 @@ def initiate_review(suite_id):
     """发起用例集评审"""
     try:
         suite = TestSuite.query.get_or_404(suite_id)
-        
+
         if suite.type != 'suite':
             return error_response(400, '只有用例集才能发起评审')
+        if suite.deleted_at is not None:
+            return error_response(400, '该用例集已在回收站中，无法发起评审')
         
         data = request.get_json()
         reviewer_id = data.get('reviewer_id')
@@ -129,9 +131,14 @@ def update_case_review(task_id, case_id):
             review_task_id=task_id,
             case_id=case_id
         ).first_or_404()
-        
 
-        
+        # 只有评审人本人且任务未完成时才能提交评审意见
+        review_task = case_review.review_task
+        if review_task.status in ('completed', 'rejected'):
+            return error_response(400, '评审已完成或已拒绝，不能再修改评审意见')
+        if current_user.id != review_task.reviewer_id:
+            return error_response(403, '只有评审人才能提交评审意见')
+
         # 获取请求数据
         data = request.get_json()
         review_status = data.get('review_status')
@@ -311,6 +318,11 @@ def get_my_review_tasks():
         page, per_page = get_pagination_params()
         query = TestSuiteReviewTask.query.filter_by(reviewer_id=current_user.id)
         
+        if request.args.get('task_id'):
+            try:
+                query = query.filter(TestSuiteReviewTask.id == int(request.args['task_id']))
+            except (ValueError, TypeError):
+                pass
         if request.args.get('status'):
             query = query.filter_by(status=request.args['status'])
         if request.args.get('suite_name'):
@@ -328,9 +340,30 @@ def get_my_review_tasks():
             except ValueError:
                 pass
         
-        pagination = query.order_by(TestSuiteReviewTask.created_at.desc()).paginate(
-            page=page, per_page=per_page, error_out=False
-        )
+        # locate_id：不做过滤，而是计算目标任务所在页并跳转到该页
+        # 排序键为 (created_at DESC, id DESC)，count_before 同步考虑同时间戳但 id 更大（排更前）的记录
+        if request.args.get('locate_id'):
+            try:
+                locate_id = int(request.args['locate_id'])
+                target = query.filter(TestSuiteReviewTask.id == locate_id).first()
+                if target:
+                    count_before = query.filter(
+                        db.or_(
+                            TestSuiteReviewTask.created_at > target.created_at,
+                            db.and_(
+                                TestSuiteReviewTask.created_at == target.created_at,
+                                TestSuiteReviewTask.id > target.id
+                            )
+                        )
+                    ).count()
+                    page = count_before // per_page + 1
+            except (ValueError, TypeError):
+                pass
+        
+        pagination = query.order_by(
+            TestSuiteReviewTask.created_at.desc(),
+            TestSuiteReviewTask.id.desc()
+        ).paginate(page=page, per_page=per_page, error_out=False)
         
         items = []
         for task in pagination.items:
@@ -356,7 +389,7 @@ def get_my_review_tasks():
         return success_response({
             'items': items,
             'total': pagination.total,
-            'page': page,
+            'page': pagination.page,
             'per_page': per_page,
             'pages': pagination.pages
         })
@@ -372,6 +405,11 @@ def get_my_initiated_reviews():
         page, per_page = get_pagination_params()
         query = TestSuiteReviewTask.query.filter_by(initiator_id=current_user.id)
         
+        if request.args.get('task_id'):
+            try:
+                query = query.filter(TestSuiteReviewTask.id == int(request.args['task_id']))
+            except (ValueError, TypeError):
+                pass
         if request.args.get('status'):
             query = query.filter_by(status=request.args['status'])
         if request.args.get('suite_name'):
@@ -389,9 +427,30 @@ def get_my_initiated_reviews():
             except ValueError:
                 pass
         
-        pagination = query.order_by(TestSuiteReviewTask.created_at.desc()).paginate(
-            page=page, per_page=per_page, error_out=False
-        )
+        # locate_id：不做过滤，而是计算目标任务所在页并跳转到该页
+        # 排序键为 (created_at DESC, id DESC)，count_before 同步考虑同时间戳但 id 更大（排更前）的记录
+        if request.args.get('locate_id'):
+            try:
+                locate_id = int(request.args['locate_id'])
+                target = query.filter(TestSuiteReviewTask.id == locate_id).first()
+                if target:
+                    count_before = query.filter(
+                        db.or_(
+                            TestSuiteReviewTask.created_at > target.created_at,
+                            db.and_(
+                                TestSuiteReviewTask.created_at == target.created_at,
+                                TestSuiteReviewTask.id > target.id
+                            )
+                        )
+                    ).count()
+                    page = count_before // per_page + 1
+            except (ValueError, TypeError):
+                pass
+        
+        pagination = query.order_by(
+            TestSuiteReviewTask.created_at.desc(),
+            TestSuiteReviewTask.id.desc()
+        ).paginate(page=page, per_page=per_page, error_out=False)
         
         items = []
         for task in pagination.items:
@@ -417,7 +476,7 @@ def get_my_initiated_reviews():
         return success_response({
             'items': items,
             'total': pagination.total,
-            'page': page,
+            'page': pagination.page,
             'per_page': per_page,
             'pages': pagination.pages
         })

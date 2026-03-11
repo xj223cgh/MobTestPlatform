@@ -67,6 +67,7 @@ def create_app(config_name='default'):
     
     with app.app_context():
         db.create_all()
+        _ensure_schema(app)
     
     # WebSocket：Flask-SocketIO。engineio 只支持字符串列表或 '*'，不支持正则；
     # 开发环境用 '*' 以允许内网 IP（如 http://10.13.254.75:8081）访问
@@ -97,6 +98,23 @@ def create_app(config_name='default'):
         app.logger.debug('SocketIO: user %s joined room user:%s', current_user.id, current_user.id)
     
     return app
+
+
+def _ensure_schema(app):
+    """检查并补全数据库中可能缺失的列（兼容旧数据库）。
+    每次启动时运行，若列已存在则静默跳过。"""
+    from sqlalchemy import text
+    migrations = [
+        # test_suites 表：用例编号前缀列
+        "ALTER TABLE test_suites ADD COLUMN case_number_prefix VARCHAR(50) DEFAULT 'TC-'",
+    ]
+    with db.engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(text(sql))
+                conn.commit()
+            except Exception:
+                conn.rollback()
 
 
 def setup_logging(app):

@@ -28,7 +28,7 @@
             <el-option label="待执行" value="pending" />
             <el-option label="执行中" value="running" />
             <el-option label="已完成" value="completed" />
-            <el-option label="已取消" value="cancelled" />
+            <el-option label="已暂停" value="paused" />
           </el-select>
         </el-form-item>
 
@@ -392,7 +392,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search, Refresh, View, Download, Document } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
-import { getReportList, getReportData, deleteReport, batchDeleteReports } from '@/api/report';
+import { getReportList, deleteReport, batchDeleteReports } from '@/api/report';
 import { isPermissionError } from '@/utils/request';
 import { useSystemSettingsStore } from '@/stores/systemSettings';
 
@@ -444,53 +444,60 @@ const currentSelectedIds = computed(() => selectedIds[activeTab.value] || []);
 
 const fetchReportList = async () => {
   loading.testCase = true;
-  try {
-    const testCaseParams = {
-      page: pagination.testCase.page,
-      size: pagination.testCase.size,
-      report_type: 'test_case',
-      search: filterForm.taskName,
-      status: filterForm.status,
-      creator: filterForm.creator
-    };
+  loading.deviceScript = true;
 
-    const testCaseResponse = await getReportList(testCaseParams);
-    if (testCaseResponse.code === 200 || testCaseResponse.success) {
-      reportList.testCase = testCaseResponse.data.reports || [];
-      pagination.testCase.total = testCaseResponse.data.pagination.total || 0;
+  const testCaseParams = {
+    page: pagination.testCase.page,
+    size: pagination.testCase.size,
+    report_type: 'test_case',
+    search: filterForm.taskName,
+    status: filterForm.status,
+    creator: filterForm.creator
+  };
+  const deviceScriptParams = {
+    page: pagination.deviceScript.page,
+    size: pagination.deviceScript.size,
+    report_type: 'device_script',
+    search: filterForm.taskName,
+    status: filterForm.status,
+    creator: filterForm.creator
+  };
+
+  // 并行加载两个报告列表，减少等待时间
+  const [testCaseResult, deviceScriptResult] = await Promise.allSettled([
+    getReportList(testCaseParams),
+    getReportList(deviceScriptParams)
+  ]);
+
+  loading.testCase = false;
+  loading.deviceScript = false;
+
+  if (testCaseResult.status === 'fulfilled') {
+    const res = testCaseResult.value;
+    if (res.code === 200 || res.success) {
+      reportList.testCase = res.data.reports || [];
+      pagination.testCase.total = res.data.pagination.total || 0;
     } else {
-      ElMessage.error(testCaseResponse.message || '获取测试用例报告列表失败');
+      ElMessage.error(res.message || '获取测试用例报告列表失败');
     }
-  } catch (error) {
-    if (isPermissionError(error)) return;
-    ElMessage.error('获取测试用例报告列表失败');
-  } finally {
-    loading.testCase = false;
+  } else {
+    if (!isPermissionError(testCaseResult.reason)) {
+      ElMessage.error('获取测试用例报告列表失败');
+    }
   }
 
-  loading.deviceScript = true;
-  try {
-    const deviceScriptParams = {
-      page: pagination.deviceScript.page,
-      size: pagination.deviceScript.size,
-      report_type: 'device_script',
-      search: filterForm.taskName,
-      status: filterForm.status,
-      creator: filterForm.creator
-    };
-
-    const deviceScriptResponse = await getReportList(deviceScriptParams);
-    if (deviceScriptResponse.code === 200 || deviceScriptResponse.success) {
-      reportList.deviceScript = deviceScriptResponse.data.reports || [];
-      pagination.deviceScript.total = deviceScriptResponse.data.pagination.total || 0;
+  if (deviceScriptResult.status === 'fulfilled') {
+    const res = deviceScriptResult.value;
+    if (res.code === 200 || res.success) {
+      reportList.deviceScript = res.data.reports || [];
+      pagination.deviceScript.total = res.data.pagination.total || 0;
     } else {
-      ElMessage.error(deviceScriptResponse.message || '获取设备脚本报告列表失败');
+      ElMessage.error(res.message || '获取设备脚本报告列表失败');
     }
-  } catch (error) {
-    if (isPermissionError(error)) return;
-    ElMessage.error('获取设备脚本报告列表失败');
-  } finally {
-    loading.deviceScript = false;
+  } else {
+    if (!isPermissionError(deviceScriptResult.reason)) {
+      ElMessage.error('获取设备脚本报告列表失败');
+    }
   }
 };
 
@@ -612,9 +619,9 @@ const formatDateTime = (dateTime) => {
 const getStatusTagType = (status) => {
   const typeMap = {
     'pending': 'info',
-    'executing': 'warning',
+    'running': 'warning',
     'completed': 'success',
-    'terminated': 'danger'
+    'paused': 'danger'
   };
   return typeMap[status] || 'info';
 };
@@ -622,9 +629,9 @@ const getStatusTagType = (status) => {
 const getStatusLabel = (status) => {
   const labelMap = {
     'pending': '待执行',
-    'executing': '执行中',
+    'running': '执行中',
     'completed': '已完成',
-    'terminated': '已终止'
+    'paused': '已暂停'
   };
   return labelMap[status] || status;
 };

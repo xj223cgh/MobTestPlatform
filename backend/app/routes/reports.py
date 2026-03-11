@@ -10,6 +10,7 @@ from datetime import datetime
 
 from flask import Blueprint, request
 from flask_login import login_required, current_user
+from app.services.permission_service import permission_required
 from werkzeug.exceptions import NotFound
 
 from app.models.models import TestTask, db, TestCase, Report, User
@@ -168,6 +169,7 @@ def get_report_by_id(report_id):
 
 @bp.route('/<int:report_id>', methods=['DELETE'])
 @login_required
+@permission_required('report.delete')
 def delete_report(report_id):
     """单个删除报告"""
     try:
@@ -185,6 +187,7 @@ def delete_report(report_id):
 
 @bp.route('/batch-delete', methods=['POST'])
 @login_required
+@permission_required('report.delete')
 def batch_delete_reports():
     """批量删除报告，请求体: { "ids": [1, 2, 3] }"""
     try:
@@ -280,19 +283,8 @@ def _get_report_data_impl(task_id):
 
 
 def generate_test_case_report(test_task):
-    """生成测试用例任务报告：生成时写入一次性快照（用例集名+用例完整内容）以支持历史追溯"""
+    """生成测试用例任务报告：有快照时直接遍历快照（含已删除用例），无快照时从关联用例生成。"""
     use_snapshots = getattr(test_task, 'case_snapshots', None) and len(test_task.case_snapshots) > 0
-    try:
-        if use_snapshots:
-            test_cases = list(test_task.test_cases) if test_task.test_cases else []
-        elif test_task.suite_id and test_task.suite:
-            test_cases = test_task.suite.test_cases if test_task.suite.test_cases else []
-        else:
-            test_cases = list(test_task.test_cases) if test_task.test_cases else []
-    except Exception:
-        test_cases = []
-    snapshot_map = {s.case_id: s for s in (test_task.case_snapshots or [])} if use_snapshots else {}
-    total_cases = len(test_cases)
 
     task_executions = {e.case_id: e for e in (test_task.case_executions or [])}
     stats = {'pass': 0, 'fail': 0, 'blocked': 0, 'not_applicable': 0}
@@ -301,9 +293,82 @@ def generate_test_case_report(test_task):
             stats[e.status] += 1
     executed_cases = sum(stats.values())
     pass_count = stats['pass']
+    suite_name = test_task.suite_name_snapshot or (test_task.suite.suite_name if getattr(test_task, 'suite', None) else None) or ""
+
+    details = []
+
+    if use_snapshots:
+        # 有快照时直接遍历快照，确保已删除/修改的用例也能正确展示在报告中
+        case_snapshots = list(test_task.case_snapshots)
+        total_cases = len(case_snapshots)
+        pass_rate = round(pass_count / total_cases * 100, 1) if total_cases > 0 else 0
+
+        for snap in case_snapshots:
+            exec_for_task = task_executions.get(snap.case_id)
+            try:
+                executed_by = exec_for_task.executor.username if exec_for_task and exec_for_task.executor else None
+                actual_result = getattr(exec_for_task, 'actual_result', None) or (exec_for_task.notes if exec_for_task else None)
+                executed_at = getattr(exec_for_task, 'execution_time', None) or getattr(exec_for_task, 'created_at', None) if exec_for_task else None
+                remarks = getattr(exec_for_task, 'remarks', None) or (exec_for_task.notes if exec_for_task else None)
+            except Exception:
+                executed_by = actual_result = executed_at = remarks = None
+            details.append({
+                'case_id': snap.case_id,
+                'case_number': snap.case_number,
+                'case_title': snap.case_name or '',
+                'priority': snap.priority,
+                'preconditions': snap.preconditions,
+                'steps': snap.steps,
+                'expected_result': snap.expected_result,
+                'status': (exec_for_task.status if exec_for_task else '') or '',
+                'actual_result': actual_result,
+                'executed_by': executed_by,
+                'executed_at': executed_at,
+                'remarks': remarks,
+            })
+    else:
+        # 无快照时从关联用例或套件用例中生成
+        try:
+            if test_task.suite_id and test_task.suite:
+                test_cases = test_task.suite.test_cases if test_task.suite.test_cases else []
+            else:
+                test_cases = list(test_task.test_cases) if test_task.test_cases else []
+        except Exception:
+            test_cases = []
+        total_cases = len(test_cases)
+        pass_rate = round(pass_count / total_cases * 100, 1) if total_cases > 0 else 0
+
+        for test_case in test_cases:
+            exec_for_task = task_executions.get(test_case.id)
+            case_title = getattr(test_case, 'case_name', None) or getattr(test_case, 'case_title', None) or ''
+            case_number = getattr(test_case, 'case_number', None)
+            preconditions = getattr(test_case, 'preconditions', None)
+            steps = getattr(test_case, 'steps', None)
+            expected_result = getattr(test_case, 'expected_result', None)
+            priority = getattr(test_case, 'priority', None)
+            try:
+                executed_by = exec_for_task.executor.username if exec_for_task and exec_for_task.executor else None
+                actual_result = getattr(exec_for_task, 'actual_result', None) or (exec_for_task.notes if exec_for_task else None)
+                executed_at = getattr(exec_for_task, 'execution_time', None) or getattr(exec_for_task, 'created_at', None) if exec_for_task else None
+                remarks = getattr(exec_for_task, 'remarks', None) or (exec_for_task.notes if exec_for_task else None)
+            except Exception:
+                executed_by = actual_result = executed_at = remarks = None
+            details.append({
+                'case_id': test_case.id,
+                'case_number': case_number,
+                'case_title': case_title,
+                'priority': priority,
+                'preconditions': preconditions,
+                'steps': steps,
+                'expected_result': expected_result,
+                'status': (exec_for_task.status if exec_for_task else '') or '',
+                'actual_result': actual_result,
+                'executed_by': executed_by,
+                'executed_at': executed_at,
+                'remarks': remarks,
+            })
+
     # 通过率与任务列表统计列一致：通过数/用例总数（非 通过数/已执行数）
-    pass_rate = round(pass_count / total_cases * 100, 1) if total_cases > 0 else 0
-    suite_name = test_task.suite_name_snapshot or (test_task.suite.suite_name if test_task.suite else None) or ""
     summary = {
         'suite_name': suite_name,
         'total_cases': total_cases,
@@ -314,38 +379,6 @@ def generate_test_case_report(test_task):
         'not_applicable_count': stats['not_applicable'],
         'pass_rate': pass_rate
     }
-
-    details = []
-    for test_case in test_cases:
-        snap = snapshot_map.get(test_case.id)
-        exec_for_task = task_executions.get(test_case.id)
-        case_title = (snap.case_name if snap else None) or getattr(test_case, 'case_name', None) or getattr(test_case, 'case_title', None) or ''
-        case_number = snap.case_number if snap else getattr(test_case, 'case_number', None)
-        preconditions = snap.preconditions if snap else getattr(test_case, 'preconditions', None)
-        steps = snap.steps if snap else getattr(test_case, 'steps', None)
-        expected_result = snap.expected_result if snap else getattr(test_case, 'expected_result', None)
-        priority = snap.priority if snap else getattr(test_case, 'priority', None)
-        try:
-            executed_by = exec_for_task.executor.username if exec_for_task and exec_for_task.executor else None
-            actual_result = getattr(exec_for_task, 'actual_result', None) or (exec_for_task.notes if exec_for_task else None)
-            executed_at = getattr(exec_for_task, 'execution_time', None) or getattr(exec_for_task, 'created_at', None) if exec_for_task else None
-            remarks = getattr(exec_for_task, 'remarks', None) or (exec_for_task.notes if exec_for_task else None)
-        except Exception:
-            executed_by = actual_result = executed_at = remarks = None
-        details.append({
-            'case_id': test_case.id,
-            'case_number': case_number,
-            'case_title': case_title,
-            'priority': priority,
-            'preconditions': preconditions,
-            'steps': steps,
-            'expected_result': expected_result,
-            'status': (exec_for_task.status if exec_for_task else '') or '',
-            'actual_result': actual_result,
-            'executed_by': executed_by,
-            'executed_at': executed_at,
-            'remarks': remarks,
-        })
     return {'summary': summary, 'details': details}
 
 

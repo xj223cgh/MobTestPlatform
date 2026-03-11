@@ -55,16 +55,54 @@
             <el-icon><Upload /></el-icon>
           </el-button>
         </el-tooltip>
+        <el-button size="small" @click="openNumberSetting">编号设置</el-button>
         <el-button size="small" @click="showVersionDrawer = true">版本记录</el-button>
       </div>
     </div>
+
+    <!-- 用例编号设置对话框 -->
+    <el-dialog v-model="showNumberSettingDialog" title="用例编号设置" width="420px" :close-on-click-modal="false">
+      <div class="number-setting-body">
+        <div class="number-setting-tip">
+          设置用例编号前缀，新增用例将自动以该前缀递增编号（如 TC-001、TC-002）；
+          已有编号的用例不会被覆盖。
+        </div>
+        <div class="number-setting-row">
+          <span class="number-setting-label">编号前缀</span>
+          <el-input
+            v-model="tempCaseNumberPrefix"
+            placeholder="如 TC-、MOB-、TEST_"
+            size="small"
+            style="width: 180px"
+            maxlength="20"
+            show-word-limit
+            clearable
+          />
+        </div>
+        <div class="number-setting-preview">
+          预览：<strong>{{ (tempCaseNumberPrefix || 'TC-').trim() || 'TC-' }}001</strong>、
+          <strong>{{ (tempCaseNumberPrefix || 'TC-').trim() || 'TC-' }}002</strong> …
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="showNumberSettingDialog = false">取消</el-button>
+        <el-button type="primary" @click="confirmNumberSetting">确定</el-button>
+      </template>
+    </el-dialog>
 
     <!-- 搜索替换与高级筛选面板 -->
     <div v-if="showSearch" class="search-panel">
       <div class="search-row">
         <el-input v-model="searchKeyword" placeholder="按关键词筛选" size="small" clearable
-          style="width: 200px" @keyup.enter="doSearch(false)" @input="searchResults = []; searchIdx = 0" />
+          style="width: 200px" @keyup.enter="doSearch(false)"
+          @input="searchResults = []; searchIdx = 0"
+          @clear="searchResults = []; searchIdx = 0" />
         <el-button size="small" :disabled="!searchKeyword" @click="doSearch(false)">查找</el-button>
+        <span v-if="searchResults.length" class="search-nav">
+          <el-button size="small" text @click="doSearch(true, -1)">上一个</el-button>
+          <span class="search-index">{{ searchIdx + 1 }} / {{ searchResults.length }}</span>
+          <el-button size="small" text @click="doSearch(true, 1)">下一个</el-button>
+        </span>
         <el-popover :visible="showAdvancedFilter" placement="bottom-start" :width="420" trigger="click"
           @update:visible="(v) => (showAdvancedFilter = v)">
           <template #reference>
@@ -288,6 +326,21 @@
                   :label="t.tag_name" :value="t.tag_name" />
               </el-select>
             </div>
+            <!-- 用例编号：仅用例标题节点可设置 -->
+            <div v-if="selectedNodes.length === 1 && currentAttribute === 'case_title'" class="prop-section">
+              <div class="prop-label">
+                用例编号
+                <span class="prop-hint">（留空则自动生成）</span>
+              </div>
+              <el-input
+                v-model="currentCaseNumber"
+                placeholder="如 TC-001，留空自动生成"
+                size="small"
+                clearable
+                @blur="applyCaseNumber"
+                @keyup.enter.exact.prevent="applyCaseNumber"
+              />
+            </div>
           </template>
         </div>
       </div>
@@ -370,13 +423,17 @@ let mindMapInstance = null;
 const caseEditStatus = ref("drafting");
 const caseCount = ref(0);
 const projectId = ref(null);
+const caseNumberPrefix = ref("TC-");
+const currentCaseNumber = ref("");
+const showNumberSettingDialog = ref(false);
+const tempCaseNumberPrefix = ref("TC-");
 const statusLabel = computed(() => caseEditStatus.value === "drafting" ? "编写中" : "已完成");
 
 const showSearch = ref(false);
 const searchKeyword = ref("");
 const replaceKeyword = ref("");
-let searchResults = [];
-let searchIdx = 0;
+const searchResults = ref([]);
+const searchIdx = ref(0);
 const filterTags = ref([]);
 const filterMarkers = ref([]);
 const filterPriority = ref("");
@@ -537,12 +594,17 @@ async function rollbackToVersion(versionId) {
   try {
     await ElMessageBox.confirm("回退后将用该版本替换当前脑图，是否继续？", "确认回退", { type: "warning" });
     const res = await rollbackMindmapVersion(suiteId.value, versionId);
-    const data = res.data?.mindmap_data;
+    const resData = res.data;
+    const data = resData?.mindmap_data;
     if (data && mindMapInstance) {
       const smmData = toSMM(data.root || data);
       mindMapInstance.setData(smmData);
       mindMapInstance.render();
       countCases();
+      // 同步本地版本号，避免回退后保存时触发误判版本冲突
+      if (resData?.mindmap_version !== undefined) {
+        mindmapVersion.value = resData.mindmap_version;
+      }
       showVersionDrawer.value = false;
       ElMessage.success("已回退到该版本");
     }
@@ -647,6 +709,7 @@ async function loadMindmap() {
     caseEditStatus.value = d.case_edit_status || "drafting";
     caseCount.value = d.case_count || 0;
     projectId.value = d.project_id;
+    caseNumberPrefix.value = d.case_number_prefix || "TC-";
     mindmapVersion.value = d.mindmap_version ?? 0;
     await ensureContainerSizeAndInit(d.mindmap_data);
     loadTagsAndMarkers(d.project_id);
@@ -922,12 +985,14 @@ function initMindmap(data) {
       currentMarkers.value = nd.markers || [];
       currentTags.value = nd.userTags || [];
       currentNodeText.value = nd.text ?? "";
+      currentCaseNumber.value = nd.caseNumber || "";
     } else if (list?.length > 1) {
       currentPriority.value = "";
       currentAttribute.value = "";
       currentMarkers.value = [];
       currentTags.value = [];
       currentNodeText.value = "";
+      currentCaseNumber.value = "";
     }
   });
   mindMapInstance.on("back_forward", (index, length) => {
@@ -996,6 +1061,7 @@ function toSMM(node) {
     priority: node.priority || undefined,
     markers: node.markers || undefined,
     userTags: node.tags || undefined,
+    caseNumber: node.case_number || undefined,
     expand: node.collapsed !== true,
   };
   return { data: d, children: (node.children || []).map(toSMM) };
@@ -1009,6 +1075,7 @@ function fromSMM(smmNode) {
   if (d.priority) r.priority = d.priority;
   if (d.markers?.length) r.markers = d.markers;
   if (d.userTags?.length) r.tags = d.userTags;
+  if (d.caseNumber) r.case_number = d.caseNumber;
   if (smmNode.children?.length) r.children = smmNode.children.map(fromSMM);
   return r;
 }
@@ -1264,6 +1331,75 @@ async function createCustomMarker() {
   } catch { ElMessage.error("创建标记失败"); }
 }
 
+function applyCaseNumber() {
+  if (!mindMapInstance) return;
+  const nodes = mindMapInstance.renderer.activeNodeList;
+  if (!nodes?.length) return;
+  const node = nodes[0];
+  if (node.getData().attribute !== "case_title") return;
+  const raw = currentCaseNumber.value.trim();
+  if (!raw) {
+    node.setData({ caseNumber: undefined });
+    mindMapInstance.render();
+    return;
+  }
+  const prefix = (caseNumberPrefix.value || "TC-").trim();
+  // 提取纯数字部分（兼容用户输入 "008"、"TC-WPS-008"、"8" 等各种写法）
+  const digitStr = raw.startsWith(prefix)
+    ? raw.slice(prefix.length).replace(/\D/g, "")
+    : raw.replace(/\D/g, "");
+  const seq = parseInt(digitStr, 10);
+  if (isNaN(seq) || seq < 1 || seq > 999) {
+    ElMessage.warning("用例编号序号需在 1～999 之间");
+    currentCaseNumber.value = node.getData().caseNumber || "";
+    return;
+  }
+  // 统一规范化为「前缀 + 3 位补零」格式，如 TC-WPS-008
+  const normalized = `${prefix}${String(seq).padStart(3, "0")}`;
+  currentCaseNumber.value = normalized;
+  node.setData({ caseNumber: normalized });
+  mindMapInstance.render();
+}
+
+function openNumberSetting() {
+  tempCaseNumberPrefix.value = caseNumberPrefix.value || "TC-";
+  showNumberSettingDialog.value = true;
+}
+
+function confirmNumberSetting() {
+  const prefix = (tempCaseNumberPrefix.value || "TC-").trim() || "TC-";
+  caseNumberPrefix.value = prefix;
+  showNumberSettingDialog.value = false;
+  ElMessage.success(`编号前缀已更新为「${prefix}」，下次保存后生效`);
+}
+
+/**
+ * 保存后把后端分配/确认的编号写回脑图节点，并同步刷新右侧属性面板的输入框。
+ * caseNumberMap: { [mindmap_node_id]: case_number }
+ */
+function applyGeneratedCaseNumbers(caseNumberMap) {
+  if (!mindMapInstance || !caseNumberMap || !Object.keys(caseNumberMap).length) return;
+
+  // 遍历脑图树，按节点 uid 写入 caseNumber
+  const walkAndApply = (node) => {
+    const uid = node.getData?.()?.uid;
+    if (uid && caseNumberMap[uid] != null) {
+      node.setData({ caseNumber: caseNumberMap[uid] });
+    }
+    node.children?.forEach(walkAndApply);
+  };
+  walkAndApply(mindMapInstance.renderer.root);
+
+  // 如果当前选中的节点恰好是 case_title，刷新输入框显示
+  const active = mindMapInstance.renderer.activeNodeList;
+  if (active?.length === 1) {
+    const nd = active[0].getData();
+    if (nd.attribute === "case_title") {
+      currentCaseNumber.value = nd.caseNumber || "";
+    }
+  }
+}
+
 function rebuildTag() {
   // prefix badges via createNodePrefixContent handle visual display
 }
@@ -1350,24 +1486,24 @@ function toggleSearchReplace() { showSearch.value = !showSearch.value; }
 function doSearch(goNext, delta) {
   if (!mindMapInstance || !searchKeyword.value) return;
   const keyword = searchKeyword.value;
-  if (!goNext || !searchResults.length) {
-    searchResults = [];
-    searchIdx = 0;
+  if (!goNext || !searchResults.value.length) {
+    searchResults.value = [];
+    searchIdx.value = 0;
     const walk = (node) => {
-      if (node.getData?.() && (node.getData().text || "").includes(keyword)) searchResults.push(node);
+      if (node.getData?.() && (node.getData().text || "").includes(keyword)) searchResults.value.push(node);
       (node.children || []).forEach(walk);
     };
     walk(mindMapInstance.renderer.root);
   }
-  if (!searchResults.length) {
+  if (!searchResults.value.length) {
     ElMessage.info("未找到匹配项");
     return;
   }
   if (goNext && delta) {
-    searchIdx = (searchIdx + delta + searchResults.length) % searchResults.length;
+    searchIdx.value = (searchIdx.value + delta + searchResults.value.length) % searchResults.value.length;
   }
-  mindMapInstance.execCommand("GO_TARGET_NODE", searchResults[searchIdx]);
-  ElMessage.success(`找到 ${searchResults.length} 个匹配，当前 ${searchIdx + 1}/${searchResults.length}`);
+  mindMapInstance.execCommand("GO_TARGET_NODE", searchResults.value[searchIdx.value]);
+  ElMessage.success(`找到 ${searchResults.value.length} 个匹配，当前 ${searchIdx.value + 1}/${searchResults.value.length}`);
 }
 
 function toggleFilterNodeType(value, checked) {
@@ -1512,12 +1648,14 @@ async function doSave(silent) {
     mindmap_data: json,
     case_edit_status: caseEditStatus.value,
     mindmap_version: mindmapVersion.value,
+    case_number_prefix: caseNumberPrefix.value || "TC-",
   };
   try {
     const res = await saveMindmap(suiteId.value, payload);
     if (res.data?.mindmap_version != null) mindmapVersion.value = res.data.mindmap_version;
     if (!silent) ElMessage.success("保存成功");
     caseCount.value = res.data?.case_count ?? caseCount.value;
+    applyGeneratedCaseNumbers(res.data?.case_number_map);
   } catch (e) {
     if (e?.response?.status === 409) {
       try {
@@ -1560,10 +1698,12 @@ async function doSaveForceOverwrite(silent) {
       case_edit_status: caseEditStatus.value,
       mindmap_version: mindmapVersion.value,
       force_overwrite: true,
+      case_number_prefix: caseNumberPrefix.value || "TC-",
     });
     if (res.data?.mindmap_version != null) mindmapVersion.value = res.data.mindmap_version;
     if (!silent) ElMessage.success("已强制覆盖保存");
     caseCount.value = res.data?.case_count ?? caseCount.value;
+    applyGeneratedCaseNumbers(res.data?.case_number_map);
   } catch (e) {
     if (!silent) ElMessage.error("保存失败");
     console.error(e);
@@ -1786,6 +1926,14 @@ function hideCtxMenu() {
 .ctx-item.disabled { color: #c0c4cc; cursor: not-allowed; }
 .ctx-divider { height: 1px; background: #e4e7ed; margin: 4px 0; }
 .shortcut { color: #c0c4cc; font-size: 12px; }
+
+/* ── 用例编号设置对话框 ── */
+.number-setting-body { display: flex; flex-direction: column; gap: 14px; }
+.number-setting-tip { font-size: 13px; color: #606266; line-height: 1.6; background: #f4f8ff; border-radius: 4px; padding: 8px 10px; }
+.number-setting-row { display: flex; align-items: center; gap: 10px; }
+.number-setting-label { font-size: 13px; color: #303133; white-space: nowrap; min-width: 56px; }
+.number-setting-preview { font-size: 13px; color: #909399; }
+.number-setting-preview strong { color: #409eff; }
 </style>
 
 <style>
@@ -1813,6 +1961,7 @@ function hideCtxMenu() {
 .smm-node .smm-node-shape {
   transition: none !important;
 }
+
 </style>
 
 <style scoped>

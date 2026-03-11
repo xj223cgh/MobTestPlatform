@@ -107,7 +107,7 @@
               placeholder="请选择项目"
               clearable
               filterable
-              style="width: 180px"
+              style="width: 140px"
               @change="handleSearch"
             >
               <el-option
@@ -119,9 +119,9 @@
             </el-select>
             <el-input
               v-model="filterForm.search"
-              placeholder="搜索任务名称/描述"
+              placeholder="搜索任务名称"
               clearable
-              style="width: 200px"
+              style="width: 160px"
               @clear="handleSearch"
               @keyup.enter="handleSearch"
             >
@@ -133,7 +133,7 @@
               v-model="filterForm.status"
               placeholder="状态"
               clearable
-              style="width: 110px"
+              style="width: 95px"
               @change="handleSearch"
             >
               <el-option label="待执行" value="pending" />
@@ -145,7 +145,7 @@
               v-model="filterForm.priority"
               placeholder="优先级"
               clearable
-              style="width: 100px"
+              style="width: 90px"
               @change="handleSearch"
             >
               <el-option label="高" value="high" />
@@ -157,7 +157,7 @@
               placeholder="负责人"
               clearable
               filterable
-              style="width: 120px"
+              style="width: 100px"
               @change="handleSearch"
             >
               <el-option
@@ -189,12 +189,14 @@
       <div class="table-section">
         <div class="table-scroll-viewport">
           <el-table
+            ref="taskTableRef"
             v-loading="currentLoading"
             :data="currentTaskList"
             stripe
             border
             style="width: 100%"
             fit
+            :row-class-name="getTaskRowClassName"
           >
             <el-table-column
               prop="task_name"
@@ -399,6 +401,10 @@ import TaskDialog from "./components/TaskDialog.vue";
 const activeTab = ref("test_case");
 /** 报告生成方式：auto 时任务列表不显示「生成报告」按钮 */
 const reportAutoGenerate = ref("manual");
+/** 消息/活动跳转时高亮闪烁的任务行 ID */
+const flashTaskId = ref(null);
+let flashClearTimer = null;
+const taskTableRef = ref(null);
 const loading = reactive({
   testCase: false,
   deviceScript: false,
@@ -883,14 +889,6 @@ const formatDateTime = (dateString) => {
 };
 
 const loadTasks = async () => {
-  if (!filterForm.project_id) {
-    taskList.testCase = [];
-    taskList.deviceScript = [];
-    pagination.testCase.total = 0;
-    pagination.deviceScript.total = 0;
-    return;
-  }
-
   const folderIdParam =
     selectedFolderId.value != null && selectedFolderId.value !== "__all__"
       ? selectedFolderId.value
@@ -1154,6 +1152,101 @@ const onFolderContextMenuMousedown = (e) => {
   }
 };
 
+/** 消息/活动跳转行高亮样式 */
+const getTaskRowClassName = ({ row }) => {
+  if (flashTaskId.value && row.id === flashTaskId.value) return "notification-flash-row";
+  return "";
+};
+
+/** 滚动表格至高亮行并启动 2.6s 清除定时器 */
+async function triggerTaskHighlight(id) {
+  if (!id) return;
+  flashTaskId.value = Number(id);
+  if (flashClearTimer) clearTimeout(flashClearTimer);
+  await nextTick();
+  const tableEl = taskTableRef.value?.$el;
+  if (tableEl) {
+    const row = tableEl.querySelector(".notification-flash-row");
+    if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+  flashClearTimer = setTimeout(() => {
+    flashTaskId.value = null;
+    const q = { ...route.query };
+    delete q.highlight_id;
+    router.replace({ path: route.path, query: Object.keys(q).length ? q : undefined });
+    flashClearTimer = null;
+  }, 2600);
+}
+
+/**
+ * 消息/活动跳转定位：
+ * 1. 获取任务详情，确定 task_type，切换到对应标签页
+ * 2. 全量加载该类型任务列表，计算目标行所在分页并切片展示
+ * 3. 调用 triggerTaskHighlight 触发闪烁
+ */
+async function locateFlashTask(id) {
+  const tid = Number(id);
+  flashTaskId.value = tid;
+
+  // 获取任务详情，确定正确的标签页
+  try {
+    const detailRes = await testTaskApi.getTestTaskDetail(tid);
+    const taskType = detailRes.data?.task?.task_type ?? detailRes.data?.task_type;
+    if (taskType === "device_script") {
+      activeTab.value = "device_script";
+    } else {
+      activeTab.value = "test_case";
+    }
+  } catch {
+    // 无法获取详情，保持当前标签页
+  }
+
+  const type = activeTab.value === "test_case" ? "test_case" : "device_script";
+  const pag = activeTab.value === "test_case" ? pagination.testCase : pagination.deviceScript;
+  const loadingKey = activeTab.value === "test_case" ? "testCase" : "deviceScript";
+  const folderIdParam =
+    selectedFolderId.value != null && selectedFolderId.value !== "__all__"
+      ? selectedFolderId.value
+      : undefined;
+
+  loading[loadingKey] = true;
+  try {
+    const res = await testTaskApi.getTestTaskList({
+      ...filterForm,
+      page: 1,
+      size: 10000,
+      task_type: type,
+      ...(folderIdParam !== undefined ? { folder_id: folderIdParam } : {}),
+    });
+    const allTasks = res.data.test_tasks || [];
+    const totalCount = res.data.pagination?.total ?? 0;
+
+    const idx = allTasks.findIndex((t) => t.id === tid);
+    if (idx >= 0) {
+      const pageSize = pag.size;
+      pag.page = Math.floor(idx / pageSize) + 1;
+      const start = (pag.page - 1) * pageSize;
+      const sliced = allTasks.slice(start, start + pageSize);
+      if (activeTab.value === "test_case") {
+        taskList.testCase = sliced;
+        pagination.testCase.total = totalCount;
+      } else {
+        taskList.deviceScript = sliced;
+        pagination.deviceScript.total = totalCount;
+      }
+    } else {
+      // 当前筛选条件下未找到目标行，回退为正常加载
+      await loadTasks();
+    }
+  } catch {
+    await loadTasks();
+  } finally {
+    loading[loadingKey] = false;
+  }
+
+  triggerTaskHighlight(id);
+}
+
 onMounted(async () => {
   if (route.query.tab === "device_script") {
     activeTab.value = "device_script";
@@ -1163,7 +1256,12 @@ onMounted(async () => {
     filterForm.project_id = projectOptions.value[0].id;
   }
   loadFolderTree();
-  loadTasks();
+  // 消息/活动跳转：定位到目标行所在分页并高亮；否则正常加载
+  if (route.query.highlight_id) {
+    await locateFlashTask(route.query.highlight_id);
+  } else {
+    await loadTasks();
+  }
   loadUsers();
   loadReportSetting();
   document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -1172,6 +1270,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('mousedown', onFolderContextMenuMousedown);
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
+  if (flashClearTimer) clearTimeout(flashClearTimer);
 });
 
 watch(selectedFolderId, () => scrollFolderTreeToCurrent());
@@ -1194,6 +1294,14 @@ watch(
       loadFolderTree();
       loadTasks();
     }
+  }
+);
+
+watch(
+  () => route.query.highlight_id,
+  async (id) => {
+    if (!id) return;
+    await locateFlashTask(id);
   }
 );
 
@@ -1357,18 +1465,20 @@ const handleVisibilityChange = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 12px 16px;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--el-border-color-light, #e4e7ed);
   background: var(--el-bg-color, #fff);
   min-width: 0;
+  overflow: hidden;
 }
 .list-toolbar .toolbar-left {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
+  flex-wrap: nowrap;
+  gap: 8px;
+  min-width: 0;
 }
 .list-toolbar .toolbar-left .el-button + .el-button {
   margin-left: 0;
@@ -1673,3 +1783,4 @@ const handleVisibilityChange = () => {
   background-color: #ecf5ff;
 }
 </style>
+

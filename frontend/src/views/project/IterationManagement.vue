@@ -420,6 +420,14 @@ export default {
   mounted() {
     this.initProjects();
   },
+  watch: {
+    '$route.query.highlight_id'(newId) {
+      this.highlightId = newId ? Number(newId) : null;
+      if (this.flashClearTimer) { clearTimeout(this.flashClearTimer); this.flashClearTimer = null; }
+      this.flashId = newId ? Number(newId) : null;
+      if (newId) this.loadIterations();
+    },
+  },
   computed: {
     // 当前项目日期范围提示
     currentProjectDateRange() {
@@ -919,6 +927,20 @@ export default {
   background-color: var(--el-color-primary-light-9, #ecf5ff);
   border-color: var(--el-color-primary-light-5, #b3d8ff);
   box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+}
+
+/* 消息通知跳转时的闪烁高亮动画 */
+.iteration-card.notification-flash-card {
+  animation: iteration-card-flash 2.6s ease-in-out forwards;
+}
+@keyframes iteration-card-flash {
+  0%   { background-color: var(--el-color-primary-light-5, #a0cfff); border-color: var(--el-color-primary, #409eff); }
+  14%  { background-color: transparent; border-color: var(--el-border-color, #e4e7ed); }
+  26%  { background-color: var(--el-color-primary-light-5, #a0cfff); border-color: var(--el-color-primary, #409eff); }
+  40%  { background-color: transparent; border-color: var(--el-border-color, #e4e7ed); }
+  52%  { background-color: var(--el-color-primary-light-5, #a0cfff); border-color: var(--el-color-primary, #409eff); }
+  68%  { background-color: var(--el-color-primary-light-5, #a0cfff); border-color: var(--el-color-primary, #409eff); }
+  100% { background-color: transparent; border-color: var(--el-border-color, #e4e7ed); }
 }
 
 /* 卡片三区域布局 */

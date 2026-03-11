@@ -61,53 +61,89 @@ def get_activities():
     """获取最近活动"""
     try:
         limit = request.args.get('limit', 10, type=int)
-        
+        per_type = max(limit // 6, 3)
+
         activities = []
-        
-        recent_tasks = db.session.query(TestTask).filter_by(status='completed')\
-            .order_by(TestTask.updated_at.desc())\
-            .limit(limit // 4)\
-            .all()
-        
-        for task in recent_tasks:
+
+        # 已完成的测试任务
+        for task in db.session.query(TestTask).filter_by(status='completed') \
+                .order_by(TestTask.updated_at.desc()).limit(per_type).all():
             activities.append({
                 'id': f'task_{task.id}',
                 'type': 'task',
                 'title': '测试任务完成',
                 'description': f'{task.task_name} 已成功完成',
-                'created_at': task.updated_at.isoformat() if task.updated_at else datetime.now().isoformat()
+                'created_at': (task.updated_at or datetime.now()).isoformat(),
+                'related_type': 'test_task',
+                'related_id': task.id,
             })
-        
-        recent_devices = db.session.query(Device).filter_by(status='online')\
-            .order_by(Device.updated_at.desc())\
-            .limit(limit // 4)\
-            .all()
-        
-        for device in recent_devices:
+
+        # 在线设备
+        for device in db.session.query(Device).filter_by(status='online') \
+                .order_by(Device.updated_at.desc()).limit(per_type).all():
             activities.append({
                 'id': f'device_{device.id}',
                 'type': 'device',
                 'title': '设备上线',
                 'description': f'设备 {device.device_name or "未知设备"} 已连接并上线',
-                'created_at': device.updated_at.isoformat() if device.updated_at else datetime.now().isoformat()
+                'created_at': (device.updated_at or datetime.now()).isoformat(),
+                'related_type': 'device',
+                'related_id': device.id,
             })
-        
-        recent_users = db.session.query(User).order_by(User.created_at.desc())\
-            .limit(limit // 4)\
-            .all()
-        
-        for user in recent_users:
+
+        # 最近注册用户
+        for user in db.session.query(User).order_by(User.created_at.desc()).limit(per_type).all():
             activities.append({
                 'id': f'user_{user.id}',
                 'type': 'user',
                 'title': '新用户注册',
                 'description': f'{user.username} 已注册账号',
-                'created_at': user.created_at.isoformat() if user.created_at else datetime.now().isoformat()
+                'created_at': (user.created_at or datetime.now()).isoformat(),
+                'related_type': 'user',
+                'related_id': user.id,
             })
-        
+
+        # 最近更新的项目
+        for project in db.session.query(Project).order_by(Project.updated_at.desc()).limit(per_type).all():
+            activities.append({
+                'id': f'project_{project.id}',
+                'type': 'project',
+                'title': '项目动态',
+                'description': f'项目「{project.project_name}」有新进展',
+                'created_at': (project.updated_at or datetime.now()).isoformat(),
+                'related_type': 'project',
+                'related_id': project.id,
+            })
+
+        # 最近创建的迭代
+        for iteration in db.session.query(Iteration).order_by(Iteration.created_at.desc()).limit(per_type).all():
+            activities.append({
+                'id': f'iteration_{iteration.id}',
+                'type': 'iteration',
+                'title': '新建迭代',
+                'description': f'迭代「{iteration.iteration_name}」已创建',
+                'created_at': (iteration.created_at or datetime.now()).isoformat(),
+                'related_type': 'iteration',
+                'related_id': iteration.id,
+            })
+
+        # 最近指派的需求
+        for req in db.session.query(VersionRequirement).filter(
+                VersionRequirement.assigned_to.isnot(None)) \
+                .order_by(VersionRequirement.updated_at.desc()).limit(per_type).all():
+            activities.append({
+                'id': f'req_{req.id}',
+                'type': 'requirement',
+                'title': '需求指派',
+                'description': f'需求「{req.requirement_name}」已指派',
+                'created_at': (req.updated_at or datetime.now()).isoformat(),
+                'related_type': 'version_requirement',
+                'related_id': req.id,
+            })
+
         activities.sort(key=lambda x: x['created_at'], reverse=True)
         activities = activities[:limit]
-        
+
         return success_response(data=activities)
     except Exception as e:
         error_msg = f"获取活动数据失败: {str(e)}"
@@ -136,7 +172,7 @@ def get_task_trend():
         
         dates = []
         completed_data = []
-        failed_data = []
+        paused_data = []
         running_data = []
         
         current_date = start_date
@@ -150,10 +186,10 @@ def get_task_trend():
                 TestTask.status == 'completed'
             ).count()
             
-            failed_count = db.session.query(TestTask).filter(
+            paused_count = db.session.query(TestTask).filter(
                 TestTask.updated_at >= current_date,
                 TestTask.updated_at < next_date,
-                TestTask.status == 'failed'
+                TestTask.status == 'paused'
             ).count()
             
             running_count = db.session.query(TestTask).filter(
@@ -164,7 +200,7 @@ def get_task_trend():
             
             dates.append(current_date.strftime('%m-%d'))
             completed_data.append(completed_count)
-            failed_data.append(failed_count)
+            paused_data.append(paused_count)
             running_data.append(running_count)
             
             current_date = next_date
@@ -172,7 +208,7 @@ def get_task_trend():
         trend_data = {
             'dates': dates,
             'completed': completed_data,
-            'failed': failed_data,
+            'paused': paused_data,
             'running': running_data
         }
         
@@ -242,15 +278,13 @@ def get_task_status_distribution():
         pending_count = db.session.query(TestTask).filter_by(status='pending').count()
         running_count = db.session.query(TestTask).filter_by(status='running').count()
         completed_count = db.session.query(TestTask).filter_by(status='completed').count()
-        failed_count = db.session.query(TestTask).filter_by(status='failed').count()
-        cancelled_count = db.session.query(TestTask).filter_by(status='cancelled').count()
+        paused_count = db.session.query(TestTask).filter_by(status='paused').count()
         
         distribution = [
             { 'name': '待执行', 'value': pending_count },
             { 'name': '执行中', 'value': running_count },
             { 'name': '已完成', 'value': completed_count },
-            { 'name': '失败', 'value': failed_count },
-            { 'name': '已取消', 'value': cancelled_count }
+            { 'name': '已暂停', 'value': paused_count }
         ]
         
         return success_response(data=distribution)

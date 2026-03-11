@@ -149,6 +149,7 @@
                 </el-tooltip>
                 <el-tag
                   :type="getStatusType(data.status)"
+                  :class="{ 'tag-not-applicable': data.status === 'not_applicable' }"
                   size="small"
                 >
                   {{ getStatusText(data.status || "") }}
@@ -309,6 +310,7 @@
                       阻塞
                     </el-button>
                     <el-button
+                      class="btn-not-applicable"
                       :disabled="loading.updateStatus"
                       @click="updateCaseStatus('not_applicable')"
                     >
@@ -722,10 +724,12 @@ const filteredCases = computed(() => {
       caseItem.case_name.includes(filterForm.search) ||
       (caseItem.case_description &&
         caseItem.case_description.includes(filterForm.search));
+    // 「未执行」的 value 为 ""，用例实际 status 可能是 undefined/null/""，需统一处理
+    const normalizedStatus = caseItem.status || "";
     const matchesStatus =
       !filterForm.status ||
       filterForm.status.length === 0 ||
-      filterForm.status.includes(caseItem.status);
+      filterForm.status.includes(normalizedStatus);
     return matchesSearch && matchesStatus;
   });
 });
@@ -740,7 +744,8 @@ const getStatusType = (status) => {
     pass: "success",
     fail: "danger",
     blocked: "warning",
-    not_applicable: "info",
+    not_applicable: "",
+    "": "info",
   };
   return typeMap[status] ?? "info";
 };
@@ -1090,6 +1095,12 @@ onMounted(async () => {
           .el-tag {
             flex-shrink: 0;
           }
+
+          .tag-not-applicable {
+            --el-tag-bg-color: #f3e8ff;
+            --el-tag-border-color: #e9d5ff;
+            --el-tag-text-color: #7c3aed;
+          }
         }
       }
     }
@@ -1322,6 +1333,21 @@ onMounted(async () => {
             .el-button {
               min-width: 80px;
             }
+
+            .btn-not-applicable {
+              --el-button-text-color: #7c3aed;
+              --el-button-bg-color: #f3e8ff;
+              --el-button-border-color: #c084fc;
+              --el-button-hover-text-color: #fff;
+              --el-button-hover-bg-color: #7c3aed;
+              --el-button-hover-border-color: #7c3aed;
+              --el-button-active-text-color: #fff;
+              --el-button-active-bg-color: #6d28d9;
+              --el-button-active-border-color: #6d28d9;
+              --el-button-disabled-text-color: #c4b5fd;
+              --el-button-disabled-bg-color: #faf5ff;
+              --el-button-disabled-border-color: #e9d5ff;
+            }
           }
         }
       }
@@ -1432,18 +1458,18 @@ onMounted(async () => {
             }
 
             &.status-not-applicable {
-              background-color: rgba(144, 147, 153, 0.1);
+              background-color: rgba(124, 58, 237, 0.08);
 
               .stat-label {
-                color: #909399;
+                color: #7c3aed;
               }
             }
 
             &.status-not-executed {
-              background-color: rgba(64, 158, 255, 0.1);
+              background-color: rgba(144, 147, 153, 0.1);
 
               .stat-label {
-                color: #409eff;
+                color: #909399;
               }
             }
           }

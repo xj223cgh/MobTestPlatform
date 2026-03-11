@@ -672,17 +672,37 @@ def update_case_execution(task_id, case_id):
         test_case = TestCase.query.get_or_404(case_id)
         if task.status == 'completed':
             return error_response(400, '任务已完成，不能修改用例执行记录')
+        # 校验用例确实属于该任务的用例集，防止越权写入
+        if task.suite_id:
+            if test_case.suite_id != task.suite_id:
+                return error_response(403, '该用例不属于此任务的用例集')
+        else:
+            # 无用例集时，通过任务直接关联的用例列表校验
+            task_case_ids = {tc.id for tc in (task.test_cases or [])}
+            if case_id not in task_case_ids:
+                return error_response(403, '该用例不属于此任务')
         data = request.get_json()
         if not data:
             return error_response(400, '请求体不能为空')
-        # status 必填（创建/更新执行记录用）；notes 可选
-        if 'status' not in data or data['status'] not in TEST_EXECUTION_STATUS:
+        # status 必填；空字符串表示重置为"未执行"，其余值必须在枚举中
+        if 'status' not in data:
+            return error_response(400, '缺少执行状态字段')
+        status = data['status']
+        if status != '' and status not in TEST_EXECUTION_STATUS:
             return error_response(400, '无效的执行状态')
-        
+
         execution = TestCaseExecution.query.filter_by(
             task_id=task_id,
             case_id=case_id
         ).first()
+
+        # 空字符串表示重置为"未执行"：删除执行记录
+        if status == '':
+            if execution:
+                db.session.delete(execution)
+                db.session.commit()
+            return success_response({'status': '', 'case_id': case_id, 'task_id': task_id})
+
         if not execution:
             execution = TestCaseExecution(
                 task_id=task_id,
@@ -692,7 +712,7 @@ def update_case_execution(task_id, case_id):
             db.session.add(execution)
         
         # 更新执行状态（仅写任务执行记录 TestCaseExecution，不更新用例库 TestCase）
-        execution.status = data['status']
+        execution.status = status
         if 'notes' in data:
             execution.notes = data['notes']
         execution.execution_time = datetime.now(timezone(timedelta(hours=8)))
@@ -710,8 +730,9 @@ def get_task_statistics(task_id):
     """获取测试任务的统计信息（按本任务的执行记录 TestCaseExecution 统计通过率）"""
     try:
         task = TestTask.query.get_or_404(task_id)
+        # 优先使用快照数量（任务执行时固化的用例集），保证统计口径与执行时一致
         if task.case_snapshots and len(task.case_snapshots) > 0:
-            total_cases = len(task.test_cases) if task.test_cases else 0
+            total_cases = len(task.case_snapshots)
         elif task.suite_id and task.suite:
             total_cases = len(task.suite.test_cases) if task.suite else 0
         else:
@@ -770,7 +791,7 @@ def execute_test_task(task_id):
             test_task.status = 'pending'
             test_task.started_time = None
             test_task.completed_time = None
-            test_task.executor_id = None
+            test_task.executor_id = current_user.id  # 记录本次重新执行的执行人
         else:
             # 首次执行，更新任务状态为执行中
             test_task.status = 'running'
@@ -1190,11 +1211,11 @@ def complete_test_task(task_id):
 @bp.route('/<int:task_id>/cancel', methods=['POST'])
 @login_required
 def cancel_test_task(task_id):
-    """取消测试任务"""
+    """终止/重置测试任务：将运行中或暂停中的任务重置为待执行状态，使其可重新执行。"""
     test_task = TestTask.query.get_or_404(task_id)
     
-    if test_task.status not in ['pending', 'running', 'paused']:
-        return error_response(400, "只能取消待执行、运行中或暂停中的测试任务")
+    if test_task.status not in ['running', 'paused']:
+        return error_response(400, "只能终止运行中或暂停中的测试任务")
     
     try:
         original_status = test_task.status
@@ -1203,15 +1224,15 @@ def cancel_test_task(task_id):
         test_task.completed_time = None
         db.session.commit()
         
-        log_user_action("取消测试任务", f"任务ID: {task_id}, 原状态: {original_status}")
+        log_user_action("终止测试任务", f"任务ID: {task_id}, 原状态: {original_status}")
         
         return success_response({
             'test_task': test_task.to_dict()
-        }, "测试任务已取消")
+        }, "测试任务已终止，状态已重置为待执行")
         
     except Exception as e:
         db.session.rollback()
-        return error_response(500, "测试任务取消失败，请稍后重试")
+        return error_response(500, "终止测试任务失败，请稍后重试")
 
 
 @bp.route('/<int:task_id>/devices', methods=['GET'])

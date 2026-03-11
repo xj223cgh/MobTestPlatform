@@ -13,11 +13,13 @@ export function getNotificationRoute(notification) {
     case "version_requirement":
       return { path: "/requirements", query: { highlight_id: id } };
     case "user":
-      return { path: "/users" };
+      return { path: "/users", query: { user_id: id } };
+    case "device":
+      return { path: "/devices", query: { highlight_device_id: id } };
     case "review_task":
-      return { path: "/case-reviews" };
+      return { path: "/case-reviews", query: { taskId: id } };
     case "test_task":
-      return { path: `/test-tasks/${id}/execute` };
+      return { path: "/test-tasks", query: { highlight_id: id } };
     case "report":
       return { path: `/report/${id}` };
     case "suite":

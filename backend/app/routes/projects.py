@@ -220,6 +220,12 @@ def update_project(project_id):
                 project.owner_id = new_owner_id
             else:
                 return jsonify({'error': '项目负责人不存在'}), 400
+        # 校验更新后的日期合理性：开始日期不能晚于结束日期
+        final_start = project.start_date
+        final_end = project.end_date
+        if final_start and final_end and final_start > final_end:
+            return jsonify({'code': 400, 'message': '开始日期不能晚于结束日期'}), 400
+
         if 'doc_url' in data:
             project.doc_url = data['doc_url']
         if 'pipeline_url' in data:
@@ -263,8 +269,10 @@ def update_project(project_id):
                                          f'{operator_name} 将你加入了项目「{project.project_name}」',
                                          'project', project_id, exclude_user_id=current_user.id)
             
+            # 保留 owner 和 creator，防止核心成员被意外移除
+            protected_user_ids = {current_owner_id, project.creator_id}
             for member in current_member_ids.values():
-                if member.user_id != current_owner_id:
+                if member.user_id not in protected_user_ids:
                     db.session.delete(member)
         
         db.session.commit()
@@ -346,8 +354,9 @@ def get_project_members(project_id):
 
 @bp.route('/<int:project_id>/members', methods=['POST'])
 @login_required
+@permission_required('project.edit')
 def add_project_member(project_id):
-    """添加项目成员（不做权限鉴别）"""
+    """添加项目成员"""
     try:
         project = Project.query.get(project_id)
         if not project:
@@ -384,6 +393,7 @@ def add_project_member(project_id):
 
 @bp.route('/<int:project_id>/members/<int:member_id>', methods=['DELETE'])
 @login_required
+@permission_required('project.edit')
 def remove_project_member(project_id, member_id):
     """移除项目成员"""
     try:
@@ -580,12 +590,6 @@ def update_project_version_requirement(project_id, requirement_id):
                 requirement.end_date = datetime.fromisoformat(data['end_date'].replace('Z', '+00:00'))
             except ValueError:
                 return jsonify({'code': 400, 'message': '结束日期格式错误，请使用有效的日期格式'}), 400
-        if 'completed_at' in data and data['completed_at']:
-            try:
-                requirement.completed_at = datetime.fromisoformat(data['completed_at'].replace('Z', '+00:00'))
-            except ValueError:
-                return jsonify({'code': 400, 'message': '完成日期格式错误，请使用有效的日期格式'}), 400
-        
         db.session.commit()
         
         return jsonify({'code': 200, 'message': '版本需求更新成功', 'data': requirement.to_dict()}), 200

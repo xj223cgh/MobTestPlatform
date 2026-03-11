@@ -87,7 +87,7 @@
             <div class="overview-info">
               <div class="info-item">
                 <span class="label">任务ID：</span>
-                <span class="value">{{ currentReport.id }}</span>
+                <span class="value">{{ currentReport.task_id || '-' }}</span>
               </div>
               <div class="info-item">
                 <span class="label">任务类型：</span>
@@ -112,7 +112,7 @@
                 <el-link 
                   type="primary" 
                   :underline="false"
-                  @click="goToCaseExecution(currentReport.id)"
+                  @click="goToCaseExecution(currentReport.task_id || currentReport.id)"
                 >
                   {{ currentReport.suite_name || '-' }}
                 </el-link>
@@ -146,7 +146,7 @@
                 <el-card
                   class="stat-card clickable"
                   shadow="hover"
-                  @click="quickFilter = quickFilter === 'fail' ? '' : 'fail'"
+                  @click="quickFilter = ''"
                 >
                   <div class="stat-content">
                     <div class="stat-number">

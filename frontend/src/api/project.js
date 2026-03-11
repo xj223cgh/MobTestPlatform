@@ -91,45 +91,6 @@ export function addProjectMember(projectId, data) {
 }
 
 /**
- * 更新项目成员角色
- * @param {number} projectId 项目ID
- * @param {number} userId 用户ID
- * @param {Object} data 角色数据
- * @returns {Promise}
- */
-export function updateProjectMemberRole(projectId, userId, data) {
-  return request({
-    url: `/projects/${projectId}/members/${userId}`,
-    method: "put",
-    data,
-  });
-}
-
-/**
- * 移除项目成员
- * @param {number} projectId 项目ID
- * @param {number} userId 用户ID
- * @returns {Promise}
- */
-export function removeProjectMember(projectId, userId) {
-  return request({
-    url: `/projects/${projectId}/members/${userId}`,
-    method: "delete",
-  });
-}
-
-/**
- * 获取用户可访问的项目列表
- * @returns {Promise}
- */
-export function getUserProjects() {
-  return request({
-    url: "/projects/my",
-    method: "get",
-  });
-}
-
-/**
  * 获取项目的版本需求列表
  * @param {number} projectId 项目ID
  * @returns {Promise}
@@ -216,9 +177,6 @@ export default {
   deleteProject,
   getProjectMembers,
   addProjectMember,
-  updateProjectMemberRole,
-  removeProjectMember,
-  getUserProjects,
   getProjectVersionRequirements,
   getAllVersionRequirements,
   createVersionRequirement,

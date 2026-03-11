@@ -177,6 +177,7 @@
                     :class="{
                       unread: !item.is_read,
                       'first-unpinned': isFirstUnpinned(index),
+                      navigable: !!getNotificationRoute(item),
                     }"
                     @click="onNotificationItemClick(item)"
                   >
@@ -188,7 +189,10 @@
                       popper-class="notification-full-content-tooltip"
                     >
                       <div class="notification-item-main">
-                        <div class="notification-item-title">{{ item.title }}</div>
+                        <div class="notification-item-title">
+                          <span>{{ item.title }}</span>
+                          <el-icon v-if="getNotificationRoute(item)" class="notification-nav-icon"><Right /></el-icon>
+                        </div>
                         <div class="notification-item-summary">{{ formatNotificationSummary(item.summary) }}</div>
                       <div class="notification-item-meta">
                         <el-tag :type="item.is_read ? 'info' : 'warning'" size="small" class="notification-item-status">
@@ -199,7 +203,10 @@
                     </div>
                     </el-tooltip>
                     <div v-else class="notification-item-main">
-                      <div class="notification-item-title">{{ item.title }}</div>
+                      <div class="notification-item-title">
+                        <span>{{ item.title }}</span>
+                        <el-icon v-if="getNotificationRoute(item)" class="notification-nav-icon"><Right /></el-icon>
+                      </div>
                       <div class="notification-item-summary">{{ formatNotificationSummary(item.summary) }}</div>
                       <div class="notification-item-meta">
                         <el-tag :type="item.is_read ? 'info' : 'warning'" size="small" class="notification-item-status">
@@ -323,6 +330,7 @@ import {
   CircleCheck,
   CircleClose,
   Delete,
+  Right,
 } from "@element-plus/icons-vue";
 import { useNotificationStore } from "@/stores/notification";
 import { useNotificationSocket } from "@/composables/useNotificationSocket";
@@ -885,8 +893,14 @@ const handleCommand = (command) => {
   gap: 8px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--el-border-color-extra-light);
-  cursor: pointer;
+  cursor: default;
   transition: background 0.2s;
+}
+.notification-popover .notification-item.navigable {
+  cursor: pointer;
+}
+.notification-popover .notification-item.navigable:hover {
+  background: var(--el-color-primary-light-9) !important;
 }
 .notification-popover .notification-item.first-unpinned {
   border-top: 2px solid var(--el-border-color);
@@ -902,9 +916,23 @@ const handleCommand = (command) => {
   min-width: 0;
 }
 .notification-popover .notification-item-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 14px;
-  color: var(--el-text-color-primary);
   margin-bottom: 4px;
+}
+.notification-popover .notification-item-title span {
+  color: var(--el-text-color-primary);
+}
+.notification-popover .notification-item.navigable .notification-item-title span {
+  color: var(--el-color-primary);
+}
+.notification-nav-icon {
+  font-size: 12px;
+  color: var(--el-color-primary);
+  flex-shrink: 0;
+  opacity: 0.7;
 }
 .notification-popover .notification-item-summary {
   font-size: 12px;
@@ -943,37 +971,37 @@ const handleCommand = (command) => {
   border-top: 1px solid var(--el-border-color-lighter);
 }
 
-tr.notification-flash-row > td,
-.el-table tr.notification-flash-row > td {
-  background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
-  animation: notification-flash-bg 2.8s ease-in-out forwards !important;
+/* 通知跳转高亮行闪烁
+ * 关键：@keyframes 内不能用 !important（浏览器忽略）；
+ * 而 background-color: X !important 在 cascade 中属于"作者级重要"，优先级高于动画层，
+ * 会导致动画无法改变背景色（只会显示静态蓝色而不会闪烁）。
+ * 正确做法：提高选择器特异性以覆盖 el-table 默认样式，不依赖 !important。
+ */
+.el-table tbody tr.notification-flash-row > td.el-table__cell,
+.el-table.el-table--striped .el-table__body tr.notification-flash-row > td.el-table__cell {
+  background-color: var(--el-color-primary-light-5, #a0cfff);
+  animation: notification-flash-bg 2.6s ease-in-out forwards;
 }
 .iteration-card.notification-flash-card {
-  background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
-  animation: notification-flash-bg 2.8s ease-in-out forwards !important;
+  animation: notification-flash-bg-card 2.6s ease-in-out forwards;
 }
 @keyframes notification-flash-bg {
-  0% {
-    background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
-  }
-  12% {
-    background-color: transparent !important;
-  }
-  22% {
-    background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
-  }
-  34% {
-    background-color: transparent !important;
-  }
-  44% {
-    background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
-  }
-  60% {
-    background-color: var(--el-color-primary-light-9, #ecf5ff) !important;
-  }
-  100% {
-    background-color: transparent !important;
-  }
+  0%   { background-color: var(--el-color-primary-light-5, #a0cfff); }
+  14%  { background-color: var(--el-fill-color-blank, #fff); }
+  26%  { background-color: var(--el-color-primary-light-5, #a0cfff); }
+  40%  { background-color: var(--el-fill-color-blank, #fff); }
+  52%  { background-color: var(--el-color-primary-light-5, #a0cfff); }
+  68%  { background-color: var(--el-color-primary-light-5, #a0cfff); }
+  100% { background-color: var(--el-fill-color-blank, #fff); }
+}
+@keyframes notification-flash-bg-card {
+  0%   { background-color: var(--el-color-primary-light-7, #c6e2ff); }
+  14%  { background-color: transparent; }
+  26%  { background-color: var(--el-color-primary-light-7, #c6e2ff); }
+  40%  { background-color: transparent; }
+  52%  { background-color: var(--el-color-primary-light-7, #c6e2ff); }
+  68%  { background-color: var(--el-color-primary-light-7, #c6e2ff); }
+  100% { background-color: transparent; }
 }
 
 .layout .content .table-scroll-viewport {

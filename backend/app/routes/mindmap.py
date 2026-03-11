@@ -1,5 +1,6 @@
 """脑图数据管理路由 - 用例集脑图 CRUD、解析同步到 test_cases"""
 import json
+import re
 import uuid
 from datetime import datetime, timezone, timedelta
 
@@ -57,6 +58,7 @@ def get_mindmap(suite_id):
             'project_id': suite.project_id,
             'version_requirement_id': suite.version_requirement_id,
             'version_requirement_name': suite.version_requirement.requirement_name if suite.version_requirement else None,
+            'case_number_prefix': getattr(suite, 'case_number_prefix', None) or 'TC-',
         })
     except Exception as e:
         return error_response(500, f'获取脑图数据失败: {str(e)}')
@@ -101,8 +103,20 @@ def save_mindmap(suite_id):
         if 'case_edit_status' in data:
             suite.case_edit_status = data['case_edit_status']
 
+        if 'case_number_prefix' in data:
+            prefix = (data['case_number_prefix'] or 'TC-').strip()
+            suite.case_number_prefix = prefix or 'TC-'
+
         cases = _parse_mindmap_to_cases(mindmap_data['root'], suite)
         _sync_cases_to_db(cases, suite)
+
+        # 将生成/更新的编号写回脑图节点，让前端可同步展示
+        case_number_map = {
+            tc.mindmap_node_id: tc.case_number
+            for tc in TestCase.query.filter_by(suite_id=suite.id).all()
+            if tc.mindmap_node_id and tc.case_number
+        }
+        _write_case_numbers_to_mindmap(mindmap_data['root'], case_number_map)
 
         suite.case_count = len(cases)
         mindmap_data.setdefault('metadata', {})
@@ -115,19 +129,19 @@ def save_mindmap(suite_id):
             snapshot=suite.case_mindmap_data,
             created_by=current_user.id,
         ))
-        db.session.commit()
-        # 每个用例集最多保留 30 个版本
-        versions = MindmapVersion.query.filter_by(suite_id=suite.id).order_by(MindmapVersion.id.desc()).offset(30).all()
-        for v in versions:
+        db.session.flush()  # 让新版本获得 ID，再查超出 30 条的旧版本
+        # 每个用例集最多保留 30 个版本，与主保存同一事务提交
+        old_versions = MindmapVersion.query.filter_by(suite_id=suite.id).order_by(MindmapVersion.id.desc()).offset(30).all()
+        for v in old_versions:
             db.session.delete(v)
-        if versions:
-            db.session.commit()
+        db.session.commit()
 
         return success_response({
             'suite_id': suite.id,
             'case_count': suite.case_count,
             'last_saved_at': suite.last_saved_at.isoformat(),
             'mindmap_version': suite.mindmap_version,
+            'case_number_map': case_number_map,
         })
     except Exception as e:
         db.session.rollback()
@@ -182,11 +196,18 @@ def rollback_mindmap(suite_id):
         suite.case_mindmap_data = ver.snapshot
         suite.last_saved_at = datetime.now(LOCAL_TIMEZONE)
         suite.last_saved_by = current_user.id
-        db.session.commit()
+        suite.mindmap_version = (getattr(suite, 'mindmap_version', 0) or 0) + 1
+        # 回退后同步 test_cases 表，保证脑图数据与用例表一致
         mindmap_data = json.loads(ver.snapshot) if ver.snapshot else None
+        if mindmap_data and 'root' in mindmap_data:
+            rollback_cases = _parse_mindmap_to_cases(mindmap_data['root'], suite)
+            _sync_cases_to_db(rollback_cases, suite)
+            suite.case_count = len(rollback_cases)
+        db.session.commit()
         return success_response({
             'suite_id': suite.id,
             'mindmap_data': mindmap_data,
+            'mindmap_version': suite.mindmap_version,
             'message': '已回退到该版本',
         })
     except Exception as e:
@@ -341,6 +362,7 @@ def _build_mindmap_from_cases(suite):
             'priority': (c.priority or 'P1').strip() or 'P1',
             'tags': (c.tags if isinstance(c.tags, list) else []) or [],
             'markers': (c.markers if isinstance(c.markers, list) else []) or [],
+            'case_number': c.case_number or '',
             'children': [],
         }
         if c.test_data and str(c.test_data).strip():
@@ -435,6 +457,7 @@ def _extract_case(title_node, group_path):
 
     return {
         'mindmap_node_id': node_id,
+        'case_number': title_node.get('case_number', ''),
         'case_name': case_name,
         'priority': priority,
         'test_data': test_data_text,
@@ -462,6 +485,7 @@ def _extract_case_no_title(prec_node, group_path):
 
     return {
         'mindmap_node_id': node_id,
+        'case_number': prec_node.get('case_number', ''),
         'case_name': case_name,
         'priority': priority,
         'test_data': '',
@@ -499,14 +523,21 @@ def _resolve_priority(node):
 
 def _sync_cases_to_db(parsed_cases, suite):
     """将解析出的用例与 test_cases 表同步（增/改/删）"""
+    prefix = (getattr(suite, 'case_number_prefix', None) or 'TC-').strip() or 'TC-'
+
     existing = {c.mindmap_node_id: c for c in
                 TestCase.query.filter_by(suite_id=suite.id).all()
                 if c.mindmap_node_id}
+
+    # 从本用例集所有用例编号中找出最大序号，保证自动编号不重复
+    max_seq = _calc_max_seq(prefix, list(existing.values()))
 
     new_node_ids = {c['mindmap_node_id'] for c in parsed_cases}
 
     for pc in parsed_cases:
         nid = pc['mindmap_node_id']
+        node_case_number = (pc.get('case_number') or '').strip()
+
         if nid in existing:
             tc = existing[nid]
             tc.case_name = pc['case_name']
@@ -518,8 +549,28 @@ def _sync_cases_to_db(parsed_cases, suite):
             tc.group_path = pc['group_path']
             tc.tags = pc['tags']
             tc.markers = pc['markers']
+            if node_case_number:
+                # 节点上有显式编号：规范化后写入，并更新 max_seq
+                normalized = _normalize_case_number(prefix, node_case_number)
+                tc.case_number = normalized
+                max_seq = max(max_seq, _parse_seq(prefix, normalized))
+            elif tc.case_number:
+                # 节点无编号但 DB 已有编号：规范化格式（修正历史 4 位等问题）
+                tc.case_number = _normalize_case_number(prefix, tc.case_number)
+                max_seq = max(max_seq, _parse_seq(prefix, tc.case_number))
         else:
+            if node_case_number:
+                case_number = _normalize_case_number(prefix, node_case_number)
+                max_seq = max(max_seq, _parse_seq(prefix, case_number))
+            else:
+                if max_seq >= 999:
+                    raise ValueError(
+                        f'用例编号已达上限（{prefix}999），请手动为新用例指定编号，或修改编号前缀重新编号'
+                    )
+                max_seq += 1
+                case_number = f'{prefix}{max_seq:03d}'
             tc = TestCase(
+                case_number=case_number,
                 case_name=pc['case_name'],
                 priority=pc['priority'],
                 test_data=pc.get('test_data', ''),
@@ -544,6 +595,44 @@ def _sync_cases_to_db(parsed_cases, suite):
             # 先删除引用该用例的执行记录，避免 case_id NOT NULL 约束报错
             TestCaseExecution.query.filter_by(case_id=tc.id).delete(synchronize_session=False)
             db.session.delete(tc)
+
+
+def _parse_seq(prefix, case_number):
+    """从用例编号中解析出序号整数；无法解析时返回 0"""
+    if not case_number or not case_number.startswith(prefix):
+        return 0
+    suffix = case_number[len(prefix):]
+    digits = re.sub(r'\D', '', suffix)
+    try:
+        return int(digits) if digits else 0
+    except ValueError:
+        return 0
+
+
+def _normalize_case_number(prefix, case_number):
+    """将任意格式的用例编号规范化为「前缀 + 3 位补零数字」，如 TC-WPS-0008 → TC-WPS-008。
+    若无法解析，或序号不在 1~999 范围内，则原样返回。"""
+    if not case_number:
+        return case_number
+    suffix = case_number[len(prefix):] if case_number.startswith(prefix) else case_number
+    digits = re.sub(r'\D', '', suffix)
+    if not digits:
+        return case_number
+    seq = int(digits)
+    if 1 <= seq <= 999:
+        return f'{prefix}{seq:03d}'
+    return case_number
+
+
+def _calc_max_seq(prefix, cases):
+    """从给定用例列表中计算当前最大序号"""
+    max_seq = 0
+    for c in cases:
+        if c.case_number:
+            seq = _parse_seq(prefix, c.case_number)
+            if seq > max_seq:
+                max_seq = seq
+    return max_seq
 
 
 def _validate_attribute_chains(root_node):
@@ -626,12 +715,15 @@ def _validate_test_data(node, errors, path):
 
 
 def _validate_prec(node, errors, path):
-    """前置条件下必须有且只有1个操作步骤"""
-    steps = [c for c in node.get('children', []) if c.get('attribute') == 'step']
-    if len(steps) != 1:
-        errors.append(f'"{node.get("text","")}": 前置条件下必须有且只有1个操作步骤，当前{len(steps)}个')
+    """前置条件下必须有且只有1个操作步骤节点"""
+    children = node.get('children', [])
+    if len(children) != 1:
+        errors.append(f'"{node.get("text","")}": 前置条件下必须有且只有1个操作步骤，当前{len(children)}个')
         return
-    _validate_step(steps[0], errors, path)
+    if children[0].get('attribute') != 'step':
+        errors.append(f'"{node.get("text","")}": 前置条件下必须是操作步骤节点')
+        return
+    _validate_step(children[0], errors, path)
 
 
 def _validate_step(node, errors, path):
@@ -646,6 +738,18 @@ def _validate_step(node, errors, path):
         return
     if er.get('children'):
         errors.append(f'"{er.get("text","")}": 预期结果节点下不允许有子节点')
+
+
+def _write_case_numbers_to_mindmap(root_node, case_number_map):
+    """将 DB 中确定的 case_number 写回脑图节点（mindmap_node_id → case_number），
+    使脑图 JSON 与 test_cases 表保持一致，前端可直接读取展示。"""
+    def _walk(node):
+        nid = node.get('id')
+        if nid and nid in case_number_map:
+            node['case_number'] = case_number_map[nid]
+        for child in node.get('children', []):
+            _walk(child)
+    _walk(root_node)
 
 
 def _init_system_markers(project_id):

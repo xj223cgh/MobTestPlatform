@@ -115,11 +115,13 @@
         </div>
 
             <el-table
+            ref="caseSetTableRef"
             :data="caseSets"
             v-loading="tableLoading"
               border
             stripe
             style="width: 100%"
+            :row-class-name="getCaseSetRowClassName"
             @row-click="handleRowClick"
           >
             <el-table-column prop="suite_name" label="用例集名称" min-width="150" align="center">
@@ -589,7 +591,7 @@
 
 <script setup>
 import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { Folder, DArrowRight, DArrowLeft, Loading, Delete, EditPen } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useUserStore } from "@/stores/user";
@@ -602,14 +604,19 @@ import {
   getRecycledSuites,
   restoreRecycledSuite,
   batchPermanentDeleteRecycledSuites,
+  getTestSuiteDetail,
 } from "@/api/testSuite";
 import { moveTestSuite, copyTestSuite, importTestSuite } from "@/api/testSuite";
 import { getProjects, getProjectVersionRequirements } from "@/api/project";
 import { createGenerateCasesTask, getTaskStatus } from "@/api/aiTasks";
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 const folderTreeRef = ref(null);
+const caseSetTableRef = ref(null);
+const flashSuiteId = ref(null);
+let flashClearTimer = null;
 const searchText = ref("");
 const isLeftPanelCollapsed = ref(false);
 const selectedFolder = ref(null);
@@ -747,21 +754,40 @@ async function loadFolderTree() {
   }
 }
 
-async function loadCaseSets() {
+/**
+ * 加载用例集列表。
+ * locateId 不为 null 时：全量拉取（size=10000），计算目标用例集所在分页并切片展示，
+ * 实现分页定位；否则按当前分页参数正常加载。
+ */
+async function loadCaseSets(locateId = null) {
   if (!selectedFolder.value) return;
   tableLoading.value = true;
   try {
     const params = {
-      page: pagination.page,
-      page_size: pagination.pageSize,
+      page: locateId ? 1 : pagination.page,
+      page_size: locateId ? 10000 : pagination.pageSize,
       search: caseSetSearch.value,
       review_status: reviewStatusFilter.value || undefined,
     };
     if (filterProjectId.value) params.project_id = filterProjectId.value;
     const res = await getCaseSets(selectedFolder.value.id, params);
     const d = res.data || {};
-    caseSets.value = d.items || [];
     pagination.total = d.total || 0;
+
+    if (locateId && d.items?.length > 0) {
+      const idx = d.items.findIndex((s) => s.id === locateId);
+      if (idx >= 0) {
+        const pageSize = pagination.pageSize;
+        pagination.page = Math.floor(idx / pageSize) + 1;
+        const start = (pagination.page - 1) * pageSize;
+        caseSets.value = d.items.slice(start, start + pageSize);
+      } else {
+        caseSets.value = d.items.slice(0, pagination.pageSize);
+        pagination.page = 1;
+      }
+    } else {
+      caseSets.value = d.items || [];
+    }
   } catch {
     ElMessage.error("加载用例集列表失败");
   } finally {
@@ -1427,6 +1453,38 @@ function selectFolderById(folderId) {
   else selectedFolder.value = null;
 }
 
+/** 通知跳转高亮：为对应用例集行附加闪烁 class */
+function getCaseSetRowClassName({ row }) {
+  if (flashSuiteId.value && row.id === flashSuiteId.value) return "notification-flash-row";
+  return "";
+}
+
+/** 用例集列表或 flashSuiteId 变化时，自动滚动并触发闪烁计时 */
+watch(
+  () => [caseSets.value, flashSuiteId.value],
+  () => {
+    const sid = flashSuiteId.value;
+    if (!sid || flashClearTimer) return;
+    const inList = caseSets.value.some((r) => r.id === sid);
+    if (!inList) return;
+
+    nextTick(() => {
+      const tableEl = caseSetTableRef.value?.$el;
+      const row = tableEl?.querySelector("tr.notification-flash-row");
+      if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+
+    flashClearTimer = setTimeout(() => {
+      flashSuiteId.value = null;
+      flashClearTimer = null;
+      const q = { ...route.query };
+      delete q.suite_id;
+      router.replace({ path: route.path, query: Object.keys(q).length ? q : undefined });
+    }, 2600);
+  },
+  { flush: "post" }
+);
+
 async function startGenerateForSuite(suiteId, documentContent) {
   try {
     generatingMap[suiteId] = 'pending';
@@ -1448,27 +1506,34 @@ async function startGenerateForSuite(suiteId, documentContent) {
   }
 }
 
+// 跟踪所有轮询定时器，组件卸载时统一清理
+const pollIntervalMap = new Map();
+
 function pollTaskStatus(taskId, suiteId) {
-  let interval = setInterval(async () => {
+  const interval = setInterval(async () => {
     try {
       const res = await getTaskStatus(taskId);
       const status = res.data?.status;
       if (status === 'completed') {
         clearInterval(interval);
+        pollIntervalMap.delete(suiteId);
         delete generatingMap[suiteId];
         ElMessage.success("用例生成完成！");
         await loadFolderTree();
         await loadCaseSets();
       } else if (status === 'failed') {
         clearInterval(interval);
+        pollIntervalMap.delete(suiteId);
         delete generatingMap[suiteId];
         ElMessage.error(res.data?.error || "用例生成失败");
       }
     } catch {
       clearInterval(interval);
+      pollIntervalMap.delete(suiteId);
       delete generatingMap[suiteId];
     }
   }, 3000);
+  pollIntervalMap.set(suiteId, interval);
 }
 
 function handleFolderContextMenu(event, data) {
@@ -1612,9 +1677,71 @@ watch(showRecycleDrawer, (open) => {
   }
 });
 
-onMounted(() => {
-  loadProjects();
+// 已在用例页时收到新通知跳转（suite_id 变化）→ 重新触发定位逻辑
+watch(
+  () => route.query?.suite_id,
+  async (idVal, oldVal) => {
+    if (!idVal || idVal === oldVal) return;
+    const sid = Number(idVal);
+    flashSuiteId.value = sid;
+    try {
+      const res = await getTestSuiteDetail(sid);
+      const suite = res.data;
+      if (suite.project_id) filterProjectId.value = suite.project_id;
+      await loadFolderTree();
+      if (suite.parent_id !== null && suite.parent_id !== undefined) selectFolderById(suite.parent_id);
+      if (selectedFolder.value) await loadCaseSets(flashSuiteId.value);
+    } catch {
+      flashSuiteId.value = null;
+    }
+  }
+);
+
+onMounted(async () => {
   document.addEventListener("click", hideContextMenu);
+  const suiteIdParam = route.query.suite_id;
+  if (suiteIdParam) {
+    const sid = Number(suiteIdParam);
+    flashSuiteId.value = sid;
+    try {
+      // 获取用例集详情以确定所属项目和父文件夹
+      const res = await getTestSuiteDetail(sid);
+      const suite = res.data;
+      // 加载项目列表
+      const pRes = await getProjects({ page: 1, size: 10000 });
+      projectOptions.value = pRes.data?.items ?? (Array.isArray(pRes.data) ? pRes.data : []) ?? [];
+      // 切换到用例集所属项目
+      if (suite.project_id) {
+        filterProjectId.value = suite.project_id;
+      } else if (projectOptions.value.length) {
+        filterProjectId.value = projectOptions.value[0].id;
+      }
+      // 加载对应项目的文件夹树
+      await loadFolderTree();
+      // 选中用例集所在的父文件夹
+      if (suite.parent_id !== null && suite.parent_id !== undefined) {
+        selectFolderById(suite.parent_id);
+      }
+      // 加载该文件夹下的用例集，传入 flashSuiteId 以实现分页定位
+      if (selectedFolder.value) {
+        await loadCaseSets(flashSuiteId.value);
+      }
+      // 若用例集在目标文件夹中，watch 会触发高亮；否则兜底清理 URL
+      await nextTick();
+      if (flashSuiteId.value && !flashClearTimer) {
+        flashSuiteId.value = null;
+        const q = { ...route.query };
+        delete q.suite_id;
+        router.replace({ path: route.path, query: Object.keys(q).length ? q : undefined });
+      }
+    } catch {
+      // 定位失败，回退为正常加载
+      flashSuiteId.value = null;
+      loadProjects();
+    }
+  } else {
+    loadProjects();
+  }
 });
 
 // 打开生成弹窗时清空上传列表
@@ -1626,6 +1753,10 @@ watch(generateDialogVisible, (visible) => {
 
 onBeforeUnmount(() => {
   document.removeEventListener("click", hideContextMenu);
+  if (flashClearTimer) { clearTimeout(flashClearTimer); flashClearTimer = null; }
+  // 清理所有 AI 生成轮询定时器，防止组件卸载后继续轮询
+  pollIntervalMap.forEach((interval) => clearInterval(interval));
+  pollIntervalMap.clear();
 });
 </script>
 

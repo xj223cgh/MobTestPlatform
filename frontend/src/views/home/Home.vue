@@ -20,7 +20,8 @@
     <div class="stats-grid">
       <div
         v-loading="loading"
-        class="stat-card"
+        class="stat-card stat-card--clickable"
+        @click="router.push('/projects')"
       >
         <div class="stat-icon primary">
           <el-icon><FolderOpened /></el-icon>
@@ -43,7 +44,8 @@
 
       <div
         v-loading="loading"
-        class="stat-card"
+        class="stat-card stat-card--clickable"
+        @click="router.push('/test-cases')"
       >
         <div class="stat-icon success">
           <el-icon><Document /></el-icon>
@@ -66,7 +68,8 @@
 
       <div
         v-loading="loading"
-        class="stat-card"
+        class="stat-card stat-card--clickable"
+        @click="router.push('/test-tasks')"
       >
         <div class="stat-icon warning">
           <el-icon><List /></el-icon>
@@ -89,7 +92,8 @@
 
       <div
         v-loading="loading"
-        class="stat-card"
+        class="stat-card stat-card--clickable"
+        @click="router.push('/devices')"
       >
         <div class="stat-icon info">
           <el-icon><Monitor /></el-icon>
@@ -227,6 +231,8 @@
             v-for="activity in recentActivities"
             :key="activity.id"
             class="activity-item"
+            :class="{ 'activity-item-clickable': getActivityRoute(activity) }"
+            @click="handleActivityClick(activity)"
           >
             <div
               class="activity-icon"
@@ -237,7 +243,7 @@
               </el-icon>
             </div>
             <div class="activity-content">
-              <div class="activity-title">
+              <div class="activity-title" :class="{ 'activity-title-link': getActivityRoute(activity) }">
                 {{ activity.title }}
               </div>
               <div class="activity-desc">
@@ -247,6 +253,7 @@
                 {{ formatTime(activity.created_at) }}
               </div>
             </div>
+            <el-icon v-if="getActivityRoute(activity)" class="activity-arrow"><ArrowRight /></el-icon>
           </div>
         </div>
       </div>
@@ -268,6 +275,7 @@ import {
 } from "echarts/components";
 import VChart from "vue-echarts";
 import { ElMessage } from "element-plus";
+import { ArrowRight } from "@element-plus/icons-vue";
 import dayjs from "dayjs";
 import {
   getHomeStats,
@@ -280,6 +288,7 @@ import {
 import { getNotifications } from "@/api/notifications";
 import { isPermissionError } from "@/utils/request";
 import { useSystemSettingsStore } from "@/stores/systemSettings";
+import { getNotificationRoute } from "@/utils/notificationLink";
 
 const router = useRouter();
 const systemSettingsStore = useSystemSettingsStore();
@@ -505,6 +514,10 @@ const getActivityIcon = (activity) => {
     task: "List",
     device: "Monitor",
     user: "User",
+    project: "Folder",
+    iteration: "Refresh",
+    requirement: "Document",
+    suite: "Files",
   };
   return iconMap[type] || "Document";
 };
@@ -612,12 +625,51 @@ const fetchRecentActivities = async () => {
         created_at: n.created_at,
         _sort: n.created_at,
         _isNotification: true,
+        // 保留通知路由信息，供点击跳转使用
+        related_type: n.related_type,
+        related_id: n.related_id,
       });
     });
     list.sort((a, b) => (b._sort || "").localeCompare(a._sort || ""));
     recentActivitiesAll.value = list.map(({ _sort, ...item }) => item);
   } catch (error) {
     console.error("获取最近活动失败:", error);
+  }
+};
+
+/**
+ * 根据活动项解析跳转路由：
+ * - 通知类活动（_isNotification）：使用 getNotificationRoute 映射
+ * - 普通活动：优先使用 related_type + related_id（统一走 getNotificationRoute），
+ *   兼容仅有 id 前缀格式（task_X / device_X / user_X）的旧数据
+ */
+const getActivityRoute = (activity) => {
+  if (!activity) return null;
+  if (activity._isNotification) {
+    return getNotificationRoute({ related_type: activity.related_type, related_id: activity.related_id });
+  }
+  // 优先使用后端明确返回的 related_type + related_id（覆盖 project/iteration/requirement 等所有类型）
+  if (activity.related_type && activity.related_id) {
+    return getNotificationRoute({ related_type: activity.related_type, related_id: activity.related_id });
+  }
+  // 兼容旧格式：从 id 前缀中提取
+  const idStr = String(activity.id || "");
+  if (idStr.startsWith("task_")) {
+    return { path: "/test-tasks", query: { highlight_id: idStr.replace("task_", "") } };
+  }
+  if (idStr.startsWith("device_")) {
+    return { path: "/devices", query: { highlight_device_id: idStr.replace("device_", "") } };
+  }
+  if (idStr.startsWith("user_")) {
+    return { path: "/users", query: { user_id: idStr.replace("user_", "") } };
+  }
+  return null;
+};
+
+const handleActivityClick = (activity) => {
+  const route = getActivityRoute(activity);
+  if (route) {
+    router.push(route);
   }
 };
 
@@ -716,6 +768,15 @@ onMounted(() => {
     &:hover {
       transform: translateY(-4px);
       box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.1);
+    }
+
+    &--clickable {
+      cursor: pointer;
+
+      &:hover {
+        border-color: var(--el-color-primary-light-5, #a0cfff);
+        box-shadow: 0 6px 24px 0 rgba(64, 158, 255, 0.15);
+      }
     }
 
     .stat-icon {
@@ -858,6 +919,7 @@ onMounted(() => {
       
       .activity-item {
         display: flex;
+        align-items: center;
         gap: 15px;
         padding: 16px 0;
         border-bottom: 1px solid var(--el-border-color-lighter, #f5f7fa);
@@ -874,6 +936,20 @@ onMounted(() => {
           padding-right: 8px;
           margin-right: -8px;
           border-radius: 4px;
+        }
+
+        &.activity-item-clickable {
+          cursor: pointer;
+
+          &:hover {
+            background-color: var(--el-color-primary-light-9, #ecf5ff);
+          }
+        }
+
+        .activity-arrow {
+          color: var(--el-text-color-placeholder, #c0c4cc);
+          flex-shrink: 0;
+          font-size: 14px;
         }
 
         .activity-icon {
@@ -899,6 +975,22 @@ onMounted(() => {
             background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
           }
 
+          &.project {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+          }
+
+          &.iteration {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+          }
+
+          &.requirement {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+          }
+
+          &.suite {
+            background: linear-gradient(135deg, #fa709a 0%, #a18cd1 100%);
+          }
+
           &.is-notification {
             background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
           }
@@ -916,6 +1008,10 @@ onMounted(() => {
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+
+            &.activity-title-link {
+              color: var(--el-color-primary);
+            }
           }
 
           .activity-desc {

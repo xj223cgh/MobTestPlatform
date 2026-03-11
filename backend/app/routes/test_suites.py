@@ -14,16 +14,19 @@ def get_test_suites():
         with_children = request.args.get('with_children', 'false').lower() == 'true'
         
         if with_children:
-            root_suites = TestSuite.query.filter_by(parent_id=None).all()
-            
+            root_suites = TestSuite.query.filter_by(parent_id=None).filter(
+                TestSuite.deleted_at.is_(None)
+            ).all()
+
             def build_tree(suite):
                 suite_dict = suite.to_dict()
                 children = []
                 for child in suite.children:
-                    children.append(build_tree(child))
+                    if child.deleted_at is None:
+                        children.append(build_tree(child))
                 suite_dict['children'] = children
                 return suite_dict
-            
+
             tree_data = [build_tree(suite) for suite in root_suites]
             return success_response(tree_data)
         else:
@@ -133,9 +136,7 @@ def create_test_suite():
                 if iteration_id is None:
                     iteration_id = parent_suite.iteration_id
         if project_id is None:
-            first_project = Project.query.first()
-            if first_project:
-                project_id = first_project.id
+            return error_response(400, '缺少所属项目，请指定 project_id')
         
         new_suite = TestSuite(
             suite_name=data['suite_name'],
@@ -257,11 +258,12 @@ def update_test_suite(suite_id):
             suite.iteration_id = data['iteration_id']
         
         # 如果父级或排序发生变化，需要重新调整排序
-        if ('parent_id' in data and data['parent_id'] != original_parent_id) or \
-           ('sort_order' in data and data['sort_order'] != original_sort_order):
+        parent_id_changed = 'parent_id' in data and data['parent_id'] != original_parent_id
+        sort_order_changed = 'sort_order' in data and data['sort_order'] != original_sort_order
+        if parent_id_changed or sort_order_changed:
             
             # 处理父级变化的情况：如果父级变化，先将原父级下的节点重新排序
-            if data['parent_id'] != original_parent_id:
+            if parent_id_changed:
                 # 原父级下的节点重新排序
                 original_siblings = TestSuite.query.filter_by(parent_id=original_parent_id).all()
                 original_siblings.sort(key=lambda x: x.sort_order)
@@ -415,15 +417,18 @@ def delete_test_suite(suite_id):
 @bp.route('/tree', methods=['GET'])
 @login_required
 def get_suite_tree():
-    """获取完整的测试套件树形结构"""
+    """获取完整的测试套件树形结构（仅包含未逻辑删除的套件）"""
     try:
-        root_suites = TestSuite.query.filter_by(parent_id=None).order_by(TestSuite.sort_order).all()
+        root_suites = TestSuite.query.filter_by(parent_id=None).filter(
+            TestSuite.deleted_at.is_(None)
+        ).order_by(TestSuite.sort_order).all()
         
         def build_tree(suite):
             suite_dict = suite.to_dict()
             children = []
             for child in suite.children:
-                children.append(build_tree(child))
+                if child.deleted_at is None:
+                    children.append(build_tree(child))
             suite_dict['children'] = children
             return suite_dict
         
@@ -674,8 +679,16 @@ def move_suite(suite_id):
             target = TestSuite.query.get(target_folder_id)
             if not target or target.type != 'folder':
                 return error_response(400, '目标必须是文件夹')
+            if target.deleted_at is not None:
+                return error_response(400, '目标文件夹已被删除，无法移动到此处')
+            new_project_id = target.project_id
+        else:
+            new_project_id = None
 
         suite.parent_id = target_folder_id
+        # 同步被移动节点及其所有子节点的 project_id
+        suite.project_id = new_project_id
+        _set_project_id_recursive(suite, new_project_id)
         max_order = db.session.query(db.func.max(TestSuite.sort_order)).filter_by(
             parent_id=target_folder_id
         ).scalar() or 0
@@ -700,6 +713,17 @@ def copy_suite(suite_id):
         data = request.get_json() or {}
         target_folder_id = data.get('target_folder_id', source.parent_id)
 
+        # project_id 应从目标文件夹继承，避免跨项目隔离被破坏
+        if target_folder_id is not None:
+            target_folder = TestSuite.query.get(target_folder_id)
+            if not target_folder or target_folder.type != 'folder':
+                return error_response(400, '目标必须是文件夹')
+            if target_folder.deleted_at is not None:
+                return error_response(400, '目标文件夹已在回收站中')
+            target_project_id = target_folder.project_id
+        else:
+            target_project_id = source.project_id
+
         max_order = db.session.query(db.func.max(TestSuite.sort_order)).filter_by(
             parent_id=target_folder_id
         ).scalar() or 0
@@ -715,7 +739,7 @@ def copy_suite(suite_id):
             status=source.status,
             type='suite',
             creator_id=current_user.id,
-            project_id=source.project_id,
+            project_id=target_project_id,
             version_requirement_id=source.version_requirement_id,
             iteration_id=source.iteration_id,
             sort_order=max_order + 1,
@@ -732,6 +756,7 @@ def copy_suite(suite_id):
             nc = TestCase(
                 case_name=oc.case_name,
                 priority=oc.priority,
+                test_data=oc.test_data,
                 preconditions=oc.preconditions,
                 steps=oc.steps,
                 expected_result=oc.expected_result,

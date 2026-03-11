@@ -41,9 +41,19 @@
         :data="items"
         stripe
         style="width: 100%"
+        :row-class-name="({ row }) => getNotificationRoute(row) ? 'notification-row--navigable' : ''"
         @row-click="handleRowClick"
       >
-        <el-table-column prop="title" label="标题" min-width="160" show-overflow-tooltip />
+        <el-table-column label="标题" min-width="160">
+          <template #default="{ row }">
+            <span style="display: inline-flex; align-items: center; gap: 4px;">
+              <span :style="getNotificationRoute(row) ? 'color: var(--el-color-primary);' : ''">{{ row.title }}</span>
+              <el-tooltip v-if="getNotificationRoute(row)" content="点击跳转定位" placement="top" :show-after="400">
+                <el-icon style="font-size: 13px; color: var(--el-color-primary); flex-shrink: 0;"><Right /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column label="摘要/详情" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
             {{ formatNotificationDisplay(row) || '-' }}
@@ -108,7 +118,7 @@ import { ElMessage } from "element-plus";
 import { getNotifications, markRead, markReadAll, markUnreadAll, clearRead, deleteNotification, pinNotification } from "@/api/notifications";
 import { useNotificationStore } from "@/stores/notification";
 import { getNotificationRoute, NOTIFICATION_TYPE_LABELS, formatNotificationDisplay } from "@/utils/notificationLink";
-import { Delete, CircleCheck, CircleClose, Top } from "@element-plus/icons-vue";
+import { Delete, CircleCheck, CircleClose, Top, Right } from "@element-plus/icons-vue";
 
 const router = useRouter();
 const notificationStore = useNotificationStore();
@@ -251,7 +261,13 @@ watch([() => filters.type, () => filters.is_read, () => filters.time_range], () 
   justify-content: flex-end;
 }
 .el-table {
+  cursor: default;
+}
+:deep(.notification-row--navigable) {
   cursor: pointer;
+}
+:deep(.notification-row--navigable:hover td) {
+  background-color: var(--el-color-primary-light-9) !important;
 }
 .action-btns {
   display: inline-flex;

@@ -50,6 +50,7 @@
             </div>
             <div class="review-table-wrapper">
               <el-table
+                ref="myTasksTableRef"
                 v-loading="loading.myTasks"
                 :data="myTasks"
                 class="review-list-table"
@@ -114,13 +115,9 @@
                 <template #default="scope">
                   <div class="progress-info">
                     <el-progress
-                      :percentage="scope.row.review_progress.progress_percent"
+                      :percentage="scope.row.review_progress?.progress_percent ?? 0"
                       :stroke-width="8"
-                      :color="
-                        progressColor(
-                          scope.row.review_progress.progress_percent,
-                        )
-                      "
+                      :color="progressColor(scope.row.review_progress?.progress_percent ?? 0)"
                     />
                   </div>
                 </template>
@@ -241,6 +238,7 @@
             </div>
             <div class="review-table-wrapper">
             <el-table
+              ref="myInitiatedTableRef"
               v-loading="loading.myInitiated"
               :data="myInitiated"
               class="review-list-table"
@@ -305,13 +303,9 @@
                 <template #default="scope">
                   <div class="progress-info">
                     <el-progress
-                      :percentage="scope.row.review_progress.progress_percent"
+                      :percentage="scope.row.review_progress?.progress_percent ?? 0"
                       :stroke-width="8"
-                      :color="
-                        progressColor(
-                          scope.row.review_progress.progress_percent,
-                        )
-                      "
+                      :color="progressColor(scope.row.review_progress?.progress_percent ?? 0)"
                     />
                   </div>
                 </template>
@@ -1034,7 +1028,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from "vue";
+import { ref, onMounted, computed, watch, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import * as reviewApi from "@/api/reviewTask";
@@ -1051,11 +1045,12 @@ const route = useRoute();
 const router = useRouter();
 const activeTab = ref(route.query.activeTab || "my-tasks");
 const reviewHistorySubTab = ref("recent");
-// 消息跳转时的短暂闪烁行（2.5s 后清除）
+// 消息跳转时的短暂闪烁行（2.6s 后清除）
 const flashTaskId = ref(null);
 let flashClearTimer = null;
-// 从消息带 taskId 进入时是否已自动打开过详情弹窗（避免重复打开）
-const hasOpenedDialogForFlashTask = ref(false);
+/** 两个列表表格 ref，用于滚动到高亮行 */
+const myTasksTableRef = ref(null);
+const myInitiatedTableRef = ref(null);
 /** 从用例管理点击「评审」带 suiteId 跳转时，对应任务行的 id，用于蓝色选中样式 */
 const highlightedSuiteTaskId = ref(null);
 const getReviewRowClassName = ({ row }) => {
@@ -1297,12 +1292,8 @@ const getReviewTaskDetail = async (taskId) => {
   } catch (error) {
     if (isPermissionError(error)) {
       if (route.query.taskId) {
-        flashTaskId.value = null;
-        hasOpenedDialogForFlashTask.value = false;
+        clearFlashTask();
         reviewDialogVisible.value = false;
-        const q = { ...route.query };
-        delete q.taskId;
-        router.replace({ path: route.path, query: Object.keys(q).length ? q : undefined });
       }
       return;
     }
@@ -1310,12 +1301,8 @@ const getReviewTaskDetail = async (taskId) => {
     if (status === 404) {
       ElMessage.warning("该评审任务可能已被删除或您无权限查看");
       if (route.query.taskId) {
-        flashTaskId.value = null;
-        hasOpenedDialogForFlashTask.value = false;
+        clearFlashTask();
         reviewDialogVisible.value = false;
-        const q = { ...route.query };
-        delete q.taskId;
-        router.replace({ path: route.path, query: Object.keys(q).length ? q : undefined });
       }
     } else {
       ElMessage.error("获取评审任务详情失败");
@@ -1986,52 +1973,111 @@ watch([caseReviewKeyword, caseReviewPriorityFilter, caseReviewStatusFilter], () 
   paginationCaseReview.value.page = 1;
 });
 
-// 消息跳转：taskId 时设置要闪烁的行，等列表有数据后再启动 2.5s 清除定时器，并可选自动打开详情
+/** 清理高亮状态并从 URL 中移除 taskId */
+function clearFlashTask() {
+  if (flashClearTimer) { clearTimeout(flashClearTimer); flashClearTimer = null; }
+  flashTaskId.value = null;
+  const q = { ...route.query };
+  delete q.taskId;
+  router.replace({ path: route.path, query: Object.keys(q).length ? q : undefined });
+}
+
+/**
+ * 通过 API 获取任务角色（评审人 or 发起人），切换到对应标签页，
+ * 再用 locate_id 让后端计算目标任务所在分页并加载该页数据。
+ * watch 2（post-flush）检测到新数据后自动触发滚动与闪烁计时。
+ */
+async function locateFlashTask(tid) {
+  let tab = null;
+  try {
+    const res = await reviewApi.getReviewTask(tid);
+    if (flashTaskId.value !== tid) return;
+    const task = res.data;
+    const uid = userStore.userInfo?.id;
+    if (String(task.reviewer_id) === String(uid)) tab = "my-tasks";
+    else if (String(task.initiator_id) === String(uid)) tab = "my-initiated";
+  } catch {
+    clearFlashTask();
+    return;
+  }
+  if (!tab) { clearFlashTask(); return; }
+
+  activeTab.value = tab;
+
+  try {
+    if (tab === "my-tasks") {
+      loading.value.myTasks = true;
+      try {
+        const r = await reviewApi.getMyReviewTasks({ locate_id: tid, size: paginationMyTasks.value.size });
+        if (flashTaskId.value !== tid) return;
+        myTasks.value = r.data?.items || [];
+        paginationMyTasks.value.page = r.data?.page || 1;
+        paginationMyTasks.value.total = r.data?.total ?? 0;
+      } finally {
+        loading.value.myTasks = false;
+      }
+    } else {
+      loading.value.myInitiated = true;
+      try {
+        const r = await reviewApi.getMyInitiatedReviews({ locate_id: tid, size: paginationMyInitiated.value.size });
+        if (flashTaskId.value !== tid) return;
+        myInitiated.value = r.data?.items || [];
+        paginationMyInitiated.value.page = r.data?.page || 1;
+        paginationMyInitiated.value.total = r.data?.total ?? 0;
+      } finally {
+        loading.value.myInitiated = false;
+      }
+    }
+    // watch 2（post-flush）检测到列表更新后触发高亮
+  } catch {
+    if (flashTaskId.value === tid) clearFlashTask();
+  }
+}
+
+// 消息跳转：当 taskId 出现在 URL 时，设置闪烁状态
 watch(
   () => route.query?.taskId,
-  (taskIdVal) => {
-    if (flashClearTimer) {
-      clearTimeout(flashClearTimer);
-      flashClearTimer = null;
+  async (taskIdVal) => {
+    if (flashClearTimer) { clearTimeout(flashClearTimer); flashClearTimer = null; }
+    if (!taskIdVal) { flashTaskId.value = null; return; }
+
+    const tid = Number(taskIdVal);
+    flashTaskId.value = tid;
+
+    // 组件已挂载且数据已加载时，定位到目标任务所在分页并高亮
+    const dataLoaded = myTasks.value.length > 0 || myInitiated.value.length > 0
+      || paginationMyTasks.value.total > 0 || paginationMyInitiated.value.total > 0;
+    if (dataLoaded) {
+      await locateFlashTask(tid);
     }
-    if (!taskIdVal) {
-      flashTaskId.value = null;
-      hasOpenedDialogForFlashTask.value = false;
-      return;
-    }
-    flashTaskId.value = Number(taskIdVal);
-    hasOpenedDialogForFlashTask.value = false;
+    // 若 dataLoaded = false，数据还没加载，由 onMounted 的逻辑处理
   },
   { immediate: true }
 );
 
+// 列表数据/flashTaskId 变化时：在当前页查找目标行，找到则切换标签页并滚动高亮
 watch(
-  () => [myTasks.value, myInitiated.value, flashTaskId.value, activeTab.value],
-  async () => {
+  () => [myTasks.value, myInitiated.value, flashTaskId.value],
+  () => {
     const tid = flashTaskId.value;
-    if (!tid) return;
+    if (!tid || flashClearTimer) return;
+
     const inMyTasks = myTasks.value.some((t) => t.id === tid);
     const inMyInitiated = myInitiated.value.some((t) => t.id === tid);
+
+    if (!inMyTasks && !inMyInitiated) return; // 当前页没有该行，onMounted 或 watch 1 会切换到正确标签页
+
     if (inMyTasks) activeTab.value = "my-tasks";
-    else if (inMyInitiated) activeTab.value = "my-initiated";
-    const list = activeTab.value === "my-tasks" ? myTasks.value : myInitiated.value;
-    const hasRow = list.some((t) => t.id === tid);
-    if (!hasRow) return;
-    // 从消息带 taskId 进入时，自动打开该任务的评审详情弹窗（仅一次）
-    if (!hasOpenedDialogForFlashTask.value) {
-      hasOpenedDialogForFlashTask.value = true;
-      reviewDialogTitle.value = "评审详情";
-      reviewDialogVisible.value = true;
-      await getReviewTaskDetail(tid);
-    }
-    if (flashClearTimer) return;
-    flashClearTimer = setTimeout(() => {
-      flashTaskId.value = null;
-      const q = { ...route.query };
-      delete q.taskId;
-      router.replace({ path: route.path, query: Object.keys(q).length ? q : undefined });
-      flashClearTimer = null;
-    }, 2600);
+    else activeTab.value = "my-initiated";
+
+    // 等 DOM 更新后滚动到高亮行（需要两次 nextTick：一次等 tab 切换，一次等表格渲染）
+    nextTick(() => nextTick(() => {
+      const tableEl = (activeTab.value === "my-tasks" ? myTasksTableRef.value : myInitiatedTableRef.value)?.$el;
+      const row = tableEl?.querySelector("tr.notification-flash-row");
+      if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+    }));
+
+    flashClearTimer = setTimeout(clearFlashTask, 2600);
   },
   { flush: "post" }
 );
@@ -2046,6 +2092,13 @@ onMounted(async () => {
   paginationCaseReview.value.size = size;
   await getMyTasks();
   await getMyInitiated();
+  // 修复时序 bug：等待 post-flush watch（watch 2）处理完数据后再检查
+  // 若不 await nextTick，onMounted 清理逻辑会在 watch 2 之前执行，导致闪烁状态被提前清除
+  await nextTick();
+  // 两个列表都已加载，任务仍未找到（不在第一页），定位到目标任务所在分页
+  if (flashTaskId.value && !flashClearTimer) {
+    await locateFlashTask(flashTaskId.value);
+  }
   await getAvailableSuites();
   const suiteId = route.query.suiteId;
   if (suiteId && !route.query.taskId) {
