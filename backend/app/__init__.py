@@ -89,6 +89,9 @@ def create_app(config_name='default'):
     socketio = SocketIO(app, cors_allowed_origins=cors_socket or "*", async_mode=async_mode)
     app.socketio = socketio
 
+    from app.services.agent_socket_manager import register_agent_handlers
+    register_agent_handlers(socketio)
+
     @socketio.on('connect')
     def on_connect():
         if current_user is None or not getattr(current_user, 'is_authenticated', False):
@@ -107,6 +110,8 @@ def _ensure_schema(app):
     migrations = [
         # test_suites 表：用例编号前缀列
         "ALTER TABLE test_suites ADD COLUMN case_number_prefix VARCHAR(50) DEFAULT 'TC-'",
+        # agent_binding_codes 表：binding_token 用于本机一键绑定
+        "ALTER TABLE agent_binding_codes ADD COLUMN binding_token VARCHAR(64) NULL",
     ]
     with db.engine.connect() as conn:
         for sql in migrations:
@@ -140,9 +145,10 @@ def setup_logging(app):
 
 def register_blueprints(app):
     """注册蓝图"""
-    from app.routes import auth, users, devices, test_cases, test_tasks, home, projects, iterations, suite_case_relations, test_suites, review_tasks, files, reports, settings_routes, ai_tasks, notifications, roles, mindmap
+    from app.routes import auth, users, devices, test_cases, test_tasks, home, projects, iterations, suite_case_relations, test_suites, review_tasks, files, reports, settings_routes, ai_tasks, notifications, roles, mindmap, agent_routes
 
     app.register_blueprint(auth.bp, url_prefix='/api/auth')
+    app.register_blueprint(agent_routes.bp)
     app.register_blueprint(roles.bp)
     app.register_blueprint(settings_routes.bp)
     app.register_blueprint(notifications.bp)

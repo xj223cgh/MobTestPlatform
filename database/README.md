@@ -32,7 +32,7 @@ DB_CONFIG = {
 |------|------|
 | `01_create_database.py` | 创建数据库（若不存在） |
 | `02_drop_database.py` | 删除整个数据库（需确认，慎用） |
-| `03_create_tables.py` | 创建全部数据表（含迁移逻辑：对已有库补全 deleted_at、mindmap_versions） |
+| `03_create_tables.py` | 创建全部数据表（含迁移逻辑：对已有库补全 deleted_at、mindmap_versions、Agent 相关表及 binding_token 列） |
 | `04_drop_tables.py` | 删除所有表（需确认，慎用） |
 | `05_insert_test_data.py` | 用户 + WPS 邮箱业务 + WPS 会议业务测试数据（项目、迭代、需求、用例库、任务、评审、设备、报告等） |
 | `06_clear_table_data.py` | 清空所有表数据（保留表结构，需确认） |
@@ -85,7 +85,7 @@ python database/03_create_tables.py
 
 ## 4. 数据表一览
 
-`03_create_tables.py` 创建以下 24 张表：
+`03_create_tables.py` 创建以下 27 张表：
 
 | 表名 | 说明 |
 |------|------|
@@ -113,6 +113,9 @@ python database/03_create_tables.py
 | `user_settings` | 用户设置表 |
 | `reports` | 报告表 |
 | `notifications` | 消息通知表 |
+| `agents` | 本机 Agent 表（设备管理用 Agent 注册与心跳） |
+| `user_agent_bindings` | 用户与本机 Agent 绑定表（一用户绑定一台 Agent） |
+| `agent_binding_codes` | Agent 绑定码表（短期绑定码，供一键绑定或手动输入） |
 
 ---
 
@@ -151,6 +154,9 @@ users（无依赖）
 │   │       └── reports → test_tasks, users
 ├── devices → users
 ├── notifications → users
+├── agents（无外键，本机 Agent 注册）
+├── user_agent_bindings → users, agents
+├── agent_binding_codes → users
 ├── email_verify_codes（无外键）
 └── role_permissions（无外键）
 ```

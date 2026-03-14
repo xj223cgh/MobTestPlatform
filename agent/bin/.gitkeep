@@ -1,0 +1,1 @@
+# 打包前由 prepare_bin.py 从项目 escrcpy 目录复制 adb、scrcpy 及依赖到此目录。

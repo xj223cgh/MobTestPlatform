@@ -20,6 +20,9 @@ backend/logs/
 # 设备脚本按日期存储的目录（运行时生成）
 backend/storage/device_scripts/
 
+# Agent 下载路径（各服务器用脚本单独配置，不提交）
+backend/agent_exe_path.txt
+
 # IDE / OS
 .idea/
 .vscode/

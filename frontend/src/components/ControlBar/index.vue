@@ -5,7 +5,7 @@
       <el-button
         type="primary"
         text
-        :disabled="disabledStatus.includes(device.status)"
+        :disabled="isButtonDisabled"
         title="返回"
         class="control-button"
         @click="executeCommand('input keyevent 4')"
@@ -18,7 +18,7 @@
       <el-button
         type="primary"
         text
-        :disabled="disabledStatus.includes(device.status)"
+        :disabled="isButtonDisabled"
         title="主页"
         class="control-button"
         @click="executeCommand('input keyevent 3')"
@@ -31,7 +31,7 @@
       <el-button
         type="primary"
         text
-        :disabled="disabledStatus.includes(device.status)"
+        :disabled="isButtonDisabled"
         title="最近任务"
         class="control-button"
         @click="executeCommand('input keyevent 187')"
@@ -44,7 +44,7 @@
       <el-button
         type="primary"
         text
-        :disabled="disabledStatus.includes(device.status)"
+        :disabled="isButtonDisabled"
         title="通知"
         class="control-button"
         @click="executeCommand('cmd statusbar expand-notifications')"
@@ -57,7 +57,7 @@
       <el-button
         type="primary"
         text
-        :disabled="disabledStatus.includes(device.status)"
+        :disabled="isButtonDisabled"
         title="截图"
         class="control-button"
         @click="handleScreenshot"
@@ -70,7 +70,7 @@
       <el-button
         type="primary"
         text
-        :disabled="disabledStatus.includes(device.status)"
+        :disabled="isButtonDisabled"
         title="亮屏"
         class="control-button"
         @click="executeCommand('input keyevent 224')"
@@ -83,7 +83,7 @@
       <el-button
         type="primary"
         text
-        :disabled="disabledStatus.includes(device.status)"
+        :disabled="isButtonDisabled"
         title="息屏"
         class="control-button"
         @click="executeCommand('input keyevent 26')"
@@ -96,7 +96,7 @@
       <el-button
         type="primary"
         text
-        :disabled="disabledStatus.includes(device.status)"
+        :disabled="isButtonDisabled"
         title="音量加"
         class="control-button"
         @click="executeCommand('input keyevent 24')"
@@ -109,7 +109,7 @@
       <el-button
         type="primary"
         text
-        :disabled="disabledStatus.includes(device.status)"
+        :disabled="isButtonDisabled"
         title="音量减"
         class="control-button"
         @click="executeCommand('input keyevent 25')"
@@ -122,7 +122,7 @@
       <el-button
         type="primary"
         text
-        :disabled="disabledStatus.includes(device.status)"
+        :disabled="isButtonDisabled"
         title="静音"
         class="control-button"
         @click="executeCommand('input keyevent 164')"
@@ -135,7 +135,7 @@
       <el-button
         type="primary"
         text
-        :disabled="disabledStatus.includes(device.status)"
+        :disabled="isButtonDisabled"
         title="重启"
         class="control-button"
         @click="executeCommand('reboot')"
@@ -171,11 +171,18 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
+  disabled: {
+    type: Boolean,
+    default: false,
+  },
 });
 
-// 计算设备禁用状态
+// 计算设备禁用状态（离线/未授权或不可操作时禁用）
 const disabledStatus = computed(() => {
   return ["unauthorized", "offline"];
+});
+const isButtonDisabled = computed(() => {
+  return props.disabled || disabledStatus.value.includes(props.device?.status);
 });
 
 // 执行设备命令

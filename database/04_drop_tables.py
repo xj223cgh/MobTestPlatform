@@ -37,7 +37,7 @@ def drop_tables():
     
     try:
         with connection.cursor() as cursor:
-            # 按照外键依赖关系倒序删除表
+            # 按照外键依赖关系倒序删除表（先删依赖 users/agents 的表）
             tables = [
                 'reports',
                 'notifications',
@@ -60,6 +60,9 @@ def drop_tables():
                 'project_members',
                 'projects',
                 'devices',
+                'agent_binding_codes',
+                'user_agent_bindings',
+                'agents',
                 'role_permissions',
                 'email_verify_codes',
                 'users'

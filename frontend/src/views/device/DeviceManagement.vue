@@ -8,6 +8,16 @@
         </p>
       </div>
       <div class="header-actions">
+        <!-- 仅远程访问时显示：本机（部署机）直接使用服务器 adb 管理设备，无需 Agent，不展示入口 -->
+        <el-button
+          v-if="showAgentConfigEntry"
+          type="default"
+          size="default"
+          @click="agentConfigVisible = true"
+        >
+          <el-icon><Setting /></el-icon>
+          本机 Agent
+        </el-button>
         <el-button
           v-if="selectionRows.length > 0"
           type="danger"
@@ -48,6 +58,133 @@
         />
       </div>
     </div>
+
+    <!-- 本机 Agent 配置入口弹窗 -->
+    <el-dialog
+      v-model="agentConfigVisible"
+      title="本机 Agent 配置"
+      width="520px"
+      class="agent-config-dialog"
+      destroy-on-close
+      @open="onAgentConfigOpen"
+      @close="onAgentConfigClose"
+    >
+      <div class="agent-config-content">
+        <div class="agent-config-status-card">
+          <div class="agent-config-status-row">
+            <span class="agent-config-status-label">当前状态</span>
+            <el-tag v-if="agentBinding?.bound && agentBinding?.agent_online" type="success" size="large">已绑定 · Agent 已连接</el-tag>
+            <el-tag v-else-if="agentBinding?.bound" type="warning" size="large">已绑定 · Agent 未连接</el-tag>
+            <el-tag v-else type="info" size="large">未绑定</el-tag>
+            <el-button type="primary" link size="small" class="agent-refresh-binding-btn" :loading="agentBindingRefreshing" @click="refreshAgentBinding">刷新状态</el-button>
+          </div>
+          <p v-if="agentBinding?.bound && !agentBinding?.agent_online" class="agent-config-status-hint">
+            请在本机重新运行 Agent 或在下方点击「启动 Agent」（若支持）。关闭 Agent 后约 1 分钟内会显示为未连接。
+          </p>
+        </div>
+
+        <div class="agent-config-section">
+          <div class="agent-config-usage-header" @click="agentUsageCollapsed = !agentUsageCollapsed">
+            <span class="agent-config-section-title">使用方式</span>
+            <el-icon class="agent-usage-toggle" :class="{ 'agent-usage-collapsed': agentUsageCollapsed }">
+              <ArrowDown />
+            </el-icon>
+          </div>
+          <div v-show="!agentUsageCollapsed" class="agent-config-usage">
+            <template v-if="isPlatformHost && agentCanLaunch">
+              <p class="agent-config-usage-desc">您正在<strong>部署平台的本机</strong>访问，可直接由平台在本机启动 Agent 并自动绑定，无需手动运行程序。</p>
+            </template>
+            <template v-else>
+              <p class="agent-config-usage-desc">您正在<strong>其他电脑</strong>访问平台，需在<strong>本机</strong>运行 Agent 并完成绑定后，才能在此电脑上管理 USB 设备：</p>
+              <ol class="agent-config-usage-steps">
+                <li>下载 <strong>MobTestAgent.exe</strong> 到本机（见下方下载按钮）。</li>
+                <li><strong>运行 Agent 时必须指定平台地址</strong>，在本机打开命令行，进入 Agent 所在目录后执行：<br />
+                  <code class="agent-cmd-block">MobTestAgent.exe --base-url {{ agentPlatformBaseUrl || 'http://服务器IP:5000' }}</code>
+                  <span v-if="agentPlatformBaseUrl" class="agent-copy-url-wrap">（平台地址由管理员在 .env 中配置）</span>
+                </li>
+                <li>运行成功后，在本页点击 <strong>「绑定本机」</strong> 完成绑定；未自动绑定时会显示 6 位绑定码，在本机执行 <code>MobTestAgent.exe --base-url 平台地址 --bind-code 绑定码</code>。</li>
+              </ol>
+              <p v-if="!agentDownloadAvailable" class="agent-guide-unavailable">
+                当前无法下载 Agent，请管理员将 MobTestAgent.exe 放入服务器 agent/dist/ 目录后刷新本页。
+              </p>
+            </template>
+          </div>
+        </div>
+
+        <div v-if="(!isPlatformHost || !agentCanLaunch) && agentDownloadAvailable" class="agent-config-section agent-config-download-row">
+          <el-button
+            type="primary"
+            :loading="agentDownloading"
+            class="agent-download-btn"
+            @click="doDownloadAgentWithPicker"
+          >
+            <el-icon><Download /></el-icon>
+            下载 Agent
+          </el-button>
+          <p class="agent-config-download-tip">点击后选择保存位置</p>
+        </div>
+
+        <div class="agent-config-section agent-config-actions-wrap">
+          <div class="agent-config-section-title">操作</div>
+          <div class="agent-config-actions-btns">
+            <template v-if="isPlatformHost && agentCanLaunch">
+              <el-button type="primary" :loading="agentLaunchLoading" @click="doPlatformLaunchAgent">启动 Agent</el-button>
+            </template>
+            <template v-if="!agentBinding?.bound">
+              <el-button type="primary" @click="openBindDialog">绑定本机</el-button>
+            </template>
+            <template v-else>
+              <el-button type="default" @click="confirmUnbind">解绑</el-button>
+            </template>
+            <el-button type="default" @click="agentCleanVisible = true">清理本机 Agent</el-button>
+          </div>
+          <p v-if="isPlatformHost && agentCanLaunch" class="agent-config-launch-tip">在本机启动并自动绑定当前用户</p>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="agentConfigVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 清理本机 Agent 弹窗 -->
+    <el-dialog
+      v-model="agentCleanVisible"
+      title="清理本机 Agent"
+      width="480px"
+      destroy-on-close
+      class="agent-clean-dialog"
+    >
+      <p class="agent-clean-desc">
+        将解除平台绑定并清理本机 Agent 数据（协议注册与本地配置文件）。若本机正在运行 Agent，将自动执行清理并退出程序。
+      </p>
+      <p class="agent-clean-tip">
+        清理后若需再用，重新下载并运行 Agent 后绑定即可。
+      </p>
+      <template #footer>
+        <el-button @click="agentCleanVisible = false">取消</el-button>
+        <el-button type="primary" :loading="agentCleanLoading" @click="doAgentClean">
+          解绑并清理
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 绑定码弹窗 -->
+    <el-dialog
+      v-model="bindingCodeVisible"
+      title="绑定本机 Agent"
+      width="420px"
+      destroy-on-close
+      @close="bindingCode = ''"
+  >
+      <p class="binding-tip">本机未检测到 Agent 或一键绑定未成功时，可在本机运行 Agent 时加参数 <code>--bind-code 下方绑定码</code> 完成绑定。</p>
+      <div class="binding-code-box">
+        <span class="binding-code">{{ bindingCode || '------' }}</span>
+      </div>
+      <p v-if="bindingCodeExpiresAt" class="binding-expire">绑定码 {{ bindingCodeExpiresAt }} 前有效</p>
+      <template #footer>
+        <el-button @click="bindingCodeVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
 
     <div class="device-content">
       <el-card
@@ -239,7 +376,7 @@
             <div class="flex items-center justify-between w-full px-2">
               <div class="flex-1 flex justify-center">
                 <ConnectAction
-                  v-if="row.status === 'offline' && row.wifi"
+                  v-if="row.canOperate && row.status === 'offline' && row.wifi"
                   v-bind="{
                     device: row,
                     handleConnect,
@@ -256,6 +393,7 @@
 
               <div class="flex-1 flex justify-center">
                 <MirrorAction
+                  v-if="row.canOperate"
                   :ref="getMirrorActionRefs"
                   v-bind="{
                     row,
@@ -263,20 +401,24 @@
                     isOnline: row.status === 'online',
                   }"
                 />
+                <span v-else class="device-view-only-hint">—</span>
               </div>
 
               <div class="flex-1 flex justify-center">
                 <MoreDropdown
+                  v-if="row.canOperate"
                   v-bind="{
                     row,
                     toggleRowExpansion,
                     isOnline: row.status === 'online',
                   }"
                 />
+                <span v-else class="device-view-only-hint">—</span>
               </div>
 
               <div class="flex-1 flex justify-center">
                 <WirelessAction
+                  v-if="row.canOperate"
                   v-bind="{
                     row,
                     handleConnect,
@@ -284,18 +426,21 @@
                     isOnline: row.status === 'online',
                   }"
                 />
+                <span v-else class="device-view-only-hint">—</span>
               </div>
 
               <div class="flex-1 flex justify-center">
                 <RemoveAction
-                  v-if="row.status === 'offline'"
+                  v-if="row.canOperate && row.status === 'offline'"
                   v-bind="{
                     device: row,
                     handleRefresh: refreshDevices,
                   }"
                 />
+                <span v-else-if="!row.canOperate" class="device-view-only-hint">—</span>
               </div>
             </div>
+            <span v-if="row.canOperate === false" class="device-view-only-hint">（该设备由其他用户 Agent 连接，仅可查看）</span>
           </el-table-column>
           <el-table-column
             type="expand"
@@ -313,6 +458,7 @@
             <template #default="{ row }">
               <ControlBar
                 :device="row"
+                :disabled="!row.canOperate"
                 class="-my-4"
               />
             </template>
@@ -355,9 +501,12 @@ import {
   WarningFilled,
   Operation,
   Delete,
+  Setting,
+  ArrowDown,
 } from "@element-plus/icons-vue";
 import deviceApi from "@/api/device";
 import userApi from "@/api/user";
+import agentApi from "@/api/agent";
 import {
   deviceStatus,
   getStatusTagType,
@@ -392,6 +541,381 @@ const taskDialogRef = ref(null);
 const tableRef = ref(null);
 const deviceDetailDialogVisible = ref(false);
 const deviceDetailRow = ref(null);
+
+const agentBinding = ref(null);
+const agentBindingLoaded = ref(false);
+const agentBindingRefreshing = ref(false);
+const bindingCodeVisible = ref(false);
+const bindingCode = ref("");
+const bindingCodeExpiresAt = ref("");
+const agentConfigVisible = ref(false);
+const agentCleanVisible = ref(false);
+const agentCleanLoading = ref(false);
+// 本机 Agent 是否在运行（通过 127.0.0.1:8765/status 检测）
+const agentRunningLocally = ref(false);
+const AGENT_LOCAL_STATUS_URL = 'http://127.0.0.1:8765/status';
+const AGENT_LOCAL_BIND_URL_PREFIX = 'http://127.0.0.1:8765/bind?token=';
+const AGENT_LOCAL_CLEAN_URL = 'http://127.0.0.1:8765/clean';
+const AUTO_BIND_POLL_INTERVAL_MS = 10000;
+const AUTO_BIND_PAUSE_AFTER_FAILS = 5;
+const AUTO_BIND_PAUSE_MS = 60000;
+const AGENT_LAUNCH_PROTOCOL = 'mobtestagent://start';
+// 下载 Agent 安装包：路径可选，未配置时后端不可用
+const agentDownloadAvailable = ref(false);
+const agentDownloadFilename = ref('MobTestAgent.exe');
+const agentDownloadUrl = '/api/agent/download';
+// 是否支持由平台在服务器本机启动 Agent（服务器已配置 exe）
+const agentCanLaunch = ref(false);
+// 当前访问是否来自部署平台的本机
+const isPlatformHost = ref(false);
+// 是否显示「本机 Agent」入口：仅远程访问时显示；本机（部署机）= 访问端即部署机，直接用服务器 adb，不需要 Agent
+const showAgentConfigEntry = computed(() => agentBindingLoaded.value && !isPlatformHost.value);
+// 平台地址（供使用方式展示，由后端 .env AGENT_PLATFORM_BASE_URL 配置）
+const agentPlatformBaseUrl = ref('');
+const agentLaunchLoading = ref(false);
+// 使用方式内容是否收起
+const agentUsageCollapsed = ref(false);
+
+let autoBindPollingTimer = null;
+let autoBindFailCount = 0;
+let lastAutoBindSuccessToast = 0;
+const AUTO_BIND_TOAST_DEBOUNCE_MS = 5000;
+const autoBindInProgress = ref(false);
+
+async function probeAgentLocal() {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 2500);
+    const r = await fetch(AGENT_LOCAL_STATUS_URL, { signal: ctrl.signal });
+    clearTimeout(t);
+    const json = await r.json().catch(() => ({}));
+    agentRunningLocally.value = r.ok && (json?.status === 'ok');
+  } catch {
+    agentRunningLocally.value = false;
+  }
+}
+
+async function fetchAgentDownloadInfo() {
+  try {
+    const res = await agentApi.getAgentDownloadInfo();
+    const d = res.data || {};
+    agentDownloadAvailable.value = !!d.available;
+    if (d.filename) agentDownloadFilename.value = d.filename;
+  } catch {
+    agentDownloadAvailable.value = false;
+  }
+}
+
+const agentDownloading = ref(false);
+/** 通过“另存为”下载 Agent，用户选择保存位置；保存后提示将路径填到「Agent 存放位置」（浏览器不暴露保存路径，无法自动回填） */
+async function doDownloadAgentWithPicker() {
+  if (!agentDownloadAvailable.value) return;
+  if (typeof window.showSaveFilePicker !== 'function') {
+    const a = document.createElement('a');
+    a.href = agentDownloadUrl;
+    a.download = agentDownloadFilename.value;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return;
+  }
+  agentDownloading.value = true;
+  try {
+    const fileHandle = await window.showSaveFilePicker({
+      suggestedName: agentDownloadFilename.value,
+      types: [{ description: '可执行文件', accept: { 'application/octet-stream': ['.exe'] } }],
+      startIn: 'downloads',
+    });
+    const res = await fetch(agentDownloadUrl, { credentials: 'include' });
+    if (!res.ok) throw new Error(res.statusText);
+    const blob = await res.blob();
+    const writable = await fileHandle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    ElMessage.success('已保存。因浏览器安全限制无法自动获取保存路径，请将保存目录粘贴到上方「Agent 存放位置」便于下次一键复制启动命令。');
+  } catch (e) {
+    if (e?.name === 'AbortError') return;
+    ElMessage.error(e?.message || '下载失败');
+    const a = document.createElement('a');
+    a.href = agentDownloadUrl;
+    a.download = agentDownloadFilename.value;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } finally {
+    agentDownloading.value = false;
+  }
+}
+
+function openAgentProtocol() {
+  window.location.href = AGENT_LAUNCH_PROTOCOL;
+}
+
+async function fetchAgentLaunchInfo() {
+  try {
+    const res = await agentApi.getAgentLaunchInfo();
+    agentCanLaunch.value = !!res.data?.can_launch;
+    isPlatformHost.value = !!res.data?.is_platform_host;
+    agentPlatformBaseUrl.value = (res.data?.platform_base_url || '').trim();
+  } catch {
+    agentCanLaunch.value = false;
+    isPlatformHost.value = false;
+    agentPlatformBaseUrl.value = '';
+  }
+}
+
+async function doPlatformLaunchAgent() {
+  agentLaunchLoading.value = true;
+  try {
+    const res = await agentApi.launchAgent();
+    const data = res.data || {};
+    if (data.success && data.bound) {
+      agentRunningLocally.value = true;
+      agentBinding.value = { bound: true, agent_online: true, binding: {} };
+      await fetchAgentBinding();
+      ElMessage.success(data.message || 'Agent 已启动并已绑定');
+    }
+  } catch (e) {
+    const msg = e?.response?.data?.message || e?.message || '启动失败';
+    ElMessage.error(msg);
+  } finally {
+    agentLaunchLoading.value = false;
+  }
+}
+
+let agentBindingPollTimer = null;
+const AGENT_BINDING_POLL_MS = 12000; // 弹窗打开时每 12 秒刷新一次绑定状态，便于关闭 Agent 后状态更新
+async function onAgentConfigOpen() {
+  fetchAgentDownloadInfo();
+  fetchAgentLaunchInfo();
+  await fetchAgentBinding();
+  if (agentBindingPollTimer) clearInterval(agentBindingPollTimer);
+  agentBindingPollTimer = setInterval(() => {
+    if (!agentConfigVisible.value) {
+      if (agentBindingPollTimer) clearInterval(agentBindingPollTimer);
+      agentBindingPollTimer = null;
+      return;
+    }
+    fetchAgentBinding();
+  }, AGENT_BINDING_POLL_MS);
+}
+function onAgentConfigClose() {
+  if (agentBindingPollTimer) {
+    clearInterval(agentBindingPollTimer);
+    agentBindingPollTimer = null;
+  }
+}
+
+function stopAutoBindPolling() {
+  if (autoBindPollingTimer) {
+    clearTimeout(autoBindPollingTimer);
+    autoBindPollingTimer = null;
+  }
+}
+
+function startAutoBindPolling() {
+  if (autoBindPollingTimer) return;
+  if (agentBinding.value?.bound) return;
+  if (!agentConfigVisible.value) return;
+  function schedule() {
+    if (!agentConfigVisible.value) return;
+    tryAutoBind().then(() => {
+      if (agentBinding.value?.bound || !agentConfigVisible.value) return;
+      autoBindPollingTimer = setTimeout(schedule, AUTO_BIND_POLL_INTERVAL_MS);
+    });
+  }
+  autoBindPollingTimer = setTimeout(schedule, AUTO_BIND_POLL_INTERVAL_MS);
+}
+
+async function tryAutoBind() {
+  if (!agentConfigVisible.value || agentBinding.value?.bound || autoBindInProgress.value) return;
+  if (autoBindFailCount >= AUTO_BIND_PAUSE_AFTER_FAILS) {
+    stopAutoBindPolling();
+    autoBindFailCount = 0;
+    autoBindPollingTimer = setTimeout(() => {
+      autoBindPollingTimer = null;
+      startAutoBindPolling();
+    }, AUTO_BIND_PAUSE_MS);
+    return;
+  }
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 2500);
+    const r = await fetch(AGENT_LOCAL_STATUS_URL, { signal: ctrl.signal });
+    clearTimeout(t);
+    const json = await r.json().catch(() => ({}));
+    if (!r.ok || json?.status !== 'ok') {
+      autoBindFailCount += 1;
+      return;
+    }
+  } catch {
+    autoBindFailCount += 1;
+    return;
+  }
+  autoBindFailCount = 0;
+  autoBindInProgress.value = true;
+  try {
+    const res = await agentApi.createBindingCode();
+    const data = res.data || {};
+    const bindToken = data.binding_token;
+    if (!bindToken) return;
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 4000);
+    const r = await fetch(
+      `${AGENT_LOCAL_BIND_URL_PREFIX}${encodeURIComponent(bindToken)}`,
+      { method: 'GET', signal: ctrl.signal },
+    );
+    clearTimeout(t);
+    const result = await r.json().catch(() => ({}));
+    if (result && result.success) {
+      stopAutoBindPolling();
+      agentRunningLocally.value = true;
+      // 乐观更新：先让配置页立即显示已绑定，再拉服务端状态覆盖（避免 get_binding 延迟/失败导致仍显示未绑定）
+      agentBinding.value = { bound: true, agent_online: true, binding: {} };
+      try {
+        await fetchAgentBinding();
+      } catch (_) {
+        // 保留乐观状态，不置空
+      }
+      const now = Date.now();
+      if (now - lastAutoBindSuccessToast >= AUTO_BIND_TOAST_DEBOUNCE_MS) {
+        lastAutoBindSuccessToast = now;
+        ElMessage.success('本机 Agent 已自动绑定');
+      }
+    }
+  } catch (_) {
+    // createBindingCode 失败（如 500）时也计为失败，避免疯狂重试
+    autoBindFailCount += 1;
+  } finally {
+    autoBindInProgress.value = false;
+  }
+}
+
+async function fetchAgentBinding() {
+  try {
+    const res = await agentApi.getAgentBinding();
+    const data = res.data;
+    agentBinding.value = data?.bound !== undefined ? { ...data } : null;
+  } catch (e) {
+    if (!agentBinding.value?.bound) {
+      agentBinding.value = null;
+    }
+  } finally {
+    agentBindingLoaded.value = true;
+    if (agentBinding.value?.bound) {
+      stopAutoBindPolling();
+    } else {
+      startAutoBindPolling();
+    }
+  }
+}
+function getAgentBindingStateText() {
+  const b = agentBinding.value;
+  if (b?.bound && b?.agent_online) return '已绑定 · Agent 已连接';
+  if (b?.bound) return '已绑定 · Agent 未连接';
+  return '未绑定';
+}
+async function refreshAgentBinding() {
+  agentBindingRefreshing.value = true;
+  try {
+    await fetchAgentBinding();
+    ElMessage.success('已刷新，当前状态：' + getAgentBindingStateText());
+  } finally {
+    agentBindingRefreshing.value = false;
+  }
+}
+async function openBindDialog() {
+  try {
+    const res = await agentApi.createBindingCode();
+    const data = res.data || {};
+    const bindToken = data.binding_token;
+    if (bindToken) {
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 4000);
+        const r = await fetch(
+          `${AGENT_LOCAL_BIND_URL_PREFIX}${encodeURIComponent(bindToken)}`,
+          { method: "GET", signal: ctrl.signal },
+        );
+        clearTimeout(t);
+        const json = await r.json();
+        if (json && json.success) {
+          agentRunningLocally.value = true;
+          agentBinding.value = { bound: true, agent_online: true, binding: {} };
+          try {
+            await fetchAgentBinding();
+          } catch (_) {}
+          ElMessage.success("绑定成功");
+          return;
+        }
+      } catch (_) {
+        // 本机未运行 Agent 或请求失败，展示绑定码兜底
+      }
+    }
+    bindingCode.value = data.code || "";
+    const exp = data.expires_at;
+    bindingCodeExpiresAt.value = exp ? new Date(exp).toLocaleString("zh-CN") : "";
+    bindingCodeVisible.value = true;
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || "获取绑定码失败");
+  }
+}
+function closeBindingDialog() {
+  bindingCodeVisible.value = false;
+  bindingCode.value = "";
+}
+
+async function doAgentClean() {
+  agentCleanLoading.value = true;
+  try {
+    try {
+      await agentApi.unbindAgent();
+    } catch (e) {
+      const msg = e?.response?.data?.message || '';
+      if (msg && !msg.includes('未绑定')) ElMessage.warning(msg);
+    }
+    let localCleaned = false;
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 5000);
+      const r = await fetch(AGENT_LOCAL_CLEAN_URL, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (r.ok) localCleaned = true;
+    } catch (_) {
+      // 本机未运行 Agent 或请求失败
+    }
+    if (localCleaned) {
+      ElMessage.success('平台已解绑；本机 Agent 已执行清理并退出。');
+    } else {
+      ElMessage.success('平台已解绑。本机未检测到运行中的 Agent，若曾安装过 Agent，请手动运行 clean_agent.bat 或 MobTestAgent.exe --clean 完成本机清理。');
+    }
+    agentCleanVisible.value = false;
+    fetchAgentBinding();
+    probeAgentLocal();
+  } catch (e) {
+    ElMessage.error(e?.message || '操作失败');
+  } finally {
+    agentCleanLoading.value = false;
+  }
+}
+
+async function confirmUnbind() {
+  try {
+    await ElMessageBox.confirm("确定解除与本机 Agent 的绑定吗？", "提示", {
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      type: "warning",
+    });
+    await agentApi.unbindAgent();
+    ElMessage.success("已解绑");
+    agentBinding.value = null;
+    fetchAgentBinding();
+  } catch (e) {
+    if (e !== "cancel") ElMessage.error(e.response?.data?.message || "解绑失败");
+  }
+}
 
 const route = useRoute();
 const router = useRouter();
@@ -479,8 +1003,14 @@ const parseBatteryInfo = (output) => {
 const getDevices = async () => {
   loading.value = true;
   try {
-    const adbResponse = await deviceApi.getAdbDevices();
-    const adbDevices = adbResponse.data.devices || [];
+    let adbDevices = [];
+    try {
+      const adbResponse = await deviceApi.getAdbDevices();
+      adbDevices = adbResponse.data?.devices || [];
+    } catch (adbErr) {
+      // Agent 未响应或未绑定时使用空列表，仍展示数据库中的设备数据
+      console.warn('获取 Agent 设备列表失败，仅展示数据库设备:', adbErr?.response?.data?.message || adbErr?.message);
+    }
 
     const dbResponse = await deviceApi.getDeviceList({ page: 1, size: 1000 });
     const dbDevices = dbResponse.data.devices || [];
@@ -533,16 +1063,15 @@ const getDevices = async () => {
       size: 1000,
     });
     const dbDevicesAfterCreate = dbResponseAfterCreate.data.devices || [];
-
-    const mergedDevices = await Promise.all(
+    const dbDeviceIdSetAfter = new Set(dbDevicesAfterCreate.map((d) => d.device_id));
+    // 全部设备均展示；仅当前用户 Agent 连接的设备可操作（canOperate），其他设备仅可查看
+    const mergedFromDb = await Promise.all(
       dbDevicesAfterCreate.map(async (dbDevice) => {
         const adbDevice = adbDeviceMap.get(dbDevice.device_id);
-
         let batteryInfo = null;
         if (adbDevice && adbDevice.status === "device") {
           batteryInfo = await getDeviceBatteryInfo(dbDevice.device_id);
         }
-
         return {
           id: dbDevice.device_id,
           device_id: dbDevice.device_id,
@@ -550,16 +1079,35 @@ const getDevices = async () => {
           device_model: dbDevice.device_model,
           os_type: dbDevice.os_type,
           os_version: dbDevice.os_version,
-          // 状态：如果ADB有连接则使用online，否则使用数据库状态
           status: adbDevice ? "online" : dbDevice.status,
           wifi: adbDevice ? adbDevice.wifi : false,
           battery: batteryInfo,
           owner_id: dbDevice.owner_id,
           owner_name: dbDevice.owner_name,
           db_id: dbDevice.id,
+          canOperate: !!adbDevice,
         };
       }),
     );
+    // 当前用户 Agent 已连接但尚未入库的设备也展示，避免「连接了设备却看不到」
+    const adbOnlyDevices = adbDevices
+      .filter((adb) => adb.status === "device" && !dbDeviceIdSetAfter.has(adb.id))
+      .map((adb) => ({
+        id: adb.id,
+        device_id: adb.id,
+        name: adb.name || adb.id,
+        device_model: adb.name || "Unknown",
+        os_type: "android",
+        os_version: "Unknown",
+        status: "online",
+        wifi: !!adb.wifi,
+        battery: null,
+        owner_id: null,
+        owner_name: null,
+        db_id: null,
+        canOperate: true,
+      }));
+    const mergedDevices = [...mergedFromDb, ...adbOnlyDevices];
 
     // 排序：在线优先，同状态按设备名称/设备ID 排序，符合使用习惯
     const statusOrder = { online: 0, busy: 1, offline: 2, maintenance: 3 };
@@ -785,6 +1333,10 @@ const isDevicePage = () => {
   return route.name === "Devices" || route.name === "DeviceDetail";
 };
 
+watch(agentConfigVisible, (visible) => {
+  if (!visible) stopAutoBindPolling();
+});
+
 watch(
   () => route.name,
   (newName, oldName) => {
@@ -824,6 +1376,8 @@ watch(
   { flush: "post" },
 );
 
+let removeVisibilityListener = () => {};
+
 onMounted(() => {
   const savedAutoRefresh = localStorage.getItem("deviceAutoRefreshEnabled");
   if (savedAutoRefresh !== null) {
@@ -835,10 +1389,26 @@ onMounted(() => {
 
   getDevices();
   getUserList();
+  fetchAgentLaunchInfo(); // 先区分是否本机，再决定是否展示「本机 Agent」入口
+  fetchAgentBinding();
+  // 不在挂载时请求 8765/status，避免未运行 Agent 时控制台刷 ERR_CONNECTION_REFUSED；改为打开「本机 Agent」配置弹窗时再探测
+
+  const handler = () => {
+    if (document.visibilityState === "visible") {
+      if (agentConfigVisible.value) {
+        probeAgentLocal();
+        fetchAgentDownloadInfo();
+      }
+    }
+  };
+  document.addEventListener("visibilitychange", handler);
+  removeVisibilityListener = () => document.removeEventListener("visibilitychange", handler);
 });
 
 onUnmounted(() => {
+  removeVisibilityListener();
   stopAutoRefresh();
+  stopAutoBindPolling();
   if (flashClearTimer) { clearTimeout(flashClearTimer); flashClearTimer = null; }
 });
 </script>
@@ -941,6 +1511,250 @@ onUnmounted(() => {
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+}
+
+.agent-config-content {
+  padding: 0 4px;
+}
+.agent-config-status-card {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: var(--el-fill-color-lighter);
+  border-radius: 8px;
+}
+.agent-config-status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.agent-refresh-binding-btn {
+  margin-left: 8px;
+}
+.device-view-only-hint {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  display: block;
+  margin-top: 4px;
+}
+.agent-config-status-label {
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+  min-width: 72px;
+}
+.agent-config-status-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.4;
+}
+.agent-config-section {
+  margin-bottom: 16px;
+}
+.agent-config-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  margin-bottom: 8px;
+}
+.agent-config-usage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 8px;
+}
+.agent-config-usage-header .agent-config-section-title {
+  margin-bottom: 0;
+}
+.agent-usage-toggle {
+  transition: transform 0.2s;
+}
+.agent-usage-toggle.agent-usage-collapsed {
+  transform: rotate(-90deg);
+}
+.agent-config-usage-desc {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  line-height: 1.5;
+}
+.agent-config-usage-steps {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  line-height: 1.6;
+}
+.agent-config-usage-steps li {
+  margin-bottom: 4px;
+}
+.agent-config-usage-steps code {
+  padding: 1px 6px;
+  background: var(--el-fill-color);
+  border-radius: 4px;
+  font-size: 12px;
+}
+.agent-config-usage-steps code.agent-cmd-block {
+  display: inline-block;
+  max-width: 100%;
+  padding: 6px 10px;
+  margin: 4px 0;
+  word-break: break-all;
+}
+.agent-copy-url-wrap {
+  display: inline;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.agent-config-download-row {
+  margin-bottom: 16px;
+}
+.agent-config-download-row .agent-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.agent-config-download-tip {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.4;
+}
+.agent-config-actions-wrap {
+  margin-bottom: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+.agent-config-actions-btns {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.agent-config-actions-wrap .agent-config-launch-tip {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.4;
+}
+.agent-guide-unavailable {
+  margin: 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.agent-clean-desc {
+  margin: 0 0 12px;
+  color: var(--el-text-color-regular);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.agent-clean-tip {
+  margin: 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.binding-tip {
+  margin: 0 0 12px;
+  color: var(--el-text-color-regular);
+  font-size: 14px;
+}
+.binding-code-box {
+  text-align: center;
+  padding: 16px;
+  background: var(--el-fill-color-light);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+.binding-code {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 8px;
+  color: var(--el-color-primary);
+}
+.binding-expire {
+  margin: 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.agent-guide-content {
+  padding: 0 8px;
+}
+.agent-guide-intro {
+  margin: 0 0 20px;
+  color: var(--el-text-color-regular);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.agent-guide-steps {
+  margin-bottom: 16px;
+}
+.agent-guide-steps :deep(.el-step__description) {
+  padding-right: 0;
+}
+.agent-guide-steps p {
+  margin: 4px 0 8px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.5;
+}
+.agent-guide-steps p:last-child {
+  margin-bottom: 0;
+}
+.agent-guide-download-wrap {
+  margin: 12px 0 0;
+}
+.agent-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--el-color-primary);
+  color: #fff;
+  border-radius: var(--el-border-radius-base);
+  text-decoration: none;
+  font-size: 14px;
+  transition: opacity 0.2s;
+}
+.agent-download-btn:hover {
+  color: #fff;
+  opacity: 0.9;
+}
+.agent-guide-unavailable {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+.agent-guide-tip {
+  color: var(--el-color-info);
+  font-size: 12px;
+}
+.binding-tip code,
+.agent-guide-steps code {
+  padding: 1px 6px;
+  background: var(--el-fill-color);
+  border-radius: 4px;
+  font-size: 12px;
+}
+.agent-guide-cmd {
+  margin: 8px 0;
+  padding: 10px 12px;
+  background: var(--el-fill-color-dark);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+}
+.agent-guide-footer {
+  margin: 0;
+  padding: 12px;
+  background: var(--el-fill-color-light);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .device-content {

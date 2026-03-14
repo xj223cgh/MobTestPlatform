@@ -7,19 +7,55 @@ from datetime import datetime, timezone, timedelta
 from flask import Blueprint, request
 from flask_login import login_required, current_user
 
-from app.models.models import Device, db, TestTask, TaskFolder
+from app.models.models import Device, User, db, TestTask, TaskFolder, UserAgentBinding
 from app.utils.helpers import (
     success_response, error_response, get_pagination_params, log_user_action,
     validate_json_data
 )
+from app.utils.request_helpers import is_platform_host
 from app.utils.scheduler import add_scheduled_task, remove_scheduled_task, get_scheduled_tasks
 from app.services.device_task_executor import execute_device_task_impl
+from app.services.agent_socket_manager import get_agent_sid, request_agent
 
 bp = Blueprint('devices', __name__)
 
 
-def _resolve_device_ids_to_serials(device_ids):
-    """将前端传入的 device_ids（可能是数据库主键或设备序列号）解析为设备序列号列表，用于 adb -s。"""
+def _get_bound_agent_uid():
+    """当前用户已绑定且在线的 Agent 的 agent_uid，否则返回 None"""
+    binding = UserAgentBinding.query.filter_by(user_id=current_user.id).first()
+    if not binding or not binding.agent:
+        return None
+    agent_uid = binding.agent.agent_uid
+    if not get_agent_sid(agent_uid):
+        return None
+    return agent_uid
+
+
+def _get_my_agent_device_serials():
+    """当前用户所绑定 Agent 连接的设备序列号集合；无绑定或未在线返回空 set（用于操作权限校验）"""
+    agent_uid = _get_bound_agent_uid()
+    if not agent_uid:
+        return set()
+    success, data = request_agent(agent_uid, 'get_devices', {}, timeout=5)
+    if not success or not isinstance(data.get('devices'), list):
+        return set()
+    return {str(d.get('id', '')).strip() for d in data['devices'] if d.get('id')}
+
+
+def _can_manage_device(device):
+    """当前用户是否有权管理该设备（查看/编辑/删除）：负责人或 super/manager 角色"""
+    if not device:
+        return False
+    if current_user.role in ('super', 'manager'):
+        return True
+    return device.owner_id == current_user.id
+
+
+def _resolve_device_ids_to_serials(device_ids, only_manageable=False):
+    """
+    将前端传入的 device_ids（可能是数据库主键或设备序列号）解析为设备序列号列表。
+    only_manageable=True 时，仅解析当前用户有权管理的 DB 设备；纯序列号（adb-only）仍加入，由后续 my_serials 校验。
+    """
     serials = []
     for raw_id in device_ids:
         if raw_id is None or (isinstance(raw_id, str) and not raw_id.strip()):
@@ -31,7 +67,11 @@ def _resolve_device_ids_to_serials(device_ids):
             if not device:
                 device = Device.query.filter_by(device_id=str(raw_id).strip()).first()
             if device:
+                if only_manageable and not _can_manage_device(device):
+                    continue
                 serials.append(device.device_id)
+            else:
+                serials.append(str(raw_id).strip())
         except (TypeError, ValueError):
             pass
     return serials
@@ -40,13 +80,16 @@ def _resolve_device_ids_to_serials(device_ids):
 @bp.route('', methods=['GET'])
 @login_required
 def get_devices():
-    """获取设备列表"""
+    """获取设备列表。非 super/manager 仅返回当前用户负责的设备，实现本机与远程用户各自管理各自设备。"""
     page, size = get_pagination_params()
     search = request.args.get('search', '').strip()
     os_type = request.args.get('os_type', '').strip()
     status = request.args.get('status', '').strip()
     
     query = Device.query
+    # 非 super/manager 只看到自己负责的设备，实现本机与远程用户同时各自管理、互不干扰
+    if current_user.role not in ('super', 'manager'):
+        query = query.filter(Device.owner_id == current_user.id)
     
     if search:
         query = query.filter(
@@ -54,13 +97,12 @@ def get_devices():
             Device.device_model.contains(search) |
             Device.device_id.contains(search)
         )
-    
     if os_type:
         query = query.filter(Device.os_type == os_type)
-    
     if status:
         query = query.filter(Device.status == status)
     
+    query = query.order_by(Device.updated_at.desc(), Device.id.desc())
     pagination = query.paginate(
         page=page, per_page=size, error_out=False
     )
@@ -81,8 +123,10 @@ def get_devices():
 @bp.route('/<int:device_id>', methods=['GET'])
 @login_required
 def get_device(device_id):
-    """获取设备详情"""
+    """获取设备详情（仅可查看本人负责或 super/manager 可查看任意）"""
     device = Device.query.get_or_404(device_id)
+    if not _can_manage_device(device):
+        return error_response(403, "无权查看该设备")
     return success_response({
         'device': device.to_dict()
     })
@@ -98,6 +142,13 @@ def create_device():
     if Device.query.filter_by(device_id=data['device_id']).first():
         return error_response(400, "设备ID已存在")
     
+    # 未传 owner_id 或非 super/manager 时归当前用户；super/manager 指定负责人时校验用户存在
+    owner_id = data.get('owner_id')
+    if owner_id is None or current_user.role not in ('super', 'manager'):
+        owner_id = current_user.id
+    else:
+        if User.query.get(owner_id) is None:
+            return error_response(400, "指定的负责人不存在")
     device = Device(
         device_name=data['device_name'],
         device_model=data['device_model'],
@@ -105,7 +156,7 @@ def create_device():
         os_version=data['os_version'],
         device_id=data['device_id'],
         status=data.get('status', 'offline'),
-        owner_id=data.get('owner_id')
+        owner_id=owner_id,
     )
     
     try:
@@ -126,8 +177,10 @@ def create_device():
 @bp.route('/<int:device_id>', methods=['PUT'])
 @login_required
 def update_device(device_id):
-    """更新设备信息"""
+    """更新设备信息（仅负责人或 super/manager 可操作）"""
     device = Device.query.get_or_404(device_id)
+    if not _can_manage_device(device):
+        return error_response(403, "无权修改该设备")
     data = request.get_json()
     
     if 'device_name' in data:
@@ -143,11 +196,14 @@ def update_device(device_id):
         device.status = data['status']
     
     if 'owner_id' in data:
-        device.owner_id = data['owner_id']
-    
+        new_owner_id = data['owner_id']
+        if device.owner_id != new_owner_id and current_user.role not in ('super', 'manager'):
+            return error_response(403, "仅管理员可变更设备负责人")
+        device.owner_id = new_owner_id
+
     try:
         db.session.commit()
-        
+
         log_user_action("更新设备", f"设备ID: {device_id}")
         
         return success_response({
@@ -162,9 +218,10 @@ def update_device(device_id):
 @bp.route('/<int:device_id>', methods=['DELETE'])
 @login_required
 def delete_device(device_id):
-    """删除设备"""
+    """删除设备（仅负责人或 super/manager 可操作）"""
     device = Device.query.get_or_404(device_id)
-    
+    if not _can_manage_device(device):
+        return error_response(403, "无权删除该设备")
     try:
         db.session.delete(device)
         db.session.commit()
@@ -181,62 +238,60 @@ def delete_device(device_id):
 @bp.route('/<device_id>/status', methods=['GET'])
 @login_required
 def get_device_status(device_id):
-    """获取设备状态"""
-    # 尝试根据设备ID查询（数据库主键）
+    """获取设备状态（已绑定 Agent 时由 Agent 执行，否则本机 adb）。仅可查询本人负责或管理员可查任意。"""
     try:
         device = Device.query.get(int(device_id))
-    except ValueError:
+    except (ValueError, TypeError):
         device = None
-    
-    # 如果根据数据库主键查询不到，尝试根据设备序列号查询
     if not device:
         device = Device.query.filter_by(device_id=device_id).first()
-    
-    # 如果仍然查询不到设备，返回404
     if not device:
         return error_response(404, "设备不存在")
-    
+    if not _can_manage_device(device):
+        return error_response(403, "无权查看该设备状态")
+
+    serial = device.device_id
+    agent_uid = _get_bound_agent_uid()
+    if agent_uid:
+        my_serials = _get_my_agent_device_serials()
+        if serial not in my_serials:
+            return error_response(403, "该设备由其他用户 Agent 连接，仅可查看不可操作")
+        success, data = request_agent(agent_uid, 'get_device_status', {'device_id': serial}, timeout=10)
+        if success and data:
+            return success_response({
+                'status': data.get('status', 'disconnected'),
+                'adb_status': data.get('adb_status', ''),
+                'error': data.get('error'),
+            })
+        return success_response({
+            'status': 'disconnected',
+            'adb_status': '',
+            'error': data.get('error', 'Agent 未响应') if isinstance(data, dict) else 'Agent 未响应',
+        })
+
+    # 未绑定：仅本机可查服务器 adb 状态，远程用户需先绑定 Agent
+    if not is_platform_host():
+        return error_response(403, "远程访问需绑定本机 Agent 后才能查看设备状态")
+
     try:
-        # 计算项目根目录路径
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        
-        # 使用escrcpy中的adb
         adb_path = os.path.join(
             project_root,
             'escrcpy', 'electron', 'resources', 'extra', 'win', 'scrcpy', 'adb.exe'
         )
-        
-        # 执行adb命令检查设备状态
         result = subprocess.run(
-            [adb_path, '-s', device.device_id, 'get-state'],
-            capture_output=True,
-            text=True,
-            shell=False,
-            encoding='utf-8',
-            errors='ignore'
+            [adb_path, '-s', serial, 'get-state'],
+            capture_output=True, text=True, shell=False, encoding='utf-8', errors='ignore'
         )
-        
-        # 解析设备状态
-        adb_status = result.stdout.strip()
-        
-        if adb_status == 'device':
-            # 设备已连接
-            return success_response({
-                'status': 'connected',
-                'adb_status': adb_status
-            })
-        else:
-            # 设备未连接
-            return success_response({
-                'status': 'disconnected',
-                'adb_status': adb_status
-            })
-            
+        adb_status = (result.stdout or '').strip()
+        return success_response({
+            'status': 'connected' if adb_status == 'device' else 'disconnected',
+            'adb_status': adb_status,
+        })
     except Exception as e:
-        # 执行adb命令失败，视为设备未连接
         return success_response({
             'status': 'disconnected',
-            'error': str(e)
+            'error': str(e),
         })
 
 
@@ -270,179 +325,199 @@ def get_status_options():
     })
 
 
+def _local_adb_devices():
+    """本机执行 adb devices -l 并解析，返回 devices 列表（供未绑定 Agent 时使用）"""
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    adb_path = os.path.join(
+        project_root,
+        'escrcpy', 'electron', 'resources', 'extra', 'win', 'scrcpy', 'adb.exe'
+    )
+    result = subprocess.run(
+        [adb_path, 'devices', '-l'],
+        capture_output=True, text=True, check=True, encoding='utf-8', errors='ignore'
+    )
+    devices = []
+    lines = result.stdout.strip().split('\n')[1:]
+    for line in lines:
+        if not line.strip():
+            continue
+        match = re.match(r'(\S+)\s+(device|unauthorized|offline)(.*)', line)
+        if match:
+            serial, status, info = match.group(1), match.group(2), match.group(3).strip()
+            device_info = {
+                'id': serial,
+                'status': status,
+                'name': '',
+                'wifi': ':' in serial and not serial.startswith('emulator-'),
+                'remark': ''
+            }
+            model_match = re.search(r'model:(\S+)', info)
+            if model_match:
+                device_info['name'] = model_match.group(1)
+            devices.append(device_info)
+    return devices
+
+
 @bp.route('/adb/devices', methods=['GET'])
 @login_required
 def get_adb_devices():
-    """获取当前连接的设备列表"""
-    try:
-        # 计算项目根目录路径
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        
-        # 使用escrcpy中的adb
-        adb_path = os.path.join(
-            project_root,
-            'escrcpy', 'electron', 'resources', 'extra', 'win', 'scrcpy', 'adb.exe'
-        )
-        
-        # 执行adb命令获取设备列表
-        result = subprocess.run([adb_path, 'devices', '-l'], capture_output=True, text=True, check=True, encoding='utf-8', errors='ignore')
-        
-        # 解析adb输出
-        devices = []
-        lines = result.stdout.strip().split('\n')[1:]  # 跳过第一行 "List of devices attached"
-        
-        for line in lines:
-            if not line.strip():
-                continue
-                
-            # 使用正则表达式解析设备信息
-            match = re.match(r'(\S+)\s+(device|unauthorized|offline)(.*)', line)
-            if match:
-                serial = match.group(1)
-                status = match.group(2)
-                info = match.group(3).strip()
-                
-                # 解析设备详情
-                device_info = {
-                    'id': serial,
-                    'status': status,
-                    'name': '',
-                    'wifi': False,
-                    'remark': ''
-                }
-                
-                # 检查是否为WiFi设备
-                if ':' in serial and not serial.startswith('emulator-'):
-                    device_info['wifi'] = True
-                
-                # 提取设备名称
-                model_match = re.search(r'model:(\S+)', info)
-                if model_match:
-                    device_info['name'] = model_match.group(1)
-                
-                devices.append(device_info)
-        
-        return success_response({
-            'devices': devices
-        })
-    except subprocess.CalledProcessError as e:
-        return error_response(500, f"执行adb命令失败: {e.stderr}")
-    except Exception as e:
-        return error_response(500, f"获取设备列表失败: {str(e)}")
+    """获取当前连接的设备列表。本机访问时优先用本机 adb，确保部署机器上能识别到本机设备；远程访问且已绑定 Agent 时由 Agent 返回。"""
+    # 本机访问时始终用本机 adb，避免因用户绑定了 Agent 导致本机识别不到设备
+    if is_platform_host():
+        try:
+            devices = _local_adb_devices()
+            return success_response({'devices': devices})
+        except subprocess.CalledProcessError as e:
+            return error_response(500, f"执行adb命令失败: {e.stderr}")
+        except Exception as e:
+            return error_response(500, f"获取设备列表失败: {str(e)}")
+    # 远程访问：已绑定 Agent 时由 Agent 返回设备列表
+    binding = UserAgentBinding.query.filter_by(user_id=current_user.id).first()
+    if binding and binding.agent:
+        agent_uid = binding.agent.agent_uid
+        success, data = request_agent(agent_uid, 'get_devices', {}, timeout=10)
+        if success and isinstance(data.get('devices'), list):
+            return success_response({'devices': data['devices']})
+        return success_response({'devices': []})
+    # 远程且未绑定：不暴露本机设备列表
+    return success_response({'devices': []})
+
+
+def _parse_command_device_serials(command):
+    """从 adb 命令中解析目标设备序列号（-s XXX 或 --serial=XXX），返回集合，空表示未指定设备"""
+    import re
+    serials = set()
+    if not command or not isinstance(command, str):
+        return serials
+    # -s SERIAL
+    for m in re.finditer(r'-s\s+([^\s\'"]+)', command):
+        serials.add(m.group(1).strip())
+    # --serial="XXX" or --serial=XXX
+    for m in re.finditer(r'--serial=(?:"([^"]*)"|\'([^\']*)\'|(\S+))', command):
+        serials.add((m.group(1) or m.group(2) or m.group(3) or '').strip())
+    return serials
 
 
 @bp.route('/adb/command', methods=['POST'])
 @login_required
 def execute_adb_command():
-    """执行adb命令"""
+    """执行 adb 命令（已绑定 Agent 时由 Agent 在本机执行，含投屏；否则本机 adb）"""
     data = request.get_json()
-    command = data.get('command')
-    
+    command = data.get('command') if data else None
     if not command:
         return error_response(400, "命令不能为空")
-    
+
+    agent_uid = _get_bound_agent_uid()
+    if agent_uid:
+        cmd_serials = _parse_command_device_serials(command)
+        if cmd_serials:
+            my_serials = _get_my_agent_device_serials()
+            if not cmd_serials.issubset(my_serials):
+                return error_response(403, "该设备由其他用户 Agent 连接，仅可查看不可操作")
+        success, res = request_agent(
+            agent_uid, 'adb_command', {'command': command},
+            timeout=30 if command.strip().startswith('scrcpy') else 15,
+        )
+        if not success:
+            return error_response(500, res.get('error', '本机 Agent 未响应'))
+        if res.get('message'):
+            return success_response({'message': res['message'], **res})
+        return success_response({
+            'stdout': res.get('stdout', ''),
+            'stderr': res.get('stderr', ''),
+            'exit_code': res.get('exit_code', 0),
+            'command': res.get('command', []),
+        })
+
+    # 未绑定：仅本机可执行服务器本地 adb，远程用户需先绑定 Agent
+    if not is_platform_host():
+        return error_response(403, "远程访问需绑定本机 Agent 后才能执行 adb 命令")
+
     try:
-        # 计算项目根目录路径
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        
-        # 检查是否是scrcpy命令
-        if command.startswith('scrcpy'):
-            # 使用本地的scrcpy可执行文件
+        if command.strip().startswith('scrcpy'):
             scrcpy_path = os.path.join(
                 project_root,
                 'escrcpy', 'electron', 'resources', 'extra', 'win', 'scrcpy', 'scrcpy.exe'
             )
-            
-            # 设置ADB环境变量
             adb_path = os.path.join(
                 project_root,
                 'escrcpy', 'electron', 'resources', 'extra', 'win', 'scrcpy', 'adb.exe'
             )
-            
-            # 构建环境变量
             env = os.environ.copy()
             env['ADB'] = adb_path
-            
-            # 构建完整的命令
             command_parts = shlex.split(command)
             command_parts[0] = scrcpy_path
-            
-            # 投屏为长驻进程，用户关闭窗口后进程才退出；用 Popen 启动后立即返回，避免“关闭投屏”时前端才收到成功并误提示“启动成功”
-            try:
-                popen_kw = {'env': env, 'stdout': subprocess.DEVNULL, 'stderr': subprocess.DEVNULL}
-                if hasattr(subprocess, 'CREATE_NEW_PROCESS_GROUP'):
-                    popen_kw['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
-                subprocess.Popen(command_parts, **popen_kw)
-            except Exception as e:
-                return error_response(500, f"启动投屏失败: {str(e)}")
+            popen_kw = {'env': env, 'stdout': subprocess.DEVNULL, 'stderr': subprocess.DEVNULL}
+            if hasattr(subprocess, 'CREATE_NEW_PROCESS_GROUP'):
+                popen_kw['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
+            subprocess.Popen(command_parts, **popen_kw)
+            return success_response({'message': '投屏已启动', 'command': command_parts})
+        adb_path = os.path.join(
+            project_root,
+            'escrcpy', 'electron', 'resources', 'extra', 'win', 'scrcpy', 'adb.exe'
+        )
+        command_parts = shlex.split(command)
+        full_command = [adb_path] + command_parts
+        result = subprocess.run(
+            full_command, capture_output=True, text=True, shell=False,
+            encoding='utf-8', errors='ignore',
+        )
+        stdout_lower = (result.stdout or '').lower()
+        error_keywords = [
+            'cannot connect', 'unable to connect', 'connection refused',
+            '由于目标计算机积极拒绝', 'no devices/emulators found',
+            'device not found', 'offline', 'disconnected',
+        ]
+        has_error = any(k in stdout_lower for k in error_keywords)
+        if result.returncode == 0 and not has_error:
             return success_response({
-                'message': '投屏已启动',
-                'command': command_parts
+                'stdout': result.stdout,
+                'stderr': result.stderr,
+                'exit_code': result.returncode,
+                'command': full_command,
             })
-        else:
-            # 使用escrcpy中的adb
-            adb_path = os.path.join(
-                project_root,
-                'escrcpy', 'electron', 'resources', 'extra', 'win', 'scrcpy', 'adb.exe'
-            )
-            
-            # 构建完整的命令
-            command_parts = shlex.split(command)
-            full_command = [adb_path] + command_parts
-            
-            # 执行命令，避免check=True导致的立即退出
-            result = subprocess.run(full_command, capture_output=True, text=True, shell=False, encoding='utf-8', errors='ignore')
-            
-            # 检查stdout中是否包含错误信息
-            stdout_lower = result.stdout.lower() if result.stdout else ''
-            error_keywords = ['cannot connect', 'unable to connect', 'connection refused', '由于目标计算机积极拒绝', 'no devices/emulators found', 'device not found', 'offline', 'disconnected']
-            
-            # 检查是否包含错误关键词
-            has_error = any(keyword in stdout_lower for keyword in error_keywords)
-            
-            # 根据退出码和stdout判断命令是否成功
-            if result.returncode == 0 and not has_error:
-                # 命令执行成功
-                return success_response({
-                    'stdout': result.stdout,
-                    'stderr': result.stderr,
-                    'exit_code': result.returncode,
-                    'command': full_command
-                })
-            else:
-                # 命令执行失败，返回错误响应
-                error_message = result.stderr or result.stdout or "命令执行失败"
-
-                return error_response(500, f"命令执行失败: {error_message}")
-        
+        return error_response(500, result.stderr or result.stdout or "命令执行失败")
     except subprocess.CalledProcessError as e:
-        stderr = e.stderr or ""
-        # 检查是否是设备断开连接导致的错误
-        if "disconnected" in stderr.lower() or "offline" in stderr.lower():
+        stderr = (e.stderr or "").lower()
+        if "disconnected" in stderr or "offline" in stderr:
             return error_response(500, "设备已断开连接")
-        # 检查是否是找不到设备导致的错误
-        elif "device not found" in stderr.lower() or "no devices/emulators found" in stderr.lower():
+        if "device not found" in stderr or "no devices/emulators found" in stderr:
             return error_response(500, "找不到设备")
-        # 其他错误返回简化的错误信息
-        else:
-            return error_response(500, "命令执行失败")
+        return error_response(500, "命令执行失败")
     except FileNotFoundError:
         return error_response(500, "执行命令失败: 找不到可执行文件")
     except Exception as e:
-        error_str = str(e).lower()
-        # 检查是否是设备断开连接导致的错误
-        if "disconnected" in error_str or "offline" in error_str:
+        err = str(e).lower()
+        if "disconnected" in err or "offline" in err:
             return error_response(500, "设备已断开连接")
-        elif "device not found" in error_str or "no devices/emulators found" in error_str:
+        if "device not found" in err or "no devices/emulators found" in err:
             return error_response(500, "找不到设备")
-        else:
-            return error_response(500, "执行命令失败")
+        return error_response(500, "执行命令失败")
 
 
 @bp.route('/<device_id>/tasks', methods=['POST'])
 @login_required
 def execute_task(device_id):
-    """执行测试任务（单设备），委托给 device_task_executor 实现。"""
+    """执行测试任务（单设备）。已绑定 Agent 时由 Agent 执行；未绑定时仅本机可执行服务器本地任务。"""
+    if _get_bound_agent_uid():
+        serials = _resolve_device_ids_to_serials([device_id], only_manageable=True)
+        if serials:
+            my_serials = _get_my_agent_device_serials()
+            if serials[0] not in my_serials:
+                return error_response(403, "该设备由其他用户 Agent 连接，仅可查看不可操作")
+    else:
+        if not is_platform_host():
+            return error_response(403, "远程访问需绑定本机 Agent 后才能执行任务")
+        # 本机执行时也仅允许操作本人负责的设备（DB 记录）
+        try:
+            dev = Device.query.get(int(device_id)) if (isinstance(device_id, str) and device_id.isdigit()) or isinstance(device_id, int) else None
+            if not dev:
+                dev = Device.query.filter_by(device_id=str(device_id).strip()).first() if device_id else None
+            if dev and not _can_manage_device(dev):
+                return error_response(403, "无权在该设备上执行任务")
+        except (TypeError, ValueError):
+            pass
     data = request.get_json() or {}
     task_id = data.get('task_id')
 
@@ -492,10 +567,18 @@ def execute_batch_tasks():
     if not device_ids:
         return error_response(400, "请选择设备")
 
-    # 前端可能传数据库主键，解析为设备序列号供 adb 使用
-    device_serials = _resolve_device_ids_to_serials(device_ids)
+    # 前端可能传数据库主键或序列号，解析为设备序列号；仅解析当前用户可管理的 DB 设备
+    device_serials = _resolve_device_ids_to_serials(device_ids, only_manageable=True)
     if not device_serials:
         return error_response(400, "未找到有效设备，请检查设备是否已录入")
+
+    if _get_bound_agent_uid():
+        my_serials = _get_my_agent_device_serials()
+        if not set(device_serials).issubset(my_serials):
+            return error_response(403, "部分设备由其他用户 Agent 连接，仅可查看不可操作")
+    else:
+        if not is_platform_host():
+            return error_response(403, "远程访问需绑定本机 Agent 后才能执行批量任务")
 
     results = []
 

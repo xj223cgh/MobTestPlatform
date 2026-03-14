@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 # 固定从 backend 目录加载 .env（config 在 backend/app/config/ 下，向上两级到 backend）
 _backend_dir = Path(__file__).resolve().parent.parent.parent
+_project_root = _backend_dir.parent
 load_dotenv(dotenv_path=_backend_dir / '.env')
 
 
@@ -99,7 +100,23 @@ class Config:
     MAX_LOGO_SIZE = int(os.environ.get('MAX_LOGO_SIZE') or 0) or (2 * 1024 * 1024)  # 默认 2MB
     ALLOWED_SCRIPT_EXTENSIONS = ['.sh', '.py']
     ALLOWED_LOGO_EXTENSIONS = ['.jpg', '.jpeg', '.png']
-    
+
+    # 本机 Agent 安装包下载路径。优先级：环境变量 AGENT_EXE_PATH > backend/agent_exe_path.txt > 默认 agent/dist/MobTestAgent.exe（部署时将 exe 放在项目 agent/dist/ 下即可，无需手动配置）
+    _agent_exe_env = (os.environ.get('AGENT_EXE_PATH') or '').strip()
+    _agent_exe_file = _backend_dir / 'agent_exe_path.txt'
+    _agent_exe_from_file = ''
+    if not _agent_exe_env and _agent_exe_file.exists():
+        try:
+            _agent_exe_from_file = (_agent_exe_file.read_text(encoding='utf-8').splitlines()[0] or '').strip()
+        except Exception:
+            pass
+    _agent_exe_default = str(_project_root / 'agent' / 'dist' / 'MobTestAgent.exe')
+    AGENT_EXE_PATH = _agent_exe_env or (_agent_exe_from_file if _agent_exe_from_file else _agent_exe_default)
+
+    # 供前端「使用方式」中展示的 Agent 平台地址（远程用户运行 Agent 时 --base-url 的值）
+    # .env 中配置 AGENT_PLATFORM_BASE_URL，如 http://192.168.1.100:5000
+    AGENT_PLATFORM_BASE_URL = (os.environ.get('AGENT_PLATFORM_BASE_URL') or '').strip() or None
+
     @staticmethod
     def init_app(app):
         """初始化应用配置"""

@@ -610,6 +610,46 @@ def create_tables():
                 INDEX idx_user_deleted (user_id, deleted_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消息通知表'""")
 
+            # 创建 agents 表（本机 Agent 程序注册信息）
+            cursor.execute("""CREATE TABLE IF NOT EXISTS agents (
+                id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Agent 主键',
+                agent_uid VARCHAR(64) NOT NULL COMMENT 'Agent 唯一标识（UUID），用于 WebSocket 与绑定',
+                name VARCHAR(100) NULL COMMENT '机器名/备注',
+                hostname VARCHAR(128) NULL COMMENT '主机名',
+                token VARCHAR(128) NULL COMMENT '鉴权 token，注册时下发',
+                last_heartbeat_at DATETIME NULL COMMENT '最后心跳时间',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                UNIQUE KEY uk_agent_uid (agent_uid),
+                INDEX idx_agent_uid (agent_uid)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='本机 Agent 表'""")
+
+            # 创建 user_agent_bindings 表（用户与 Agent 绑定关系，一用户绑定一台 Agent）
+            cursor.execute("""CREATE TABLE IF NOT EXISTS user_agent_bindings (
+                id INT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+                user_id INT NOT NULL COMMENT '用户ID',
+                agent_id INT NOT NULL COMMENT 'Agent ID',
+                bound_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '绑定时间',
+                UNIQUE KEY uk_user_id (user_id),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE,
+                INDEX idx_user_id (user_id),
+                INDEX idx_agent_id (agent_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户与本机 Agent 绑定表'""")
+
+            # 创建 agent_binding_codes 表（短期绑定码，供一键绑定或手动输入）
+            cursor.execute("""CREATE TABLE IF NOT EXISTS agent_binding_codes (
+                id INT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+                user_id INT NOT NULL COMMENT '用户ID',
+                code VARCHAR(10) NOT NULL COMMENT '6 位绑定码',
+                binding_token VARCHAR(64) NULL COMMENT '长 token，用于本机一键绑定',
+                expires_at DATETIME NOT NULL COMMENT '过期时间',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                INDEX idx_user_id (user_id),
+                INDEX idx_binding_token (binding_token),
+                INDEX idx_expires_at (expires_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent 绑定码表'""")
+
             # ---------- 迁移逻辑（与 08_migrate 合并：对已有库补全 deleted_at、mindmap_versions）----------
             def _column_exists(cursor, table, column):
                 cursor.execute("SHOW COLUMNS FROM `%s` LIKE %%s" % table, (column,))
@@ -638,6 +678,10 @@ def create_tables():
                     INDEX idx_suite_id (suite_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci""")
                 print("  [迁移] mindmap_versions 表已创建")
+            if _table_exists(cursor, "agent_binding_codes") and not _column_exists(cursor, "agent_binding_codes", "binding_token"):
+                cursor.execute("ALTER TABLE agent_binding_codes ADD COLUMN binding_token VARCHAR(64) NULL COMMENT '长 token，用于本机一键绑定' AFTER code")
+                cursor.execute("ALTER TABLE agent_binding_codes ADD INDEX idx_binding_token (binding_token)")
+                print("  [迁移] agent_binding_codes.binding_token 已添加")
 
             connection.commit()
             print("所有数据表创建成功！")

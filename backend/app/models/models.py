@@ -443,6 +443,66 @@ class Iteration(db.Model):
 
 
 
+class Agent(db.Model):
+    """本机 Agent 模型（每台要管理 USB 设备的电脑运行一个 Agent 程序）"""
+    __tablename__ = 'agents'
+
+    id = db.Column(db.Integer, primary_key=True, comment='Agent 主键')
+    agent_uid = db.Column(db.String(64), unique=True, nullable=False, index=True, comment='Agent 唯一标识（UUID），用于 WebSocket 与绑定')
+    name = db.Column(db.String(100), nullable=True, comment='机器名/备注')
+    hostname = db.Column(db.String(128), nullable=True, comment='主机名')
+    token = db.Column(db.String(128), nullable=True, comment='鉴权 token，注册时下发')
+    last_heartbeat_at = db.Column(db.DateTime(timezone=True), nullable=True, comment='最后心跳时间')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'agent_uid': self.agent_uid,
+            'name': self.name,
+            'hostname': self.hostname,
+            'last_heartbeat_at': self.last_heartbeat_at.isoformat() if self.last_heartbeat_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class UserAgentBinding(db.Model):
+    """用户与 Agent 绑定关系：一个用户当前只绑定一台本机 Agent"""
+    __tablename__ = 'user_agent_bindings'
+
+    id = db.Column(db.Integer, primary_key=True, comment='主键')
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, unique=True, comment='用户ID')
+    agent_id = db.Column(db.Integer, db.ForeignKey('agents.id', ondelete='CASCADE'), nullable=False, comment='Agent ID')
+    bound_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='绑定时间')
+
+    user = db.relationship('User', backref=db.backref('agent_binding', uselist=False))
+    agent = db.relationship('Agent', backref=db.backref('bindings', lazy='dynamic'))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'agent_id': self.agent_id,
+            'agent_uid': self.agent.agent_uid if self.agent else None,
+            'agent_name': self.agent.name if self.agent else None,
+            'bound_at': self.bound_at.isoformat() if self.bound_at else None,
+        }
+
+
+class AgentBindingCode(db.Model):
+    """绑定码：用户在前端点击「绑定本机」后生成，供一键绑定或 Agent 输入完成绑定，短期有效"""
+    __tablename__ = 'agent_binding_codes'
+
+    id = db.Column(db.Integer, primary_key=True, comment='主键')
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True, comment='用户ID')
+    code = db.Column(db.String(10), nullable=False, comment='6 位绑定码')
+    binding_token = db.Column(db.String(64), nullable=True, index=True, comment='长 token，用于本机一键绑定')
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False, comment='过期时间')
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(LOCAL_TIMEZONE), comment='创建时间')
+
+    user = db.relationship('User', backref=db.backref('agent_binding_codes', lazy='dynamic'))
+
+
 class Device(db.Model):
     """设备模型"""
     __tablename__ = 'devices'

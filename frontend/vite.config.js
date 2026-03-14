@@ -45,7 +45,18 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:5000',
         changeOrigin: true,
-        credentials: true
+        credentials: true,
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
+            const clientIp = req.socket?.remoteAddress || req.connection?.remoteAddress || req.ip || ''
+            if (clientIp) {
+              const existing = proxyReq.getHeader('X-Forwarded-For')
+              const value = existing ? `${clientIp}, ${existing}` : clientIp
+              proxyReq.setHeader('X-Forwarded-For', value)
+              proxyReq.setHeader('X-Real-IP', clientIp)
+            }
+          })
+        }
       },
       '/socket.io': {
         target: 'http://127.0.0.1:5000',
