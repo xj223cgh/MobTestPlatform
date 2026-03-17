@@ -3,6 +3,25 @@
 ================================================================================
 
 --------------------------------------------------------------------------------
+【图片渲染说明】如何把本文档中的代码变成可插入论文的图片
+--------------------------------------------------------------------------------
+本文件为纯文本代码汇总，需用下方方式之一渲染后再插入 Word/论文。
+
+一、Mermaid 图（图 3-1、3-3、图 4-x、图 6-1 等）
+  · 复制对应 ```mermaid 与 ``` 之间的整段代码（不含 ```mermaid 和 ``` 两行）
+  · 打开 https://mermaid.live 粘贴 → 可预览并导出 PNG/SVG
+  · 或使用支持 Mermaid 的 Markdown 编辑器（如 Typora、VS Code 装 Mermaid 插件）预览后截图/导出
+
+二、PlantUML 图（图 3-2、图 5-1～5-11）
+  · 复制对应 ```plantuml 与 ``` 之间的整段代码（必须包含 @startuml 和 @enduml 两行，不要带 ```plantuml 和 ```）
+  · 在线渲染：打开 https://www.plantuml.com/plantuml/uml 粘贴 → 即显示图片 → 右键保存图片或导出 PNG/SVG
+  · VS Code 本地渲染：安装扩展 "PlantUML" (jebbs.plantuml)，新建 .puml 文件粘贴同一段代码，按 Alt+D 预览，再右键导出 PNG/SVG
+  · 若在线版报错：请确认复制内容从 @startuml 到 @enduml 完整且无多余空行；中文若乱码可尝试用支持 UTF-8 的编辑器复制
+
+三、插入论文
+  将导出的 PNG 或 SVG 插入 Word：插入 → 图片 → 选择文件即可。
+
+--------------------------------------------------------------------------------
 【第二章 系统需求分析】
 --------------------------------------------------------------------------------
 
@@ -766,269 +785,538 @@ flowchart LR
 
 ---------- 图 5-1  用户登录时序图 ----------
 位置：第五章 详细设计 → 5.1 用户与权限模块详细设计
+说明：使用 PlantUML 绘制，左侧为人物形象（actor），生命线上的条状为激活条（activate/deactivate）。
 
-```mermaid
-sequenceDiagram
-    participant 用户
-    participant 前端
-    participant 后端
-    participant 数据库
+```plantuml
+@startuml 图5-1-用户登录时序图
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam SequenceLifeLineBorderColor #333
+skinparam SequenceArrowColor #333
+skinparam SequenceActorBorderColor #333
+skinparam SequenceActivationBackgroundColor #E8E8E8
+skinparam SequenceActivationBorderColor #333
+hide footbox
 
-    用户->>前端: 输入用户名、密码并提交
-    前端->>后端: 提交登录请求 (POST /login)
-    后端->>数据库: 查询用户信息 (User)
-    数据库-->>后端: 用户记录
-    后端->>后端: 校验密码、锁定与激活状态 (check_password)
-    后端->>数据库: 查询会话配置 (SystemSetting)
-    数据库-->>后端: 配置信息
-    后端->>后端: 创建会话 (login_user)
-    后端->>数据库: 查询角色权限 (get_user_permission_codes)
-    数据库-->>后端: 权限列表
-    后端-->>前端: 返回用户信息与权限
-    前端-->>用户: 登录成功，跳转首页
+actor "用户" as user
+participant "前端" as FE
+participant "后端" as BE
+participant "数据库" as DB
+
+user -> FE : 输入用户名、密码并提交
+activate FE
+FE -> BE : 提交登录请求 (POST /login)
+activate BE
+BE -> DB : 查询用户信息 (User)
+activate DB
+DB --> BE : 用户记录
+deactivate DB
+BE -> BE : 校验密码、锁定与激活状态 (check_password)
+BE -> DB : 查询会话配置 (SystemSetting)
+activate DB
+DB --> BE : 配置信息
+deactivate DB
+BE -> BE : 创建会话 (login_user)
+BE -> DB : 查询角色权限 (get_user_permission_codes)
+activate DB
+DB --> BE : 权限列表
+deactivate DB
+BE --> FE : 返回用户信息与权限
+deactivate BE
+FE --> user : 登录成功，跳转首页
+deactivate FE
+@enduml
 ```
 
 
 ---------- 图 5-2  获取当前用户与权限校验时序图 ----------
 位置：第五章 详细设计 → 5.1 用户与权限模块详细设计（图 5-1 之后）
+说明：PlantUML 绘制，生命线上的条状为激活条（activate/deactivate）。
 
-```mermaid
-sequenceDiagram
-    participant 前端
-    participant 后端
-    participant 数据库
+```plantuml
+@startuml 图5-2-获取当前用户与权限校验时序图
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam SequenceLifeLineBorderColor #333
+skinparam SequenceArrowColor #333
+skinparam SequenceActivationBackgroundColor #E8E8E8
+skinparam SequenceActivationBorderColor #333
+hide footbox
 
-    前端->>后端: 获取当前用户或权限 (GET /current-user、/permissions)
-    后端->>后端: 从会话获取 current_user (Flask-Login)
-    后端->>数据库: 查询用户信息、角色权限
-    数据库-->>后端: 用户、权限列表
-    后端-->>前端: 返回用户与权限
+participant "前端" as FE
+participant "后端" as BE
+participant "数据库" as DB
 
-    前端->>后端: 请求受保护接口（如用户管理）
-    后端->>后端: 鉴权 (@login_required、权限埋点)
-    alt 无权限
-        后端-->>前端: 403 无权限
-    else 有权限
-        后端->>数据库: 执行业务查询/更新
-        后端-->>前端: 返回业务数据
-    end
+FE -> BE : 获取当前用户或权限 (GET /current-user、/permissions)
+activate BE
+BE -> BE : 从会话获取 current_user (Flask-Login)
+BE -> DB : 查询用户信息、角色权限
+activate DB
+DB --> BE : 用户、权限列表
+deactivate DB
+BE --> FE : 返回用户与权限
+deactivate BE
+
+FE -> BE : 请求受保护接口（如用户管理）
+activate BE
+BE -> BE : 鉴权 (@login_required、权限埋点)
+alt 无权限
+    BE --> FE : 403 无权限
+else 有权限
+    BE -> DB : 执行业务查询/更新
+    activate DB
+    DB --> BE : (结果)
+    deactivate DB
+    BE --> FE : 返回业务数据
+end
+deactivate BE
+@enduml
 ```
 
 
 ---------- 图 5-3  项目创建与成员添加时序图 ----------
 位置：第五章 详细设计 → 5.2 项目管理模块详细设计
+说明：PlantUML 绘制，左侧为人物形象（actor），生命线上的条状为激活条。
 
-```mermaid
-sequenceDiagram
-    participant 用户
-    participant 前端
-    participant 后端
-    participant 通知服务 as notify_users
-    participant 数据库
+```plantuml
+@startuml 图5-3-项目创建与成员添加时序图
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam SequenceLifeLineBorderColor #333
+skinparam SequenceArrowColor #333
+skinparam SequenceActorBorderColor #333
+skinparam SequenceActivationBackgroundColor #E8E8E8
+skinparam SequenceActivationBorderColor #333
+hide footbox
 
-    用户->>前端: 填写项目名称、描述、负责人、成员
-    前端->>后端: 提交项目信息 (POST /api/projects/)
-    后端->>数据库: 创建项目 (Project)、项目成员 (ProjectMember)
-    后端->>通知服务: 通知负责人与成员 (notify_users)
-    通知服务->>数据库: 写入 notifications
-    通知服务->>通知服务: 实时推送 (emit)
-    后端-->>前端: 返回项目信息
-    前端-->>用户: 创建成功，跳转项目列表/详情
+actor "用户" as user
+participant "前端" as FE
+participant "后端" as BE
+participant "通知服务(notify_users)" as NS
+participant "数据库" as DB
+
+user -> FE : 填写项目名称、描述、负责人、成员
+activate FE
+FE -> BE : 提交项目信息 (POST /api/projects/)
+activate BE
+BE -> DB : 创建项目 (Project)、项目成员 (ProjectMember)
+activate DB
+DB --> BE : (完成)
+deactivate DB
+BE -> NS : 通知负责人与成员 (notify_users)
+activate NS
+NS -> DB : 写入 notifications
+activate DB
+DB --> NS : (完成)
+deactivate DB
+NS -> NS : 实时推送 (emit)
+NS --> BE : (完成)
+deactivate NS
+BE --> FE : 返回项目信息
+deactivate BE
+FE --> user : 创建成功，跳转项目列表/详情
+deactivate FE
+@enduml
 ```
 
 
 ---------- 图 5-4  脑图保存与用例同步时序图 ----------
 位置：第五章 详细设计 → 5.3 测试用例管理模块详细设计
+说明：PlantUML 绘制，左侧为人物形象（actor），生命线上的条状为激活条。
 
-```mermaid
-sequenceDiagram
-    participant 用户
-    participant 前端
-    participant 后端
-    participant 数据库
+```plantuml
+@startuml 图5-4-脑图保存与用例同步时序图
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam SequenceLifeLineBorderColor #333
+skinparam SequenceArrowColor #333
+skinparam SequenceActorBorderColor #333
+skinparam SequenceActivationBackgroundColor #E8E8E8
+skinparam SequenceActivationBorderColor #333
+hide footbox
 
-    用户->>前端: 编辑脑图后点击保存
-    前端->>后端: 提交脑图数据 (PUT /api/mindmap/<suite_id>)
-    后端->>数据库: 查询用例集 (TestSuite)
-    后端->>后端: 校验类型与版本冲突
-    alt 版本冲突
-        后端-->>前端: 409 请刷新后重试或强制覆盖
-    end
-    后端->>后端: 解析脑图生成用例 (_parse_mindmap_to_cases、_sync_cases_to_db)
-    后端->>数据库: 同步用例并更新套件与版本历史 (test_cases, MindmapVersion)
-    后端-->>前端: 返回 suite_id、case_count、mindmap_version
-    前端-->>用户: 保存成功
+actor "用户" as user
+participant "前端" as FE
+participant "后端" as BE
+participant "数据库" as DB
+
+user -> FE : 编辑脑图后点击保存
+activate FE
+FE -> BE : 提交脑图数据 (PUT /api/mindmap/<suite_id>)
+activate BE
+BE -> DB : 查询用例集 (TestSuite)
+activate DB
+DB --> BE : (TestSuite)
+deactivate DB
+BE -> BE : 校验类型与版本冲突
+alt 版本冲突
+    BE --> FE : 409 请刷新后重试或强制覆盖
+else 无冲突
+    BE -> BE : 解析脑图生成用例 (_parse_mindmap_to_cases、_sync_cases_to_db)
+    BE -> DB : 同步用例并更新套件与版本历史 (test_cases, MindmapVersion)
+    activate DB
+    DB --> BE : (完成)
+    deactivate DB
+    BE --> FE : 返回 suite_id、case_count、mindmap_version
+end
+deactivate BE
+FE --> user : 保存成功
+deactivate FE
+@enduml
 ```
 
 
 ---------- 图 5-5  用例集评审发起时序图 ----------
 位置：第五章 详细设计 → 5.3 测试用例管理模块详细设计（图 5-4 之后）
+说明：PlantUML 绘制，左侧为人物形象（actor），生命线上的条状为激活条。
 
-```mermaid
-sequenceDiagram
-    participant 发起人
-    participant 前端
-    participant 后端
-    participant 通知服务 as notify_users
-    participant 数据库
+```plantuml
+@startuml 图5-5-用例集评审发起时序图
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam SequenceLifeLineBorderColor #333
+skinparam SequenceArrowColor #333
+skinparam SequenceActorBorderColor #333
+skinparam SequenceActivationBackgroundColor #E8E8E8
+skinparam SequenceActivationBorderColor #333
+hide footbox
 
-    发起人->>前端: 选择用例集、评审人，发起评审
-    前端->>后端: 发起评审 (POST .../initiate-review)
-    后端->>数据库: 查询用例集与用例，创建评审任务 (TestSuiteReviewTask) 与评审详情 (TestCaseReviewDetail)
-    后端->>数据库: 更新用例集 review_status
-    后端->>通知服务: 通知评审人 (notify_users)
-    通知服务->>数据库: 写入 notifications
-    通知服务->>通知服务: 实时推送 (emit)
-    后端-->>前端: 返回 review_task_id
-    前端-->>发起人: 发起成功
+actor "发起人" as user
+participant "前端" as FE
+participant "后端" as BE
+participant "通知服务(notify_users)" as NS
+participant "数据库" as DB
+
+user -> FE : 选择用例集、评审人，发起评审
+activate FE
+FE -> BE : 发起评审 (POST .../initiate-review)
+activate BE
+BE -> DB : 查询用例集与用例，创建评审任务 (TestSuiteReviewTask) 与评审详情 (TestCaseReviewDetail)
+activate DB
+DB --> BE : (完成)
+deactivate DB
+BE -> DB : 更新用例集 review_status
+activate DB
+DB --> BE : (完成)
+deactivate DB
+BE -> NS : 通知评审人 (notify_users)
+activate NS
+NS -> DB : 写入 notifications
+activate DB
+DB --> NS : (完成)
+deactivate DB
+NS -> NS : 实时推送 (emit)
+NS --> BE : (完成)
+deactivate NS
+BE --> FE : 返回 review_task_id
+deactivate BE
+FE --> user : 发起成功
+deactivate FE
+@enduml
 ```
 
 
 ---------- 图 5-6  设备列表查询与状态刷新时序图 ----------
 位置：第五章 详细设计 → 5.4 设备管理模块详细设计
+说明：PlantUML 绘制，左侧为人物形象（actor），生命线上的条状为激活条。
 
-```mermaid
-sequenceDiagram
-    participant 用户
-    participant 前端
-    participant 后端
-    participant 数据库
-    participant ADB as ADB
+```plantuml
+@startuml 图5-6-设备列表查询与状态刷新时序图
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam SequenceLifeLineBorderColor #333
+skinparam SequenceArrowColor #333
+skinparam SequenceActorBorderColor #333
+skinparam SequenceActivationBackgroundColor #E8E8E8
+skinparam SequenceActivationBorderColor #333
+hide footbox
 
-    用户->>前端: 打开设备管理页 / 点击刷新状态
-    前端->>后端: 请求设备列表或状态 (GET /api/devices 或 /<id>/status)
-    alt 列表查询
-        后端->>数据库: 查询设备列表 (Device)
-        后端-->>前端: 返回设备列表
-    else 状态刷新
-        后端->>数据库: 查询设备信息
-        后端->>ADB: 获取连接状态 (adb get-state)
-        ADB-->>后端: device / disconnected
-        后端-->>前端: 返回连接状态
-    end
-    前端-->>用户: 展示列表或状态
+actor "用户" as user
+participant "前端" as FE
+participant "后端" as BE
+participant "数据库" as DB
+participant "ADB" as ADB
+
+user -> FE : 打开设备管理页 / 点击刷新状态
+activate FE
+FE -> BE : 请求设备列表或状态 (GET /api/devices 或 /<id>/status)
+activate BE
+alt 列表查询
+    BE -> DB : 查询设备列表 (Device)
+    activate DB
+    DB --> BE : 设备列表
+    deactivate DB
+    BE --> FE : 返回设备列表
+else 状态刷新
+    BE -> DB : 查询设备信息
+    activate DB
+    DB --> BE : 设备信息
+    deactivate DB
+    BE -> ADB : 获取连接状态 (adb get-state)
+    activate ADB
+    ADB --> BE : device / disconnected
+    deactivate ADB
+    BE --> FE : 返回连接状态
+end
+deactivate BE
+FE --> user : 展示列表或状态
+deactivate FE
+@enduml
 ```
 
 
 ---------- 图 5-7  测试任务创建与用例快照时序图 ----------
 位置：第五章 详细设计 → 5.5 测试任务与执行模块详细设计
+说明：PlantUML 绘制，左侧为人物形象（actor），生命线上的条状为激活条。
 
-```mermaid
-sequenceDiagram
-    participant 用户
-    participant 前端
-    participant 后端
-    participant 数据库
+```plantuml
+@startuml 图5-7-测试任务创建与用例快照时序图
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam SequenceLifeLineBorderColor #333
+skinparam SequenceArrowColor #333
+skinparam SequenceActorBorderColor #333
+skinparam SequenceActivationBackgroundColor #E8E8E8
+skinparam SequenceActivationBorderColor #333
+hide footbox
 
-    用户->>前端: 选择用例集、设备等，创建任务
-    前端->>后端: 提交任务信息 (POST /api/test-tasks)
-    后端->>数据库: 校验套件与文件夹，创建任务 (TestTask)、关联用例或设备
-    alt 用例型任务且有关联套件
-        后端->>后端: 生成用例快照 (_save_task_case_snapshots)
-        后端->>数据库: 写入任务用例快照 (TaskCaseSnapshot)
-    end
-    后端->>数据库: 提交事务 (commit)
-    后端-->>前端: 返回 test_task
-    前端-->>用户: 任务创建成功
+actor "用户" as user
+participant "前端" as FE
+participant "后端" as BE
+participant "数据库" as DB
+
+user -> FE : 选择用例集、设备等，创建任务
+activate FE
+FE -> BE : 提交任务信息 (POST /api/test-tasks)
+activate BE
+BE -> DB : 校验套件与文件夹，创建任务 (TestTask)、关联用例或设备
+activate DB
+DB --> BE : (完成)
+deactivate DB
+alt 用例型任务且有关联套件
+    BE -> BE : 生成用例快照 (_save_task_case_snapshots)
+    BE -> DB : 写入任务用例快照 (TaskCaseSnapshot)
+    activate DB
+    DB --> BE : (完成)
+    deactivate DB
+end
+BE -> DB : 提交事务 (commit)
+activate DB
+DB --> BE : (完成)
+deactivate DB
+BE --> FE : 返回 test_task
+deactivate BE
+FE --> user : 任务创建成功
+deactivate FE
+@enduml
 ```
 
 
 ---------- 图 5-8  任务完成与报告自动生成时序图 ----------
 位置：第五章 详细设计 → 5.5 测试任务与执行模块详细设计（图 5-7 之后）
+说明：PlantUML 绘制，左侧为人物形象（actor），生命线上的条状为激活条。
 
-```mermaid
-sequenceDiagram
-    participant 执行人
-    participant 前端
-    participant 后端
-    participant 报告服务 as create_report_for_task
-    participant 通知服务 as notify_users
-    participant 数据库
+```plantuml
+@startuml 图5-8-任务完成与报告自动生成时序图
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam SequenceLifeLineBorderColor #333
+skinparam SequenceArrowColor #333
+skinparam SequenceActorBorderColor #333
+skinparam SequenceActivationBackgroundColor #E8E8E8
+skinparam SequenceActivationBorderColor #333
+hide footbox
 
-    执行人->>前端: 填写执行结果并完成任务
-    前端->>后端: 提交执行结果或完成 (POST .../executions/... 或 .../complete)
-    后端->>数据库: 更新执行记录、任务状态为已完成
-    后端->>报告服务: 生成报告 (create_report_for_task)
-    报告服务->>数据库: 汇总执行记录与快照，写入 Report
-    报告服务-->>后端: 返回 Report
-    后端->>数据库: 提交事务
-    后端->>通知服务: 通知创建人/执行人 (notify_users)
-    通知服务->>数据库: 写入 notifications
-    通知服务->>通知服务: 实时推送 (emit)
-    后端-->>前端: 任务已完成
-    前端-->>执行人: 完成提示
+actor "执行人" as user
+participant "前端" as FE
+participant "后端" as BE
+participant "报告服务(create_report_for_task)" as RS
+participant "通知服务(notify_users)" as NS
+participant "数据库" as DB
+
+user -> FE : 填写执行结果并完成任务
+activate FE
+FE -> BE : 提交执行结果或完成 (POST .../executions/... 或 .../complete)
+activate BE
+BE -> DB : 更新执行记录、任务状态为已完成
+activate DB
+DB --> BE : (完成)
+deactivate DB
+BE -> RS : 生成报告 (create_report_for_task)
+activate RS
+RS -> DB : 汇总执行记录与快照，写入 Report
+activate DB
+DB --> RS : (完成)
+deactivate DB
+RS --> BE : 返回 Report
+deactivate RS
+BE -> DB : 提交事务
+activate DB
+DB --> BE : (完成)
+deactivate DB
+BE -> NS : 通知创建人/执行人 (notify_users)
+activate NS
+NS -> DB : 写入 notifications
+activate DB
+DB --> NS : (完成)
+deactivate DB
+NS -> NS : 实时推送 (emit)
+NS --> BE : (完成)
+deactivate NS
+BE --> FE : 任务已完成
+deactivate BE
+FE --> user : 完成提示
+deactivate FE
+@enduml
 ```
 
 
 ---------- 图 5-9  报告手动生成与数据查询时序图 ----------
 位置：第五章 详细设计 → 5.6 报告管理模块详细设计
+说明：PlantUML 绘制，左侧为人物形象（actor），生命线上的条状为激活条。
 
-```mermaid
-sequenceDiagram
-    participant 用户
-    participant 前端
-    participant 后端
-    participant 数据库
+```plantuml
+@startuml 图5-9-报告手动生成与数据查询时序图
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam SequenceLifeLineBorderColor #333
+skinparam SequenceArrowColor #333
+skinparam SequenceActorBorderColor #333
+skinparam SequenceActivationBackgroundColor #E8E8E8
+skinparam SequenceActivationBorderColor #333
+hide footbox
 
-    用户->>前端: 选择已完成任务，点击生成报告
-    前端->>后端: 触发生成 (POST /api/reports/generate/任务id)
-    后端->>后端: 校验任务已完成，调用 create_report_for_task
-    后端->>数据库: 写入 Report
-    后端-->>前端: 返回 report_id、report
+actor "用户" as user
+participant "前端" as FE
+participant "后端" as BE
+participant "数据库" as DB
 
-    用户->>前端: 打开报告详情
-    前端->>后端: 请求报告数据 (GET /api/reports/任务id/data)
-    后端->>数据库: 查询已落库报告 (Report)
-    alt 已有落库报告
-        后端-->>前端: 返回 summary、details
-    else 无落库报告
-        后端->>后端: 实时生成 (generate_test_case_report 等)
-        后端-->>前端: 返回 summary、details，不落库
-    end
+user -> FE : 选择已完成任务，点击生成报告
+activate FE
+FE -> BE : 触发生成 (POST /api/reports/generate/任务id)
+activate BE
+BE -> BE : 校验任务已完成，调用 create_report_for_task
+BE -> DB : 写入 Report
+activate DB
+DB --> BE : (完成)
+deactivate DB
+BE --> FE : 返回 report_id、report
+deactivate BE
+FE --> user : (显示)
+
+user -> FE : 打开报告详情
+activate FE
+FE -> BE : 请求报告数据 (GET /api/reports/任务id/data)
+activate BE
+BE -> DB : 查询已落库报告 (Report)
+activate DB
+alt 已有落库报告
+    DB --> BE : Report
+    deactivate DB
+    BE --> FE : 返回 summary、details
+else 无落库报告
+    DB --> BE : 无
+    deactivate DB
+    BE -> BE : 实时生成 (generate_test_case_report 等)
+    BE --> FE : 返回 summary、details，不落库
+end
+deactivate BE
+FE --> user : 展示报告
+deactivate FE
+@enduml
 ```
 
 
 ---------- 图 5-10  消息通知创建与实时推送时序图 ----------
 位置：第五章 详细设计 → 5.7 消息通知模块详细设计
+说明：PlantUML 绘制，生命线上的条状为激活条（本图无用户角色，均为系统组件）。
 
-```mermaid
-sequenceDiagram
-    participant 业务模块 as 任务/评审/AI等
-    participant 通知服务 as notify_users
-    participant 数据库
-    participant SocketIO as Flask-SocketIO
-    participant 前端
+```plantuml
+@startuml 图5-10-消息通知创建与实时推送时序图
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam SequenceLifeLineBorderColor #333
+skinparam SequenceArrowColor #333
+skinparam SequenceActivationBackgroundColor #E8E8E8
+skinparam SequenceActivationBorderColor #333
+hide footbox
 
-    业务模块->>通知服务: 发起通知 (notify_users)
-    通知服务->>通知服务: 去重、排除操作者
-    通知服务->>数据库: 写入 notifications
-    通知服务->>SocketIO: 推送 (emit('notification', room='user:{id}'))
-    SocketIO->>前端: 推送 notification 事件
-    前端->>前端: 更新未读徽标与列表
-    通知服务-->>业务模块: 返回通知 id 列表
+participant "业务模块(任务/评审/AI等)" as BM
+participant "通知服务(notify_users)" as NS
+participant "数据库" as DB
+participant "Flask-SocketIO" as SIO
+participant "前端" as FE
+
+BM -> NS : 发起通知 (notify_users)
+activate NS
+NS -> NS : 去重、排除操作者
+NS -> DB : 写入 notifications
+activate DB
+DB --> NS : (完成)
+deactivate DB
+NS -> SIO : 推送 (emit('notification', room='user:{id}'))
+activate SIO
+SIO -> FE : 推送 notification 事件
+activate FE
+FE -> FE : 更新未读徽标与列表
+deactivate FE
+deactivate SIO
+NS --> BM : 返回通知 id 列表
+deactivate NS
+@enduml
 ```
 
 
 ---------- 图 5-11  前端连接 WebSocket 与接收通知时序图 ----------
 位置：第五章 详细设计 → 5.7 消息通知模块详细设计（图 5-10 之后）
+说明：PlantUML 绘制，左侧为人物形象（actor），生命线上的条状为激活条。
 
-```mermaid
-sequenceDiagram
-    participant 用户
-    participant 前端
-    participant SocketIO as Flask-SocketIO
-    participant 后端
+```plantuml
+@startuml 图5-11-前端连接WebSocket与接收通知时序图
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam SequenceLifeLineBorderColor #333
+skinparam SequenceArrowColor #333
+skinparam SequenceActorBorderColor #333
+skinparam SequenceActivationBackgroundColor #E8E8E8
+skinparam SequenceActivationBorderColor #333
+hide footbox
 
-    用户->>前端: 登录成功，加载主界面
-    前端->>SocketIO: 建立连接 (connect)
-    SocketIO->>后端: 校验登录 (current_user.is_authenticated)
-    alt 未认证
-        SocketIO->>前端: 断开 (disconnect)
-    else 已认证
-        SocketIO->>SocketIO: 加入用户房间 (join_room('user:{id}'))
-        SocketIO-->>前端: 连接成功
-        前端->>前端: 监听 on('notification')
-    end
+actor "用户" as user
+participant "前端" as FE
+participant "Flask-SocketIO" as SIO
+participant "后端" as BE
+
+user -> FE : 登录成功，加载主界面
+activate FE
+FE -> SIO : 建立连接 (connect)
+activate SIO
+SIO -> BE : 校验登录 (current_user.is_authenticated)
+activate BE
+BE --> SIO : (结果)
+deactivate BE
+alt 未认证
+    SIO -> FE : 断开 (disconnect)
+    deactivate SIO
+else 已认证
+    SIO -> SIO : 加入用户房间 (join_room('user:{id}'))
+    SIO --> FE : 连接成功
+    deactivate SIO
+    FE -> FE : 监听 on('notification')
+end
+deactivate FE
+@enduml
 ```
 
 
@@ -1109,7 +1397,7 @@ backend/
 - 第二章 系统需求分析：图 3-1、3-2、3-3（mermaid/plantuml）。
 - 第三章 概要设计：图 4-1～4-9（mermaid flowchart）。
 - 第四章 数据库设计：图 4-10～4-17（mermaid E-R 图）。
-- 第五章 详细设计：图 5-1～5-11（mermaid sequenceDiagram）。
+- 第五章 详细设计：图 5-1～5-11（PlantUML 时序图，人物形象 actor + 条状激活 activate/deactivate）。
 - 第六章 系统实现：图 6-1（mermaid）、图 6-2（目录树文本）；图 6-3～6-26 为界面截图占位说明，无绘图代码。
 - 第七章 结语：无插图。
 ================================================================================
