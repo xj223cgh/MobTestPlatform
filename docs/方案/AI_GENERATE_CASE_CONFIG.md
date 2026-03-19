@@ -50,9 +50,9 @@
    - 用例集创建和管理
    - 任务状态轮询
    - 进度显示组件
+   - 需求文档：使用浏览器 **`FileReader.readAsText`** 读取 **`.txt` / `.md`** 为纯文本后，随生成请求提交后端（若上传非文本格式，界面会提示仅支持 `.txt` / `.md`）
 
-3. **文档解析工具** - `frontend/src/utils/documentParser.js`
-   - 支持 .docx、.pdf、.txt 文件解析
+> **说明**：历史上曾使用独立模块 `documentParser.js` 解析 docx/pdf，该文件已移除；若需恢复 Word/PDF 解析，可再行引入解析库并在本页面上传逻辑中扩展。
 
 ## 配置说明
 
@@ -394,14 +394,12 @@ backend/
 frontend/
 └── src/
     ├── api/
-    │   └── aiTasks.js               # AI任务API封装
-    ├── utils/
-    │   └── documentParser.js        # 文档解析工具
+    │   └── aiTasks.js               # AI 任务 API 封装
     ├── prompts/
-    │   └── testCase.js              # AI提示词模板
+    │   └── testCase.js              # AI 提示词模板
     └── views/
         └── testCase/
-            └── TestCaseManagement.vue # 用例管理页面
+            └── TestCaseManagement.vue  # 用例管理、AI 生成弹窗与文档读取
 ```
 
 ## 依赖安装
@@ -415,10 +413,7 @@ pip install requests  # AI接口调用
 
 ### 前端依赖
 
-```bash
-cd frontend
-npm install mammoth pdfjs-dist  # 文档解析
-```
+当前 AI 生成流程以 **文本**（`.txt`/`.md`）为主，无需额外文档解析库。若将来在前端扩展 Word/PDF 解析，可再按需添加依赖并在上传逻辑中接入。
 
 ## 性能优化建议
 
@@ -536,14 +531,16 @@ prompt = f"""...
 
 如有问题，请查看：
 
-- 📄 `docs/API.md` - API接口文档
-- 📄 `docs/USER_MANUAL.md` - 用户手册
-- 📄 `docs/DEVELOPMENT.md` - 开发文档
+- 📄 [`docs/项目文档/API文档.md`](../项目文档/API文档.md) — API 说明
+- 📄 [`docs/项目文档/开发指南.md`](../项目文档/开发指南.md) — 开发与架构
+- 📄 项目根目录 `README.md`、`database/README.md` — 环境与数据库
 - 🔍 浏览器控制台日志
 - 📋 后端日志文件
 
 ---
 
-**文档版本**: v2.0.0  
-**最后更新**: 2026-02-12  
+**文档版本**: v2.1.0  
+**最后更新**: 2026-03-17  
 **维护者**: 技术团队
+
+**v2.1.0 更新**：与代码对齐，移除已删除的 `documentParser.js` 说明；补充当前仅 `.txt`/`.md` 文本读取方式；修正文档索引路径。

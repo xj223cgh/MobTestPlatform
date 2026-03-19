@@ -61,7 +61,7 @@ def test_connection():
                 return False
                 
     except Exception as e:
-        print(f"❌ 数据库连接测试失败: {e}")
+        print(f"数据库连接测试失败: {e}")
         return False
     finally:
         if 'connection' in locals() and connection:

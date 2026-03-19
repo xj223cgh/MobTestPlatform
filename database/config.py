@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-数据库配置文件。与 backend 一致：从环境变量读取（优先 backend/.env），便于 main/kingsoft 等不同分支用不同库名而代码一致。
+数据库配置文件：从环境变量读取；若存在 backend/.env 则加载（与后端配置方式一致）。
+在项目根目录执行 database 脚本即可。
 """
 import os
 from pathlib import Path
 
-# 与 backend 一致：从 backend/.env 加载环境变量（跑 database 脚本时在项目根执行即可）
 _backend_dir = Path(__file__).resolve().parent.parent / 'backend'
 _env_path = _backend_dir / '.env'
 if _env_path.exists():
-    try:
-        from dotenv import load_dotenv
-        load_dotenv(dotenv_path=_env_path)
-    except Exception:
-        pass
+    from dotenv import load_dotenv
+    load_dotenv(dotenv_path=_env_path)
 
 _db = os.environ.get('MYSQL_DATABASE') or 'mobile_test_platform'
 

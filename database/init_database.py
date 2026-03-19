@@ -13,8 +13,13 @@ def run_script(script_name):
     """运行Python脚本"""
     script_path = os.path.join(os.path.dirname(__file__), script_name)
     try:
-        result = subprocess.run([sys.executable, script_path], 
-                              capture_output=True, text=True, encoding='gbk')
+        result = subprocess.run(
+            [sys.executable, script_path],
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+        )
         
         if result.returncode == 0:
             print(f"{script_name} 执行成功")

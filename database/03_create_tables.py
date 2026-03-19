@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-数据库初始化脚本 - 创建数据表
+全新数据库建表脚本：在已创建的空库上执行，按 DDL 创建全部业务表。
+请在项目根目录执行：python database/03_create_tables.py
 """
 
 import pymysql
@@ -649,39 +650,6 @@ def create_tables():
                 INDEX idx_binding_token (binding_token),
                 INDEX idx_expires_at (expires_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent 绑定码表'""")
-
-            # ---------- 迁移逻辑（与 08_migrate 合并：对已有库补全 deleted_at、mindmap_versions）----------
-            def _column_exists(cursor, table, column):
-                cursor.execute("SHOW COLUMNS FROM `%s` LIKE %%s" % table, (column,))
-                return cursor.fetchone() is not None
-
-            def _table_exists(cursor, table):
-                cursor.execute("SHOW TABLES LIKE %s", (table,))
-                return cursor.fetchone() is not None
-
-            if _table_exists(cursor, "test_suites") and not _column_exists(cursor, "test_suites", "deleted_at"):
-                cursor.execute("ALTER TABLE test_suites ADD COLUMN deleted_at DATETIME NULL COMMENT '逻辑删除时间' AFTER sort_order")
-                cursor.execute("ALTER TABLE test_suites ADD INDEX idx_deleted_at (deleted_at)")
-                print("  [迁移] test_suites.deleted_at 已添加")
-            if _table_exists(cursor, "test_suites") and not _column_exists(cursor, "test_suites", "mindmap_version"):
-                cursor.execute("ALTER TABLE test_suites ADD COLUMN mindmap_version INT NOT NULL DEFAULT 0 COMMENT '脑图版本号，用于多人编辑冲突检测' AFTER last_saved_by")
-                print("  [迁移] test_suites.mindmap_version 已添加")
-            if not _table_exists(cursor, "mindmap_versions"):
-                cursor.execute("""CREATE TABLE mindmap_versions (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    suite_id INT NOT NULL,
-                    snapshot LONGTEXT NOT NULL,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    created_by INT NULL,
-                    FOREIGN KEY (suite_id) REFERENCES test_suites(id) ON DELETE CASCADE,
-                    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
-                    INDEX idx_suite_id (suite_id)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci""")
-                print("  [迁移] mindmap_versions 表已创建")
-            if _table_exists(cursor, "agent_binding_codes") and not _column_exists(cursor, "agent_binding_codes", "binding_token"):
-                cursor.execute("ALTER TABLE agent_binding_codes ADD COLUMN binding_token VARCHAR(64) NULL COMMENT '长 token，用于本机一键绑定' AFTER code")
-                cursor.execute("ALTER TABLE agent_binding_codes ADD INDEX idx_binding_token (binding_token)")
-                print("  [迁移] agent_binding_codes.binding_token 已添加")
 
             connection.commit()
             print("所有数据表创建成功！")

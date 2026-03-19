@@ -1,28 +1,18 @@
 # 数据库操作说明
 
-本文档说明数据库脚本的用途、执行顺序及造数方式，便于在新环境中快速完成数据库初始化。
+本文档说明数据库脚本的用途、执行顺序及造数方式，便于在**新环境**快速完成数据库初始化。
+
+**约定**：`database/` 下脚本仅负责**空库/标准建表**与造数，**不包含**对已有生产库的 ALTER、补列等迁移逻辑；旧库升级请自行备份并编写迁移。
 
 ---
 
 ## 1. 环境与配置
 
 - **Python**：3.8+
-- **依赖**：`pymysql`、`werkzeug`（造数脚本中用于密码哈希）
-- **数据库**：MySQL 5.7+ / MariaDB 10.2+，字符集 `utf8mb4`
+- **依赖**：`pymysql`、`werkzeug`（造数脚本密码哈希）、`python-dotenv`（与后端一致，用于读取 `backend/.env`）
+- **数据库**：MySQL 5.7+ / 8.x / MariaDB 10.2+，字符集 `utf8mb4`
 
-连接配置位于 `database/config.py`：
-
-```python
-DB_CONFIG = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': '123456',
-    'database': 'mobile_test_platform',
-    'charset': 'utf8mb4'
-}
-```
-
-新环境请根据实际情况修改 `host`、`user`、`password`。
+连接由 `database/config.py` 读取环境变量（`MYSQL_HOST`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_DATABASE` 等），缺省与本地开发一致。存在 `backend/.env` 时会自动加载。
 
 ---
 
@@ -32,14 +22,15 @@ DB_CONFIG = {
 |------|------|
 | `01_create_database.py` | 创建数据库（若不存在） |
 | `02_drop_database.py` | 删除整个数据库（需确认，慎用） |
-| `03_create_tables.py` | 创建全部数据表（含迁移逻辑：对已有库补全 deleted_at、mindmap_versions、Agent 相关表及 binding_token 列） |
+| `03_create_tables.py` | 创建全部数据表（当前约 27 张，结构以脚本内 DDL 为准） |
 | `04_drop_tables.py` | 删除所有表（需确认，慎用） |
 | `05_insert_test_data.py` | 用户 + WPS 邮箱业务 + WPS 会议业务测试数据（项目、迭代、需求、用例库、任务、评审、设备、报告等） |
 | `06_clear_table_data.py` | 清空所有表数据（保留表结构，需确认） |
 | `07_test_connection.py` | 测试数据库连接 |
-| `09_migrate_suite_project_id.py` | 用例目录/用例集按项目隔离：将子节点 project_id 与父节点对齐（旧库运行一次即可） |
 | `config.py` | 数据库连接配置 |
 | `init_database.py` | 一键初始化（依次执行 01 → 03 → 05） |
+
+`03_create_tables.py` 中 DDL 使用 `CREATE TABLE IF NOT EXISTS`，在**空库**或**重复执行**时不会报错；若需在已有表上强制重建，请先执行 `04_drop_tables.py` 或使用新库。
 
 ---
 

@@ -28,6 +28,7 @@
 | **消息通知** | WebSocket 实时推送、消息中心（已读/未读/置顶/清理） |
 | **用户与权限** | 四级角色（超管/管理员/测试人员/普通成员）、功能埋点权限可视化配置 |
 | **系统设置** | 安全策略（会话超时、登录锁定）、分页设置、自动报告等 |
+| **帮助中心** | 视频教程、帮助文档检索与浏览（路由 `/help`） |
 | **认证** | 账号密码登录、QQ 邮箱验证码登录、注册、忘记密码 / 重置密码 |
 
 ---
@@ -38,7 +39,7 @@
 |----|------|
 | 前端 | Vue 3 + Element Plus + Vite + Pinia + Axios + ECharts + Socket.IO Client |
 | 后端 | Flask + Flask-SQLAlchemy + Flask-Login + Flask-SocketIO + APScheduler |
-| 数据库 | MySQL 5.7+（utf8mb4） |
+| 数据库 | MySQL 5.7+ / 8.x（utf8mb4，推荐 8.x） |
 | 通信 | RESTful API + WebSocket（Socket.IO） |
 
 ---
@@ -56,7 +57,7 @@
 ### 1. 克隆项目
 
 ```bash
-git clone https://github.com/your-org/MobTestPlatform.git
+git clone https://github.com/xj223cgh/MobTestPlatform.git
 cd MobTestPlatform
 ```
 
@@ -156,7 +157,7 @@ MobTestPlatform/
 │   │   ├── __init__.py         # 应用工厂 & 蓝图注册
 │   │   ├── config/config.py    # 配置（数据库、SMTP、CORS 等）
 │   │   ├── models/models.py    # SQLAlchemy 数据模型
-│   │   ├── routes/             # API 路由（17 个模块）
+│   │   ├── routes/             # API 路由（约 19 个模块，含 mindmap、agent 等）
 │   │   ├── services/           # 业务逻辑（邮件、通知、权限）
 │   │   ├── utils/              # 工具函数（认证、辅助函数、调度器）
 │   │   └── constants/          # 常量（权限编码）
@@ -170,7 +171,7 @@ MobTestPlatform/
 │   │   ├── components/         # 公共组件（布局、脑图等）
 │   │   ├── router/             # 路由配置
 │   │   ├── stores/             # Pinia 状态管理
-│   │   ├── utils/              # 工具（请求封装）
+│   │   ├── utils/              # 工具（Axios 请求封装等）
 │   │   └── views/              # 页面视图
 │   ├── vite.config.js          # Vite 构建配置
 │   └── package.json            # 前端依赖
@@ -181,7 +182,7 @@ MobTestPlatform/
 │   ├── 05_insert_test_data.py  # 用户 + WPS 邮箱业务测试数据
 │   ├── init_database.py        # 一键初始化
 │   └── README.md               # 数据库操作说明
-├── docs/                       # 项目文档
+├── docs/                       # 项目文档（方案、项目文档、论文材料等）
 ├── escrcpy/                    # 设备投屏工具
 ├── start.py                    # 一键启动脚本
 └── README.md
@@ -197,7 +198,7 @@ MobTestPlatform/
 |------|------|
 | `01_create_database.py` | 创建 `mobile_test_platform` 数据库 |
 | `02_drop_database.py` | 删除数据库（慎用） |
-| `03_create_tables.py` | 创建全部 24 张数据表 |
+| `03_create_tables.py` | 创建全部数据表（当前脚本约 27 张，含 Agent 绑定相关表） |
 | `04_drop_tables.py` | 删除所有表（慎用） |
 | `05_insert_test_data.py` | 插入用户 + WPS 邮箱业务测试数据 |
 | `06_clear_table_data.py` | 清空所有表数据（保留表结构） |
@@ -231,15 +232,15 @@ SMTP_PASSWORD=授权码
 
 ## AI 用例生成
 
-平台支持通过 AI 大模型自动生成测试用例，支持上传需求文档（.docx / .pdf / .txt）辅助生成。
+平台支持通过 AI 大模型自动生成测试用例；当前前端对需求文档采用浏览器 **FileReader** 读取 **`.txt` / `.md`** 文本内容后提交后端异步任务（详见 [`docs/方案/AI_GENERATE_CASE_CONFIG.md`](docs/方案/AI_GENERATE_CASE_CONFIG.md)）。
 
-配置方式见 [`docs/AI_GENERATE_CASE_CONFIG.md`](docs/AI_GENERATE_CASE_CONFIG.md)。
+配置方式见同文档中的环境变量说明。
 
 ---
 
 ## 内网访问
 
-如需局域网内其他设备访问平台，请参考 [`docs/内网访问说明.md`](docs/内网访问说明.md)。
+如需局域网内其他设备访问平台，请参考 [`docs/方案/内网访问说明.md`](docs/方案/内网访问说明.md)。
 
 ---
 
@@ -247,14 +248,16 @@ SMTP_PASSWORD=授权码
 
 | 文档 | 说明 |
 |------|------|
-| [安装部署指南](docs/INSTALLATION.md) | 环境搭建与部署 |
-| [开发指南](docs/DEVELOPMENT.md) | 架构设计、代码规范、开发流程 |
-| [用户手册](docs/USER_MANUAL.md) | 功能使用说明 |
-| [API 文档](docs/API.md) | 接口说明 |
-| [AI 用例生成配置](docs/AI_GENERATE_CASE_CONFIG.md) | AI 功能配置与使用 |
-| [消息通知设计](docs/消息通知机制设计方案.md) | 消息中心设计方案 |
-| [权限配置设计](docs/功能埋点与角色权限可视化配置设计方案.md) | 角色权限设计方案 |
-| [内网访问说明](docs/内网访问说明.md) | 局域网访问配置 |
+| [开发指南](docs/项目文档/开发指南.md) | 架构、目录结构、代码规范、数据库与 API 概览 |
+| [API 文档](docs/项目文档/API文档.md) | 接口说明 |
+| [AI 用例生成配置](docs/方案/AI_GENERATE_CASE_CONFIG.md) | AI 异步任务、环境变量与前端说明 |
+| [消息通知设计](docs/方案/消息通知机制设计方案.md) | 消息中心设计方案 |
+| [内网访问说明](docs/方案/内网访问说明.md) | 局域网访问配置 |
+| [平台访问与 Agent 流程](docs/方案/平台访问与Agent流程说明.md) | 服务器部署、多用户与 Agent 绑定说明 |
+| [脑图多人协作设计](docs/方案/脑图多人协作设计方案.md) | 脑图协作方案 |
+| [论文技术信息材料](docs/论文/论文技术信息材料.md) | 论文用技术说明（如有） |
+
+> 根目录 `README` 与 `database/README.md` 已覆盖环境搭建、数据库初始化与快速启动；详细开发请优先阅读 **开发指南**。
 
 ---
 
