@@ -1,6 +1,6 @@
 import request from "@/utils/request";
 
-// 系统设置相关API
+// 系统设置相关 API（当前未被任何页面引用；系统名称/Logo/安全等请使用 api/settings.js 的 getSystemSettings/updateSystemSettings）
 export const systemApi = {
   // 基础设置
   getBasicSettings() {

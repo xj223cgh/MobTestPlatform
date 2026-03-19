@@ -182,6 +182,12 @@ const routes = [
         meta: { title: "帮助中心", icon: "QuestionFilled" },
       },
       {
+        path: "notifications",
+        name: "NotificationCenter",
+        component: () => import("@/views/notification/NotificationCenter.vue"),
+        meta: { title: "消息中心", hidden: true },
+      },
+      {
         path: "profile",
         name: "Profile",
         component: () => import("@/views/profile/Profile.vue"),

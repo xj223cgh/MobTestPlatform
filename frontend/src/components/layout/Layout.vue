@@ -238,6 +238,9 @@
                 <el-empty v-else description="暂无消息" :image-size="60" />
               </div>
               <div class="notification-dropdown-footer">
+                <el-button type="primary" link size="small" @click="goNotificationCenter">
+                  消息中心
+                </el-button>
                 <el-button type="primary" link size="small" :loading="readAllLoading" @click="markAllRead">
                   全部已读
                 </el-button>
@@ -442,6 +445,11 @@ async function markAllUnread() {
   finally {
     unreadAllLoading.value = false;
   }
+}
+
+function goNotificationCenter() {
+  notificationPopoverVisible.value = false;
+  router.push({ name: "NotificationCenter" });
 }
 
 async function onDropdownPin(item) {
@@ -969,6 +977,11 @@ const handleCommand = (command) => {
 .notification-popover .notification-dropdown-footer {
   padding: 8px 16px;
   border-top: 1px solid var(--el-border-color-lighter);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 /* 通知跳转高亮行闪烁

@@ -80,8 +80,13 @@ def get_permissions_grouped():
     return PERMISSION_GROUPS
 
 
-# 默认角色权限分配（未在 DB 中配置时使用）
-# super 不查库，直接拥有全部；此处仅写 manager / tester / admin
+# 默认角色权限分配：仅当 role_permissions 表中没有该角色记录时生效。
+# 修改此处后，已有库内配置的角色不受影响；新环境或清空表后将使用此默认值。
+# super 不查库，直接拥有全部；此处仅写 manager / tester / admin。
+#
+# tester：测试人员 — 参与项目/迭代/需求全流程（不含删项目；不含「权限配置」「用户管理」模块）。
+# admin：库中角色名为 admin，界面常称「普通成员」，业务上可给实习生等账号使用 —
+#        较 tester 略收敛：不授予删项目、删迭代（降低误操作）；需求侧与 tester 一致。
 DEFAULT_ROLE_PERMISSIONS = {
     "manager": [
         "project.list", "project.create", "project.edit", "project.delete",
@@ -91,13 +96,13 @@ DEFAULT_ROLE_PERMISSIONS = {
         "user.list", "user.create", "user.edit", "user.delete",
     ],
     "tester": [
-        "project.list",
-        "iteration.list",
-        "requirement.list",
+        "project.list", "project.create", "project.edit",
+        "iteration.list", "iteration.create", "iteration.edit", "iteration.delete",
+        "requirement.list", "requirement.create", "requirement.edit", "requirement.delete",
     ],
     "admin": [
-        "project.list",
-        "iteration.list",
-        "requirement.list",
+        "project.list", "project.create", "project.edit",
+        "iteration.list", "iteration.create", "iteration.edit",
+        "requirement.list", "requirement.create", "requirement.edit", "requirement.delete",
     ],
 }

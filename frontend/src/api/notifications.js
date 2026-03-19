@@ -50,14 +50,6 @@ export function pinNotification(id, body) {
   });
 }
 
-export function markReadBatch(ids) {
-  return request({
-    url: `${BASE}/read`,
-    method: "put",
-    data: { ids },
-  });
-}
-
 export function markReadAll() {
   return request({
     url: `${BASE}/read-all`,

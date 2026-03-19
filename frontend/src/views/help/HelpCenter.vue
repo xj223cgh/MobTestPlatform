@@ -296,10 +296,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ref, computed } from "vue";
+import { ElMessage } from "element-plus";
 import {
-  Search,
   ArrowDown,
   VideoPlay,
   ChatDotRound,
@@ -405,10 +404,14 @@ const categories = ref([
       {
         id: "dev-1",
         title: "设备连接与列表",
-        description: "通过 USB 或无线连接设备，在设备列表中查看与管理",
+        description: "USB/无线接入、刷新列表；远程访问时通过本机 Agent 管理插在本机的设备",
         category: "设备管理",
-        updateTime: "2024-01-09",
-        content: "<h2>设备连接与列表</h2><p>在「设备管理」中可查看已连接设备列表；通过 USB 连接并开启调试后刷新列表，或使用无线连接功能将设备加入平台。</p>",
+        updateTime: "2025-03-19",
+        content:
+          "<h2>设备连接与列表</h2>" +
+          "<p><strong>部署服务器本机访问</strong>：若您打开平台的电脑就是部署了后端的机器，设备由服务器侧 ADB 直接管理，列表与操作与往常一致；USB 调试开启后点击刷新即可。</p>" +
+          "<p><strong>从其他电脑远程访问平台</strong>：浏览器所在电脑上的 USB 设备不会自动出现在平台里。请在「设备管理」页点击右上角 <strong>「本机 Agent」</strong>，按弹窗说明下载并运行 <strong>MobTestAgent.exe</strong>、完成绑定后，再刷新设备列表。</p>" +
+          "<p>仍可使用页面上的 <strong>无线连接</strong> 等功能将设备加入平台（与 Agent 能力互补，按实际网络环境选择）。</p>",
       },
       {
         id: "dev-2",
@@ -417,6 +420,21 @@ const categories = ref([
         category: "设备管理",
         updateTime: "2024-01-08",
         content: "<h2>设备详情与任务</h2><p>点击设备进入设备详情页，可查看设备信息、状态及历史任务；可为该设备创建或分配测试任务并执行。</p>",
+      },
+      {
+        id: "dev-3",
+        title: "本机 Agent（远程使用 USB 设备）",
+        description: "下载、启动、绑定 MobTestAgent，使远程访问时也能管理本机 USB 设备",
+        category: "设备管理",
+        updateTime: "2025-03-19",
+        content:
+          "<h2>本机 Agent 使用说明</h2>" +
+          "<p>当您<strong>不在部署服务器本机</strong>上打开平台时，页面上会显示 <strong>「本机 Agent」</strong> 按钮（在部署机本机访问时通常不显示该入口，因服务器可直接使用 ADB）。</p>" +
+          "<h3>1. 下载</h3><p>打开「本机 Agent」弹窗，若提供下载按钮，可将 <strong>MobTestAgent.exe</strong> 保存到您当前办公电脑。若提示无法下载，请联系管理员将程序放到服务器的 <code>agent/dist/</code> 目录。</p>" +
+          "<h3>2. 启动（必须带平台地址）</h3><p>在命令行进入 Agent 所在目录执行：<br/><code>MobTestAgent.exe --base-url http://平台地址:端口</code><br/>平台根地址以管理员在环境变量/.env 中的配置为准，弹窗内会展示当前可用的地址示例。</p>" +
+          "<h3>3. 绑定账号</h3><p>Agent 运行成功后，在弹窗中点击 <strong>「绑定本机」</strong>。若未自动成功，会显示 6 位绑定码，请在本机执行：<br/><code>MobTestAgent.exe --base-url 平台地址 --bind-code 绑定码</code></p>" +
+          "<h3>4. 状态与维护</h3><p>弹窗内可查看「已绑定 / Agent 是否在线」；若部署机已配置可执行文件，在本机访问时还可使用 <strong>「启动 Agent」</strong> 一键启动。需要解除绑定时可使用 <strong>「解绑」</strong> 或 <strong>「清理本机 Agent」</strong>（会清理本机协议与配置）。</p>" +
+          "<p><strong>说明</strong>：由其他用户 Agent 上报的设备可能在列表中标记为仅查看，无法进行占用类操作，属正常现象。</p>",
       },
     ],
   },
@@ -669,7 +687,7 @@ const faqList = ref([
     id: "faq-1",
     question: "如何连接 Android 设备？",
     answer:
-      "连接 Android 设备请按以下步骤操作：<br>1. 在设备「设置」→「开发者选项」中开启 <strong>USB 调试</strong><br>2. 使用 USB 数据线将设备与电脑连接，并在设备上允许 USB 调试授权<br>3. 打开平台「设备管理」页面，点击「添加设备」或「刷新设备列表」<br>4. 若设备未识别，请检查 USB 线是否支持数据传输、是否已安装对应机型驱动，或尝试更换 USB 端口",
+      "连接 Android 设备请按以下步骤操作：<br>1. 在设备「设置」→「开发者选项」中开启 <strong>USB 调试</strong><br>2. 使用 USB 数据线将设备与电脑连接，并在设备上允许 USB 调试授权<br>3. 打开平台「设备管理」页面，点击「刷新设备列表」<br>4. <strong>若您是从其他电脑浏览器访问平台</strong>，而手机 USB 插在您当前办公电脑上：请先点击页面右上角 <strong>「本机 Agent」</strong>，下载并运行 MobTestAgent.exe，按弹窗完成 <strong>绑定本机</strong> 后再刷新列表<br>5. 若设备仍未识别，请检查 USB 线是否支持数据传输、是否已安装对应机型驱动，或尝试更换 USB 端口",
     helpfulCount: 256,
   },
   {
@@ -690,7 +708,7 @@ const faqList = ref([
     id: "faq-4",
     question: "设备显示离线或无法连接怎么办？",
     answer:
-      "可依次排查：<br>1. <strong>USB</strong>：重新插拔数据线，确认设备端弹出「允许 USB 调试」时勾选「始终允许」并确定<br>2. <strong>驱动</strong>：在电脑设备管理器中查看是否有未识别设备或叹号，安装或更新对应 ADB/厂商驱动<br>3. <strong>端口占用</strong>：关闭其他占用 ADB 的工具（如其他自动化工具、手机助手）后重试<br>4. <strong>无线连接</strong>：若使用 WiFi 连接，确认设备与电脑在同一网段，且 ADB 无线调试已开启并配对成功。",
+      "可依次排查：<br>1. <strong>远程 + USB</strong>：若手机插在您本机、平台在远程服务器，请确认已安装并运行 <strong>本机 Agent</strong>，且弹窗中显示「Agent 已连接」后再刷新列表<br>2. <strong>USB</strong>：重新插拔数据线，确认设备端弹出「允许 USB 调试」时勾选「始终允许」并确定<br>3. <strong>驱动</strong>：在电脑设备管理器中查看是否有未识别设备或叹号，安装或更新对应 ADB/厂商驱动<br>4. <strong>端口占用</strong>：关闭其他占用 ADB 的工具（如其他自动化工具、手机助手）后重试<br>5. <strong>无线连接</strong>：若使用 WiFi 连接，确认设备与电脑在同一网段，且 ADB 无线调试已开启并配对成功。",
     helpfulCount: 142,
   },
   {
@@ -735,9 +753,16 @@ const faqList = ref([
       "当前版本主要支持 Android 设备的连接与自动化测试。iOS 支持取决于平台配置与许可证：若已开通 iOS 能力，需使用 Mac 环境并配置相关代理/证书，在「设备管理」中可看到 iOS 设备的连接入口。具体支持范围与配置方式请以当前版本说明或联系管理员为准。",
     helpfulCount: 203,
   },
+  {
+    id: "faq-11",
+    question: "什么情况下需要安装本机 Agent？",
+    answer:
+      "当平台部署在服务器上、而您通过浏览器在<strong>另一台电脑</strong>办公，且测试机 USB 插在您这台办公电脑上时，需要安装 <strong>MobTestAgent</strong>：服务器侧 ADB 无法直接访问您电脑上的 USB。请在「设备管理」打开 <strong>「本机 Agent」</strong>，下载程序后使用 <code>--base-url</code> 指向平台地址并运行，再完成绑定。<br>若您就在<strong>部署了平台的那台机器</strong>上打开网页使用，一般<strong>不需要</strong> Agent，直接 USB 连接并刷新设备列表即可。",
+    helpfulCount: 0,
+  },
 ]);
 
-// 视频教程（项目管理 → 设备管理 → 用例管理 → 任务管理 → 报告管理 → 用户管理 → 权限配置 → 个人中心 → 系统设置）
+// 视频教程（项目管理 → 设备管理含 Agent → 用例管理 → 任务管理 → 报告管理 → 用户管理 → 权限配置 → 个人中心 → 系统设置）
 const videoList = ref([
   {
     id: "video-1",
@@ -753,12 +778,12 @@ const videoList = ref([
   {
     id: "video-2",
     title: "设备连接与调试入门",
-    description: "从 USB 连接、驱动检查到设备列表刷新，手把手完成首台设备接入。",
+    description: "USB/无线接入、刷新列表；远程办公场景下本机 Agent 的下载、绑定与状态查看（与页面「本机 Agent」一致）。",
     thumbnail: "",
     url: "/videos/device-connection.mp4",
     duration: "08:32",
     views: 2150,
-    uploadTime: "2024-01-15",
+    uploadTime: "2025-03-19",
     tag: "设备管理",
   },
   {
@@ -893,7 +918,6 @@ const dislikeHelpItem = () => {
   ElMessage.info("我们会继续改进，感谢您的反馈！");
 };
 
-onMounted(() => {});
 </script>
 
 <style scoped>

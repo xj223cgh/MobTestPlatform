@@ -24,11 +24,3 @@ export const updateRolePermissions = (role, permissions) => {
     data: { permissions },
   });
 };
-
-// 角色列表（下拉用）
-export const getRolesList = () => {
-  return request({
-    url: "/roles/list",
-    method: "get",
-  });
-};
