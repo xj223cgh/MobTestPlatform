@@ -1,3 +1,4 @@
+/** 路由定义与导航守卫：鉴权、权限校验、NProgress。 */
 import { createRouter, createWebHistory } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import NProgress from "nprogress";
@@ -237,8 +238,6 @@ router.beforeEach(async (to, from, next) => {
     const isAuthenticated = userStore.isAuthenticated;
 
     if (isAuthenticated) {
-      // 已登录，优化：只在页面刷新或从外部链接进入时检查后端认证状态
-      // 避免每次路由跳转都发起网络请求
       if (from.path === "/" || from.path === "") {
         try {
           const isAuthValid = await userStore.checkAuth();
@@ -256,7 +255,6 @@ router.beforeEach(async (to, from, next) => {
       return;
     }
   } else {
-    // 已登录访问免认证页时跳转首页，排除 404/403
     if (
       userStore.isAuthenticated &&
       to.path !== "/404" &&
@@ -267,7 +265,6 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  // 目标路由要求埋点权限时，校验用户是否具备任一权限
   if (userStore.isAuthenticated && to.meta?.permissions?.length) {
     const hasAny = to.meta.permissions.some((p) => userStore.hasPermission(p));
     if (!hasAny) {

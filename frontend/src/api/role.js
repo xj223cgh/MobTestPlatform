@@ -1,6 +1,6 @@
+/** 角色权限 API：配置读写。 */
 import request from "@/utils/request";
 
-// 获取全量埋点（按模块分组）
 export const getPermissionGroups = () => {
   return request({
     url: "/roles/permissions",
@@ -8,7 +8,6 @@ export const getPermissionGroups = () => {
   });
 };
 
-// 获取指定角色的已配置埋点
 export const getRolePermissions = (role) => {
   return request({
     url: `/roles/${role}/permissions`,
@@ -16,7 +15,6 @@ export const getRolePermissions = (role) => {
   });
 };
 
-// 更新指定角色的埋点配置
 export const updateRolePermissions = (role, permissions) => {
   return request({
     url: `/roles/${role}/permissions`,

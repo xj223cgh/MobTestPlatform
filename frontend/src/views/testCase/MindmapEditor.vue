@@ -1344,7 +1344,6 @@ function applyCaseNumber() {
     return;
   }
   const prefix = (caseNumberPrefix.value || "TC-").trim();
-  // 提取纯数字部分（兼容用户输入 "008"、"TC-WPS-008"、"8" 等各种写法）
   const digitStr = raw.startsWith(prefix)
     ? raw.slice(prefix.length).replace(/\D/g, "")
     : raw.replace(/\D/g, "");

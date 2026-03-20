@@ -1,3 +1,4 @@
+/** AI 任务 API：用例生成、状态查询。 */
 import request from '@/utils/request'
 
 /**

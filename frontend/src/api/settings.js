@@ -1,3 +1,4 @@
+/** 系统设置 API：Logo、全局配置读写。 */
 import request from "@/utils/request";
 
 /** 上传系统 Logo（仅上传文件，持久化需再调用 updateSystemSettings） */

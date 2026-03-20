@@ -1,24 +1,19 @@
+/** 前端入口：Pinia、路由、Element Plus 与全局样式。 */
 import { createApp } from "vue";
 import { createPinia } from "pinia";
 import router from "./router";
 import App from "./App.vue";
 
-// Element Plus 样式（含深色模式变量，通过 html.dark 切换）
 import "element-plus/dist/index.css";
 import "element-plus/theme-chalk/dark/css-vars.css";
-// Element Plus 图标
 import * as ElementPlusIconsVue from "@element-plus/icons-vue";
 
-// 全局样式
 import "./styles/index.scss";
-
-// 修复mousewheel事件监听器的passive选项问题
 import "./utils/passiveEventListenerFix";
 
 const app = createApp(App);
 const pinia = createPinia();
 
-// 注册Element Plus图标
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component);
 }

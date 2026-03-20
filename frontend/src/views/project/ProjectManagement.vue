@@ -180,7 +180,6 @@
         >
           <template #default="scope">
             <div class="creator-select-wrapper">
-              <!-- 使用临时变量存储当前显示的值，避免修改原始数据 -->
               <el-select
                 v-model="scope.row._displayUserId"
                 placeholder="项目成员"
@@ -195,7 +194,6 @@
                   :value="scope.row.creator_id"
                 />
 
-                <!-- 遍历项目成员，过滤掉创建者（已经单独显示） -->
                 <el-option
                   v-for="member in (scope.row.members || []).filter(
                     (member) => member.user_id !== scope.row.creator_id,
@@ -612,7 +610,6 @@ const projectForm = reactive({
 
 const allUsers = ref([]);
 
-// 获取所有用户列表（仅需登录的 options 接口，用于项目成员/负责人下拉）
 const getAllUsers = async () => {
   try {
     const response = await getUserOptions({ size: 1000 });
@@ -871,23 +868,6 @@ const handleConfirmDelete = async () => {
 
 const handleViewProject = (row) => {
   router.push(`/projects/${row.id}`);
-};
-
-const getCreatorOptions = (row) => {
-  if (row.members && row.members.length > 0) {
-    return row.members;
-  }
-
-  if (row.creator_id && row.creator_name) {
-    return [
-      {
-        user_id: row.creator_id,
-        user_name: row.creator_name,
-      },
-    ];
-  }
-
-  return [];
 };
 
 // 处理创建者变更 - 恢复原始值，实现可展开但不可选择

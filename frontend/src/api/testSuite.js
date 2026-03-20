@@ -1,6 +1,6 @@
-import request from "../utils/request";
+/** 用例集 API：目录树、CRUD、回收站、导入导出。 */
+import request from "@/utils/request";
 
-// 获取测试套件列表
 export const getTestSuiteList = (params) => {
   return request({
     url: "/test-suites",
@@ -9,7 +9,6 @@ export const getTestSuiteList = (params) => {
   });
 };
 
-// 获取测试套件树形结构
 export const getTestSuiteTree = () => {
   return request({
     url: "/test-suites/tree",
@@ -17,7 +16,6 @@ export const getTestSuiteTree = () => {
   });
 };
 
-// 获取测试套件详情
 export const getTestSuiteDetail = (id) => {
   return request({
     url: `/test-suites/${id}`,
@@ -25,7 +23,6 @@ export const getTestSuiteDetail = (id) => {
   });
 };
 
-// 创建测试套件
 export const createTestSuite = (data) => {
   return request({
     url: "/test-suites",
@@ -34,7 +31,6 @@ export const createTestSuite = (data) => {
   });
 };
 
-// 更新测试套件
 export const updateTestSuite = (id, data) => {
   return request({
     url: `/test-suites/${id}`,
@@ -43,7 +39,7 @@ export const updateTestSuite = (id, data) => {
   });
 };
 
-// 删除测试套件（逻辑删除入回收站 或 彻底删除）
+// 逻辑删除入回收站 或 彻底删除
 export const deleteTestSuite = (id, data = {}) => {
   return request({
     url: `/test-suites/${id}`,
@@ -52,7 +48,6 @@ export const deleteTestSuite = (id, data = {}) => {
   });
 };
 
-// 批量删除测试套件
 export const batchDeleteTestSuites = (ids) => {
   return request({
     url: "/test-suites/batch-delete",
@@ -61,7 +56,6 @@ export const batchDeleteTestSuites = (ids) => {
   });
 };
 
-// 获取测试套件选项列表
 export const getTestSuiteOptions = () => {
   return request({
     url: "/test-suites/options",
@@ -69,7 +63,6 @@ export const getTestSuiteOptions = () => {
   });
 };
 
-// 移动测试套件
 export const moveTestSuite = (id, data) => {
   return request({
     url: `/test-suites/${id}/move`,
@@ -78,7 +71,6 @@ export const moveTestSuite = (id, data) => {
   });
 };
 
-// 复制测试套件
 export const copyTestSuite = (id, data = {}) => {
   return request({
     url: `/test-suites/${id}/copy`,
@@ -87,7 +79,6 @@ export const copyTestSuite = (id, data = {}) => {
   });
 };
 
-// 获取测试套件中的测试用例
 export const getSuiteCases = (suiteId, params = {}) => {
   return request({
     url: `/test-suites/${suiteId}/test-cases`,
@@ -96,7 +87,7 @@ export const getSuiteCases = (suiteId, params = {}) => {
   });
 };
 
-// 获取纯文件夹树（不含用例集），支持 project_id 筛选
+// 不含用例集，支持 project_id 筛选
 export const getFolderTree = (params = {}) => {
   return request({
     url: "/test-suites/folder-tree",
@@ -105,7 +96,7 @@ export const getFolderTree = (params = {}) => {
   });
 };
 
-// 获取文件夹下的用例集列表，支持 project_id 筛选
+// 支持 project_id 筛选
 export const getCaseSets = (folderId, params = {}) => {
   return request({
     url: `/test-suites/${folderId}/case-sets`,
@@ -114,7 +105,6 @@ export const getCaseSets = (folderId, params = {}) => {
   });
 };
 
-// 回收站：获取已逻辑删除的套件列表
 export const getRecycledSuites = (params = {}) => {
   return request({
     url: "/test-suites/recycled",
@@ -123,7 +113,6 @@ export const getRecycledSuites = (params = {}) => {
   });
 };
 
-// 回收站：恢复
 export const restoreRecycledSuite = (suiteId) => {
   return request({
     url: `/test-suites/recycled/${suiteId}/restore`,
@@ -131,7 +120,6 @@ export const restoreRecycledSuite = (suiteId) => {
   });
 };
 
-// 回收站：批量彻底删除
 export const batchPermanentDeleteRecycledSuites = (ids) => {
   return request({
     url: "/test-suites/recycled/batch-permanent-delete",
@@ -140,13 +128,11 @@ export const batchPermanentDeleteRecycledSuites = (ids) => {
   });
 };
 
-// 导入用例集（上传文件）
 export const importTestSuite = (formData) => {
   return request({
     url: "/test-suites/import",
     method: "post",
     data: formData,
-    headers: { "Content-Type": "multipart/form-data" },
   });
 };
 

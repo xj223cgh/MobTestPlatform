@@ -48,7 +48,6 @@ import { ArrowLeft, HomeFilled, Lock } from "@element-plus/icons-vue";
 
 const router = useRouter();
 
-// 返回上一页
 const goBack = () => {
   if (window.history.length > 1) {
     router.go(-1);
@@ -57,7 +56,6 @@ const goBack = () => {
   }
 };
 
-// 返回首页
 const goHome = () => {
   router.push("/");
 };

@@ -1,3 +1,4 @@
+/** 迭代 API：CRUD、克隆、需求关联。 */
 import request from "@/utils/request";
 
 /**
@@ -116,7 +117,6 @@ export function getIterationRequirements(iterationId) {
   });
 }
 
-// 默认导出所有方法
 export default {
   getIterations,
   getProjectIterations,

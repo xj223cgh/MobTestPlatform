@@ -1,4 +1,5 @@
-import request from "../utils/request";
+/** 脑图 API：数据读写、标签、标记、版本。 */
+import request from "@/utils/request";
 
 export const getMindmap = (suiteId) =>
   request({ url: `/mindmap/${suiteId}`, method: "get" });

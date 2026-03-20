@@ -1,3 +1,4 @@
+"""Flask 应用配置：数据库、Session、CORS、日志、存储路径与 Agent。"""
 import os
 import re
 from pathlib import Path

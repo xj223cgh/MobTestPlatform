@@ -1,3 +1,4 @@
+"""登录速率限制：基于 IP 的频率控制，防止暴力破解。"""
 from functools import wraps
 from flask import request, current_app
 from flask_login import current_user

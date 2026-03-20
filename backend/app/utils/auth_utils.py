@@ -1,7 +1,8 @@
+"""密码管理与重置令牌：策略校验、token 签发与验证。"""
 from datetime import datetime, timedelta, timezone
 
 LOCAL_TIMEZONE = timezone(timedelta(hours=8))
-from itsdangerous import URLSafeTimedSerializer
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from flask import current_app
 
 
@@ -21,7 +22,7 @@ class PasswordManager:
             serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
             user_id = serializer.loads(token, salt='password-reset-salt', max_age=max_age)
             return user_id
-        except:
+        except (BadSignature, SignatureExpired, ValueError, TypeError):
             return None
     
     # 与前端安全设置中的 passwordPolicy 选项一致

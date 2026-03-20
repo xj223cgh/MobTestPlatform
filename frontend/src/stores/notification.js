@@ -1,3 +1,4 @@
+/** 通知状态：未读数轮询。 */
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { getUnreadCount } from "@/api/notifications";

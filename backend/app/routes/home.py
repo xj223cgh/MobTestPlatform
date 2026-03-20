@@ -1,4 +1,5 @@
-from flask import Blueprint, jsonify, request
+"""首页数据路由：项目统计、最近活动、任务概览。"""
+from flask import Blueprint, request
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 from app.models.models import db, User, Device, TestCase, TestTask, Project, Iteration, VersionRequirement
@@ -65,7 +66,6 @@ def get_activities():
 
         activities = []
 
-        # 已完成的测试任务
         for task in db.session.query(TestTask).filter_by(status='completed') \
                 .order_by(TestTask.updated_at.desc()).limit(per_type).all():
             activities.append({
@@ -78,7 +78,6 @@ def get_activities():
                 'related_id': task.id,
             })
 
-        # 在线设备
         for device in db.session.query(Device).filter_by(status='online') \
                 .order_by(Device.updated_at.desc()).limit(per_type).all():
             activities.append({
@@ -91,7 +90,6 @@ def get_activities():
                 'related_id': device.id,
             })
 
-        # 最近注册用户
         for user in db.session.query(User).order_by(User.created_at.desc()).limit(per_type).all():
             activities.append({
                 'id': f'user_{user.id}',
@@ -103,7 +101,6 @@ def get_activities():
                 'related_id': user.id,
             })
 
-        # 最近更新的项目
         for project in db.session.query(Project).order_by(Project.updated_at.desc()).limit(per_type).all():
             activities.append({
                 'id': f'project_{project.id}',
@@ -115,7 +112,6 @@ def get_activities():
                 'related_id': project.id,
             })
 
-        # 最近创建的迭代
         for iteration in db.session.query(Iteration).order_by(Iteration.created_at.desc()).limit(per_type).all():
             activities.append({
                 'id': f'iteration_{iteration.id}',
@@ -127,7 +123,6 @@ def get_activities():
                 'related_id': iteration.id,
             })
 
-        # 最近指派的需求
         for req in db.session.query(VersionRequirement).filter(
                 VersionRequirement.assigned_to.isnot(None)) \
                 .order_by(VersionRequirement.updated_at.desc()).limit(per_type).all():

@@ -1,6 +1,6 @@
+/** 测试任务 API：CRUD、目录、执行。 */
 import request from "@/utils/request";
 
-// 获取测试任务列表
 export function getTestTaskList(params) {
   return request({
     url: "/test-tasks",
@@ -9,7 +9,6 @@ export function getTestTaskList(params) {
   });
 }
 
-// 获取测试任务详情
 export function getTestTaskDetail(id) {
   return request({
     url: `/test-tasks/${id}`,
@@ -17,7 +16,6 @@ export function getTestTaskDetail(id) {
   });
 }
 
-// 创建测试任务
 export function createTestTask(data) {
   return request({
     url: "/test-tasks",
@@ -26,7 +24,6 @@ export function createTestTask(data) {
   });
 }
 
-// 更新测试任务
 export function updateTestTask(id, data) {
   return request({
     url: `/test-tasks/${id}`,
@@ -35,7 +32,6 @@ export function updateTestTask(id, data) {
   });
 }
 
-// 删除测试任务
 export function deleteTestTask(id) {
   return request({
     url: `/test-tasks/${id}`,
@@ -43,7 +39,6 @@ export function deleteTestTask(id) {
   });
 }
 
-// 执行测试任务
 export function executeTestTask(id) {
   return request({
     url: `/test-tasks/${id}/execute`,
@@ -51,7 +46,6 @@ export function executeTestTask(id) {
   });
 }
 
-// 暂停测试任务
 export function pauseTestTask(id) {
   return request({
     url: `/test-tasks/${id}/pause`,
@@ -59,7 +53,6 @@ export function pauseTestTask(id) {
   });
 }
 
-// 恢复测试任务
 export function resumeTestTask(id) {
   return request({
     url: `/test-tasks/${id}/resume`,
@@ -67,7 +60,7 @@ export function resumeTestTask(id) {
   });
 }
 
-// 完成测试任务（设备脚本任务可传 data.result 写入执行结果供报告使用）
+// 设备脚本任务可传 data.result 写入执行结果供报告使用
 export function completeTestTask(id, data) {
   return request({
     url: `/test-tasks/${id}/complete`,
@@ -76,7 +69,6 @@ export function completeTestTask(id, data) {
   });
 }
 
-// 取消测试任务
 export function cancelTestTask(id) {
   return request({
     url: `/test-tasks/${id}/cancel`,
@@ -84,7 +76,6 @@ export function cancelTestTask(id) {
   });
 }
 
-// 获取测试任务的执行结果列表
 export function getTaskExecutions(taskId, params) {
   return request({
     url: `/test-tasks/${taskId}/executions`,
@@ -93,7 +84,6 @@ export function getTaskExecutions(taskId, params) {
   });
 }
 
-// 更新测试用例在任务中的执行状态
 export function updateCaseExecution(taskId, caseId, data) {
   return request({
     url: `/test-tasks/${taskId}/executions/${caseId}`,
@@ -102,7 +92,6 @@ export function updateCaseExecution(taskId, caseId, data) {
   });
 }
 
-// 获取测试任务的统计信息
 export function getTaskStatistics(taskId) {
   return request({
     url: `/test-tasks/${taskId}/statistics`,
@@ -110,7 +99,6 @@ export function getTaskStatistics(taskId) {
   });
 }
 
-// 获取测试任务关联的设备列表
 export function getTaskDevices(taskId) {
   return request({
     url: `/test-tasks/${taskId}/devices`,
@@ -119,7 +107,8 @@ export function getTaskDevices(taskId) {
 }
 
 // ---------- 设备脚本异步执行（后端驱动，关闭页面任务继续执行） ----------
-// 发起设备脚本任务的异步执行，返回 async task_id
+
+// 发起异步执行，返回 async task_id
 export function startDeviceScriptExecution(taskId) {
   return request({
     url: `/test-tasks/${taskId}/execute-device-script-async`,
@@ -127,7 +116,7 @@ export function startDeviceScriptExecution(taskId) {
   });
 }
 
-// 轮询设备脚本异步任务状态（进度、终端日志、完成结果）
+// 轮询异步任务状态（进度、终端日志、完成结果）
 export function getDeviceScriptTaskStatus(taskId) {
   return request({
     url: `/test-tasks/${taskId}/device-script-task-status`,
@@ -135,7 +124,6 @@ export function getDeviceScriptTaskStatus(taskId) {
   });
 }
 
-// 获取测试任务关联的测试用例列表
 export function getTaskTestCases(taskId) {
   return request({
     url: `/test-tasks/${taskId}/test-cases`,
@@ -143,7 +131,6 @@ export function getTaskTestCases(taskId) {
   });
 }
 
-// 获取测试任务选项
 export function getTaskOptions() {
   return request({
     url: "/test-tasks/options",
@@ -152,7 +139,7 @@ export function getTaskOptions() {
 }
 
 // ---------- 任务文件夹（按任务类型分开） ----------
-// 获取任务文件夹树
+
 export function getTaskFolderTree(taskType) {
   return request({
     url: "/test-tasks/task-folders",
@@ -161,7 +148,6 @@ export function getTaskFolderTree(taskType) {
   });
 }
 
-// 创建任务文件夹
 export function createTaskFolder(data) {
   return request({
     url: "/test-tasks/task-folders",
@@ -170,7 +156,6 @@ export function createTaskFolder(data) {
   });
 }
 
-// 更新任务文件夹
 export function updateTaskFolder(id, data) {
   return request({
     url: `/test-tasks/task-folders/${id}`,
@@ -179,7 +164,6 @@ export function updateTaskFolder(id, data) {
   });
 }
 
-// 删除任务文件夹
 export function deleteTaskFolder(id) {
   return request({
     url: `/test-tasks/task-folders/${id}`,

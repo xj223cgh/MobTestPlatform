@@ -1,8 +1,5 @@
-"""
-AI异步任务接口
-用于处理AI自动生成测试用例的异步任务
-"""
-from flask import Blueprint, request, jsonify, current_app
+"""AI 异步任务：触发生成用例、查询状态与结果。"""
+from flask import Blueprint, request, current_app
 from flask_login import login_required, current_user
 from app.models.models import db, TestSuite, TestCase, User, Project
 from app.utils.helpers import success_response, error_response
@@ -16,18 +13,7 @@ bp = Blueprint('ai_tasks', __name__, url_prefix='/api/ai-tasks')
 
 
 def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id: str):
-    """
-    AI生成测试用例的异步任务（在后台线程中运行，需在应用上下文中执行数据库等操作）
-    
-    Args:
-        suite_id: 用例集ID
-        params: 生成参数（含 _app 用于推入应用上下文）
-        task_manager: 任务管理器
-        task_id: 任务ID
-        
-    Returns:
-        生成结果
-    """
+    """在后台线程中调用 AI 生成测试用例并持久化。"""
     app = params.pop('_app', None)
     if not app:
         raise RuntimeError("缺少应用上下文，无法在后台执行任务")
@@ -262,7 +248,7 @@ SYSTEM_ROLE_CONTENT = """你是专业测试工程师。根据用户提供的需�
 
 
 def call_ai_api(prompt: str, ai_config: dict, max_tokens_override: int = None) -> dict:
-    """调用AI接口（OpenAI 兼容），支持动态 max_tokens 与 system 角色"""
+    """调用 Chat Completions API"""
     api_key = (ai_config.get('apiKey') or '').strip()
     if not api_key or api_key == 'sk-your-api-key' or api_key == 'sk-your-api-key-here':
         raise ValueError(
@@ -309,7 +295,7 @@ def call_ai_api(prompt: str, ai_config: dict, max_tokens_override: int = None) -
 
 
 def parse_ai_response(ai_response: dict) -> list:
-    """解析AI返回结果，兼容多种返回结构并给出明确异常信息"""
+    """解析 AI 返回 JSON"""
     if not isinstance(ai_response, dict):
         raise Exception("解析AI返回结果失败: 响应不是有效的 JSON 对象")
     # 先检查是否为 API 错误结构
@@ -516,40 +502,17 @@ def get_max_case_index(suite_id: int) -> int:
 @bp.route('/generate-cases', methods=['POST'])
 @login_required
 def generate_cases():
-    """
-    创建AI生成测试用例的异步任务
-    
-    请求参数：
-    {
-        "suite_id": 用例集ID,
-        "projectId": 项目ID,
-        "iterationId": 迭代ID,
-        "requirementId": 需求ID,
-        "projectName": 项目名称,
-        "iterationName": 迭代名称,
-        "requirementName": 需求名称,
-        "description": 需求描述,
-        "documentContent": 需求文档内容
-    }
-    
-    返回：
-    {
-        "code": 200,
-        "data": {
-            "task_id": "任务ID"
-        }
-    }
-    """
+    """创建 AI 生成测试用例的异步任务。"""
     try:
         data = request.get_json()
         
         suite_id = data.get('suite_id')
         if not suite_id:
-            return error_response('缺少用例集ID', 400)
+            return error_response(400, '缺少用例集ID')
         
         suite = TestSuite.query.get(suite_id)
         if not suite:
-            return error_response('用例集不存在', 404)
+            return error_response(404, '用例集不存在')
         
         # 传入 app 供后台线程推入应用上下文
         params = {
@@ -580,7 +543,7 @@ def generate_cases():
         })
         
     except Exception as e:
-        return error_response(f'创建任务失败: {str(e)}', 500)
+        return error_response(500, f'创建任务失败: {str(e)}')
 
 
 @bp.route('/suite/<int:suite_id>/generating', methods=['GET'])
@@ -597,52 +560,29 @@ def get_suite_generating(suite_id):
                     return success_response({'generating': True, 'task_id': tid})
         return success_response({'generating': False})
     except Exception as e:
-        return error_response(f'查询失败: {str(e)}', 500)
+        return error_response(500, f'查询失败: {str(e)}')
 
 
 @bp.route('/task-status/<task_id>', methods=['GET'])
 @login_required
 def get_task_status(task_id):
-    """
-    查询任务状态
-    
-    返回：
-    {
-        "code": 200,
-        "data": {
-            "task_id": "任务ID",
-            "status": "pending|running|completed|failed",
-            "progress": 进度百分比,
-            "message": "状态消息",
-            "result": 任务结果（仅completed状态）,
-            "error": 错误信息（仅failed状态）
-        }
-    }
-    """
+    """查询指定异步任务的当前状态。"""
     try:
         task_status = task_manager.get_task_status(task_id)
         
         if not task_status:
-            return error_response('任务不存在', 404)
+            return error_response(404, '任务不存在')
         
         return success_response(task_status)
         
     except Exception as e:
-        return error_response(f'查询任务状态失败: {str(e)}', 500)
+        return error_response(500, f'查询任务状态失败: {str(e)}')
 
 
 @bp.route('/tasks', methods=['GET'])
 @login_required
 def get_all_tasks():
-    """
-    获取所有任务列表（用于管理和调试）
-    
-    返回：
-    {
-        "code": 200,
-        "data": [任务列表]
-    }
-    """
+    """获取所有异步任务列表。"""
     try:
         all_tasks = list(task_manager.tasks.values())
         all_tasks.sort(key=lambda x: x.get('created_at', ''), reverse=True)
@@ -650,4 +590,4 @@ def get_all_tasks():
         return success_response(all_tasks)
         
     except Exception as e:
-        return error_response(f'获取任务列表失败: {str(e)}', 500)
+        return error_response(500, f'获取任务列表失败: {str(e)}')

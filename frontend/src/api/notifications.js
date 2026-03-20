@@ -1,3 +1,4 @@
+/** 通知 API：列表、已读、置顶。 */
 import request from "@/utils/request";
 
 const BASE = "/notifications";

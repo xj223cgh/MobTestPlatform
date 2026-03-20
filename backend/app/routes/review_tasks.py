@@ -1,4 +1,5 @@
-from flask import Blueprint, request, jsonify
+"""用例评审路由：评审任务创建、审批流、历史记录。"""
+from flask import Blueprint, request
 from flask_login import login_required, current_user
 from datetime import datetime, timezone, timedelta
 from app.models.models import db, TestSuite, TestSuiteReviewTask, TestCaseReviewDetail, TestCase, User, TestSuiteReviewHistory, TestCaseReviewHistory
@@ -126,7 +127,6 @@ def get_review_task(task_id):
 def update_case_review(task_id, case_id):
     """更新单条用例评审意见"""
     try:
-        # 获取评审详情
         case_review = TestCaseReviewDetail.query.filter_by(
             review_task_id=task_id,
             case_id=case_id
@@ -139,12 +139,10 @@ def update_case_review(task_id, case_id):
         if current_user.id != review_task.reviewer_id:
             return error_response(403, '只有评审人才能提交评审意见')
 
-        # 获取请求数据
         data = request.get_json()
         review_status = data.get('review_status')
         comments = data.get('comments', '')
         
-        # 更新评审详情
         # 只有当review_status有效时才更新，否则保持原有状态
         if review_status and review_status in ['pending', 'approved', 'rejected']:
             case_review.review_status = review_status
@@ -159,7 +157,6 @@ def update_case_review(task_id, case_id):
             if suite:
                 suite.review_status = 'in_review'
         
-        # 更新评审任务的更新时间
         case_review.review_task.updated_at = datetime.now(LOCAL_TIMEZONE)
         
         db.session.commit()
@@ -175,24 +172,19 @@ def update_case_review(task_id, case_id):
 def complete_review(task_id):
     """完成用例集评审"""
     try:
-        # 获取评审任务
         review_task = TestSuiteReviewTask.query.get_or_404(task_id)
         
-        # 获取该任务下的所有用例评审详情
         case_reviews = TestCaseReviewDetail.query.filter_by(review_task_id=task_id).all()
         
-        # 检查是否所有用例都已评审
         # 如果没有用例，允许完成评审
         if case_reviews:
             pending_cases = [cr for cr in case_reviews if cr.review_status == 'pending']
             if pending_cases:
                 return error_response(400, f'还有{len(pending_cases)}条用例未评审，请完成所有用例评审后再提交')
         
-        # 获取请求数据
         data = request.get_json()
         overall_comments = data.get('overall_comments', '')
         
-        # 计算用例集评审结果
         has_rejected = any(cr.review_status == 'rejected' for cr in case_reviews)
         suite_review_status = 'rejected' if has_rejected else 'approved'
         
@@ -219,11 +211,9 @@ def complete_review(task_id):
         db.session.add(review_history)
         db.session.flush()  # 获取review_history.id
         
-        # 2. 为每条用例创建评审历史记录
         for case_review in case_reviews:
             case = case_review.test_case
             
-            # 创建用例评审历史记录
             case_review_history = TestCaseReviewHistory(
                 review_history_id=review_history.id,
                 review_task_id=task_id,
@@ -244,7 +234,6 @@ def complete_review(task_id):
             )
             db.session.add(case_review_history)
         
-        # 3. 更新评审任务
         review_task.status = 'rejected' if has_rejected else 'completed'
         review_task.end_time = now
         review_task.overall_comments = overall_comments
@@ -692,11 +681,9 @@ def get_suite_review_status(suite_id):
         for history in all_review_histories:
             history_dict = history.to_dict()
             
-            # 添加发起人、评审人等信息
             history_dict['initiator_name'] = history.initiator.real_name if history.initiator else None
             history_dict['reviewer_name'] = history.reviewer.real_name if history.reviewer else None
             
-            # 获取该历史记录下的用例评审结果统计
             case_histories = TestCaseReviewHistory.query.filter_by(review_history_id=history.id).all()
             approved_count = sum(1 for ch in case_histories if ch.review_status == 'approved')
             rejected_count = sum(1 for ch in case_histories if ch.review_status == 'rejected')

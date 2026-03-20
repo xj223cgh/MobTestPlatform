@@ -79,7 +79,6 @@ async function onInputChange() {
         status: props.device.status === "device" ? "online" : "offline",
       });
 
-      // 更新设备的db_id
       emit("update:device", {
         ...props.device,
         db_id: response.data.device.id,
@@ -90,7 +89,6 @@ async function onInputChange() {
       return;
     }
 
-    // 更新本地状态
     emit("update:device", {
       ...props.device,
       name: localRemark.value || props.device.name || "未命名设备",

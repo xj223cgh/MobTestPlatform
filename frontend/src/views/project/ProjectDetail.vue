@@ -516,7 +516,6 @@ const projectForm = reactive({
   selectedUsers: [],
 });
 
-// 获取所有用户列表（仅需登录的 options 接口，用于项目成员/负责人下拉）
 const getAllUsers = async () => {
   try {
     const response = await getUserOptions({ size: 1000 });
@@ -545,9 +544,7 @@ watch(
   },
 );
 
-const handleOwnerChange = () => {
-  // 会被 watch 自动处理，保留空函数以与项目列表页面保持一致
-};
+const handleOwnerChange = () => {};
 
 const handleMembersChange = () => {
   if (!projectForm.owner_id) return;
@@ -973,7 +970,6 @@ const fetchProjectDetail = async () => {
   try {
     const projectId = route.params.id;
     const response = await getProject(projectId);
-    // 后端返回的数据结构是 { code: 200, message: 'success', data: { project: {...} } }
     projectDetail.value = response.data?.project || {};
   } catch (error) {
     console.error("获取项目详情失败:", error);

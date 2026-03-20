@@ -1,3 +1,4 @@
+"""设备与 Agent：列表与连接、ADB 指令、镜像/脚本任务、计划任务与绑定。"""
 import subprocess
 import os
 import re
@@ -13,7 +14,7 @@ from app.utils.helpers import (
     validate_json_data
 )
 from app.utils.request_helpers import is_platform_host
-from app.utils.scheduler import add_scheduled_task, remove_scheduled_task, get_scheduled_tasks
+
 from app.services.device_task_executor import execute_device_task_impl
 from app.services.agent_socket_manager import get_agent_sid, request_agent
 
@@ -594,11 +595,9 @@ def execute_batch_tasks():
                     'escrcpy', 'electron', 'resources', 'extra', 'win', 'scrcpy', 'adb.exe'
                 )
 
-                # 构建环境变量
                 env = os.environ.copy()
                 env['ADB'] = adb_path
 
-                # 如果有文件内容，先保存到临时文件
                 if file_content:
                     import tempfile
                     import base64
@@ -643,7 +642,6 @@ def execute_batch_tasks():
                     'escrcpy', 'electron', 'resources', 'extra', 'win', 'scrcpy', 'adb.exe'
                 )
 
-                # 构建环境变量
                 env = os.environ.copy()
                 env['ADB'] = adb_path
 
@@ -1060,10 +1058,11 @@ def schedule_batch_tasks():
             else:
                 # 如果根据设备序列号查询不到，尝试根据数据库ID查询
                 try:
-                    device = Device.query.get(device_id)
+                    pk = int(device_id)
+                    device = db.session.get(Device, pk)
                     if device:
                         test_task.devices.append(device)
-                except:
+                except (TypeError, ValueError):
                     pass
         
         db.session.add(test_task)

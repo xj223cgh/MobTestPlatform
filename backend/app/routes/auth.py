@@ -1,3 +1,4 @@
+"""认证路由：登录、登出、注册、密码重置、邮箱绑定。"""
 import random
 import string
 from datetime import timedelta, datetime
@@ -380,7 +381,7 @@ def logout():
         try:
             from flask_login import logout_user
             logout_user()
-        except:
+        except Exception:
             pass
         
         # 记录错误但不影响用户登出

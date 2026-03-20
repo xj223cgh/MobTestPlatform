@@ -1,3 +1,4 @@
+"""定时任务调度：计划任务到期自动执行。"""
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.jobstores.memory import MemoryJobStore

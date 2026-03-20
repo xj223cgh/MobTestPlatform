@@ -1,3 +1,4 @@
+/** ADB 命令构建：参数拼接与转义。 */
 /**
  * Convert object parameters to command line arguments string
  * @param {Object} options - The options object containing parameters
@@ -16,7 +17,6 @@ export function stringify(options) {
 
   // Helper function to format parameter names
   const formatParamName = (name) => {
-    // 验证参数名称的合法性
     if (typeof name !== "string" || !name.length) {
       throw new TypeError("Parameter name must be a non-empty string");
     }
@@ -37,7 +37,6 @@ export function stringify(options) {
     }
 
     if (typeof value === "string") {
-      // 处理空字符串
       if (!value.length) {
         return '""';
       }

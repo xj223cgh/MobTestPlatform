@@ -13,19 +13,13 @@ from app.utils.helpers import error_response
 
 
 def get_role_permission_codes(role):
-    """
-    获取某角色已配置的埋点编码列表。
-    - super：直接返回全部埋点（不查库）。
-    - 其他角色：先查 role_permissions 表，若有记录则用库内配置；否则用默认 DEFAULT_ROLE_PERMISSIONS。
-    - 兼容旧数据：若库中存在 role.list，视为拥有 role.manager_config、role.tester_config、role.admin_config。
-    """
+    """返回角色埋点编码列表（super 全量；其余查表或默认值）。"""
     if role == "super":
         return get_all_permission_codes()
 
     rows = RolePermission.query.filter_by(role=role).all()
     if rows:
         codes = [r.permission_code for r in rows]
-        # 兼容：旧配置 role.list 视为拥有三个角色配置权限
         if "role.list" in codes:
             for new_code in ("role.manager_config", "role.tester_config", "role.admin_config"):
                 if new_code not in codes:

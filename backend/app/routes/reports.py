@@ -21,12 +21,6 @@ from app.utils.helpers import (
 bp = Blueprint('reports', __name__, url_prefix='/api/reports')
 
 
-def _json_serial(obj):
-    """将 datetime 转为字符串以便 JSON 存储"""
-    if isinstance(obj, datetime):
-        return obj.isoformat()
-    raise TypeError(f"Type {type(obj)} not serializable")
-
 
 def _make_serializable(data):
     """递归把 summary/details 中的 datetime 转为字符串"""
@@ -51,9 +45,7 @@ def create_report_for_task(test_task):
         return None
     summary = _make_serializable(report_data.get('summary') or {})
     details = _make_serializable(report_data.get('details') or [])
-    # 创建人与负责人可为不同人：负责人优先取任务执行人
     assignee_id = test_task.executor_id if test_task.executor_id != test_task.creator_id else None
-    # 快照：任务状态、迭代、用例集、需求名称（报告列表/详情以快照为准，不随任务后续修改变化）
     report = Report(
         task_id=test_task.id,
         report_type=test_task.task_type,
@@ -98,7 +90,6 @@ def list_reports():
         if search:
             query = query.filter(Report.task_name.ilike(f'%{search}%'))
         
-        # 任务状态筛选：优先用报告快照 status，无快照时再关联任务表（兼容旧数据）
         status = request.args.get('status')
         if status:
             from sqlalchemy import or_, and_
@@ -125,10 +116,9 @@ def list_reports():
 
 
 def _task_info_from_report(report):
-    """用报告快照构建 task_info，任务已删除或后续修改不影响详情展示"""
+    """用报告快照构建 task_info"""
     task = report.task
     base = (task.to_dict() if task else {})
-    # 以报告快照覆盖，保证展示的是“任务执行时”的数据；任务已删时 base 为空，用 report 字段补全
     snapshot = {
         'task_id': report.task_id,
         'project_id': report.project_id,
@@ -233,14 +223,14 @@ def manual_generate_report(task_id):
 @bp.route('/task/<int:task_id>/data', methods=['GET'])
 @login_required
 def get_report_data_by_task(task_id):
-    """按任务 ID 获取报告数据（实时计算，兼容旧前端）"""
+    """按任务 ID 获取报告数据"""
     return _get_report_data_impl(task_id)
 
 
 @bp.route('/<int:task_id>/data', methods=['GET'])
 @login_required
 def get_report_data(task_id):
-    """按任务 ID 获取报告数据（兼容原 URL /reports/:task_id/data）"""
+    """按任务 ID 获取报告数据（路由别名）"""
     return _get_report_data_impl(task_id)
 
 
@@ -252,7 +242,6 @@ def _get_report_data_impl(task_id):
         task_info['created_by'] = task_info.get('creator_name') or '-'
         task_info['completed_at'] = task_info.get('completed_time')
 
-        # 优先使用已落库的报告（最新一条）
         report = Report.query.filter_by(task_id=task_id).order_by(Report.created_at.desc()).first()
         if report:
             report_data = {
@@ -264,7 +253,6 @@ def _get_report_data_impl(task_id):
             }
             return success_response(report_data)
 
-        # 无落库报告时实时生成（不写入数据库）
         if test_task.task_type == 'test_case':
             report_data = generate_test_case_report(test_task)
         elif test_task.task_type == 'device_script':
@@ -277,13 +265,11 @@ def _get_report_data_impl(task_id):
     except NotFound:
         raise
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         return error_response(500, f'获取报告数据失败: {str(e)}')
 
 
 def generate_test_case_report(test_task):
-    """生成测试用例任务报告：有快照时直接遍历快照（含已删除用例），无快照时从关联用例生成。"""
+    """生成测试用例任务报告（优先快照）。"""
     use_snapshots = getattr(test_task, 'case_snapshots', None) and len(test_task.case_snapshots) > 0
 
     task_executions = {e.case_id: e for e in (test_task.case_executions or [])}
@@ -298,7 +284,6 @@ def generate_test_case_report(test_task):
     details = []
 
     if use_snapshots:
-        # 有快照时直接遍历快照，确保已删除/修改的用例也能正确展示在报告中
         case_snapshots = list(test_task.case_snapshots)
         total_cases = len(case_snapshots)
         pass_rate = round(pass_count / total_cases * 100, 1) if total_cases > 0 else 0
@@ -368,7 +353,6 @@ def generate_test_case_report(test_task):
                 'remarks': remarks,
             })
 
-    # 通过率与任务列表统计列一致：通过数/用例总数（非 通过数/已执行数）
     summary = {
         'suite_name': suite_name,
         'total_cases': total_cases,
@@ -386,7 +370,6 @@ def generate_device_script_report(test_task):
     """生成设备脚本任务报告（含任务基本信息与设备执行明细）"""
     import json
 
-    # 任务基本信息（报告摘要中保留，便于报告页展示）
     task_name = getattr(test_task, 'task_name', None) or ''
     script_file = getattr(test_task, 'script_file', None) or ''
     command = getattr(test_task, 'command', None) or ''
@@ -394,7 +377,6 @@ def generate_device_script_report(test_task):
     completed_at = test_task.completed_time.isoformat() if getattr(test_task, 'completed_time', None) else None
     task_devices = list(test_task.devices) if getattr(test_task, 'devices', None) else []
 
-    # 从任务结果中提取设备执行数据
     device_executions = []
     if test_task.result:
         try:
@@ -404,7 +386,6 @@ def generate_device_script_report(test_task):
         except Exception:
             device_executions = []
 
-    # 有执行结果时：统计与明细来自 result
     if device_executions:
         total_devices = len(device_executions)
         success_count = sum(1 for e in device_executions if e.get('status') == 'success')
@@ -422,7 +403,6 @@ def generate_device_script_report(test_task):
                 'error_output': e.get('error_output'),
             })
     else:
-        # 无执行结果时：用任务关联设备生成兜底明细与统计
         total_devices = len(task_devices)
         success_count = 0
         failed_count = 0

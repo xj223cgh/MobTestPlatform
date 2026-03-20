@@ -1,3 +1,4 @@
+/** 项目 API：CRUD、成员、统计。 */
 import request from "@/utils/request";
 
 /**
@@ -168,7 +169,6 @@ export function getProjectIterations(projectId, params) {
   });
 }
 
-// 默认导出所有方法
 export default {
   getProjects,
   getProject,

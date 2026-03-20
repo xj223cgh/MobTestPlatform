@@ -1,3 +1,4 @@
+/** SocketIO 实时通知：连接管理、消息接收、桌面通知与提示音。 */
 import { io } from "socket.io-client";
 import { useNotificationStore } from "@/stores/notification";
 import { getUserSettings } from "@/api/settings";

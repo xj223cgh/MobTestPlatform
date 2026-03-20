@@ -1,4 +1,5 @@
-from flask import Blueprint, request, jsonify, current_app
+"""测试任务 API：目录、创建/编辑、用例与设备执行、进度与计划任务。"""
+from flask import Blueprint, request, current_app
 from flask_login import login_required, current_user
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import joinedload, selectinload
@@ -16,7 +17,6 @@ from app.utils.task_manager import task_manager, TaskStatus
 
 bp = Blueprint('test_tasks', __name__, url_prefix='/api/test-tasks')
 
-# 本地时区（与 models 一致）
 _LOCAL_TZ = timezone(timedelta(hours=8))
 
 
@@ -335,12 +335,10 @@ def create_test_task():
     
 
     
-    # 兼容前端字段：test_cases（套件ID）映射到 suite_id
     if 'test_cases' in data and not data.get('suite_id'):
         data['suite_id'] = data['test_cases']
-
     
-    # 验证套件是否存在
+
     if data.get('suite_id'):
         suite = TestSuite.query.get(data['suite_id'])
         if not suite:
@@ -390,7 +388,6 @@ def create_test_task():
             test_task.scheduled_time = scheduled_time[0]
             test_task.scheduled_end_time = scheduled_time[1]
         else:
-            # 兼容单个时间点
             test_task.scheduled_time = scheduled_time
     
     try:
@@ -398,9 +395,6 @@ def create_test_task():
         task_type = data.get('task_type', 'test_case')
 
         
-        # 处理测试用例关联（仅测试用例任务）
-        # 注意：前端传递的 test_cases 字段是套件ID，不是测试用例ID列表
-        # 如果需要关联测试用例，应该通过 suite_id 来获取套件中的测试用例
         if task_type == 'test_case' and data.get('suite_id'):
             # 如果指定了测试套件，获取该套件中的所有测试用例
             suite = TestSuite.query.get(data['suite_id'])
@@ -449,10 +443,7 @@ def create_test_task():
         
     except Exception as e:
         db.session.rollback()
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"[ERROR] 创建测试任务失败 - 错误详情: {error_details}")
-        print(f"[ERROR] 请求数据: {data}")
+        current_app.logger.error(f"创建测试任务失败: {e}", exc_info=True)
         return error_response(500, "测试任务创建失败，请稍后重试")
 
 
@@ -463,7 +454,6 @@ def update_test_task(task_id):
     test_task = TestTask.query.get_or_404(task_id)
     data = request.get_json()
     
-    # 兼容前端字段：test_cases（套件ID）映射到 suite_id
     if 'test_cases' in data and not data.get('suite_id'):
         data['suite_id'] = data['test_cases']
     
@@ -522,7 +512,6 @@ def update_test_task(task_id):
                 test_task.scheduled_time = scheduled_time[0]
                 test_task.scheduled_end_time = scheduled_time[1]
             else:
-                # 兼容单个时间点
                 test_task.scheduled_time = scheduled_time
         else:
             test_task.scheduled_time = None

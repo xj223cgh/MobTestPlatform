@@ -1,3 +1,4 @@
+"""通用工具：参数校验、统一 JSON 响应、分页、操作日志、JSON 请求体验证。"""
 import re
 import json
 from functools import wraps
@@ -31,31 +32,27 @@ def validate_qq_email(email):
 
 
 def success_response(data=None, message="Operation successful"):
-    """统一成功响应格式"""
+    """统一成功响应：正文 code=200，HTTP 状态码 200。"""
     from datetime import datetime
-    # 创建响应对象，确保HTTP响应行使用英文状态消息
     response = jsonify({
         'code': 200,
         'message': message,
         'data': data,
         'timestamp': datetime.now().isoformat()
     })
-    # 明确设置状态码，使用Flask内置的英文状态消息
     response.status_code = 200
     return response
 
 
 def error_response(code, message, data=None):
-    """统一错误响应格式"""
+    """统一错误响应：正文 code 与 HTTP 状态码一致。"""
     from datetime import datetime
-    # 创建响应对象，确保HTTP响应行使用英文状态消息
     response = jsonify({
         'code': code,
         'message': message,
         'data': data,
         'timestamp': datetime.now().isoformat()
     })
-    # 明确设置状态码，使用Flask内置的英文状态消息
     response.status_code = code
     return response
 
@@ -137,15 +134,3 @@ def validate_json_data(required_fields=None):
             return f(*args, **kwargs)
         return decorated_function
     return decorator
-
-
-def search_query(query, search_term, search_fields):
-    """构建搜索查询"""
-    if not search_term or not search_fields:
-        return query
-    
-    search_filter = []
-    for field in search_fields:
-        search_filter.append(getattr(query.column_descriptions[0]['type'], field).like(f'%{search_term}%'))
-    
-    return query.filter(*search_filter)

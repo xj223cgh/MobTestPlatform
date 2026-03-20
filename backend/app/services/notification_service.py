@@ -102,9 +102,6 @@ def _emit_notification(
 ):
     """向房间 user:{user_id} 发送 notification 事件。无 socketio 时静默跳过。"""
     try:
-        from flask_socketio import SocketIO
-        socketio = SocketIO  # 可能从 app 上取
-        # 从当前 app 获取 socketio 实例（create_app 时绑定到 app 上）
         from flask import current_app
         sio = getattr(current_app, 'socketio', None)
         if sio is None:

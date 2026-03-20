@@ -9,7 +9,6 @@ import { useUserStore } from "@/stores/user";
 const userStore = useUserStore();
 
 onMounted(() => {
-  // 应用启动时检查用户登录状态
   userStore.checkAuth();
 });
 </script>

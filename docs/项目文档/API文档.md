@@ -479,17 +479,7 @@ Content-Type: application/json
 
 ---
 
-## 套件-用例关联 API
-
-**前缀**: `/api/suite-case-relations`
-
-| 方法 | 路径 | 说明 | 需认证 |
-|------|------|------|--------|
-| GET | `/<suite_id>/cases` | 获取套件关联的用例列表 | 是 |
-| POST | `/<suite_id>/add-cases` | 向套件添加用例 | 是 |
-| POST | `/<suite_id>/remove-cases` | 从套件移除用例 | 是 |
-| GET | `/<suite_id>/available-cases` | 获取可添加到套件的用例 | 是 |
-| POST | `/<suite_id>/move-cases` | 移动用例到其他套件 | 是 |
+套件与用例：**`GET /api/test-suites/<suite_id>/test-cases`**（套件下用例列表）；用例 CRUD 及 `suite_id` 关联见 **`/api/test-cases`**。
 
 ---
 

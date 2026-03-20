@@ -731,7 +731,6 @@ export default {
     },
 
     showIterationDetail(iteration) {
-      console.log("点击了详情按钮，跳转到迭代详情页面:", iteration.id);
       this.$router.push(`/iterations/${iteration.id}`);
     },
 

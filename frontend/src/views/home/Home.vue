@@ -637,12 +637,6 @@ const fetchRecentActivities = async () => {
   }
 };
 
-/**
- * 根据活动项解析跳转路由：
- * - 通知类活动（_isNotification）：使用 getNotificationRoute 映射
- * - 普通活动：优先使用 related_type + related_id（统一走 getNotificationRoute），
- *   兼容仅有 id 前缀格式（task_X / device_X / user_X）的旧数据
- */
 const getActivityRoute = (activity) => {
   if (!activity) return null;
   if (activity._isNotification) {
@@ -652,7 +646,6 @@ const getActivityRoute = (activity) => {
   if (activity.related_type && activity.related_id) {
     return getNotificationRoute({ related_type: activity.related_type, related_id: activity.related_id });
   }
-  // 兼容旧格式：从 id 前缀中提取
   const idStr = String(activity.id || "");
   if (idStr.startsWith("task_")) {
     return { path: "/test-tasks", query: { highlight_id: idStr.replace("task_", "") } };

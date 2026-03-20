@@ -1,3 +1,4 @@
+"""项目管理路由：CRUD、成员管理、统计数据。"""
 from flask import Blueprint, request, jsonify
 from app.models.models import (
     db, Project, ProjectMember, User, VersionRequirement, Iteration,
@@ -43,7 +44,6 @@ def create_project():
         if start_date > end_date:
             return jsonify({'code': 400, 'message': '开始日期不能晚于结束日期'}), 400
         
-        import json
         tags = json.dumps(data.get('tags', [])) if data.get('tags') else None
         
         new_project = Project(
@@ -116,7 +116,6 @@ def create_project():
 def get_projects():
     """获取所有项目列表，支持分页和搜索筛选"""
     try:
-        # 获取查询参数（size 上限 10000，保证下拉等场景可一次拉全量）
         page = request.args.get('page', 1, type=int)
         size = min(request.args.get('size', 10, type=int), 10000)
         search = request.args.get('search', '', type=str)
@@ -203,7 +202,6 @@ def update_project(project_id):
             except ValueError:
                 return jsonify({'code': 400, 'message': '结束日期格式错误，请使用有效的日期格式'}), 400
         if 'tags' in data:
-            import json
             project.tags = json.dumps(data['tags']) if data['tags'] else None
         if 'priority' in data:
             project.priority = data['priority']

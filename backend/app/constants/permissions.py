@@ -64,6 +64,14 @@ PERMISSION_GROUPS = [
             ("user.delete", "删除用户"),
         ],
     },
+    {
+        "module": "report",
+        "moduleLabel": "报告管理",
+        "entryPermission": None,
+        "permissions": [
+            ("report.delete", "删除报告"),
+        ],
+    },
 ]
 
 
@@ -80,13 +88,7 @@ def get_permissions_grouped():
     return PERMISSION_GROUPS
 
 
-# 默认角色权限分配：仅当 role_permissions 表中没有该角色记录时生效。
-# 修改此处后，已有库内配置的角色不受影响；新环境或清空表后将使用此默认值。
-# super 不查库，直接拥有全部；此处仅写 manager / tester / admin。
-#
-# tester：测试人员 — 参与项目/迭代/需求全流程（不含删项目；不含「权限配置」「用户管理」模块）。
-# admin：库中角色名为 admin，界面常称「普通成员」，业务上可给实习生等账号使用 —
-#        较 tester 略收敛：不授予删项目、删迭代（降低误操作）；需求侧与 tester 一致。
+# 默认角色权限：role_permissions 无记录时使用；super 见 permission_service。
 DEFAULT_ROLE_PERMISSIONS = {
     "manager": [
         "project.list", "project.create", "project.edit", "project.delete",
@@ -94,6 +96,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         "requirement.list", "requirement.create", "requirement.edit", "requirement.delete",
         "role.permission_config", "role.manager_config", "role.tester_config", "role.admin_config",
         "user.list", "user.create", "user.edit", "user.delete",
+        "report.delete",
     ],
     "tester": [
         "project.list", "project.create", "project.edit",

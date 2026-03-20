@@ -478,8 +478,7 @@ async function onDropdownDelete(item) {
   } catch (_) {}
 }
 
-// 应用基础设置：主题（深/浅/跟随系统）、语言（html lang）
-useSystemAppearance(systemSettingsStore);
+const cleanupAppearance = useSystemAppearance(systemSettingsStore);
 
 const isCollapsed = ref(false);
 
@@ -518,6 +517,7 @@ onMounted(() => {
 });
 onUnmounted(() => {
   disconnectNotificationSocket();
+  if (typeof cleanupAppearance === "function") cleanupAppearance();
 });
 
 watch(route, setPageTitle);
@@ -632,12 +632,7 @@ const handleCommand = (command) => {
           // 先开始登出流程，不等待API响应
           try {
             await userStore.logout();
-          } catch (error) {
-            // logout函数内部已经处理了错误，这里确保跳转
-            console.log("登出处理完成，准备跳转");
-          }
-
-          // 无论API是否成功都跳转到登录页
+          } catch {}
           router.push("/login");
         })
         .catch(() => {});

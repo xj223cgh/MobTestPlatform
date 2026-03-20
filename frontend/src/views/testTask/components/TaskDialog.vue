@@ -613,7 +613,6 @@ import {
 } from "@/api/iteration";
 import { getTestSuiteList, getTestSuiteTree } from "@/api/testSuite";
 import { getProjectVersionRequirements } from "@/api/project";
-import * as testCaseApi from "@/api/testCase";
 import { getUserOptions } from "@/api/user";
 import deviceApi from "@/api/device";
 import { uploadFile } from "@/api/files";
@@ -1136,7 +1135,6 @@ const resetFolderSelection = () => {
   folderPopoverVisible.value = false;
 };
 
-/** 兼容旧逻辑：仍提供扁平列表给可能依赖 folderOptions 的代码 */
 const loadFolderOptions = async (taskType) => {
   await loadTaskFolderTree(taskType);
 };

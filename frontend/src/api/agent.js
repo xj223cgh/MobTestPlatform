@@ -1,3 +1,4 @@
+/** Agent API：绑定状态、绑定码、解绑、下载。 */
 import request from "@/utils/request";
 
 /** 获取当前用户的 Agent 绑定状态（带时间戳避免缓存，确保手动刷新拿到最新状态） */

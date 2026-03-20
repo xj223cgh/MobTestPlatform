@@ -1,5 +1,6 @@
+"""用户管理路由：列表、创建、编辑、删除、密码重置。"""
 from datetime import datetime, timedelta
-from flask import Blueprint, request
+from flask import Blueprint, request, current_app
 from flask_login import login_required, current_user
 
 from app.models.models import User, ProjectMember, db, EmailVerifyCode, LOCAL_TIMEZONE
@@ -26,11 +27,9 @@ def get_users():
     query = User.query
     
     if search:
-        # 用户名查询使用BINARY关键字确保严格区分大小写
-        # 真实姓名和手机号保持不区分大小写的contains查询
         query = query.filter(
             db.or_(
-                db.text(f'BINARY "username" LIKE :username_pattern').params(username_pattern=f'%{search}%'),
+                db.text('BINARY `username` LIKE :username_pattern').params(username_pattern=f'%{search}%'),
                 User.real_name.contains(search),
                 User.phone.contains(search)
             )
@@ -377,9 +376,8 @@ def delete_user(user_id):
         log_user_action("删除用户", f"用户名: {user.username}")
         return success_response(message="用户删除成功")
     except Exception as e:
-        import traceback
         db.session.rollback()
-        print(f"删除用户失败，详细错误: {traceback.format_exc()}")
+        current_app.logger.error(f"删除用户失败: {e}", exc_info=True)
         return error_response(500, f"用户删除失败: {str(e)}")
 
 

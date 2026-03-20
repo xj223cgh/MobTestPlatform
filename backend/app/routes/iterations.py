@@ -1,3 +1,4 @@
+"""迭代管理路由：CRUD、克隆、需求与用例集关联。"""
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from app.models.models import (
@@ -5,8 +6,8 @@ from app.models.models import (
     TestSuite, TestCase, TestTask, TestCaseExecution,
 )
 from app.services.permission_service import permission_required
-from datetime import datetime
-import json
+from app.utils.helpers import success_response, error_response
+from datetime import datetime, timedelta
 
 bp = Blueprint('iterations', __name__)
 
@@ -308,11 +309,11 @@ def copy_iteration(iteration_id):
         ).order_by(Iteration.end_date.desc()).first()
         
         if latest_iteration:
-            new_start_date = latest_iteration.end_date + datetime.timedelta(days=1)
+            new_start_date = latest_iteration.end_date + timedelta(days=1)
         else:
             new_start_date = source_iteration.start_date
         
-        new_end_date = new_start_date + datetime.timedelta(days=iteration_duration - 1)
+        new_end_date = new_start_date + timedelta(days=iteration_duration - 1)
 
         if project.start_date and project.end_date:
             ps = project.start_date.date() if hasattr(project.start_date, 'date') else project.start_date
@@ -353,21 +354,18 @@ def get_iteration_stats(iteration_id):
     try:
         iteration = Iteration.query.get(iteration_id)
         if not iteration:
-            return jsonify({'error': '迭代不存在'}), 404
-        
-        return jsonify({
-            'code': 200,
-            'message': 'success',
-            'data': {
-                'iteration': iteration.to_dict(),
-                'stats': {
-                    'requirement_stats': iteration.requirement_stats,
-                    'execution_stats': iteration.execution_stats
-                }
+            return error_response(404, '迭代不存在')
+
+        data = iteration.to_dict()
+        return success_response({
+            'iteration': data,
+            'stats': {
+                'requirement_stats': data.get('requirement_stats', {}),
+                'execution_stats': data.get('execution_stats', {}),
             }
-        }), 200
+        })
     except Exception as e:
-        return jsonify({'error': f'获取迭代统计信息失败: {str(e)}'}), 500
+        return error_response(500, f'获取迭代统计信息失败: {str(e)}')
 
 @bp.route('/<int:iteration_id>/requirements', methods=['GET'])
 @login_required

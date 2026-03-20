@@ -1,6 +1,6 @@
+/** 首页 API：统计数据、最近活动。 */
 import request from "@/utils/request";
 
-// 获取首页统计数据
 export function getHomeStats() {
   return request({
     url: "/home/stats",
@@ -8,7 +8,6 @@ export function getHomeStats() {
   });
 }
 
-// 获取最近活动
 export function getRecentActivities(params = {}) {
   return request({
     url: "/home/activities",
@@ -17,7 +16,6 @@ export function getRecentActivities(params = {}) {
   });
 }
 
-// 获取测试任务趋势数据
 export function getTaskTrendData(params = {}) {
   return request({
     url: "/home/task-trend",
@@ -26,7 +24,6 @@ export function getTaskTrendData(params = {}) {
   });
 }
 
-// 获取设备状态分布数据
 export function getDeviceStatusData() {
   return request({
     url: "/home/device-status",
@@ -34,7 +31,6 @@ export function getDeviceStatusData() {
   });
 }
 
-// 获取最近访问的项目
 export function getRecentProjects(params = {}) {
   return request({
     url: "/home/recent-projects",
@@ -43,7 +39,6 @@ export function getRecentProjects(params = {}) {
   });
 }
 
-// 获取任务状态分布
 export function getTaskStatusDistribution() {
   return request({
     url: "/home/task-status-distribution",

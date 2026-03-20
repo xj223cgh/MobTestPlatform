@@ -1,3 +1,4 @@
+/** 用户 API：列表、创建、编辑、删除。 */
 import request from "@/utils/request";
 
 /** 需 user.list 权限，用于用户管理页 */
@@ -34,7 +35,6 @@ export function updateUser(id, data) {
   });
 }
 
-// 删除用户
 export function deleteUser(id) {
   return request({
     url: `/users/${id}`,
@@ -42,7 +42,6 @@ export function deleteUser(id) {
   });
 }
 
-// 切换用户状态
 export function toggleUserStatus(id) {
   return request({
     url: `/users/${id}/toggle-status`,
@@ -59,7 +58,6 @@ export function confirmUserEmail(id, data) {
   });
 }
 
-// 重置用户密码
 export function resetUserPassword(id, data) {
   return request({
     url: `/users/${id}/reset-password`,
@@ -68,7 +66,6 @@ export function resetUserPassword(id, data) {
   });
 }
 
-// 默认导出所有方法
 export default {
   getUserList,
   getUserOptions,

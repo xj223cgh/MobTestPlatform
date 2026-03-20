@@ -507,7 +507,7 @@ import { useRouter } from "vue-router";
 import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { formatDateTime } from "@/utils/helpers";
-import { Plus, Search, Refresh, Edit, Delete } from "@element-plus/icons-vue";
+import { Plus, Refresh } from "@element-plus/icons-vue";
 import {
   getAllVersionRequirements,
   getProjects,
@@ -591,15 +591,6 @@ const requirementForm = reactive({
   assigned_to: "",
   start_date: "",
   end_date: "",
-});
-
-const filteredIterationOptions = computed(() => {
-  if (!requirementForm.project_id) {
-    return [];
-  }
-  return iterationOptions.value.filter((iteration) => {
-    return iteration.project_id === requirementForm.project_id;
-  });
 });
 
 const requirementRules = {
@@ -783,7 +774,6 @@ const handleTimeRangeChange = async () => {
       iterationOptions.value = selectedIterations;
     }
 
-    console.log("时间范围筛选已更新，只影响项目和迭代下拉列表");
   } catch (error) {
     console.error("更新项目选项失败:", error);
     ElMessage.error("更新项目选项失败");
@@ -836,7 +826,6 @@ const handleIterationFilterChange = async () => {
   }
 };
 
-// 更新用户选项函数（使用仅需登录的 getUserOptions，不依赖 user.list 权限）
 const updateUserOptions = async () => {
   let allUsers = [];
   try {
@@ -857,27 +846,22 @@ const updateUserOptions = async () => {
     (projectFilter.value && projectFilter.value.length > 0) ||
     (iterationFilter.value && iterationFilter.value.length > 0)
   ) {
-    console.log("有选中的项目或迭代，开始过滤用户");
-
     try {
       const response = await getAllVersionRequirements();
       if (response.code === 200) {
         const allRequirements = response.data?.items || [];
-        console.log("获取到的需求列表:", allRequirements);
         let filteredRequirements = allRequirements;
 
         if (projectFilter.value && projectFilter.value.length > 0) {
           filteredRequirements = filteredRequirements.filter((req) =>
             projectFilter.value.includes(req.project_id),
           );
-          console.log("按项目筛选后的需求:", filteredRequirements);
         }
 
         if (iterationFilter.value && iterationFilter.value.length > 0) {
           filteredRequirements = filteredRequirements.filter((req) =>
             iterationFilter.value.includes(req.iteration_id),
           );
-          console.log("按迭代筛选后的需求:", filteredRequirements);
         }
 
         const creatorIds = new Set();
@@ -886,7 +870,6 @@ const updateUserOptions = async () => {
             creatorIds.add(req.created_by);
           }
         });
-        console.log("提取到的创建者ID:", creatorIds);
 
         const assigneeIds = new Set();
         filteredRequirements.forEach((req) => {
@@ -894,13 +877,11 @@ const updateUserOptions = async () => {
             assigneeIds.add(req.assigned_to);
           }
         });
-        console.log("提取到的负责人ID:", assigneeIds);
 
         if (creatorIds.size > 0) {
           const filteredCreators = allUsers.filter((user) =>
             creatorIds.has(user.id),
           );
-          console.log("筛选后的创建者:", filteredCreators);
           creatorOptions.value = filteredCreators;
         }
 
@@ -908,7 +889,6 @@ const updateUserOptions = async () => {
           const filteredAssignees = allUsers.filter((user) =>
             assigneeIds.has(user.id),
           );
-          console.log("筛选后的负责人:", filteredAssignees);
           assigneeOptions.value = filteredAssignees;
         }
       }

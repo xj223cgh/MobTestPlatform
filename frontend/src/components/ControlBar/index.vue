@@ -185,26 +185,14 @@ const isButtonDisabled = computed(() => {
   return props.disabled || disabledStatus.value.includes(props.device?.status);
 });
 
-// 执行设备命令
 async function executeCommand(command) {
   try {
-    let fullCommand = "";
-
-    // 根据命令类型添加适当的前缀
-    if (
-      command.startsWith("input ") ||
-      command.startsWith("cmd ") ||
-      command.startsWith("svc ")
-    ) {
-      // 需要shell前缀的命令
-      fullCommand = `-s ${props.device.id} shell ${command}`;
-    } else {
-      // 直接执行的命令（如reboot）
-      fullCommand = `-s ${props.device.id} ${command}`;
-    }
+    const needsShell = command.startsWith("input ") || command.startsWith("cmd ") || command.startsWith("svc ");
+    const fullCommand = needsShell
+      ? `-s ${props.device.id} shell ${command}`
+      : `-s ${props.device.id} ${command}`;
 
     await deviceApi.executeAdbCommand(fullCommand);
-    // 关闭屏幕命令不显示提示
     if (command !== "input keyevent 26") {
       ElMessage.success("命令执行成功");
     }

@@ -1,3 +1,4 @@
+/** 认证 API：登录、注册、密码重置。 */
 import request from "@/utils/request";
 
 export const login = (data) => {

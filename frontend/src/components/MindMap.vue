@@ -128,9 +128,7 @@ function applyRightLayout() {
             minder.execCommand(cmd, arg);
             if (typeof minder.render === "function") minder.render();
             return true;
-          } catch (e) {
-            console.debug("脑图模板命令未支持:", cmd, arg, e?.message ?? String(e));
-          }
+          } catch {}
         }
       }
     } catch (e) {

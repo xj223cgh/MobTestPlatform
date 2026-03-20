@@ -1,3 +1,4 @@
+"""Flask 应用工厂：会话、数据库、CORS、蓝图注册、SocketIO（用户房间）、日志与轻量 schema 补丁。"""
 import os
 import logging
 from logging.handlers import RotatingFileHandler
@@ -19,12 +20,16 @@ login_manager.login_message_category = 'info'
 
 @login_manager.unauthorized_handler
 def unauthorized_handler():
-    """API 请求直接返回 401，非 API 请求走 Flask-Login 默认重定向"""
-    from flask import request
+    """未登录：/api/* 返回 JSON 401；页面请求重定向到登录（不可调用 login_manager.unauthorized()，否则会递归回调本函数）。"""
+    from flask import request, redirect, url_for, flash
     from app.utils.helpers import error_response
     if request.path.startswith('/api/'):
         return error_response(401, "Unauthorized")
-    return login_manager.unauthorized()
+    if not login_manager.login_view:
+        return error_response(401, "Unauthorized")
+    if login_manager.login_message:
+        flash(login_manager.login_message, category=login_manager.login_message_category)
+    return redirect(url_for(login_manager.login_view, next=request.url))
 
 
 @login_manager.user_loader
@@ -40,13 +45,10 @@ def load_user(user_id):
 
 
 def create_app(config_name='default'):
-    """创建Flask应用"""
+    """创建并配置 Flask 应用实例。"""
     app = Flask(__name__)
-    
-    # 禁用严格斜杠，允许/projects和/projects/访问相同的路由
+
     app.url_map.strict_slashes = False
-    
-    # 设置默认编码为UTF-8，解决中文响应问题
     app.config['JSON_AS_ASCII'] = False
     app.config['JSONIFY_MIMETYPE'] = 'application/json; charset=utf-8'
     
@@ -69,14 +71,11 @@ def create_app(config_name='default'):
         db.create_all()
         _ensure_schema(app)
     
-    # WebSocket：Flask-SocketIO。engineio 只支持字符串列表或 '*'，不支持正则；
-    # 开发环境用 '*' 以允许内网 IP（如 http://10.13.254.75:8081）访问
     _cors = app.config.get('CORS_ORIGINS') or []
     if app.debug:
         cors_socket = '*'
     else:
         cors_socket = [o for o in _cors if isinstance(o, str)] if isinstance(_cors, list) else _cors
-    # Windows 下 eventlet 不兼容（管道不支持非阻塞 I/O），使用 threading；非 Windows 下优先 eventlet 避免 WebSocket write() before start_response
     import sys
     if sys.platform == "win32":
         async_mode = "threading"
@@ -104,8 +103,7 @@ def create_app(config_name='default'):
 
 
 def _ensure_schema(app):
-    """检查并补全数据库中可能缺失的列（兼容旧数据库）。
-    每次启动时运行，若列已存在则静默跳过。"""
+    """补全可能缺失的表列；已存在则跳过。"""
     from sqlalchemy import text
     migrations = [
         # test_suites 表：用例编号前缀列
@@ -145,7 +143,7 @@ def setup_logging(app):
 
 def register_blueprints(app):
     """注册蓝图"""
-    from app.routes import auth, users, devices, test_cases, test_tasks, home, projects, iterations, suite_case_relations, test_suites, review_tasks, files, reports, settings_routes, ai_tasks, notifications, roles, mindmap, agent_routes
+    from app.routes import auth, users, devices, test_cases, test_tasks, home, projects, iterations, test_suites, review_tasks, files, reports, settings_routes, ai_tasks, notifications, roles, mindmap, agent_routes
 
     app.register_blueprint(auth.bp, url_prefix='/api/auth')
     app.register_blueprint(agent_routes.bp)
@@ -159,13 +157,12 @@ def register_blueprints(app):
     app.register_blueprint(home.bp, url_prefix='/api/home')
     app.register_blueprint(projects.bp, url_prefix='/api/projects')
     app.register_blueprint(iterations.bp, url_prefix='/api/iterations')
-    app.register_blueprint(suite_case_relations.bp, url_prefix='/api/suite-case-relations')
     app.register_blueprint(test_suites.bp)
     app.register_blueprint(review_tasks.bp)
     app.register_blueprint(files.files_bp, url_prefix='/api/files')
     app.register_blueprint(reports.bp)
-    app.register_blueprint(ai_tasks.bp)  # AI异步任务接口
-    app.register_blueprint(mindmap.bp)  # 脑图数据接口
+    app.register_blueprint(ai_tasks.bp)
+    app.register_blueprint(mindmap.bp)
 
 
 def register_error_handlers(app):

@@ -81,7 +81,6 @@ const connectFlag = computed(() => ["online"].includes(props.device.status));
 
 const screencapTimer = ref();
 
-// 跟踪悬浮状态
 const isHovering = ref(false);
 
 const imageViewerProps = ref({
@@ -96,13 +95,6 @@ function onViewerClose() {
   imageViewerProps.value.visible = false;
 }
 
-const horizontalFlag = ref(false);
-
-function onScreencapLoad(event) {
-  const { naturalHeight, naturalWidth } = event.target;
-  horizontalFlag.value = naturalWidth > naturalHeight;
-}
-
 async function onBeforeEnter() {
   Object.assign(deviceInfo.value, { ...props.device });
 
@@ -110,7 +102,6 @@ async function onBeforeEnter() {
     return false;
   }
 
-  // 进入悬浮状态
   isHovering.value = true;
 
   if (!deviceInfo.value.screencap) {
@@ -128,7 +119,6 @@ async function onBeforeEnter() {
 
 async function getScreencap() {
   try {
-    // 检查设备连接状态
     if (!connectFlag.value) {
       Object.assign(deviceInfo.value, { screencap: void 0 });
       return;
@@ -141,14 +131,12 @@ async function getScreencap() {
         isHovering: isHovering.value,
       },
     );
-    // 处理base64数据，去除换行符和可能的错误信息
     const rawOutput = response.data.stdout;
     // 只保留base64部分，去除可能的错误信息
     const base64Data = rawOutput
       .replace(/\n/g, "")
       .replace(/^.*?base64,?/i, "");
 
-    // 验证base64数据是否有效
     if (
       base64Data &&
       base64Data.length > 0 &&
@@ -158,42 +146,16 @@ async function getScreencap() {
       Object.assign(deviceInfo.value, { screencap });
     } else {
       console.warn("获取截图失败: 无效的base64数据");
-      // 设置默认占位图
       Object.assign(deviceInfo.value, { screencap: void 0 });
     }
   } catch (error) {
     console.warn("获取截图失败:", error);
-    // 设备已断开连接，清空截图信息
     Object.assign(deviceInfo.value, { screencap: void 0 });
   }
 }
 
-async function getBattery() {
-  try {
-    // 检查设备连接状态
-    if (!connectFlag.value) {
-      return;
-    }
 
-    // 使用adb命令获取电池信息，传递悬浮状态
-    const response = await deviceApi.executeAdbCommand(
-      `-s ${props.device.id} shell dumpsys battery`,
-      {
-        isHovering: isHovering.value,
-      },
-    );
 
-    // 解析电池信息输出
-    const batteryInfo = parseBatteryInfo(response.data.stdout);
-    Object.assign(deviceInfo.value, { battery: batteryInfo });
-  } catch (error) {
-    console.warn("获取电池信息失败:", error);
-    // 设备已断开连接，清空电池信息
-    Object.assign(deviceInfo.value, { battery: null });
-  }
-}
-
-// 解析电池信息
 function parseBatteryInfo(output) {
   const battery = {
     batteryPercentage: null,
@@ -203,10 +165,8 @@ function parseBatteryInfo(output) {
     voltageV: null,
   };
 
-  // 解析输出行
   const lines = output.split("\n");
 
-  // 首先尝试解析现代Android设备的输出格式
   let acPowered = false;
   let usbPowered = false;
   let wirelessPowered = false;
@@ -214,14 +174,12 @@ function parseBatteryInfo(output) {
   for (const line of lines) {
     const trimmedLine = line.trim();
 
-    // 解析电池电量
     if (trimmedLine.startsWith("level:")) {
       const match = trimmedLine.match(/level:\s*(\d+)/);
       if (match) {
         battery.batteryPercentage = parseInt(match[1]);
       }
     }
-    // 解析充电状态
     else if (trimmedLine.startsWith("status:")) {
       const match = trimmedLine.match(/status:\s*(\d+)/);
       if (match) {
@@ -229,7 +187,6 @@ function parseBatteryInfo(output) {
         battery.isCharging = status === 2 || status === 5; // 2: charging, 5: full
       }
     }
-    // 解析温度
     else if (trimmedLine.startsWith("temperature:")) {
       const match = trimmedLine.match(/temperature:\s*(\d+)/);
       if (match) {
@@ -237,7 +194,6 @@ function parseBatteryInfo(output) {
         battery.temperatureCelsius = temp / 10; // 转换为摄氏度
       }
     }
-    // 解析电源来源相关信息
     else if (trimmedLine.startsWith("AC powered:")) {
       acPowered = trimmedLine.includes("true");
     } else if (trimmedLine.startsWith("USB powered:")) {
@@ -245,7 +201,6 @@ function parseBatteryInfo(output) {
     } else if (trimmedLine.startsWith("Wireless powered:")) {
       wirelessPowered = trimmedLine.includes("true");
     }
-    // 解析老式设备的powered信息
     else if (trimmedLine.includes("plugged:")) {
       const match = trimmedLine.match(/plugged:\s*(\d+)/);
       if (match) {
@@ -261,7 +216,6 @@ function parseBatteryInfo(output) {
         }
       }
     }
-    // 解析电压
     else if (trimmedLine.startsWith("voltage:")) {
       const match = trimmedLine.match(/voltage:\s*(\d+)/);
       if (match) {
@@ -291,18 +245,13 @@ function onAfterLeave() {
   clearInterval(screencapTimer.value);
   onViewerClose();
   loading.value = false;
-  // 离开悬浮状态
   isHovering.value = false;
 }
 
-function onError() {
-  clearInterval(screencapTimer.value);
-}
 
-// 监听设备连接状态变化，当设备断开连接时清除定时器
+
 watch(connectFlag, (newVal, oldVal) => {
   if (oldVal && !newVal) {
-    // 设备从连接状态变为断开状态
     clearInterval(screencapTimer.value);
   }
 });

@@ -5,7 +5,7 @@
         <el-avatar
           :size="80"
           :src="userInfo.avatar"
-          :class="avatar - gradient"
+          class="avatar-gradient"
         >
           {{ (userInfo.username || "?").charAt(0).toUpperCase() }}
         </el-avatar>
@@ -722,10 +722,7 @@ const changePassword = async () => {
             closeOnPressEscape: false,
           },
         );
-      } catch (e) {
-        // 即使弹窗被异常关闭，也强制执行登出和跳转
-        console.log("弹窗被关闭，但仍需登出");
-      }
+      } catch {}
 
       await userStore.logout();
       router.replace("/login");

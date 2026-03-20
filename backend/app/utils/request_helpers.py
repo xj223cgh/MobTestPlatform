@@ -30,11 +30,8 @@ def is_platform_host():
     # IPv6 映射的 IPv4：取后半段再判断
     if real_ip.lower().startswith('::ffff:'):
         real_ip = real_ip[7:].strip()
-    try:
-        if real_ip.startswith('192.168.') or real_ip.startswith('10.') or real_ip.startswith('172.'):
-            return False
-        if real_ip.startswith('fe80:') or ('%' in real_ip):
-            return False
-    except Exception:
-        pass
+    if real_ip.startswith('192.168.') or real_ip.startswith('10.') or real_ip.startswith('172.'):
+        return False
+    if real_ip.startswith('fe80:') or ('%' in real_ip):
+        return False
     return False

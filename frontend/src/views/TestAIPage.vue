@@ -138,6 +138,7 @@ const result = ref({
 
 // 测试AI接口
 const testAI = async () => {
+  const startTime = Date.now();
   try {
     isLoading.value = true;
     result.value = {
@@ -147,10 +148,6 @@ const testAI = async () => {
       time: 0,
     };
 
-    // 记录开始时间
-    const startTime = Date.now();
-
-    // 创建axios实例
     const aiRequest = axios.create({
       baseURL: testForm.baseUrl,
       timeout: 60000,
@@ -160,7 +157,6 @@ const testAI = async () => {
       },
     });
 
-    // 发送请求
     const response = await aiRequest.post("/chat/completions", {
       model: testForm.model,
       messages: [
@@ -179,11 +175,9 @@ const testAI = async () => {
       response_format: { type: "json_object" },
     });
 
-    // 记录结束时间
     const endTime = Date.now();
     const duration = endTime - startTime;
 
-    // 处理响应
     result.value = {
       success: true,
       error: null,
@@ -191,20 +185,15 @@ const testAI = async () => {
       time: duration,
     };
   } catch (error) {
-    // 记录结束时间
     const endTime = Date.now();
     const duration = endTime - startTime;
 
-    // 处理错误
     let errorMessage = "未知错误";
     if (error.response) {
-      // 服务器返回错误
       errorMessage = `HTTP ${error.response.status}: ${JSON.stringify(error.response.data, null, 2)}`;
     } else if (error.request) {
-      // 请求发出但没有收到响应
       errorMessage = "没有收到服务器响应，请检查网络连接或API配置";
     } else {
-      // 请求配置错误
       errorMessage = `请求配置错误: ${error.message}`;
     }
 

@@ -1,3 +1,4 @@
+"""数据模型：所有 SQLAlchemy ORM 定义（用户、项目、迭代、用例、任务、设备、报告等）。"""
 from datetime import datetime, timezone, timedelta
 
 LOCAL_TIMEZONE = timezone(timedelta(hours=8))
@@ -218,7 +219,6 @@ class Project(db.Model):
         pass_rate = round(pass_count / total_cases * 100, 2) if total_cases > 0 else 0
         execution_progress = round(executed_count / total_cases * 100, 2) if total_cases > 0 else 0
         
-        # 计算用例按状态划分
         case_stats = {
             'total': total_cases,
             'pass': pass_count,
@@ -229,7 +229,6 @@ class Project(db.Model):
             'execution_progress': execution_progress
         }
         
-        # 计算迭代统计
         total_iterations = len(self.iterations)
         iteration_stats = {
             'total': total_iterations,
@@ -239,7 +238,6 @@ class Project(db.Model):
             'cancelled': sum(1 for iter in self.iterations if iter.status == 'cancelled')
         }
         
-        # 计算版本需求统计
         total_requirements = len(self.version_requirements)
         requirement_stats = {
             'total': total_requirements,
@@ -249,7 +247,6 @@ class Project(db.Model):
             'cancelled': sum(1 for req in self.version_requirements if req.status == 'cancelled')
         }
         
-        # 处理项目成员，将user_id为NULL的成员显示为"未知用户"
         members = [{
             'user_id': member.user_id,
             'user_name': member.user.real_name if member.user else "未知用户",
@@ -397,7 +394,6 @@ class Iteration(db.Model):
     
     def to_dict(self):
         """转换为字典"""
-        # 计算需求统计
         requirement_stats = {
             'total': len(self.version_requirements),
             'new': sum(1 for req in self.version_requirements if req.status == 'new'),
@@ -858,7 +854,6 @@ class TestCase(db.Model):
             'creator_name': self.creator.real_name if self.creator else None,
             'suite_id': self.suite_id,
             'suite_name': self.suite.suite_name if self.suite else None,
-            # 从套件继承项目、需求、迭代信息
             'project_id': self.suite.project_id if self.suite else self.project_id,
             'project_name': self.suite.project.project_name if self.suite and self.suite.project else None,
             'version_requirement_id': self.suite.version_requirement_id if self.suite else self.version_requirement_id,
@@ -958,7 +953,7 @@ class TaskCaseSnapshot(db.Model):
     test_case = db.relationship('TestCase', backref='task_snapshots')
 
     def to_dict(self):
-        """转为与用例展示兼容的字典（含 case_id 便于关联执行状态）"""
+        """快照字典（含 case_id）"""
         return {
             'id': self.case_id,
             'case_id': self.case_id,
@@ -1109,7 +1104,6 @@ class TestTask(db.Model):
 
     def to_dict(self):
         """转换为字典"""
-        # 构建基础返回字典
         folder_id = getattr(self, 'folder_id', None)
         try:
             folder_name = self.folder.name if self.folder else None

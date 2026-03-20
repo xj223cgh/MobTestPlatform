@@ -422,7 +422,6 @@ export default {
       iterationFormRef.value?.resetFields();
     };
 
-    // 格式化为 YYYY-MM-DD，兼容 value-format 与 Date 对象
     const formatDateForApi = (v) => {
       if (!v) return "";
       if (typeof v === "string") return v.slice(0, 10);

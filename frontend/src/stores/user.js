@@ -1,3 +1,4 @@
+/** 用户状态：登录态、权限、个人信息。 */
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import {
@@ -33,7 +34,6 @@ export const useUserStore = defineStore("user", () => {
 
         userInfo.value = user;
         sessionStorage.setItem(USER_KEY, JSON.stringify(user));
-        // 埋点权限用于菜单与按钮显隐
         const permArr = Array.isArray(permList) ? permList : [];
         permissions.value = permArr;
         sessionStorage.setItem(PERMISSIONS_KEY, JSON.stringify(permArr));
@@ -96,9 +96,6 @@ export const useUserStore = defineStore("user", () => {
     try {
       await logoutApi();
     } catch (error) {
-      // 即使后端登出失败也要清除本地数据
-      // 如果是网络错误或服务器错误，不显示错误提示给用户
-      // 因为登出操作对用户来说应该是无感知的
       if (
         !(
           error.response?.status >= 500 ||
@@ -113,21 +110,15 @@ export const useUserStore = defineStore("user", () => {
       permissions.value = [];
       sessionStorage.removeItem(USER_KEY);
       sessionStorage.removeItem(PERMISSIONS_KEY);
-      // 清除用例管理页的树展开/选中缓存，重新登录后默认全部收起
       localStorage.removeItem("testCaseExpandedKeys");
       localStorage.removeItem("testCaseSelectedSuite");
 
-      // 注意：不在这里清除记住的登录信息，让用户主动选择是否记住
-
-      // 只有在真正需要时才显示成功消息
-      // 避免在页面跳转时显示消息
       if (!window.location.pathname.includes("/login")) {
         ElMessage.success("已退出登录");
       }
     }
   };
 
-  // 检查认证状态：以服务端会话为准，仅在明确未认证或 401 时清除本地
   const checkAuth = async () => {
     try {
       loading.value = true;
@@ -205,7 +196,6 @@ export const useUserStore = defineStore("user", () => {
     return permissions.value.includes(code);
   };
 
-  // 刷新权限列表（如角色被管理员修改后调用）
   const fetchPermissions = async () => {
     try {
       const res = await getPermissionsApi();
@@ -218,7 +208,6 @@ export const useUserStore = defineStore("user", () => {
     return false;
   };
 
-  // 更新记住的登录信息（当用户在登录页面取消勾选记住我时调用）
   const updateRememberedCredentials = (username, password, remember) => {
     if (remember && username && password) {
       const rememberData = {

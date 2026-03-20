@@ -88,11 +88,8 @@ const props = defineProps({
   },
 });
 
-const loading = ref(false);
-
 async function handleOtg() {
   try {
-    // 调用后端API启动USB功能，使用正确的命令语法和功能选项
     // 注意：svc usb setFunctions 命令的正确用法，otg不是有效选项
     await deviceApi.executeAdbCommand(
       `-s ${props.row.id} shell svc usb setFunctions mtp`,
@@ -109,7 +106,6 @@ async function handleScreenshot() {
     // 使用设备管理API中的截图功能，直接获取截图
     const response = await deviceApi.getDeviceScreenshot(props.row.id);
 
-    // 创建下载链接
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement("a");
     link.href = url;

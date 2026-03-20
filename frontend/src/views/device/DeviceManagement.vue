@@ -498,7 +498,6 @@ import {
   Refresh,
   Monitor,
   Download,
-  WarningFilled,
   Operation,
   Delete,
   Setting,
@@ -926,8 +925,6 @@ const openDeviceDetail = (row) => {
 };
 const { proxy } = getCurrentInstance();
 
-const isMultipleRow = computed(() => selectionRows.value.length > 0);
-
 const hasOnlineDevices = computed(() => {
   return deviceList.value.some((device) => device.status === "online");
 });
@@ -1020,7 +1017,6 @@ const getDevices = async () => {
       adbDeviceMap.set(adbDevice.id, adbDevice);
     });
 
-    // 检查哪些设备从ADB中断开了，更新数据库状态
     for (const dbDevice of dbDevices) {
       const adbDevice = adbDeviceMap.get(dbDevice.device_id);
       if (dbDevice.status === "online" && !adbDevice) {
@@ -1038,12 +1034,11 @@ const getDevices = async () => {
       }
     }
 
-    // 检查ADB中有但数据库中没有的设备，自动创建设备记录
     const dbDeviceIdSet = new Set(dbDevices.map((db) => db.device_id));
     for (const adbDevice of adbDevices) {
       if (!dbDeviceIdSet.has(adbDevice.id) && adbDevice.status === "device") {
         try {
-          const response = await deviceApi.createDevice({
+          await deviceApi.createDevice({
             device_name: adbDevice.name || adbDevice.id,
             device_model: adbDevice.name || "Unknown",
             os_type: "android",
@@ -1051,7 +1046,6 @@ const getDevices = async () => {
             device_id: adbDevice.id,
             status: "online",
           });
-          console.log(`自动创建设备记录: ${adbDevice.id}`);
         } catch (error) {
           console.warn(`自动创建设备 ${adbDevice.id} 失败:`, error);
         }
@@ -1129,7 +1123,6 @@ const getDevices = async () => {
   }
 };
 
-// 获取用户列表（仅需登录的 options 接口，用于负责人下拉）
 const getUserList = async () => {
   try {
     const response = await userApi.getUserOptions({ size: 1000 });

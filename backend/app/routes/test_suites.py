@@ -1,4 +1,5 @@
-from flask import Blueprint, request, jsonify
+"""测试套件/用例集路由：目录树、CRUD、导入导出。"""
+from flask import Blueprint, request
 from flask_login import login_required, current_user
 from app.models.models import db, TestSuite, User, TestCase, TestTask, TestSuiteReviewTask, Project
 from app.utils.helpers import success_response, error_response, get_pagination_params
@@ -37,10 +38,8 @@ def get_test_suites():
                 query = query.filter_by(status=request.args['status'])
             
             if request.args.get('parent_id'):
-                # 如果指定了parent_id，则返回该父套件下的子套件
                 query = query.filter_by(parent_id=request.args['parent_id'])
             elif 'all' not in request.args:
-                # 默认只返回顶级套件（parent_id为空）
                 query = query.filter_by(parent_id=None)
             
             pagination = query.order_by(TestSuite.created_at.desc()).paginate(
@@ -103,11 +102,9 @@ def create_test_suite():
             if not parent_suite:
                 return error_response(400, '父套件不存在')
             
-            # 如果有父套件，验证父套件类型
             if parent_suite.type != 'folder':
                 return error_response(400, '只能在文件夹中创建子套件')
             
-            # 计算新套件的深度
             depth = get_suite_depth(parent_id) + 1
             
             # 限制深度不超过5层
@@ -153,8 +150,8 @@ def create_test_suite():
         
         db.session.add(new_suite)
         db.session.commit()
-        
-        return success_response(new_suite.to_dict(), 201)
+
+        return success_response(new_suite.to_dict(), "创建成功")
     except Exception as e:
         db.session.rollback()
         return error_response(500, f'创建测试套件失败: {str(e)}')
@@ -262,9 +259,7 @@ def update_test_suite(suite_id):
         sort_order_changed = 'sort_order' in data and data['sort_order'] != original_sort_order
         if parent_id_changed or sort_order_changed:
             
-            # 处理父级变化的情况：如果父级变化，先将原父级下的节点重新排序
             if parent_id_changed:
-                # 原父级下的节点重新排序
                 original_siblings = TestSuite.query.filter_by(parent_id=original_parent_id).all()
                 original_siblings.sort(key=lambda x: x.sort_order)
                 for i, sibling in enumerate(original_siblings):
@@ -275,23 +270,13 @@ def update_test_suite(suite_id):
                 max_sort_order = max_sort_order.filter_by(parent_id=suite.parent_id).scalar() or 0
                 suite.sort_order = max_sort_order + 1
             
-            # 获取所有新的同级节点，包括当前节点
-            # 注意：这里不能直接从数据库查询，因为当前节点的sort_order还没有提交到数据库
-            # 我们需要构建一个包含所有节点的列表，包括当前节点
-            
-            # 1. 获取除当前节点外的所有同级节点
             other_siblings = TestSuite.query.filter(
                 TestSuite.parent_id == suite.parent_id,
                 TestSuite.id != suite.id
             ).all()
             
-            # 2. 创建完整的同级节点列表
             all_siblings = [suite] + other_siblings
-            
-            # 3. 按照sort_order排序
             all_siblings.sort(key=lambda x: (x.sort_order, 0 if x.id == suite_id else 1))
-            
-            # 4. 重新分配连续的sort_order值
             for i, sibling in enumerate(all_siblings):
                 sibling.sort_order = i + 1
         
@@ -774,7 +759,7 @@ def copy_suite(suite_id):
             db.session.add(nc)
 
         db.session.commit()
-        return success_response(new_suite.to_dict(), 201)
+        return success_response(new_suite.to_dict(), "复制成功")
     except Exception as e:
         db.session.rollback()
         return error_response(500, f'复制失败: {str(e)}')
@@ -917,7 +902,7 @@ def import_suite():
 
         new_suite.case_count = case_count
         db.session.commit()
-        return success_response({'message': f'导入成功，共 {case_count} 条用例', 'suite_id': new_suite.id}, 201)
+        return success_response({'message': f'导入成功，共 {case_count} 条用例', 'suite_id': new_suite.id})
     except Exception as e:
         db.session.rollback()
         return error_response(500, f'导入失败: {str(e)}')

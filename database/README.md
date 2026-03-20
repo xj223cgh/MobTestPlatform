@@ -110,13 +110,11 @@ python database/03_create_tables.py
 
 ### 4.1 角色默认权限（`role_permissions` 无记录时）
 
-各角色在权限配置页上的**初始勾选**由后端代码决定：见 **`backend/app/constants/permissions.py`** 中的 **`DEFAULT_ROLE_PERMISSIONS`**。
+见 **`backend/app/constants/permissions.py`** 中的 **`DEFAULT_ROLE_PERMISSIONS`**。
 
-- **`manager`**：五类模块全开（含权限配置、用户管理）。
-- **`tester`（测试人员）**：项目管理（入口 + 新建 + 编辑）、迭代与需求四类操作全开（含删除迭代/需求）；**不含** `project.delete`、**不含** 权限配置与用户管理相关埋点。
-- **`admin`（普通成员，业务上常给实习生等账号）**：项目管理（入口 + 新建 + 编辑）、迭代（入口 + 新建 + 编辑）、需求（入口 + 新建 + 编辑 + 删除）；**不含** `project.delete`、`iteration.delete` 及权限/用户模块。
-
-> **已有环境**：若表 `role_permissions` 里已有 `tester` / `admin` 的行，修改上述 Python 默认值**不会自动覆盖**库内数据。需要新默认值时，可在权限配置页重新保存该角色，或删除对应角色的 `role_permissions` 记录后由系统按默认值重新生效。
+- **`manager`**：五类模块全开。
+- **`tester`**：项目/迭代/需求（无 `project.delete`、无权限与用户管理埋点）。
+- **`admin`**：项目/迭代/需求（无 `project.delete`、`iteration.delete`，无权限与用户管理埋点）。
 
 ---
 

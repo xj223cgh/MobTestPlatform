@@ -25,7 +25,7 @@
 **技术栈**：
 - 后端：Flask + Python threading
 - 前端：Vue 3 + Element Plus
-- AI服务：OpenAI兼容接口（如SiliconFlow）
+- AI服务：OpenAI 格式 API（如 SiliconFlow）
 
 ### 核心组件
 
@@ -51,8 +51,6 @@
    - 任务状态轮询
    - 进度显示组件
    - 需求文档：使用浏览器 **`FileReader.readAsText`** 读取 **`.txt` / `.md`** 为纯文本后，随生成请求提交后端（若上传非文本格式，界面会提示仅支持 `.txt` / `.md`）
-
-> **说明**：历史上曾使用独立模块 `documentParser.js` 解析 docx/pdf，该文件已移除；若需恢复 Word/PDF 解析，可再行引入解析库并在本页面上传逻辑中扩展。
 
 ## 配置说明
 
@@ -122,7 +120,7 @@ AI_BASE_URL=https://api.openai.com/v1
 AI_MODEL=gpt-4o  # 或 gpt-3.5-turbo（更便宜）
 ```
 
-#### 其他兼容OpenAI格式的服务
+#### 其他 OpenAI 格式服务
 ```env
 AI_BASE_URL=https://your-ai-service.com/v1
 AI_MODEL=your-model-name
@@ -227,9 +225,7 @@ npm install mammoth pdfjs-dist
 
 ### 2. 提示词与模板
 
-后端提示词位置：`backend/app/routes/ai_tasks.py` 中的 `build_test_case_prompt()`。
-
-前端曾使用的模板位置（当前由后端统一构建）：`frontend/src/prompts/testCase.js`（若存在）。支持的模板类型可包括：functional、regression、performance、security 等。
+后端：`backend/app/routes/ai_tasks.py` 中的 `build_test_case_prompt()`。
 
 ### 3. 参数调优
 
@@ -395,8 +391,6 @@ frontend/
 └── src/
     ├── api/
     │   └── aiTasks.js               # AI 任务 API 封装
-    ├── prompts/
-    │   └── testCase.js              # AI 提示词模板
     └── views/
         └── testCase/
             └── TestCaseManagement.vue  # 用例管理、AI 生成弹窗与文档读取
@@ -491,15 +485,7 @@ curl -X GET http://localhost:5000/api/ai-tasks/tasks \
 
 ### 1. 自定义提示词
 
-编辑 `frontend/src/prompts/testCase.js`，添加或修改提示词模板：
-
-```javascript
-export const testCasePromptTemplates = {
-  functional: `你是一个专业的测试工程师...`,
-  performance: `你是一个性能测试专家...`,
-  security: `你是一个安全测试专家...`,
-}
-```
+在 `backend/app/routes/ai_tasks.py` 中修改 `build_test_case_prompt()` 及相关常量。
 
 ### 2. 添加新的AI模型
 
@@ -542,5 +528,3 @@ prompt = f"""...
 **文档版本**: v2.1.0  
 **最后更新**: 2026-03-17  
 **维护者**: 技术团队
-
-**v2.1.0 更新**：与代码对齐，移除已删除的 `documentParser.js` 说明；补充当前仅 `.txt`/`.md` 文本读取方式；修正文档索引路径。

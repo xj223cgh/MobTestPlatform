@@ -1,10 +1,6 @@
+/** 用例评审 API：发起、审批、历史。 */
 import request from "@/utils/request";
 
-/**
- * 用例评审相关API
- */
-
-// 发起用例集评审
 export const initiateReview = (suiteId, data) => {
   return request({
     url: `/review-tasks/test-suites/${suiteId}/initiate-review`,
@@ -13,7 +9,6 @@ export const initiateReview = (suiteId, data) => {
   });
 };
 
-// 获取评审任务详情
 export const getReviewTask = (taskId) => {
   return request({
     url: `/review-tasks/${taskId}`,
@@ -21,7 +16,6 @@ export const getReviewTask = (taskId) => {
   });
 };
 
-// 更新单条用例评审意见
 export const updateCaseReview = (taskId, caseId, data) => {
   return request({
     url: `/review-tasks/${taskId}/case-reviews/${caseId}`,
@@ -30,7 +24,6 @@ export const updateCaseReview = (taskId, caseId, data) => {
   });
 };
 
-// 完成用例集评审
 export const completeReview = (taskId, data) => {
   return request({
     url: `/review-tasks/${taskId}/complete`,
@@ -39,7 +32,6 @@ export const completeReview = (taskId, data) => {
   });
 };
 
-// 获取评审任务下的所有用例评审详情
 export const getCaseReviews = (taskId) => {
   return request({
     url: `/review-tasks/${taskId}/case-reviews`,
@@ -47,7 +39,6 @@ export const getCaseReviews = (taskId) => {
   });
 };
 
-// 获取当前用户的评审任务
 export const getMyReviewTasks = (params) => {
   return request({
     url: "/review-tasks/review-center/my-tasks",
@@ -56,7 +47,6 @@ export const getMyReviewTasks = (params) => {
   });
 };
 
-// 获取当前用户发起的评审
 export const getMyInitiatedReviews = (params) => {
   return request({
     url: "/review-tasks/review-center/my-initiated",
@@ -65,7 +55,6 @@ export const getMyInitiatedReviews = (params) => {
   });
 };
 
-// 获取用例集的评审状态和历史
 export const getSuiteReviewStatus = (suiteId) => {
   return request({
     url: `/review-tasks/test-suites/${suiteId}/review-status`,
@@ -73,7 +62,6 @@ export const getSuiteReviewStatus = (suiteId) => {
   });
 };
 
-// 重新发起评审
 export const reinitiateReview = (taskId) => {
   return request({
     url: `/review-tasks/${taskId}/reinitiate-review`,
@@ -81,7 +69,6 @@ export const reinitiateReview = (taskId) => {
   });
 };
 
-// 打回评审
 export const rejectReview = (taskId, data) => {
   return request({
     url: `/review-tasks/${taskId}/reject-review`,
@@ -90,7 +77,6 @@ export const rejectReview = (taskId, data) => {
   });
 };
 
-// 重新评审
 export const restartReview = (taskId) => {
   return request({
     url: `/review-tasks/${taskId}/restart-review`,
@@ -98,7 +84,6 @@ export const restartReview = (taskId) => {
   });
 };
 
-// 获取当前用户参与的全部最近评审历史（按时间）
 export const getRecentReviewHistory = (params) => {
   return request({
     url: "/review-tasks/review-center/recent-history",
@@ -107,7 +92,6 @@ export const getRecentReviewHistory = (params) => {
   });
 };
 
-// 获取评审历史记录列表
 export const getReviewHistoryList = (taskId) => {
   return request({
     url: `/review-tasks/${taskId}/review-history`,
@@ -115,7 +99,6 @@ export const getReviewHistoryList = (taskId) => {
   });
 };
 
-// 获取评审历史详情
 export const getReviewHistoryDetail = (historyId) => {
   return request({
     url: `/review-tasks/review-history/${historyId}`,

@@ -1,3 +1,4 @@
+"""文件上传与下载：Logo 图片、设备脚本。"""
 import os
 import uuid
 import hashlib
@@ -10,8 +11,15 @@ from app.models.models import db, SystemSetting
 
 files_bp = Blueprint('files', __name__)
 
-# Logo 访问路径前缀（与前端 img src 一致）
 LOGO_URL_PREFIX = '/api/files/logo/'
+
+
+def _safe_join(base_dir, user_path):
+    """将 user_path 限制在 base_dir 之内，防止路径穿越。"""
+    resolved = os.path.normpath(os.path.join(base_dir, user_path))
+    if not resolved.startswith(os.path.normpath(base_dir)):
+        return None
+    return resolved
 
 
 def _delete_old_logo_if_exists():
@@ -164,43 +172,32 @@ def upload_file():
 
 @files_bp.route('/<path:file_path>', methods=['GET'])
 def get_file(file_path):
-    """
-    下载文件
-    """
+    """下载脚本文件"""
     try:
-        full_path = os.path.join(current_app.config['SCRIPT_STORAGE_PATH'], file_path)
-        
-        if not os.path.exists(full_path):
+        base = current_app.config['SCRIPT_STORAGE_PATH']
+        full_path = _safe_join(base, file_path)
+        if not full_path or not os.path.isfile(full_path):
             return jsonify({'code': 404, 'message': '文件不存在'}), 404
-        
-        from flask import send_from_directory
-        
+
         file_dir = os.path.dirname(full_path)
         server_filename = os.path.basename(full_path)
-        
-        download_filename = server_filename
-        custom_filename = request.args.get('filename')
-        if custom_filename:
-            download_filename = custom_filename
-        
+        download_filename = request.args.get('filename') or server_filename
         return send_from_directory(file_dir, server_filename, as_attachment=True, download_name=download_filename)
     except Exception as e:
         current_app.logger.error(f'获取文件失败: {str(e)}')
         return jsonify({'code': 500, 'message': f'获取文件失败: {str(e)}'}), 500
 
+
 @files_bp.route('/<path:file_path>', methods=['DELETE'])
 def delete_file(file_path):
-    """
-    删除文件
-    """
+    """删除脚本文件"""
     try:
-        full_path = os.path.join(current_app.config['SCRIPT_STORAGE_PATH'], file_path)
-        
-        if not os.path.exists(full_path):
+        base = current_app.config['SCRIPT_STORAGE_PATH']
+        full_path = _safe_join(base, file_path)
+        if not full_path or not os.path.isfile(full_path):
             return jsonify({'code': 404, 'message': '文件不存在'}), 404
-        
+
         os.remove(full_path)
-        
         return jsonify({'code': 200, 'message': '文件删除成功'})
     except Exception as e:
         current_app.logger.error(f'删除文件失败: {str(e)}')

@@ -1,3 +1,4 @@
+/** 设备状态映射：Tag 类型与显示文本。 */
 export const deviceStatus = [
   {
     label: "在线",
@@ -21,13 +22,11 @@ export const deviceStatus = [
   },
 ];
 
-// 获取设备状态标签类型
 export function getStatusTagType(status) {
   const statusInfo = deviceStatus.find((item) => item.value === status);
   return statusInfo?.tagType || "info";
 }
 
-// 获取设备状态文本
 export function getStatusText(status) {
   const statusInfo = deviceStatus.find((item) => item.value === status);
   return statusInfo?.label || status;

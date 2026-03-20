@@ -48,7 +48,6 @@ async function handleClick(row = props.row) {
   props.toggleRowExpansion(row, true);
 
   try {
-    // 调用后端API启动投屏，执行scrcpy命令
     // 使用与原escrcpy相同的命令格式，确保独立窗口显示
     await deviceApi.executeAdbCommand(
       `scrcpy --serial="${row.id}" --window-title="设备 ${row.id} 投屏" --disable-screensaver`,

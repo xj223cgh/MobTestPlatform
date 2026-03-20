@@ -129,8 +129,8 @@ def save_mindmap(suite_id):
             snapshot=suite.case_mindmap_data,
             created_by=current_user.id,
         ))
-        db.session.flush()  # 让新版本获得 ID，再查超出 30 条的旧版本
-        # 每个用例集最多保留 30 个版本，与主保存同一事务提交
+        db.session.flush()
+        # 最多保留 30 个版本
         old_versions = MindmapVersion.query.filter_by(suite_id=suite.id).order_by(MindmapVersion.id.desc()).offset(30).all()
         for v in old_versions:
             db.session.delete(v)
@@ -274,7 +274,7 @@ def create_tag():
     )
     db.session.add(tag)
     db.session.commit()
-    return success_response(tag.to_dict(), 201)
+    return success_response(tag.to_dict(), message="标签已创建")
 
 
 @bp.route('/tags/<int:tag_id>', methods=['DELETE'])
@@ -308,7 +308,7 @@ def create_marker():
     )
     db.session.add(marker)
     db.session.commit()
-    return success_response(marker.to_dict(), 201)
+    return success_response(marker.to_dict(), message="标记已创建")
 
 
 @bp.route('/markers/<int:marker_id>', methods=['DELETE'])

@@ -1,3 +1,4 @@
+/** 系统设置状态：主题、名称、Logo 等。 */
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { getSystemSettings } from "@/api/settings";
@@ -16,7 +17,6 @@ export const useSystemSettingsStore = defineStore("systemSettings", () => {
 
   const loaded = ref(false);
 
-  /** 从接口加载系统设置（需已登录） */
   const load = async () => {
     try {
       const res = await getSystemSettings();
@@ -40,7 +40,6 @@ export const useSystemSettingsStore = defineStore("systemSettings", () => {
     }
   };
 
-  /** 保存后更新 store，避免刷新页面才生效 */
   const setFromSettings = (basicSettings) => {
     if (basicSettings.systemName != null) systemName.value = basicSettings.systemName;
     if (basicSettings.systemDescription != null) systemDescription.value = basicSettings.systemDescription;
@@ -53,7 +52,6 @@ export const useSystemSettingsStore = defineStore("systemSettings", () => {
     }
   };
 
-  /** 侧边栏折叠时显示的短标题（取系统名前两字或默认） */
   const shortTitle = computed(() => {
     const name = systemName.value || DEFAULT_NAME;
     if (name.length <= 2) return name;

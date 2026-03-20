@@ -1,15 +1,13 @@
 import { watch } from "vue";
 
 /**
- * 根据系统设置应用主题（深/浅/跟随系统）到 document
- * 在 Layout 挂载后调用，并 watch theme 变化
+ * 根据系统设置应用主题（深/浅/跟随系统）到 document.documentElement。
+ * 返回清理函数，供组件 onUnmounted 调用以移除 matchMedia 监听。
  */
 export function useSystemAppearance(store) {
   const apply = () => {
     if (!store) return;
     const root = document.documentElement;
-
-    // 主题：light | dark | auto
     const theme = store.theme || "light";
     let isDark = false;
     if (theme === "dark") {
@@ -24,17 +22,14 @@ export function useSystemAppearance(store) {
     }
   };
 
-  // 初次应用
   apply();
 
-  // 监听 theme 变化（如设置页保存后）
   watch(
     () => store.theme,
     () => apply(),
     { deep: true }
   );
 
-  // 跟随系统时监听系统主题变化
   if (typeof window !== "undefined" && window.matchMedia) {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => {
