@@ -9,11 +9,11 @@
 from datetime import datetime
 
 from flask import Blueprint, request
-from flask_login import login_required, current_user
+from flask_login import login_required
 from app.services.permission_service import permission_required
 from werkzeug.exceptions import NotFound
 
-from app.models.models import TestTask, db, TestCase, Report, User
+from app.models.models import TestTask, db, Report, User
 from app.utils.helpers import (
     success_response, error_response, get_pagination_params, log_user_action,
 )

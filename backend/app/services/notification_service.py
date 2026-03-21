@@ -4,7 +4,7 @@
 业务侧只调用 notify_users，不直接操作 SocketIO；emit 失败只打日志，不阻塞业务。
 """
 import logging
-from typing import List, Optional, Any
+from typing import List, Optional
 
 from app.models.models import db, Notification
 

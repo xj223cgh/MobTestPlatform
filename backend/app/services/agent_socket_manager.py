@@ -60,7 +60,7 @@ def request_agent(agent_uid, action, payload=None, timeout=15):
 
 def register_agent_handlers(socketio):
     """注册 /agent 命名空间的 connect、disconnect、agent_response"""
-    from app.models.models import Agent, db
+    from app.models.models import Agent
 
     @socketio.on('connect', namespace='/agent')
     def agent_connect(auth=None):

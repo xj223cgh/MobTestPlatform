@@ -1,7 +1,7 @@
 """AI 异步任务：触发生成用例、查询状态与结果。"""
 from flask import Blueprint, request, current_app
 from flask_login import login_required, current_user
-from app.models.models import db, TestSuite, TestCase, User, Project
+from app.models.models import db, TestSuite, TestCase, Project
 from app.utils.helpers import success_response, error_response
 from app.utils.task_manager import task_manager, TaskStatus
 import requests

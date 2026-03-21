@@ -27,6 +27,9 @@ yarn.lock
 *.d.ts
 **/.vitepress/cache
 
+# npm 本地缓存
+.npm-cache/
+
 # Dist
 dist
 dist-ssr

@@ -81,7 +81,7 @@ def create_app(config_name='default'):
         async_mode = "threading"
     else:
         try:
-            import eventlet
+            import eventlet  # noqa: F401
             async_mode = "eventlet"
         except ImportError:
             async_mode = "threading"

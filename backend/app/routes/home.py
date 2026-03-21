@@ -1,6 +1,6 @@
 """首页数据路由：项目统计、最近活动、任务概览。"""
 from flask import Blueprint, request
-from flask_login import login_required, current_user
+from flask_login import login_required
 from datetime import datetime, timedelta
 from app.models.models import db, User, Device, TestCase, TestTask, Project, Iteration, VersionRequirement
 from app.utils.helpers import success_response, error_response

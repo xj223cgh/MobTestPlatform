@@ -2,9 +2,9 @@
 import re
 import json
 from functools import wraps
-from flask import request, jsonify, session, abort, current_app
+from flask import request, jsonify, current_app
 from flask_login import current_user
-from app.models.models import User, SystemSetting
+from app.models.models import SystemSetting
 
 
 def validate_phone(phone):

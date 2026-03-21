@@ -1,7 +1,7 @@
 """测试套件/用例集路由：目录树、CRUD、导入导出。"""
 from flask import Blueprint, request
 from flask_login import login_required, current_user
-from app.models.models import db, TestSuite, User, TestCase, TestTask, TestSuiteReviewTask, Project
+from app.models.models import db, TestSuite, TestCase, TestTask, TestSuiteReviewTask
 from app.utils.helpers import success_response, error_response, get_pagination_params
 
 bp = Blueprint('test_suites', __name__, url_prefix='/api/test-suites')

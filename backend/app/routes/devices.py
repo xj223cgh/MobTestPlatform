@@ -3,7 +3,6 @@ import subprocess
 import os
 import re
 import shlex
-import uuid
 from datetime import datetime, timezone, timedelta
 from flask import Blueprint, request
 from flask_login import login_required, current_user

@@ -4,7 +4,7 @@
 from functools import wraps
 from flask_login import current_user
 
-from app.models.models import RolePermission, db
+from app.models.models import RolePermission
 from app.constants.permissions import (
     get_all_permission_codes,
     DEFAULT_ROLE_PERMISSIONS,

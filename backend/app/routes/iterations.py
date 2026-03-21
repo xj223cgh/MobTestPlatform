@@ -2,7 +2,7 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from app.models.models import (
-    db, Project, ProjectMember, Iteration, VersionRequirement,
+    db, Project, Iteration, VersionRequirement,
     TestSuite, TestCase, TestTask, TestCaseExecution,
 )
 from app.services.permission_service import permission_required

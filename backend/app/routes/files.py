@@ -7,7 +7,7 @@ from flask import Blueprint, request, jsonify, current_app, send_from_directory
 from werkzeug.utils import secure_filename
 from flask_login import login_required
 
-from app.models.models import db, SystemSetting
+from app.models.models import SystemSetting
 
 files_bp = Blueprint('files', __name__)
 

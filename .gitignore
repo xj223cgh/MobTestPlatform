@@ -1,6 +1,8 @@
 # Python
 __pycache__/
 *.py[cod]
+# 部分环境产生的临时 bytecode 后缀
+*.py[cod].*
 *.pyo
 *.pyd
 .Python
@@ -30,6 +32,9 @@ backend/agent_exe_path.txt
 *.swo
 .DS_Store
 Thumbs.db
+
+# npm 本地缓存（勿提交；若曾被 add 过需 git rm --cached）
+.npm-cache/
 
 # 前端（若需可合并 frontend/.gitignore）
 node_modules/

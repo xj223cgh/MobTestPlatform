@@ -366,12 +366,10 @@ def logout():
         username = None
         if current_user.is_authenticated:
             username = current_user.username
-            from flask_login import logout_user
             logout_user()
             log_user_action("用户登出", f"用户名: {username}")
         else:
             # 即使未认证也清除可能的session数据
-            from flask_login import logout_user
             logout_user()
         
         return success_response(message="登出成功")
@@ -379,7 +377,6 @@ def logout():
     except Exception as e:
         # 即使出错也尝试清除session
         try:
-            from flask_login import logout_user
             logout_user()
         except Exception:
             pass
