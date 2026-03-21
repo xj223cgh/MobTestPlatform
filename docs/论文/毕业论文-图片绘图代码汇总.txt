@@ -1023,7 +1023,7 @@ deactivate FE
 
 ---------- 图 5-6  设备列表查询与状态刷新时序图 ----------
 位置：第五章 详细设计 → 5.4 设备管理模块详细设计
-说明：PlantUML 绘制，左侧为人物形象（actor），生命线上的条状为激活条。
+说明：PlantUML 绘制。含 **本机 Agent** 与 **服务器 ADB** 两路：已绑定且 Agent 在线时由 Agent 在用户 PC 执行 adb；否则由服务器执行 adb。业务字段仍来自设备表。
 
 ```plantuml
 @startuml 图5-6-设备列表查询与状态刷新时序图
@@ -1041,29 +1041,55 @@ actor "用户" as user
 participant "前端" as FE
 participant "后端" as BE
 participant "数据库" as DB
-participant "ADB" as ADB
+participant "本机 Agent" as AG
+participant "服务器 ADB" as SA
 
 user -> FE : 打开设备管理页 / 点击刷新状态
 activate FE
-FE -> BE : 请求设备列表或状态 (GET /api/devices 或 /<id>/status)
+FE -> BE : 请求列表或状态 (GET /api/devices 等)
 activate BE
-alt 列表查询
-    BE -> DB : 查询设备列表 (Device)
+
+BE -> DB : 查用户-Agent 绑定、心跳及设备表
+activate DB
+DB --> BE
+deactivate DB
+
+alt 设备列表查询
+    alt 已绑定且 Agent 在线
+        BE -> AG : 转发：枚举本机已连接设备
+        activate AG
+        AG --> BE : 设备标识列表
+        deactivate AG
+    else 未绑定或 Agent 离线
+        BE -> SA : adb devices
+        activate SA
+        SA --> BE : 设备标识列表
+        deactivate SA
+    end
+    BE -> DB : 按条件查询设备业务数据
     activate DB
-    DB --> BE : 设备列表
+    DB --> BE : 设备记录
     deactivate DB
-    BE --> FE : 返回设备列表
-else 状态刷新
-    BE -> DB : 查询设备信息
+    BE --> FE : 返回列表 (合并业务数据与 ADB 侧结果)
+else 单设备状态刷新
+    BE -> DB : 查询目标设备信息
     activate DB
-    DB --> BE : 设备信息
+    DB --> BE
     deactivate DB
-    BE -> ADB : 获取连接状态 (adb get-state)
-    activate ADB
-    ADB --> BE : device / disconnected
-    deactivate ADB
+    alt 已绑定且 Agent 在线
+        BE -> AG : 转发：查询连接状态
+        activate AG
+        AG --> BE : device / offline 等
+        deactivate AG
+    else 未绑定或 Agent 离线
+        BE -> SA : adb get-state 等
+        activate SA
+        SA --> BE : 状态
+        deactivate SA
+    end
     BE --> FE : 返回连接状态
 end
+
 deactivate BE
 FE --> user : 展示列表或状态
 deactivate FE

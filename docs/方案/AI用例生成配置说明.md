@@ -517,9 +517,8 @@ prompt = f"""...
 
 如有问题，请查看：
 
-- 📄 [`docs/项目文档/API文档.md`](../项目文档/API文档.md) — API 说明
-- 📄 [`docs/项目文档/开发指南.md`](../项目文档/开发指南.md) — 开发与架构
-- 📄 项目根目录 `README.md`、`database/README.md` — 环境与数据库
+- 📄 启动后端后在浏览器打开 **接口文档（Scalar）**：`http://127.0.0.1:5000/api-docs/`（同源 Cookie 下可试调需登录接口）
+- 📄 项目根目录 [`README.md`](../../README.md)、[`database/README.md`](../../database/README.md) — 环境与数据库
 - 🔍 浏览器控制台日志
 - 📋 后端日志文件
 
