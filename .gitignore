@@ -36,5 +36,16 @@ Thumbs.db
 # npm 本地缓存（勿提交；若曾被 add 过需 git rm --cached）
 .npm-cache/
 
-# 前端（若需可合并 frontend/.gitignore）
+# 前端依赖（全仓库任意路径）
 node_modules/
+
+# 前端 Vue/Vite 目录：构建产物、缓存与依赖勿提交（与 frontend/.gitignore 一致，此处写明便于 monorepo 维护）
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vite/
+frontend/.npm-cache/
+frontend/.cache/
+frontend/.temp/
+frontend/coverage/
+frontend/.nyc_output/
