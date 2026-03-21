@@ -1,4 +1,4 @@
-
+<div align="center">
 
 # MobTestPlatform
 
@@ -6,14 +6,14 @@
 
 用例 · 评审 · 设备 · 任务 · 报告
 
-[License](LICENSE)
-[Python](https://www.python.org/)
-[Node.js](https://nodejs.org/)
-[Vue](https://vuejs.org/)
-[Flask](https://flask.palletsprojects.com/)
-[MySQL](https://www.mysql.com/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.8%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![Node.js](https://img.shields.io/badge/node.js-16%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Vue](https://img.shields.io/badge/vue-3.x-4FC08D?logo=vue.js&logoColor=white)](https://vuejs.org/)
+[![Flask](https://img.shields.io/badge/flask-2.x-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
+[![MySQL](https://img.shields.io/badge/mysql-5.7%2B-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
 
-
+</div>
 
 ---
 
@@ -84,28 +84,24 @@
 
 ## 技术栈
 
-
-|         |                                                                                   |
-| ------- | --------------------------------------------------------------------------------- |
-| **前端**  | Vue 3、Vite、Element Plus、Pinia、Axios、ECharts、Socket.IO Client                      |
-| **后端**  | Python 3.8+、Flask、Flask-SQLAlchemy、Flask-Login、Flask-SocketIO、APScheduler、PyMySQL |
-| **数据库** | MySQL 5.7+ / 8.x                                                                  |
-| **认证**  | 基于 Cookie 的会话（`withCredentials`）                                                  |
-
+| | |
+| --- | --- |
+| **前端** | Vue 3、Vite、Element Plus、Pinia、Axios、ECharts、Socket.IO Client |
+| **后端** | Python 3.8+、Flask、Flask-SQLAlchemy、Flask-Login、Flask-SocketIO、APScheduler、PyMySQL |
+| **数据库** | MySQL 5.7+ / 8.x |
+| **认证** | 基于 Cookie 的会话（`withCredentials`） |
 
 ---
 
 ## 界面预览
 
-建议将对外展示用截图放入 `[docs/images/](docs/images/)`（命名与规范见 `[docs/images/README.md](docs/images/README.md)`）。推荐至少包含：
+建议将对外展示用截图放入 [`docs/images/`](docs/images/)（命名与规范见 [`docs/images/README.md`](docs/images/README.md)）。推荐至少包含：
 
-
-| 文件                      | 建议内容              |
-| ----------------------- | ----------------- |
-| `ui-home-dashboard.png` | 首页 / 仪表盘          |
-| `ui-testcase.png`       | **用例管理**（树或脑图）    |
-| `ui-device.png`         | **设备管理**（列表与常用操作） |
-
+| 文件 | 建议内容 |
+| --- | --- |
+| `ui-home-dashboard.png` | 首页 / 仪表盘 |
+| `ui-testcase.png` | **用例管理**（树或脑图） |
+| `ui-device.png` | **设备管理**（列表与常用操作） |
 
 可在本段下方自行插入 `![描述](docs/images/xxx.png)`（注意脱敏）。
 
@@ -131,14 +127,12 @@
 
 ## 环境要求
 
-
-| 依赖      | 版本            |
-| ------- | ------------- |
-| Python  | 3.8+（推荐 3.11） |
-| Node.js | 16+           |
-| npm     | 8+            |
-| MySQL   | 5.7+ 或 8.x    |
-
+| 依赖 | 版本 |
+| --- | --- |
+| Python | 3.8+（推荐 3.11） |
+| Node.js | 16+ |
+| npm | 8+ |
+| MySQL | 5.7+ 或 8.x |
 
 ---
 
@@ -167,13 +161,11 @@ python start.py
 
 启动成功后：
 
-
-| 服务           | 地址                                                                 |
-| ------------ | ------------------------------------------------------------------ |
-| 前端           | [http://localhost:8081](http://localhost:8081)                     |
-| 后端 API       | [http://localhost:5000/api](http://localhost:5000/api)             |
-| 接口文档（Scalar） | [http://localhost:5000/api-docs/](http://localhost:5000/api-docs/) |
-
+| 服务 | 地址 |
+| --- | --- |
+| 前端 | http://localhost:8081 |
+| 后端 API | http://localhost:5000/api |
+| 接口文档（Scalar） | http://localhost:5000/api-docs/ |
 
 ---
 
@@ -202,14 +194,12 @@ SMTP_PASSWORD=SMTP授权码
 
 导入演示数据后可使用下列账号（密码均为 `123321`）：
 
-
-| 用户名     | 角色    |
-| ------- | ----- |
-| Lethe   | 超级管理员 |
-| Manager | 管理员   |
-| Tester  | 测试人员  |
-| Admin   | 普通成员  |
-
+| 用户名 | 角色 |
+| --- | --- |
+| Lethe | 超级管理员 |
+| Manager | 管理员 |
+| Tester | 测试人员 |
+| Admin | 普通成员 |
 
 ---
 
@@ -245,15 +235,13 @@ MobTestPlatform/
 
 ## 相关文档
 
-
-| 文档                                                     | 说明               |
-| ------------------------------------------------------ | ---------------- |
-| [docs/项目文档/README.md](docs/项目文档/README.md)             | 文档索引、接口入口、第三方组件说明 |
-| [database/README.md](database/README.md)               | 数据库脚本与表说明        |
+| 文档 | 说明 |
+| --- | --- |
+| [docs/项目文档/README.md](docs/项目文档/README.md) | 文档索引、接口入口、第三方组件说明 |
+| [database/README.md](database/README.md) | 数据库脚本与表说明 |
 | [docs/方案/平台访问与Agent流程说明.md](docs/方案/平台访问与Agent流程说明.md) | 部署、网络、多用户及设备跨机说明 |
-| [docs/方案/AI用例生成配置说明.md](docs/方案/AI用例生成配置说明.md)         | AI 环境变量与流程（可选）   |
-| [docs/方案/内网访问说明.md](docs/方案/内网访问说明.md)                 | 局域网与防火墙          |
-
+| [docs/方案/AI用例生成配置说明.md](docs/方案/AI用例生成配置说明.md) | AI 环境变量与流程（可选） |
+| [docs/方案/内网访问说明.md](docs/方案/内网访问说明.md) | 局域网与防火墙 |
 
 ---
 
