@@ -36,10 +36,54 @@
 
 ## 3. 系统里大致怎么实现的（方便你知道能改哪里）
 
-- 前端把**需求文本**和**用例集**交给后端；后端**开个后台任务**，去调**大模型接口**（和现在常见的 OpenAI 兼容接口一样），让模型按约定返回 **JSON**；解析通过后**写入用例表**；前端**轮询**任务进度。
-- 模型相关参数一般在后端配置里：**密钥、地址、模型名、temperature、单次最长输出长度**等。需求特别长的时候，还要注意**输出别被截断**，否则 JSON 断了就存不进去。
-- 如果要在系统里区分**功能/接口**，或者要打**端、网络环境**等标签，需要在**数据结构**和**生成参数**里一起设计，不能光改提示词一句话。
-- **更细的部署与环境变量说明**见同目录：[AI用例生成配置说明.md](./AI用例生成配置说明.md)。
+### 3.1 调用链路
+
+```
+前端 aiTasks.js
+  └─ POST /api/ai-tasks/generate-cases
+        └─ routes/ai_tasks.py  generate_cases()
+              └─ task_manager.create_task()  →  daemon Thread（内存队列，重启丢失）
+                    └─ generate_test_cases_task()
+                          ├─ build_test_case_prompt()    构建 system + user 提示词
+                          ├─ call_ai_api()               POST Chat Completions API
+                          ├─ parse_ai_response()         JSON 解析 → test_cases 列表
+                          ├─ TestCase 批量写库           编号 项目缩写-x.y.z-需求缩写001
+                          └─ notify_users()              站内通知（成功/失败均推送）
+
+前端轮询（约 3s 间隔）
+  └─ GET /api/ai-tasks/task-status/{task_id}
+```
+
+### 3.2 提示词结构
+
+两段提示词通过 `messages` 数组一起发给模型，**均计入上下文 token 消耗**：
+
+- **`SYSTEM_ROLE_CONTENT`**（`role: system`）：约 150-200 tokens，约束模型严格按文档生成、不编造、只输出 JSON。
+- **`build_test_case_prompt`**（`role: user`）：包含「需求文档内容」全文 + 输出格式要求 + 数量建议区间（按 `文档字符数÷300×3` 估算，最少 8 条最多 80 条）。
+
+### 3.3 max_tokens 动态调整与硬上限
+
+```python
+base_max        = AI_MAX_TOKENS（来自 .env，默认 4096）
+extra_tokens    = min(12288, (文档字符数 // 1000) × 500)  # 长文档动态抬高
+dynamic_max     = min(16384, base_max + extra_tokens)      # 代码硬上限 16384
+```
+
+**已知问题**：`.env` 中 `AI_MAX_TOKENS=40960` 设置超过 16384，实际**永远不生效**，代码硬上限始终为 16384。如需放开，修改 `ai_tasks.py` 中 `min(16384, ...)` 的上限值。
+
+### 3.4 可以改什么
+
+| 想改的效果 | 改哪里 |
+|-----------|--------|
+| 换模型 / 换服务商 | `backend/.env` 的 `AI_MODEL`、`AI_BASE_URL`、`AI_API_KEY` |
+| 调整输出发散程度 | `backend/.env` 的 `AI_TEMPERATURE`（建议 0.2～0.5） |
+| 放开输出 token 上限 | `ai_tasks.py` 中 `min(16384, ...)` 改为更大的值 |
+| 修改生成数量建议 | `_suggest_case_count()` 函数 |
+| 修改提示词策略 | `build_test_case_prompt()` 和 `SYSTEM_ROLE_CONTENT` |
+| 区分功能/接口用例 | 需同时改数据结构 + 生成参数 + 提示词，不能只改提示词一句话 |
+| 增加端/环境标签 | 同上，需在数据结构和生成参数里一起设计 |
+
+**更细的部署与环境变量说明**见同目录：[AI用例生成配置说明.md](./AI用例生成配置说明.md)。
 
 ---
 

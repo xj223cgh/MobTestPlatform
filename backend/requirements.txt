@@ -22,3 +22,6 @@ APScheduler==3.10.4
 pytz==2023.3
 requests==2.31.0  # AI生成用例功能需要（用于调用OpenAI兼容接口）
 pypinyin==0.50.0  # 用例编号：无法翻译时用拼音缩写
+PyYAML>=6.0  # 提示词模板加载
+chromadb>=0.4.0  # RAG 知识库向量存储（嵌入式模式，无需独立服务）
+python-docx>=0.8.11  # 知识库 Word 文档解析

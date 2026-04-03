@@ -154,9 +154,14 @@
                     >
                       <el-icon><EditPen /></el-icon>
                     </el-button>
-                    <el-icon v-if="generatingMap[row.id]" class="is-loading generating-icon">
-                      <Loading />
-                    </el-icon>
+                    <template v-if="generatingMap[row.id]">
+                      <el-tooltip :content="generatingMap[row.id]?.message || '生成中'" placement="top">
+                        <span class="generating-progress-badge">
+                          <el-icon class="is-loading"><Loading /></el-icon>
+                          <span class="generating-pct">{{ generatingMap[row.id]?.progress ?? 0 }}%</span>
+                        </span>
+                      </el-tooltip>
+                    </template>
                   </template>
                 </div>
                 </template>
@@ -189,8 +194,17 @@
                 <template #default="{ row }">
                 <div class="action-btns">
                   <template v-if="generatingMap[row.id]">
-                    <el-icon class="is-loading generating-icon" style="margin-right: 8px"><Loading /></el-icon>
-                    <el-button size="small" text type="danger" @click.stop="handleDeleteSuite(row)">删除</el-button>
+                    <div class="generating-inline-progress">
+                      <el-progress
+                        :percentage="generatingMap[row.id]?.progress ?? 0"
+                        :stroke-width="14"
+                        :text-inside="true"
+                        striped
+                        striped-flow
+                        style="flex: 1; min-width: 80px"
+                      />
+                      <el-button size="small" text type="danger" @click.stop="handleDeleteSuite(row)">删除</el-button>
+                    </div>
                   </template>
                   <template v-else>
                     <el-tooltip :content="getReviewButtonTooltip(row)" placement="top">
@@ -345,6 +359,32 @@
             <el-option v-for="p in projectOptions" :key="p.id" :label="p.project_name" :value="p.id" />
           </el-select>
         </el-form-item>
+        <el-form-item label="迭代">
+          <el-select
+            v-model="generateForm.iterationId"
+            placeholder="请选择迭代（可选）"
+            filterable
+            clearable
+            style="width: 100%"
+            :disabled="!generateForm.projectId"
+            @change="onGenerateIterationChange"
+          >
+            <el-option v-for="it in generateIterationOptions" :key="it.id" :label="it.iteration_name" :value="it.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="所属需求" required>
+          <el-select
+            v-model="generateForm.requirementId"
+            placeholder="请选择需求"
+            filterable
+            clearable
+            style="width: 100%"
+            :disabled="!generateForm.projectId"
+          >
+            <el-option v-for="r in generateRequirementOptions" :key="r.id" :label="r.requirement_name" :value="r.id" />
+          </el-select>
+          <div v-if="generateForm.projectId && !generateRequirementOptions.length" class="form-tip">该项目/迭代下暂无需求</div>
+        </el-form-item>
         <el-form-item label="生成方式" required>
           <el-radio-group v-model="generateForm.mode">
             <el-radio value="append">追加到已有用例集</el-radio>
@@ -409,6 +449,28 @@
           </div>
         </el-form-item>
       </el-form>
+      <div class="debug-toggle-bar">
+        <el-tooltip
+          effect="dark"
+          placement="top"
+          :content="generateForm.debugMode
+            ? '调试模式已开启：用例正常入库，但不会将需求文档存入知识库'
+            : '正常模式：用例入库，需求文档自动存入知识库供后续生成参考'"
+        >
+          <div class="debug-toggle-inner">
+            <el-switch
+              v-model="generateForm.debugMode"
+              active-text="调试模式"
+              inactive-text=""
+              inline-prompt
+              style="--el-switch-on-color: #e6a23c;"
+            />
+            <el-tag v-if="generateForm.debugMode" type="warning" size="small" effect="plain" class="debug-tag">
+              不存入知识库
+            </el-tag>
+          </div>
+        </el-tooltip>
+      </div>
       <template #footer>
         <el-button @click="generateDialogVisible = false">取消</el-button>
         <el-button
@@ -608,6 +670,7 @@ import {
 } from "@/api/testSuite";
 import { moveTestSuite, copyTestSuite, importTestSuite } from "@/api/testSuite";
 import { getProjects, getProjectVersionRequirements } from "@/api/project";
+import { getProjectIterations } from "@/api/iteration";
 import { createGenerateCasesTask, getTaskStatus } from "@/api/aiTasks";
 
 const router = useRouter();
@@ -681,14 +744,19 @@ let importParentId = null;
 const generateDialogVisible = ref(false);
 const generateForm = reactive({
   projectId: null,
+  iterationId: null,
+  requirementId: null,
   mode: "append",
   folderId: null,
   suiteId: null,
   newSuiteName: "",
   documentContent: "",
+  debugMode: false,
 });
 const generateFolderTree = ref([]);
 const generateSuiteOptions = ref([]);
+const generateIterationOptions = ref([]);
+const generateRequirementOptions = ref([]);
 const generateUploadRef = ref(null);
 const editingSuiteId = ref(null);
 const editingSuiteName = ref("");
@@ -696,6 +764,7 @@ const suiteNameInputRef = ref(null);
 
 const canSubmitGenerate = computed(() => {
   if (!generateForm.projectId) return false;
+  if (!generateForm.requirementId) return false;
   if (!generateForm.documentContent?.trim()) return false;
   if (generateForm.mode === "append") return !!generateForm.suiteId;
   return generateForm.folderId != null && !!generateForm.newSuiteName?.trim();
@@ -798,7 +867,13 @@ async function loadCaseSets(locateId = null) {
 async function loadProjects() {
   try {
     const res = await getProjects({ page: 1, size: 10000 });
-    projectOptions.value = res.data?.items ?? (Array.isArray(res.data) ? res.data : []) ?? [];
+    const list = res.data?.items ?? (Array.isArray(res.data) ? res.data : []) ?? [];
+    list.sort((a, b) => {
+      const ta = a.updated_at || a.created_at || '';
+      const tb = b.updated_at || b.created_at || '';
+      return tb.localeCompare(ta);
+    });
+    projectOptions.value = list;
     if (projectOptions.value.length && filterProjectId.value == null) {
       filterProjectId.value = projectOptions.value[0].id;
       loadFolderTree();
@@ -923,10 +998,10 @@ function handleRowClick(row) {
 }
 
 function openMindmap(row) {
-  const taskId = generatingMap[row.id];
+  const gen = generatingMap[row.id];
   let url = `/mindmap-editor?suite_id=${row.id}&suite_name=${encodeURIComponent(row.suite_name)}`;
-  if (taskId && typeof taskId === 'string') {
-    url += `&generating=1&task_id=${encodeURIComponent(taskId)}`;
+  if (gen?.taskId) {
+    url += `&generating=1&task_id=${encodeURIComponent(gen.taskId)}`;
   }
   window.open(url, "_blank");
 }
@@ -1303,12 +1378,17 @@ function handleReviewSuite(row) {
 function handleGenerateCases() {
   generateForm.mode = "append";
   generateForm.projectId = filterProjectId.value ?? projectOptions.value[0]?.id ?? null;
+  generateForm.iterationId = null;
+  generateForm.requirementId = null;
   generateForm.folderId = null;
   generateForm.suiteId = null;
   generateForm.newSuiteName = "";
   generateForm.documentContent = "";
+  generateForm.debugMode = false;
   generateFolderTree.value = [];
   generateSuiteOptions.value = [];
+  generateIterationOptions.value = [];
+  generateRequirementOptions.value = [];
   generateDialogVisible.value = true;
 }
 
@@ -1317,6 +1397,10 @@ async function onGenerateDialogOpen() {
     generateForm.projectId = filterProjectId.value ?? projectOptions.value[0].id;
   }
   generateFolderTree.value = await loadGenerateFolderTree(generateForm.projectId);
+  if (generateForm.projectId) {
+    await loadGenerateIterations(generateForm.projectId);
+    await loadGenerateRequirements(generateForm.projectId, generateForm.iterationId);
+  }
   if (generateForm.projectId != null && (generateForm.folderId != null || generateForm.suiteId != null)) {
     try {
       const folderIdForApi = generateForm.folderId == null ? 0 : generateForm.folderId;
@@ -1328,12 +1412,20 @@ async function onGenerateDialogOpen() {
   }
 }
 
-/** 项目变更时：清空目标文件夹与用例集，重新加载该项目的目录树 */
+/** 项目变更时：清空目标文件夹、用例集、迭代、需求，重新加载 */
 async function onGenerateProjectChange() {
+  generateForm.iterationId = null;
+  generateForm.requirementId = null;
   generateForm.folderId = null;
   generateForm.suiteId = null;
   generateSuiteOptions.value = [];
+  generateIterationOptions.value = [];
+  generateRequirementOptions.value = [];
   generateFolderTree.value = await loadGenerateFolderTree(generateForm.projectId);
+  if (generateForm.projectId) {
+    await loadGenerateIterations(generateForm.projectId);
+    await loadGenerateRequirements(generateForm.projectId, null);
+  }
 }
 
 /** 加载目录树（仅文件夹），按项目筛选，供 AI 生成用例「目标文件夹」使用；不显示根节点，直接展示项目下顶层文件夹 */
@@ -1349,6 +1441,31 @@ async function loadGenerateFolderTree(projectId) {
     ElMessage.error("加载目录失败，请重试");
     return [];
   }
+}
+
+async function loadGenerateIterations(projectId) {
+  if (!projectId) { generateIterationOptions.value = []; return; }
+  try {
+    const res = await getProjectIterations(projectId);
+    generateIterationOptions.value = res.data?.items || res.data || [];
+  } catch { generateIterationOptions.value = []; }
+}
+
+async function loadGenerateRequirements(projectId, iterationId) {
+  if (!projectId) { generateRequirementOptions.value = []; return; }
+  try {
+    const res = await getProjectVersionRequirements(projectId);
+    let list = res.data?.items || res.data || [];
+    if (iterationId) {
+      list = list.filter(r => r.iteration_id === iterationId);
+    }
+    generateRequirementOptions.value = list;
+  } catch { generateRequirementOptions.value = []; }
+}
+
+async function onGenerateIterationChange() {
+  generateForm.requirementId = null;
+  await loadGenerateRequirements(generateForm.projectId, generateForm.iterationId);
 }
 
 /** 目录变更时加载该目录下用例集，并清空已选用例集 */
@@ -1392,10 +1509,15 @@ function onGenerateFileRemove() {
 
 function handleGenerateForSuite(row) {
   generateForm.projectId = row.project_id ?? filterProjectId.value ?? projectOptions.value[0]?.id ?? null;
+  generateForm.iterationId = row.iteration_id ?? null;
+  generateForm.requirementId = row.version_requirement_id ?? null;
   generateForm.folderId = row.parent_id ?? null;
   generateForm.suiteId = row.id;
   generateForm.documentContent = "";
+  generateForm.debugMode = false;
   generateSuiteOptions.value = [];
+  generateIterationOptions.value = [];
+  generateRequirementOptions.value = [];
   generateDialogVisible.value = true;
 }
 
@@ -1410,7 +1532,7 @@ async function submitGenerate() {
       ElMessage.warning("请选择目标用例集");
       return;
     }
-    await startGenerateForSuite(generateForm.suiteId, generateForm.documentContent);
+    await startGenerateForSuite(generateForm.suiteId, generateForm.documentContent, generateForm.debugMode);
     return;
   }
   // 创建新用例集并生成（未选文件夹或选根时 parent_id 为 null）
@@ -1422,16 +1544,16 @@ async function submitGenerate() {
       type: "suite",
       parent_id: parentId,
       status: "active",
-      version_requirement_id: null,
+      version_requirement_id: generateForm.requirementId || null,
       project_id: generateForm.projectId,
-      iteration_id: null,
+      iteration_id: generateForm.iterationId || null,
     });
     const newSuite = createRes.data;
     if (!newSuite?.id) {
       ElMessage.error("创建用例集失败");
       return;
     }
-    await startGenerateForSuite(newSuite.id, generateForm.documentContent);
+    await startGenerateForSuite(newSuite.id, generateForm.documentContent, generateForm.debugMode);
     selectFolderById(newSuite.parent_id ?? 0);
     await loadCaseSets();
   } catch (e) {
@@ -1485,16 +1607,26 @@ watch(
   { flush: "post" }
 );
 
-async function startGenerateForSuite(suiteId, documentContent) {
+async function startGenerateForSuite(suiteId, documentContent, debugMode = false) {
   try {
-    generatingMap[suiteId] = 'pending';
+    generatingMap[suiteId] = { taskId: null, progress: 0, message: '正在创建任务...' };
+    const selectedProject = projectOptions.value.find(p => p.id === generateForm.projectId);
+    const selectedIteration = generateIterationOptions.value.find(it => it.id === generateForm.iterationId);
+    const selectedRequirement = generateRequirementOptions.value.find(r => r.id === generateForm.requirementId);
     const res = await createGenerateCasesTask({
       suite_id: suiteId,
       documentContent,
+      debugMode,
+      projectId: generateForm.projectId,
+      iterationId: generateForm.iterationId,
+      requirementId: generateForm.requirementId,
+      projectName: selectedProject?.project_name || '',
+      iterationName: selectedIteration?.iteration_name || '',
+      requirementName: selectedRequirement?.requirement_name || '',
     });
     const taskId = res.data?.task_id;
     if (taskId) {
-      generatingMap[suiteId] = taskId;
+      generatingMap[suiteId] = { taskId, progress: 0, message: '等待处理...' };
       ElMessage.success("任务已创建，正在后台生成用例...");
       pollTaskStatus(taskId, suiteId);
     } else {
@@ -1513,26 +1645,33 @@ function pollTaskStatus(taskId, suiteId) {
   const interval = setInterval(async () => {
     try {
       const res = await getTaskStatus(taskId);
-      const status = res.data?.status;
+      const d = res.data || {};
+      const status = d.status;
+      const progress = d.progress ?? 0;
+      const message = d.message || '';
+
       if (status === 'completed') {
+        generatingMap[suiteId] = { taskId, progress: 100, message: message || '生成完成' };
+        setTimeout(() => { delete generatingMap[suiteId]; }, 1500);
         clearInterval(interval);
         pollIntervalMap.delete(suiteId);
-        delete generatingMap[suiteId];
-        ElMessage.success("用例生成完成！");
+        ElMessage.success(message || '用例生成完成！');
         await loadFolderTree();
         await loadCaseSets();
       } else if (status === 'failed') {
         clearInterval(interval);
         pollIntervalMap.delete(suiteId);
         delete generatingMap[suiteId];
-        ElMessage.error(res.data?.error || "用例生成失败");
+        ElMessage.error(d.error || message || "用例生成失败");
+      } else if (generatingMap[suiteId]) {
+        generatingMap[suiteId] = { taskId, progress, message };
       }
     } catch {
       clearInterval(interval);
       pollIntervalMap.delete(suiteId);
       delete generatingMap[suiteId];
     }
-  }, 3000);
+  }, 2000);
   pollIntervalMap.set(suiteId, interval);
 }
 
@@ -1952,9 +2091,27 @@ onBeforeUnmount(() => {
 .suite-name-cell .suite-name-edit-btn:hover {
   color: var(--el-color-primary);
 }
-.generating-icon {
+.generating-progress-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
   color: #e6a23c;
-  font-size: 14px;
+  font-size: 12px;
+  cursor: default;
+}
+.generating-progress-badge .el-icon {
+  font-size: 13px;
+}
+.generating-pct {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.generating-inline-progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
 }
 
 .pagination-bar {
@@ -2020,6 +2177,26 @@ onBeforeUnmount(() => {
   font-size: 12px;
   color: var(--el-color-success);
   margin-top: 8px;
+}
+
+.debug-toggle-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 8px 0 0;
+  border-top: 1px dashed var(--el-border-color-lighter);
+  margin-top: 4px;
+}
+
+.debug-toggle-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.debug-tag {
+  font-size: 11px;
 }
 
 .move-dialog-tree-wrap {
