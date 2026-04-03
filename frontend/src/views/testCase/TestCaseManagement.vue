@@ -359,32 +359,6 @@
             <el-option v-for="p in projectOptions" :key="p.id" :label="p.project_name" :value="p.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="迭代">
-          <el-select
-            v-model="generateForm.iterationId"
-            placeholder="请选择迭代（可选）"
-            filterable
-            clearable
-            style="width: 100%"
-            :disabled="!generateForm.projectId"
-            @change="onGenerateIterationChange"
-          >
-            <el-option v-for="it in generateIterationOptions" :key="it.id" :label="it.iteration_name" :value="it.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="所属需求" required>
-          <el-select
-            v-model="generateForm.requirementId"
-            placeholder="请选择需求"
-            filterable
-            clearable
-            style="width: 100%"
-            :disabled="!generateForm.projectId"
-          >
-            <el-option v-for="r in generateRequirementOptions" :key="r.id" :label="r.requirement_name" :value="r.id" />
-          </el-select>
-          <div v-if="generateForm.projectId && !generateRequirementOptions.length" class="form-tip">该项目/迭代下暂无需求</div>
-        </el-form-item>
         <el-form-item label="生成方式" required>
           <el-radio-group v-model="generateForm.mode">
             <el-radio value="append">追加到已有用例集</el-radio>
@@ -429,6 +403,32 @@
         </el-form-item>
         <el-form-item v-if="generateForm.mode === 'new'" label="新用例集名称" required>
           <el-input v-model="generateForm.newSuiteName" placeholder="请输入新用例集名称" maxlength="30" show-word-limit clearable />
+        </el-form-item>
+        <el-form-item v-if="generateForm.mode === 'new'" label="迭代">
+          <el-select
+            v-model="generateForm.iterationId"
+            placeholder="请选择迭代（可选）"
+            filterable
+            clearable
+            style="width: 100%"
+            :disabled="!generateForm.projectId"
+            @change="onGenerateIterationChange"
+          >
+            <el-option v-for="it in generateIterationOptions" :key="it.id" :label="it.iteration_name" :value="it.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="generateForm.mode === 'new'" label="所属需求" required>
+          <el-select
+            v-model="generateForm.requirementId"
+            placeholder="请选择需求"
+            filterable
+            clearable
+            style="width: 100%"
+            :disabled="!generateForm.projectId"
+          >
+            <el-option v-for="r in generateRequirementOptions" :key="r.id" :label="r.requirement_name" :value="r.id" />
+          </el-select>
+          <div v-if="generateForm.projectId && !generateRequirementOptions.length" class="form-tip">该项目/迭代下暂无需求</div>
         </el-form-item>
         <el-form-item label="需求文档" required>
           <el-upload
@@ -543,11 +543,34 @@
     </el-dialog>
 
     <!-- 导入用例集对话框 -->
-    <el-dialog v-model="importDialogVisible" title="导入用例集" width="520px">
+    <el-dialog v-model="importDialogVisible" title="导入用例集" width="560px" @open="onImportDialogOpen">
       <el-form label-width="100px">
         <el-form-item label="关联项目">
           <el-select v-model="importForm.project_id" disabled style="width: 100%">
             <el-option v-for="p in projectOptions" :key="p.id" :label="p.project_name" :value="p.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="迭代">
+          <el-select
+            v-model="importForm.iteration_id"
+            placeholder="请选择迭代（可选）"
+            filterable
+            clearable
+            style="width: 100%"
+            @change="onImportIterationChange"
+          >
+            <el-option v-for="it in importIterationOptions" :key="it.id" :label="it.iteration_name" :value="it.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="所属需求">
+          <el-select
+            v-model="importForm.requirement_id"
+            placeholder="请选择需求（可选）"
+            filterable
+            clearable
+            style="width: 100%"
+          >
+            <el-option v-for="r in importRequirementOptions" :key="r.id" :label="r.requirement_name" :value="r.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="上传文件" required>
@@ -562,7 +585,10 @@
           >
             <el-button type="primary">选择文件</el-button>
             <template #tip>
-              <div class="el-upload__tip">支持 JSON / Excel / CSV 格式</div>
+              <div class="el-upload__tip">
+                支持 JSON / Excel / CSV 格式，
+                <el-link type="primary" :underline="false" @click="downloadImportTemplate">下载导入模板</el-link>
+              </div>
             </template>
           </el-upload>
         </el-form-item>
@@ -738,7 +764,9 @@ let ctxSuiteParentId = null;
 const importDialogVisible = ref(false);
 const importLoading = ref(false);
 const importUploadRef = ref(null);
-const importForm = reactive({ project_id: null, file: null });
+const importForm = reactive({ project_id: null, iteration_id: null, requirement_id: null, file: null });
+const importIterationOptions = ref([]);
+const importRequirementOptions = ref([]);
 let importParentId = null;
 
 const generateDialogVisible = ref(false);
@@ -764,10 +792,9 @@ const suiteNameInputRef = ref(null);
 
 const canSubmitGenerate = computed(() => {
   if (!generateForm.projectId) return false;
-  if (!generateForm.requirementId) return false;
   if (!generateForm.documentContent?.trim()) return false;
   if (generateForm.mode === "append") return !!generateForm.suiteId;
-  return generateForm.folderId != null && !!generateForm.newSuiteName?.trim();
+  return generateForm.folderId != null && !!generateForm.newSuiteName?.trim() && !!generateForm.requirementId;
 });
 
 const generatingMap = reactive({});
@@ -1115,7 +1142,11 @@ async function submitCtxSuite() {
 function openImportSuiteDialog() {
   importParentId = selectedFolder.value?.id ?? null;
   importForm.project_id = filterProjectId.value ?? projectOptions.value[0]?.id ?? null;
+  importForm.iteration_id = null;
+  importForm.requirement_id = null;
   importForm.file = null;
+  importIterationOptions.value = [];
+  importRequirementOptions.value = [];
   importUploadRef.value?.clearFiles();
   importDialogVisible.value = true;
 }
@@ -1124,13 +1155,52 @@ function handleCtxImportSuite() {
   contextMenu.visible = false;
   importParentId = _ctxParentId();
   importForm.project_id = filterProjectId.value ?? projectOptions.value[0]?.id ?? null;
+  importForm.iteration_id = null;
+  importForm.requirement_id = null;
   importForm.file = null;
+  importIterationOptions.value = [];
+  importRequirementOptions.value = [];
   importUploadRef.value?.clearFiles();
   importDialogVisible.value = true;
 }
 
+async function onImportDialogOpen() {
+  if (importForm.project_id) {
+    await loadImportIterations(importForm.project_id);
+    await loadImportRequirements(importForm.project_id, null);
+  }
+}
+
+async function loadImportIterations(projectId) {
+  if (!projectId) { importIterationOptions.value = []; return; }
+  try {
+    const res = await getProjectIterations(projectId);
+    importIterationOptions.value = res.data?.items || res.data || [];
+  } catch { importIterationOptions.value = []; }
+}
+
+async function loadImportRequirements(projectId, iterationId) {
+  if (!projectId) { importRequirementOptions.value = []; return; }
+  try {
+    const res = await getProjectVersionRequirements(projectId);
+    let list = res.data?.items || res.data || [];
+    if (iterationId) list = list.filter(r => r.iteration_id === iterationId);
+    importRequirementOptions.value = list;
+  } catch { importRequirementOptions.value = []; }
+}
+
+async function onImportIterationChange() {
+  importForm.requirement_id = null;
+  await loadImportRequirements(importForm.project_id, importForm.iteration_id);
+}
+
 function onImportFileChange(uploadFile) {
   importForm.file = uploadFile.raw;
+}
+
+function downloadImportTemplate() {
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
+  window.open(`${baseURL}/test-suites/import-template`, '_blank');
 }
 
 async function submitImport() {
@@ -1141,6 +1211,8 @@ async function submitImport() {
     fd.append("file", importForm.file);
     if (importParentId) fd.append("parent_id", importParentId);
     if (importForm.project_id) fd.append("project_id", importForm.project_id);
+    if (importForm.iteration_id) fd.append("iteration_id", importForm.iteration_id);
+    if (importForm.requirement_id) fd.append("requirement_id", importForm.requirement_id);
     const res = await importTestSuite(fd);
     ElMessage.success(res.data?.message || "导入成功");
     importDialogVisible.value = false;
