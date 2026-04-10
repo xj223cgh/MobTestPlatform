@@ -25,3 +25,5 @@ pypinyin==0.50.0  # 用例编号：无法翻译时用拼音缩写
 PyYAML>=6.0  # 提示词模板加载
 chromadb>=0.4.0  # RAG 知识库向量存储（嵌入式模式，无需独立服务）
 python-docx>=0.8.11  # 知识库 Word 文档解析
+openpyxl>=3.1.0  # AI 生成用例 Excel 导出 + 用例导入模板
+Jinja2>=3.1.0  # 提示词模板渲染

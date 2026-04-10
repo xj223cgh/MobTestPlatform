@@ -1,4 +1,5 @@
-"""Knowledge base service: document upload, embedding, storage and retrieval via ChromaDB."""
+# -*- coding: utf-8 -*-
+"""知识库服务：文档上传、向量化、存储与语义检索（基于 ChromaDB）。"""
 import os
 import re
 import uuid
@@ -13,6 +14,7 @@ _collection = None
 
 
 def _ensure_env():
+    """确保从 backend/.env 加载环境变量。"""
     env_file = Path(__file__).resolve().parent.parent.parent / '.env'
     if env_file.exists():
         from dotenv import load_dotenv
@@ -20,6 +22,7 @@ def _ensure_env():
 
 
 def _get_collection():
+    """获取或初始化 ChromaDB 集合（单例），持久化目录从环境变量读取。"""
     global _client, _collection
     if _collection is not None:
         return _collection
@@ -28,7 +31,7 @@ def _get_collection():
     except ImportError:
         raise RuntimeError("chromadb is not installed. Run: pip install chromadb")
     _ensure_env()
-    persist_dir = os.getenv('CHROMA_PERSIST_DIR', './app/config/knowledge/chroma_data')
+    persist_dir = os.getenv('CHROMA_PERSIST_DIR', './app/ai/knowledge/chroma_data')
     backend_dir = Path(__file__).resolve().parent.parent.parent
     persist_path = (backend_dir / persist_dir).resolve()
     persist_path.mkdir(parents=True, exist_ok=True)
@@ -42,6 +45,7 @@ def _get_collection():
 
 
 def _call_embedding_api(texts: List[str]) -> List[List[float]]:
+    """调用 Embedding API 将文本列表转为向量，按 32 条一批发送。"""
     import requests as _req
     _ensure_env()
     api_key = (os.getenv('AI_API_KEY') or '').strip()
@@ -70,6 +74,7 @@ def _call_embedding_api(texts: List[str]) -> List[List[float]]:
 
 
 def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
+    """按段落将文本切分为多个片段，每段不超过 chunk_size 字符。"""
     text = (text or '').strip()
     if not text:
         return []
@@ -98,6 +103,7 @@ def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str
 
 
 def _parse_document(content: bytes, filename: str) -> str:
+    """解析文档内容为纯文本，支持 .txt / .md（多编码探测）和 .docx。"""
     ext = Path(filename).suffix.lower()
     if ext in ('.txt', '.md'):
         for enc in ('utf-8', 'gbk', 'gb2312', 'latin-1'):
@@ -117,9 +123,10 @@ def _parse_document(content: bytes, filename: str) -> str:
     raise ValueError(f"Unsupported file type: {ext}. Supported: .txt, .md, .docx")
 
 
-# ---- public API ----
+# ---- 公共接口 ----
 
 def upload_document(file_content: bytes, filename: str, metadata: dict = None) -> dict:
+    """上传文档到知识库：解析 → 分块 → 向量化 → 存入 ChromaDB。"""
     text = _parse_document(file_content, filename)
     if not text.strip():
         raise ValueError("Document content is empty after parsing")
@@ -142,6 +149,7 @@ def upload_document(file_content: bytes, filename: str, metadata: dict = None) -
 
 
 def list_documents() -> List[dict]:
+    """列出知识库中所有已索引的文档（按 doc_id 去重）。"""
     collection = _get_collection()
     result = collection.get(include=['metadatas'])
     seen: dict = {}
@@ -157,6 +165,7 @@ def list_documents() -> List[dict]:
 
 
 def delete_document(doc_id: str) -> bool:
+    """从知识库中删除指定文档及其所有向量片段。"""
     collection = _get_collection()
     result = collection.get(where={'doc_id': doc_id}, include=['metadatas'])
     ids = result.get('ids') or []
@@ -167,6 +176,7 @@ def delete_document(doc_id: str) -> bool:
 
 
 def search(query_text: str, top_k: int = None) -> List[dict]:
+    """语义检索：将查询文本向量化，在知识库中查找最相似的 top_k 个片段。"""
     _ensure_env()
     if top_k is None:
         try:

@@ -40,46 +40,76 @@
 
 ```
 前端 aiTasks.js
-  └─ POST /api/ai-tasks/generate-cases
+  └─ POST /api/ai-tasks/generate-cases（支持 JSON 或 multipart，含图片/docx）
         └─ routes/ai_tasks.py  generate_cases()
               └─ task_manager.create_task()  →  daemon Thread（内存队列，重启丢失）
                     └─ generate_test_cases_task()
-                          ├─ build_test_case_prompt()    构建 system + user 提示词
-                          ├─ call_ai_api()               POST Chat Completions API
-                          ├─ parse_ai_response()         JSON 解析 → test_cases 列表
-                          ├─ TestCase 批量写库           编号 项目缩写-x.y.z-需求缩写001
-                          └─ notify_users()              站内通知（成功/失败均推送）
+                          ├─ _process_uploaded_images()       图片 Vision 识别
+                          ├─ _retrieve_knowledge_context()    RAG 知识库检索（按 ai_config.yaml 配置）
+                          ├─ _generate_cases_from_document()  短文档(< 3000字)单次 / 长文档 Map-Reduce
+                          │     ├─ render_prompt()            Jinja2 模板渲染 (ai/prompts/*.yaml)
+                          │     └─ call_ai_api()              POST Chat Completions API
+                          ├─ parse_ai_response()              JSON 解析 → test_cases 列表
+                          ├─ TestCase 批量写库                编号 项目缩写-x.y.z-需求缩写001
+                          ├─ _save_requirement_document()     原始需求存档 → ai/workspace/requirements/
+                          ├─ _save_generated_cases_excel()    用例 Excel → ai/workspace/outputs/excel/
+                          ├─ upload_document()                需求文档存入知识库（非调试模式）
+                          └─ notify_users()                   站内通知（成功/失败均推送）
 
 前端轮询（约 3s 间隔）
   └─ GET /api/ai-tasks/task-status/{task_id}
 ```
 
-### 3.2 提示词结构
+### 3.2 AI 模块统一目录
 
-两段提示词通过 `messages` 数组一起发给模型，**均计入上下文 token 消耗**：
+所有 AI 相关的配置、知识库、提示词、工作区集中在 `backend/app/ai/`：
 
-- **`SYSTEM_ROLE_CONTENT`**（`role: system`）：约 150-200 tokens，约束模型严格按文档生成、不编造、只输出 JSON。
-- **`build_test_case_prompt`**（`role: user`）：包含「需求文档内容」全文 + 输出格式要求 + 数量建议区间（按 `文档字符数÷300×3` 估算，最少 8 条最多 80 条）。
+```
+app/ai/
+├── ai_config.yaml              ← 中央配置：角色、检索策略、质量标准、文档处理参数
+├── knowledge/docs/             ← 分类知识文档（5 类 18 篇），用于 RAG 增强
+├── knowledge/chroma_data/      ← ChromaDB 向量数据库
+├── prompts/                    ← Jinja2 提示词模板（system / generate_cases / chunk）
+├── workspace/requirements/     ← 原始/转换后的需求文档自动存放
+├── workspace/outputs/excel/    ← 每次生成的用例 Excel 自动导出
+└── excel_exporter.py           ← Excel 导出工具
+```
 
-### 3.3 max_tokens 动态调整与硬上限
+### 3.3 提示词结构
+
+提示词以 YAML + Jinja2 模板形式管理，运行时由 `prompt_loader.py` 加载渲染（支持 mtime 热重载）：
+
+- **`system.yaml`**（`role: system`）：约束模型严格按文档生成、不编造、只输出 JSON。
+- **`generate_cases.yaml`**（`role: user`）：需求文档全文 + 知识库上下文 + 输出格式 + 数量建议区间。
+- **`generate_cases_chunk.yaml`**（Map-Reduce 时使用）：单段需求 + 文档摘要 + 知识库上下文。
+
+### 3.4 知识库增强（RAG）
+
+1. 知识文档按 5 大分类导入 ChromaDB（核心业务 > 测试标准 > 配置说明 > 问题案例 > 测试指南）
+2. 生成前取需求文档前 N 字符检索最相似片段（参数均从 `ai_config.yaml` 读取）
+3. 知识库内容以「业务背景参考」注入提示词，帮助 AI 理解平台上下文
+
+### 3.5 max_tokens 动态调整与硬上限
 
 ```python
 base_max        = AI_MAX_TOKENS（来自 .env，默认 4096）
-extra_tokens    = min(12288, (文档字符数 // 1000) × 500)  # 长文档动态抬高
+extra_tokens    = min(12288, (文档字符数 // 1000) × 500)
 dynamic_max     = min(16384, base_max + extra_tokens)      # 代码硬上限 16384
 ```
 
-**已知问题**：`.env` 中 `AI_MAX_TOKENS=40960` 设置超过 16384，实际**永远不生效**，代码硬上限始终为 16384。如需放开，修改 `ai_tasks.py` 中 `min(16384, ...)` 的上限值。
-
-### 3.4 可以改什么
+### 3.6 可以改什么
 
 | 想改的效果 | 改哪里 |
 |-----------|--------|
 | 换模型 / 换服务商 | `backend/.env` 的 `AI_MODEL`、`AI_BASE_URL`、`AI_API_KEY` |
 | 调整输出发散程度 | `backend/.env` 的 `AI_TEMPERATURE`（建议 0.2～0.5） |
 | 放开输出 token 上限 | `ai_tasks.py` 中 `min(16384, ...)` 改为更大的值 |
-| 修改生成数量建议 | `_suggest_case_count()` 函数 |
-| 修改提示词策略 | `build_test_case_prompt()` 和 `SYSTEM_ROLE_CONTENT` |
+| 修改生成数量建议 | `ai_config.yaml → document_processing.case_count_estimation` |
+| 修改 Map-Reduce 阈值 | `ai_config.yaml → document_processing.map_reduce_threshold` |
+| 修改提示词策略 | `app/ai/prompts/*.yaml`（热重载，改完无需重启） |
+| 调整知识库检索参数 | `ai_config.yaml → knowledge.retrieval`（top_k / 阈值 / 查询长度） |
+| 调整用例质量标准 | `ai_config.yaml → test_case_standards`（优先级分布 / 覆盖维度） |
+| 修改 Excel 导出列 | `ai_config.yaml → output.excel_export.columns` |
 | 区分功能/接口用例 | 需同时改数据结构 + 生成参数 + 提示词，不能只改提示词一句话 |
 | 增加端/环境标签 | 同上，需在数据结构和生成参数里一起设计 |
 

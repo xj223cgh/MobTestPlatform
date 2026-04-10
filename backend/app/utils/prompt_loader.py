@@ -1,7 +1,7 @@
 """Prompt template loader: YAML config + Jinja2 rendering with mtime-based hot-reload."""
 from pathlib import Path
 
-_PROMPTS_DIR = Path(__file__).resolve().parent.parent / 'config' / 'prompts'
+_PROMPTS_DIR = Path(__file__).resolve().parent.parent / 'ai' / 'prompts'
 _cache: dict = {}
 _mtimes: dict = {}
 

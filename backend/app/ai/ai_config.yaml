@@ -1,0 +1,201 @@
+# ============================================================================
+# AI 测试用例生成系统 — 中央配置文件
+# 定义 AI 角色、行为准则、知识检索策略、用例质量标准
+# ============================================================================
+
+# ===== 1. 角色定义 ==========================================================
+role:
+  name: "AI 测试工程师"
+  description: >
+    专业的软件测试工程师，负责根据需求文档生成高质量的功能测试用例。
+    以质量保障为核心职责，关注正常流程的同时，重点覆盖异常路径、
+    边界条件、权限控制和数据一致性场景。
+  responsibilities:
+    - 严格依据需求文档生成全面的功能测试用例
+    - 确保用例覆盖正常流程、异常路径、边界条件
+    - 主动发现需求中的模糊点和潜在风险
+    - 遵循平台测试标准和用例编写规范
+    - 利用知识库理解业务背景，提升用例质量和一致性
+  constraints:
+    - 严格依据需求文档内容，不编造文档未提及的功能或行为
+    - 测试步骤必须具体可执行，预期结果必须可验证
+    - 输出格式严格遵循 JSON 规范，不输出多余文字
+    - 每条用例的步骤和预期结果需与文档描述对应
+
+# ===== 2. 知识检索策略 ======================================================
+knowledge:
+  retrieval:
+    top_k: 5                     # 检索返回的最大文档片段数
+    similarity_threshold: 0.5    # 相似度阈值（cosine distance < 此值才采纳）
+    query_max_length: 500        # 用于检索的查询文本最大字符数
+
+  # 知识库文档分类与读取优先级（priority 越小优先级越高）
+  categories:
+    - id: "01_core_business"
+      label: "核心业务知识"
+      priority: 1
+      required: true
+      doc_count: 8
+      description: >
+        必读文档。涵盖平台业务总览、各核心模块说明，
+        确保 AI 对 MobTestPlatform 业务有全面理解。
+
+    - id: "02_test_standards"
+      label: "测试标准"
+      priority: 2
+      required: true
+      doc_count: 3
+      description: >
+        测试用例编写规范、优先级与覆盖率标准、缺陷分类体系。
+        AI 生成用例时必须遵循这些标准。
+
+    - id: "03_platform_config"
+      label: "配置说明"
+      priority: 3
+      required: false
+      doc_count: 3
+      description: >
+        系统管理、设备管理、角色权限等平台配置的详细说明。
+        帮助 AI 理解平台特有的配置逻辑。
+
+    - id: "04_issue_cases"
+      label: "问题案例"
+      priority: 4
+      required: false
+      doc_count: 2
+      description: >
+        历史开发和测试中发现的典型问题、踩坑记录、经验教训。
+        帮助 AI 避免生成遗漏这些已知风险场景的用例。
+
+    - id: "05_test_guides"
+      label: "测试指南"
+      priority: 5
+      required: false
+      doc_count: 2
+      description: >
+        功能测试方法论指南和 AI 用例生成使用指南。
+        提供测试思路参考和平台使用说明。
+
+  total_doc_count: 18
+
+# ===== 3. 测试用例质量标准 ==================================================
+test_case_standards:
+  # 用例名称格式
+  naming_convention: "「功能模块-场景类型-具体描述」"
+  naming_examples:
+    - "登录-正常流程-输入正确账号密码成功登录"
+    - "项目管理-异常-项目名称为空时提交报错"
+    - "用例导入-边界-上传超过最大行数的Excel文件"
+
+  # 优先级定义
+  priority:
+    levels:
+      P0: "阻塞性 — 核心流程不可用，必须优先测试"
+      P1: "严重 — 重要业务路径，影响主要功能"
+      P2: "一般 — 异常和边界场景，非主流程"
+      P3: "轻微 — 次要功能、提示类、显示类"
+      P4: "建议 — UI 美观、体验优化等"
+    distribution:
+      P0: "10-15%"
+      P1: "25-35%"
+      P2: "30-40%"
+      P3: "15-20%"
+      P4: "0-5%"
+
+  # 覆盖维度要求（AI 生成时必须考虑）
+  coverage_dimensions:
+    - dimension: "正常流程"
+      weight: 30
+      description: "核心业务路径的正向验证"
+    - dimension: "异常流程"
+      weight: 25
+      description: "错误输入、网络异常、服务降级等"
+    - dimension: "边界条件"
+      weight: 20
+      description: "最大值、最小值、空值、特殊字符、超长输入"
+    - dimension: "权限控制"
+      weight: 10
+      description: "不同角色的操作权限验证"
+    - dimension: "数据一致性"
+      weight: 10
+      description: "并发操作、重复提交、数据联动"
+    - dimension: "兼容与环境"
+      weight: 5
+      description: "不同浏览器、设备、网络环境"
+
+  # 用例字段质量要求
+  field_requirements:
+    case_name: "简洁明确，遵循命名规范"
+    case_description: "一句话说明验证目的"
+    priority: "根据功能重要性和场景类型合理分配"
+    preconditions: "列出所有前置依赖，编号标注"
+    steps: "每步独立可执行，使用编号，包含具体操作对象和数据"
+    expected_result: "可验证的具体结果描述，与需求文档对应"
+    test_data: "给出具体测试数据示例"
+
+# ===== 4. 文档处理策略 ======================================================
+document_processing:
+  map_reduce_threshold: 3000     # 超过此字符数启用 Map-Reduce
+  chunk_size: 2000               # 分段大小
+  chunk_overlap: 200             # 段间重叠字符数
+  supported_formats:
+    - ".txt"
+    - ".md"
+    - ".docx"
+  case_count_estimation:
+    min_per_1000_chars: 3        # 每 1000 字最少生成用例数
+    base_minimum: 8              # 最少生成用例数
+    max_cap: 80                  # 最多生成用例数
+
+  image_recognition:
+    enabled: true
+    max_images: 10
+
+# ===== 5. 工作区路径（相对于 ai/ 目录）======================================
+workspace:
+  requirements:
+    original: "workspace/requirements/original"
+    converted: "workspace/requirements/converted"
+  outputs:
+    excel: "workspace/outputs/excel"
+
+# ===== 6. 输出格式 ==========================================================
+output:
+  json_format:
+    root_key: "test_cases"
+    fields:
+      - "case_name"
+      - "case_description"
+      - "priority"
+      - "preconditions"
+      - "steps"
+      - "expected_result"
+      - "test_data"
+  excel_export:
+    enabled: true
+    sheet_name: "测试用例"
+    columns:
+      - field: "case_number"
+        header: "用例编号"
+        width: 18
+      - field: "case_name"
+        header: "用例名称"
+        width: 40
+      - field: "case_description"
+        header: "用例描述"
+        width: 50
+      - field: "priority"
+        header: "优先级"
+        width: 10
+      - field: "preconditions"
+        header: "前置条件"
+        width: 40
+      - field: "steps"
+        header: "测试步骤"
+        width: 60
+      - field: "expected_result"
+        header: "预期结果"
+        width: 50
+      - field: "test_data"
+        header: "测试数据"
+        width: 30

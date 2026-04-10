@@ -9,11 +9,129 @@ import json
 import os
 import base64
 import logging
+from pathlib import Path
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 bp = Blueprint('ai_tasks', __name__, url_prefix='/api/ai-tasks')
+
+
+# ---------------------------------------------------------------------------
+# AI config loader
+# ---------------------------------------------------------------------------
+
+_ai_config_cache = {}
+_ai_config_mtime = 0.0
+
+def load_ai_config() -> dict:
+    """Load ai_config.yaml with mtime-based caching."""
+    global _ai_config_cache, _ai_config_mtime
+    config_path = Path(__file__).resolve().parent.parent / 'ai' / 'ai_config.yaml'
+    if not config_path.exists():
+        return {}
+    mtime = config_path.stat().st_mtime
+    if _ai_config_cache and _ai_config_mtime == mtime:
+        return _ai_config_cache
+    import yaml
+    with open(config_path, 'r', encoding='utf-8') as f:
+        _ai_config_cache = yaml.safe_load(f) or {}
+    _ai_config_mtime = mtime
+    return _ai_config_cache
+
+
+# ---------------------------------------------------------------------------
+# Document & Excel storage helpers
+# ---------------------------------------------------------------------------
+
+_AI_WORKSPACE = Path(__file__).resolve().parent.parent / 'ai' / 'workspace'
+
+
+def _sanitize_filename(name: str, max_len: int = 50) -> str:
+    """Remove characters that are unsafe for filenames."""
+    unsafe = r'<>:"/\|?*'
+    clean = ''.join(c for c in name if c not in unsafe).strip()
+    return clean[:max_len] or 'unnamed'
+
+
+def _save_requirement_document(document_content: str, folder_name: str):
+    """Save the original requirement document to ai/workspace/requirements/original/."""
+    try:
+        req_dir = _AI_WORKSPACE / 'requirements' / 'original'
+        req_dir.mkdir(parents=True, exist_ok=True)
+        filepath = req_dir / f"{folder_name}.txt"
+        filepath.write_text(document_content, encoding='utf-8')
+        logger.info("Saved requirement document: %s", filepath)
+        return str(filepath)
+    except Exception as e:
+        logger.warning("Failed to save requirement document: %s", e)
+        return None
+
+
+def _build_requirement_folder_name(suite_name: str, project_name: str = '') -> str:
+    """Generate a consistent folder/file name prefix for one requirement generation session."""
+    project_part = _sanitize_filename(project_name, 20) if project_name else 'project'
+    suite_part = _sanitize_filename(suite_name, 30)
+    ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+    return f"{project_part}_{suite_part}_{ts}"
+
+
+def _save_requirement_images(
+    uploaded_images: list,
+    docx_content: bytes | None,
+    folder_name: str,
+) -> str | None:
+    """Save all extracted images (uploaded + docx embedded) into a per-requirement subdirectory.
+
+    Directory: ai/workspace/requirements/images/{folder_name}/
+    """
+    all_images: list[tuple[str, bytes]] = []
+
+    for img in (uploaded_images or []):
+        fn = img.get('filename', 'image.png')
+        content = img.get('content', b'')
+        if content:
+            all_images.append((fn, content))
+
+    if docx_content:
+        all_images.extend(_extract_images_from_docx(docx_content))
+
+    if not all_images:
+        return None
+
+    try:
+        img_dir = _AI_WORKSPACE / 'requirements' / 'images' / folder_name
+        img_dir.mkdir(parents=True, exist_ok=True)
+
+        seen_names: dict[str, int] = {}
+        for name, data in all_images:
+            if name in seen_names:
+                seen_names[name] += 1
+                stem, ext = os.path.splitext(name)
+                name = f"{stem}_{seen_names[name]}{ext}"
+            else:
+                seen_names[name] = 0
+            (img_dir / name).write_bytes(data)
+
+        logger.info("Saved %d images to %s", len(all_images), img_dir)
+        return str(img_dir)
+    except Exception as e:
+        logger.warning("Failed to save requirement images: %s", e)
+        return None
+
+
+def _save_generated_cases_excel(saved_cases: list, suite_name: str, project_name: str = ''):
+    """Save generated test cases as an Excel file via ai/excel_exporter."""
+    try:
+        from app.ai.excel_exporter import export_cases_to_excel
+        output_dir = _AI_WORKSPACE / 'outputs' / 'excel'
+        label = f"{_sanitize_filename(project_name, 20)}_{_sanitize_filename(suite_name, 30)}" \
+                if project_name else _sanitize_filename(suite_name, 30)
+        result = export_cases_to_excel(saved_cases, suite_name=label, output_dir=output_dir)
+        return str(result) if result else None
+    except Exception as e:
+        logger.warning("Failed to save cases Excel: %s", e)
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -132,6 +250,14 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
                 suite.case_count = len(saved_cases)
             db.session.commit()
 
+            project_obj = Project.query.get(project_id) if project_id else None
+            project_label = project_obj.project_name if project_obj else ''
+            suite_label_for_file = suite.suite_name if suite else 'suite'
+            folder_name = _build_requirement_folder_name(suite_label_for_file, project_label)
+            _save_requirement_document(document_content, folder_name)
+            _save_requirement_images(params.get('_image_files', []), params.get('_docx_content'), folder_name)
+            _save_generated_cases_excel(saved_cases, suite_label_for_file, project_label)
+
             debug_mode = params.get('debugMode', False)
             if not debug_mode:
                 try:
@@ -197,24 +323,32 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
 # ---------------------------------------------------------------------------
 
 def _retrieve_knowledge_context(document_content: str) -> str:
-    """Retrieve relevant knowledge base context. Returns empty string if KB is unavailable."""
+    """Retrieve relevant knowledge base context using ai_config.yaml retrieval settings."""
     try:
         from app.services.knowledge_service import search
         if not document_content or not document_content.strip():
             return ''
-        query = document_content[:500]
-        results = search(query)
+
+        cfg = load_ai_config().get('knowledge', {}).get('retrieval', {})
+        query_max = cfg.get('query_max_length', 500)
+        top_k = cfg.get('top_k', 5)
+        threshold = cfg.get('similarity_threshold', 0.5)
+
+        query = document_content[:query_max]
+        results = search(query, top_k=top_k)
         if not results:
             return ''
-        relevant = [r for r in results if r.get('distance', 1.0) < 0.5]
+        relevant = [r for r in results if r.get('distance', 1.0) < threshold]
         if not relevant:
             return ''
         parts = []
-        for r in relevant[:5]:
+        for r in relevant[:top_k]:
             filename = r.get('metadata', {}).get('filename', '')
+            category = r.get('metadata', {}).get('category_label', '')
             text = r.get('text', '')
-            if filename:
-                parts.append(f"[来源: {filename}]\n{text}")
+            source_label = f"{category} - {filename}" if category else filename
+            if source_label:
+                parts.append(f"[来源: {source_label}]\n{text}")
             else:
                 parts.append(text)
         return '\n\n---\n\n'.join(parts)
@@ -331,14 +465,13 @@ def _extract_and_recognize_docx_images(docx_content: bytes, ai_config: dict) -> 
 # Generation: single-pass vs Map-Reduce
 # ---------------------------------------------------------------------------
 
-_MAP_REDUCE_THRESHOLD = 3000
-
-
 def _generate_cases_from_document(document_content, knowledge_context, ai_config, task_manager, task_id):
     """Generate test cases; auto-switches to Map-Reduce for long documents."""
+    doc_cfg = load_ai_config().get('document_processing', {})
+    map_reduce_threshold = doc_cfg.get('map_reduce_threshold', 3000)
     doc_len = len(document_content or '')
 
-    if doc_len >= _MAP_REDUCE_THRESHOLD:
+    if doc_len >= map_reduce_threshold:
         return _generate_map_reduce(
             document_content, knowledge_context, ai_config, task_manager, task_id
         )
@@ -536,11 +669,16 @@ def _validate_and_fix_case(case: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 def _suggest_case_count(document_content: str) -> int:
-    """根据文档长度估算建议用例条数。"""
+    """根据文档长度估算建议用例条数，参数从 ai_config.yaml 读取。"""
+    cfg = load_ai_config().get('document_processing', {}).get('case_count_estimation', {})
+    min_per_1000 = cfg.get('min_per_1000_chars', 3)
+    base_min = cfg.get('base_minimum', 8)
+    max_cap = cfg.get('max_cap', 80)
+
     text_len = len((document_content or '').strip())
     if text_len <= 0:
-        return 10
-    return max(8, min(80, (text_len // 300) * 3))
+        return base_min
+    return max(base_min, min(max_cap, (text_len // 1000) * min_per_1000 * 3))
 
 
 def build_test_case_prompt(params: dict, document_content: str, knowledge_context: str = '') -> str:
