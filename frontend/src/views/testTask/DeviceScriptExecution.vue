@@ -311,13 +311,13 @@ const handleGenerateReport = async () => {
 const loadReportSetting = async () => {
   try {
     const res = await getUserSettings();
-    if (res?.data && res.data.report_auto_generate === "auto") {
-      reportAutoGenerate.value = "auto";
-    } else {
+    if (res?.data && res.data.report_auto_generate === "manual") {
       reportAutoGenerate.value = "manual";
+    } else {
+      reportAutoGenerate.value = "auto";
     }
   } catch {
-    reportAutoGenerate.value = "manual";
+    reportAutoGenerate.value = "auto";
   }
 };
 

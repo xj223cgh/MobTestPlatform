@@ -584,51 +584,73 @@ def insert_case_and_project_data(connection):
 
     # ── 评审 ──
     print("插入用例评审与评审历史...")
-    review_statuses = ['pending', 'in_review', 'completed', 'rejected']
     suite_ids_all = [r[0] for r in suite_rows]
-    review_task_count = 0
-    for initiator_id in user_ids:
-        for reviewer_id in user_ids:
-            if initiator_id == reviewer_id:
-                continue
-            for si, suite_id in enumerate(suite_ids_all):
-                if review_task_count >= 80:
-                    break
-                status = review_statuses[(initiator_id + reviewer_id + si) % 4]
-                start_t = (now - timedelta(days=10 + si % 5)).strftime(time_fmt)
-                end_t = (now - timedelta(days=9 + si % 5)).strftime(time_fmt) if status in ('completed', 'rejected') else None
-                comments = '用例覆盖完整，通过评审。' if status == 'completed' else ('请修改后重新提交。' if status == 'rejected' else None)
+    review_configs = [
+        # (suite_idx, initiator_idx, reviewer_idx, status, days_ago, comments)
+        (0, 0, 2, 'completed', 15, '登录模块用例覆盖完整，评审通过。'),
+        (1, 0, 2, 'completed', 12, '密码用例补充了边界场景，通过。'),
+        (2, 1, 2, 'completed', 10, '看板用例合理，通过评审。'),
+        (3, 0, 1, 'completed', 8, '项目管理用例完善，评审通过。'),
+        (4, 1, 0, 'rejected', 7, '迭代管理缺少删除有数据迭代的异常场景，请补充。'),
+        (5, 0, 2, 'completed', 6, '用例树结构测试完善，通过。'),
+        (6, 2, 0, 'completed', 5, '脑图编辑用例覆盖全面，通过。'),
+        (7, 0, 1, 'completed', 4, '评审功能用例通过。'),
+        (8, 1, 2, 'completed', 3, '导入用例覆盖了各种格式异常，通过。'),
+        (9, 0, 2, 'in_review', 2, None),
+        (10, 2, 0, 'in_review', 1, None),
+        (0, 1, 0, 'pending', 0, None),
+        (3, 2, 1, 'pending', 0, None),
+        (5, 0, 1, 'rejected', 9, '用例步骤描述不清晰，需修改后重新提交。'),
+        (6, 1, 2, 'completed', 11, '脑图版本管理用例审核通过。'),
+        (7, 2, 0, 'completed', 13, '评审流程用例齐全，通过。'),
+        (2, 0, 1, 'in_review', 1, None),
+        (4, 0, 2, 'pending', 0, None),
+        (8, 2, 1, 'rejected', 6, '导入用例缺少大文件场景。'),
+        (9, 1, 0, 'completed', 3, 'AI生成用例评审通过。'),
+    ]
+    for si, init_idx, rev_idx, status, days_ago, comments in review_configs:
+        suite_id = suite_ids_all[si % len(suite_ids_all)]
+        initiator_id = user_ids[init_idx % len(user_ids)]
+        reviewer_id = user_ids[rev_idx % len(user_ids)]
+        start_t = (now - timedelta(days=days_ago)).strftime(time_fmt)
+        end_t = (now - timedelta(days=max(0, days_ago - 1))).strftime(time_fmt) if status in ('completed', 'rejected') else None
+        cursor.execute("""
+            INSERT INTO test_suite_review_tasks (suite_id, initiator_id, reviewer_id, status, start_time, end_time, overall_comments)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (suite_id, initiator_id, reviewer_id, status, start_t, end_t, comments))
+        rt_id = cursor.lastrowid
+        case_ids = case_suite_map.get(suite_id, [])
+        for ci, case_id in enumerate(case_ids[:20]):
+            if status == 'completed':
+                rev_status = 'approved'
+                rev_comment = '通过'
+            elif status == 'rejected':
+                rev_status = 'rejected' if ci % 3 == 0 else 'approved'
+                rev_comment = '需修改' if rev_status == 'rejected' else '通过'
+            else:
+                rev_status = 'approved' if ci < len(case_ids) // 2 else 'pending'
+                rev_comment = '通过' if rev_status == 'approved' else None
+            cursor.execute("""
+                INSERT INTO test_case_review_details (review_task_id, case_id, reviewer_id, review_status, comments)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (rt_id, case_id, reviewer_id, rev_status, rev_comment))
+        if status in ('completed', 'rejected'):
+            hist_type = 'complete' if status == 'completed' else 'reject'
+            cursor.execute("""
+                INSERT INTO test_suite_review_history (review_task_id, suite_id, initiator_id, reviewer_id, status, start_time, end_time, overall_comments, history_type, created_by, version)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (rt_id, suite_id, initiator_id, reviewer_id, status, start_t, end_t, comments, hist_type, reviewer_id, 1))
+            history_id = cursor.lastrowid
+            for case_id in case_ids[:15]:
+                cursor.execute("SELECT case_number, case_name, priority, test_data, preconditions, steps, expected_result, actual_result FROM test_cases WHERE id = %s", (case_id,))
+                row = cursor.fetchone()
+                if not row:
+                    continue
+                h_status = 'approved' if status == 'completed' else 'rejected'
                 cursor.execute("""
-                    INSERT INTO test_suite_review_tasks (suite_id, initiator_id, reviewer_id, status, start_time, end_time, overall_comments)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """, (suite_id, initiator_id, reviewer_id, status, start_t, end_t, comments))
-                rt_id = cursor.lastrowid
-                review_task_count += 1
-                case_ids = case_suite_map.get(suite_id, [])
-                for case_id in case_ids[:25]:
-                    rev_status = 'approved' if status == 'completed' else ('rejected' if status == 'rejected' else 'pending')
-                    cursor.execute("""
-                        INSERT INTO test_case_review_details (review_task_id, case_id, reviewer_id, review_status, comments)
-                        VALUES (%s, %s, %s, %s, %s)
-                    """, (rt_id, case_id, reviewer_id, rev_status, '通过' if rev_status == 'approved' else (None if rev_status == 'pending' else '需修改')))
-                if status in ('completed', 'rejected'):
-                    hist_rev_status = 'approved' if status == 'completed' else 'rejected'
-                    cursor.execute("""
-                        INSERT INTO test_suite_review_history (review_task_id, suite_id, initiator_id, reviewer_id, status, start_time, end_time, overall_comments, history_type, created_by, version)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (rt_id, suite_id, initiator_id, reviewer_id, status, start_t, end_t, comments, 'complete' if status == 'completed' else 'reject', reviewer_id, 1))
-                    history_id = cursor.lastrowid
-                    for case_id in case_ids[:20]:
-                        cursor.execute("SELECT case_number, case_name, priority, test_data, preconditions, steps, expected_result, actual_result FROM test_cases WHERE id = %s", (case_id,))
-                        row = cursor.fetchone()
-                        if not row:
-                            continue
-                        cursor.execute("""
-                            INSERT INTO test_case_review_history (review_history_id, review_task_id, case_id, reviewer_id, review_status, comments, case_number, case_name, priority, test_data, preconditions, steps, expected_result, actual_result, created_by)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        """, (history_id, rt_id, case_id, reviewer_id, hist_rev_status, '通过' if hist_rev_status == 'approved' else None, row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], reviewer_id))
-            if review_task_count >= 80:
-                break
+                    INSERT INTO test_case_review_history (review_history_id, review_task_id, case_id, reviewer_id, review_status, comments, case_number, case_name, priority, test_data, preconditions, steps, expected_result, actual_result, created_by)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (history_id, rt_id, case_id, reviewer_id, h_status, '通过' if h_status == 'approved' else '需修改', row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], reviewer_id))
 
     # ── 任务文件夹 ──
     print("插入任务文件夹...")
@@ -717,11 +739,14 @@ def insert_case_and_project_data(connection):
     # ── 设备 ──
     print("插入设备...")
     devices_data = [
-        ('华为 P40', 'P40', 'android', '10', 'emulator-5554', 'offline', uid_owner),
-        ('小米 11', 'MI 11', 'android', '11', 'emulator-5556', 'offline', uid_tester1),
+        ('华为 P40', 'P40', 'android', '10', 'emulator-5554', 'online', uid_owner),
+        ('小米 11', 'MI 11', 'android', '11', 'emulator-5556', 'online', uid_tester1),
         ('OPPO Find X3', 'PEDM00', 'android', '12', 'emulator-5558', 'offline', uid_tester2),
-        ('vivo X60', 'V2055A', 'android', '11', 'emulator-5560', 'offline', uid_owner),
+        ('vivo X60', 'V2055A', 'android', '11', 'emulator-5560', 'busy', uid_owner),
         ('Pixel 5 模拟器', 'Pixel 5', 'android', '13', 'emulator-5570', 'offline', uid_tester1),
+        ('三星 Galaxy S22', 'SM-S9010', 'android', '13', 'emulator-5572', 'online', uid_tester2),
+        ('红米 Note 12', 'Redmi Note 12', 'android', '12', 'emulator-5574', 'maintenance', uid_owner),
+        ('荣耀 70', 'FNE-AN00', 'android', '12', 'emulator-5576', 'offline', uid_tester1),
     ]
     cursor.executemany("""
         INSERT INTO devices (device_name, device_model, os_type, os_version, device_id, status, owner_id)
@@ -749,24 +774,53 @@ def insert_case_and_project_data(connection):
     with open(dest_path, 'rb') as f:
         file_hash = hashlib.md5(f.read()).hexdigest()
     command = f"python {relative_path} --device-id $DEVICE_ID --adb-path adb"
-    for i in range(3):
+    script_tasks_config = [
+        ('设备信息采集-华为P40', 'pending', 'high', 0, None, None),
+        ('设备信息采集-小米11', 'pending', 'medium', 1, None, None),
+        ('设备信息采集-OPPO全系', 'running', 'high', 2, -1, None),
+        ('设备信息采集-vivo批量', 'completed', 'medium', 3, -3, -2),
+        ('日常巡检-全设备', 'completed', 'low', 0, -5, -4),
+        ('性能数据采集', 'pending', 'high', 1, None, None),
+    ]
+    for i, (task_name, status, priority, dev_idx, start_delta, end_delta) in enumerate(script_tasks_config):
+        folder_id = folder_ds[i % len(folder_ds)] if folder_ds else None
         scheduled_start = (now + timedelta(days=i)).strftime(time_fmt)
         scheduled_end = (now + timedelta(days=i, hours=2)).strftime(time_fmt)
-        folder_id = folder_ds[i % len(folder_ds)] if folder_ds else None
+        started_time = (now + timedelta(days=start_delta)).strftime(time_fmt) if start_delta is not None else None
+        completed_time = (now + timedelta(days=end_delta)).strftime(time_fmt) if end_delta is not None else None
+        executor_id = uid_tester1 if status in ('running', 'completed') else None
         cursor.execute("""
-            INSERT INTO test_tasks (task_name, task_description, folder_id, task_type, priority, status, creator_id, executor_id, project_id, iteration_id, suite_id, version_requirement_id, scheduled_time, scheduled_end_time, script_file, file_path, file_hash, command)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO test_tasks (task_name, task_description, folder_id, task_type, priority, status, creator_id, executor_id, project_id, iteration_id, suite_id, version_requirement_id, scheduled_time, scheduled_end_time, started_time, completed_time, script_file, file_path, file_hash, command)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
-            f'获取设备信息任务_{i+1}', '使用 get_device_info 脚本采集 Android 设备信息', folder_id, 'device_script', 'medium', 'pending',
-            uid_creator, None, project_id, None, None, None, scheduled_start, scheduled_end,
+            task_name, '使用 get_device_info 脚本采集 Android 设备信息', folder_id, 'device_script', priority, status,
+            uid_creator, executor_id, project_id, None, None, None, scheduled_start, scheduled_end, started_time, completed_time,
             'get_device_info.py', relative_path, file_hash, command,
         ))
         script_task_id = cursor.lastrowid
         if device_ids:
-            cursor.execute("INSERT INTO task_device_relation (task_id, device_id) VALUES (%s, %s)", (script_task_id, device_ids[i % len(device_ids)]))
+            cursor.execute("INSERT INTO task_device_relation (task_id, device_id) VALUES (%s, %s)", (script_task_id, device_ids[dev_idx % len(device_ids)]))
 
-    # ── 报告 ──
-    print("插入任务报告...")
+    # ── 设备脚本报告（已完成的脚本任务）──
+    print("插入设备脚本报告...")
+    cursor.execute("""
+        SELECT t.id, t.task_name, t.project_id, t.completed_time, t.creator_id, t.executor_id
+        FROM test_tasks t WHERE t.task_type = 'device_script' AND t.status = 'completed' ORDER BY t.id
+    """)
+    for row in cursor.fetchall():
+        task_id, task_name, proj_id, completed_at, creator_id, executor_id = row
+        summary = json.dumps({
+            'total_devices': 1, 'success_count': 1, 'fail_count': 0,
+            'script_file': 'get_device_info.py', 'execution_duration': '2m 15s',
+        })
+        details = json.dumps([{'device_id': device_ids[0], 'device_name': '华为 P40', 'status': 'success', 'output': 'Device info collected successfully'}])
+        cursor.execute("""
+            INSERT INTO reports (task_id, report_type, task_name, project_id, project_name, summary, details, completed_at, creator_id, assignee_id, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (task_id, 'device_script', task_name, proj_id, '用例与项目管理', summary, details, completed_at, creator_id, executor_id, 'completed'))
+
+    # ── 用例执行报告 ──
+    print("插入用例执行报告...")
     cursor.execute("""
         SELECT t.id, t.task_name, t.task_type, t.project_id, t.completed_time, t.suite_id, t.iteration_id, t.version_requirement_id
         FROM test_tasks t WHERE t.task_type = 'test_case' AND t.status = 'completed' ORDER BY t.id
@@ -1199,6 +1253,135 @@ def insert_task_and_device_data(connection):
 
 
 # =====================================================================
+# 消息通知
+# =====================================================================
+
+def insert_notifications_data(connection):
+    """插入消息通知模拟数据，覆盖各种通知类型和已读/未读/置顶状态。"""
+    cursor = connection.cursor()
+    now = datetime.now()
+    time_fmt = '%Y-%m-%d %H:%M:%S'
+
+    cursor.execute("SELECT id, username, role FROM users ORDER BY id")
+    users = cursor.fetchall()
+    if not users:
+        return True
+    user_map = {u[0]: u[1] for u in users}
+    user_ids = [u[0] for u in users]
+
+    cursor.execute("SELECT id, suite_id, initiator_id, reviewer_id, status FROM test_suite_review_tasks ORDER BY id LIMIT 10")
+    review_tasks = cursor.fetchall()
+
+    cursor.execute("SELECT id, task_name, status FROM test_tasks WHERE task_type = 'test_case' AND status = 'completed' ORDER BY id LIMIT 5")
+    completed_tasks = cursor.fetchall()
+
+    print("插入消息通知...")
+    notifications = []
+
+    for rt in review_tasks:
+        rt_id, suite_id, initiator_id, reviewer_id, status = rt
+        if reviewer_id:
+            notifications.append((
+                reviewer_id, 'review_assigned', '您有新的评审任务',
+                f'{user_map.get(initiator_id, "用户")} 邀请您评审用例集，请及时处理。',
+                False, False, 'review_task', rt_id,
+                json.dumps({'initiator': user_map.get(initiator_id), 'suite_id': suite_id}),
+                (now - timedelta(days=3, hours=rt_id % 10)).strftime(time_fmt),
+            ))
+        if status in ('completed', 'rejected') and initiator_id:
+            result_text = '已通过' if status == 'completed' else '被驳回'
+            notifications.append((
+                initiator_id, 'review_result', f'评审{result_text}',
+                f'您发起的用例集评审已由 {user_map.get(reviewer_id, "评审人")} {result_text}。',
+                True, False, 'review_task', rt_id,
+                json.dumps({'reviewer': user_map.get(reviewer_id), 'result': status}),
+                (now - timedelta(days=2, hours=rt_id % 8)).strftime(time_fmt),
+            ))
+
+    for ct in completed_tasks:
+        task_id, task_name, _ = ct
+        notifications.append((
+            user_ids[0], 'task_completed', '任务执行完成',
+            f'任务「{task_name}」已完成，报告已自动生成。',
+            True, False, 'test_task', task_id,
+            json.dumps({'task_name': task_name}),
+            (now - timedelta(days=1, hours=task_id % 6)).strftime(time_fmt),
+        ))
+
+    system_notifications = [
+        (user_ids[0], 'system', '系统升级通知', '平台已升级至 V2.0.0，新增 AI 用例生成功能。', True, True,
+         None, None, None, (now - timedelta(days=7)).strftime(time_fmt)),
+        (user_ids[0], 'system', '安全提醒', '检测到您的账号在新设备登录，如非本人操作请及时修改密码。', False, False,
+         None, None, None, (now - timedelta(hours=5)).strftime(time_fmt)),
+    ]
+    for uid in user_ids[1:4]:
+        system_notifications.append((
+            uid, 'system', '系统升级通知', '平台已升级至 V2.0.0，新增 AI 用例生成功能。', False, False,
+            None, None, None, (now - timedelta(days=7)).strftime(time_fmt),
+        ))
+
+    ai_notifications = [
+        (user_ids[0], 'ai_generate_complete', 'AI 用例生成完成',
+         'AI 用例生成任务已完成，共生成 15 条用例，请前往用例集查看。',
+         False, False, None, None,
+         json.dumps({'generated_count': 15, 'suite_name': 'AI用例生成'}),
+         (now - timedelta(hours=3)).strftime(time_fmt)),
+        (user_ids[1] if len(user_ids) > 1 else user_ids[0], 'ai_generate_complete', 'AI 用例生成完成',
+         'AI 用例生成任务已完成，共生成 8 条用例。',
+         True, False, None, None,
+         json.dumps({'generated_count': 8}),
+         (now - timedelta(days=2)).strftime(time_fmt)),
+    ]
+
+    all_notifications = notifications + system_notifications + ai_notifications
+    cursor.executemany("""
+        INSERT INTO notifications (user_id, type, title, summary, is_read, is_pinned, related_type, related_id, extra, created_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """, all_notifications)
+    print(f"  共插入 {len(all_notifications)} 条通知")
+    return True
+
+
+# =====================================================================
+# 脑图版本快照
+# =====================================================================
+
+def insert_mindmap_versions_data(connection):
+    """为部分用例集插入脑图版本快照，用于版本历史和回退演示。"""
+    cursor = connection.cursor()
+    now = datetime.now()
+    time_fmt = '%Y-%m-%d %H:%M:%S'
+
+    cursor.execute("SELECT id FROM users ORDER BY id LIMIT 1")
+    user_row = cursor.fetchone()
+    if not user_row:
+        return True
+    uid = user_row[0]
+
+    cursor.execute("SELECT id, case_mindmap_data FROM test_suites WHERE type = 'suite' AND case_mindmap_data IS NOT NULL ORDER BY id LIMIT 5")
+    suites = cursor.fetchall()
+    if not suites:
+        return True
+
+    print("插入脑图版本快照...")
+    count = 0
+    for suite_id, mindmap_data in suites:
+        if not mindmap_data:
+            continue
+        for v in range(3):
+            snapshot = mindmap_data
+            created_at = (now - timedelta(days=10 - v * 3, hours=v * 2)).strftime(time_fmt)
+            cursor.execute("""
+                INSERT INTO mindmap_versions (suite_id, snapshot, created_at, created_by)
+                VALUES (%s, %s, %s, %s)
+            """, (suite_id, snapshot, created_at, uid))
+            count += 1
+        cursor.execute("UPDATE test_suites SET mindmap_version = 3 WHERE id = %s", (suite_id,))
+    print(f"  共插入 {count} 条脑图版本快照")
+    return True
+
+
+# =====================================================================
 # 主入口
 # =====================================================================
 
@@ -1245,13 +1428,13 @@ def insert_test_data():
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, initial_users)
             users_data = [
-                ('linyuming', '13800138004', '林裕铭', 'male', '测试部', password_hash, 'manager'),
-                ('zhoujin', '13800138005', '周瑾', 'female', '测试部', password_hash, 'manager'),
+                ('linyuming', '13800138004', '林裕铭', 'male', '测试部', password_hash, 'tester'),
+                ('zhoujin', '13800138005', '周瑾', 'female', '测试部', password_hash, 'tester'),
                 ('chenguohui', '13800138006', '陈国慧', 'male', '测试部', password_hash, 'manager'),
-                ('linsen', '13800138007', '林森', 'male', '测试部', password_hash, 'manager'),
-                ('zhangjunhao', '13800138008', '张俊浩', 'male', '测试部', password_hash, 'manager'),
-                ('wanghaoran', '13800138009', '王灏然', 'male', '测试部', password_hash, 'manager'),
-                ('cuhongli', '13800138010', '储宏丽', 'female', '测试部', password_hash, 'manager'),
+                ('linsen', '13800138007', '林森', 'male', '开发部', password_hash, 'admin'),
+                ('zhangjunhao', '13800138008', '张俊浩', 'male', '测试部', password_hash, 'tester'),
+                ('wanghaoran', '13800138009', '王灏然', 'male', '开发部', password_hash, 'admin'),
+                ('cuhongli', '13800138010', '储宏丽', 'female', '测试部', password_hash, 'tester'),
             ]
             cursor.executemany("""
                 INSERT INTO users (username, phone, real_name, gender, department, password_hash, role)
@@ -1259,16 +1442,86 @@ def insert_test_data():
             """, users_data)
             print("用户测试数据插入成功！")
 
+            # ── 系统设置 ──
+            print("插入系统设置...")
+            system_settings_data = [
+                ('system_name', '移动测试平台', '平台名称'),
+                ('system_description', '专业的移动应用测试管理平台', '平台描述'),
+                ('system_version', '2.0.0', '系统版本'),
+                ('theme', 'light', '主题模式'),
+                ('default_page_size', '20', '默认每页条数'),
+                ('session_timeout_minutes', '1440', '会话超时（分钟）'),
+                ('login_failure_lock', '5', '连续登录失败锁定阈值'),
+                ('password_policy', '["minLength","numbers"]', '密码策略'),
+            ]
+            cursor.executemany("""
+                INSERT INTO system_settings (setting_key, setting_value, description)
+                VALUES (%s, %s, %s)
+            """, system_settings_data)
+
+            # ── 用户个人设置 ──
+            print("插入用户个人设置...")
+            cursor.execute("SELECT id FROM users ORDER BY id")
+            all_user_ids = [row[0] for row in cursor.fetchall()]
+            user_settings_data = []
+            for uid in all_user_ids:
+                user_settings_data.extend([
+                    (uid, 'report_auto_generate', 'auto'),
+                    (uid, 'notification_sound', 'true'),
+                    (uid, 'notification_desktop', 'false'),
+                ])
+            cursor.executemany("""
+                INSERT INTO user_settings (user_id, setting_key, setting_value)
+                VALUES (%s, %s, %s)
+            """, user_settings_data)
+
+            # ── 角色权限 ──
+            print("插入角色权限配置...")
+            role_permissions_data = []
+            manager_perms = [
+                'project.list', 'project.create', 'project.edit', 'project.delete',
+                'iteration.list', 'iteration.create', 'iteration.edit', 'iteration.delete',
+                'requirement.list', 'requirement.create', 'requirement.edit', 'requirement.delete',
+                'role.permission_config', 'role.manager_config', 'role.tester_config', 'role.admin_config',
+                'user.list', 'user.create', 'user.edit', 'user.delete',
+                'report.delete',
+            ]
+            tester_perms = [
+                'project.list', 'project.create', 'project.edit',
+                'iteration.list', 'iteration.create', 'iteration.edit', 'iteration.delete',
+                'requirement.list', 'requirement.create', 'requirement.edit', 'requirement.delete',
+            ]
+            admin_perms = [
+                'project.list', 'project.create', 'project.edit',
+                'iteration.list', 'iteration.create', 'iteration.edit',
+                'requirement.list', 'requirement.create', 'requirement.edit', 'requirement.delete',
+            ]
+            for perm in manager_perms:
+                role_permissions_data.append(('manager', perm))
+            for perm in tester_perms:
+                role_permissions_data.append(('tester', perm))
+            for perm in admin_perms:
+                role_permissions_data.append(('admin', perm))
+            cursor.executemany("""
+                INSERT INTO role_permissions (role, permission_code)
+                VALUES (%s, %s)
+            """, role_permissions_data)
+
         if not insert_case_and_project_data(connection):
             return False
         if not insert_task_and_device_data(connection):
             return False
+        if not insert_notifications_data(connection):
+            return False
+        if not insert_mindmap_versions_data(connection):
+            return False
         connection.commit()
         print("所有测试数据插入成功！")
         print("测试账号信息：")
-        print("   - 特殊账号（保留）：Lethe(超级管理员), Manager(项目经理), Tester(测试主管), Admin(系统管理员)")
-        print("   - 测试用户：林裕铭、周瑾、陈国慧、林森、张俊浩、王灏然、储宏丽")
-        print("   - 用户名为姓名拼音，密码统一为：123321，角色均为 manager（管理员）")
+        print("   - 特殊账号：Lethe(超级管理员), Manager(管理员), Tester(测试人员), Admin(普通成员)")
+        print("   - 测试用户：陈国慧(管理员), 林裕铭/周瑾/张俊浩/储宏丽(测试人员), 林森/王灏然(普通成员)")
+        print("   - 用户名为姓名拼音，密码统一为：123321")
+        print("   - 已插入：系统设置、用户设置(自动生成报告)、角色权限、消息通知、脑图版本快照")
         return True
 
     except Exception as e:
