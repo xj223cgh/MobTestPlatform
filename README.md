@@ -16,7 +16,7 @@
 
 | 模块 | 说明 |
 |------|------|
-| **用例管理** | 树形用例库（文件夹 + 用例集）、脑图编辑与版本回滚、标签与标记、批量导入导出、AI 异步生成用例（可选） |
+| **用例管理** | 树形用例库（文件夹 + 用例集）、脑图编辑与版本回滚、标签与标记、批量导入导出、AI 异步生成用例（RAG 知识库增强 + Excel 自动归档，可选） |
 | **用例评审** | 发起评审 / 执行评审、逐条通过或拒绝及意见记录、评审历史追溯、评审中心 |
 | **设备管理** | Android 设备 ADB 连接管理、无线调试、设备投屏（Escrcpy）、脚本任务与批量执行 |
 | **测试任务** | 用例执行任务与设备脚本任务、任务文件夹分类、任务级用例快照、暂停 / 继续 / 完成 |
@@ -162,10 +162,16 @@ MobTestPlatform/
 ├── backend/                    # 后端（Flask）
 │   ├── app/
 │   │   ├── __init__.py         # 应用工厂 & 蓝图注册
+│   │   ├── ai/                 # AI 用例生成模块（统一目录）
+│   │   │   ├── ai_config.yaml  #   角色、行为、知识检索策略、质量标准
+│   │   │   ├── knowledge/      #   知识库（分类文档 + ChromaDB 向量库）
+│   │   │   ├── prompts/        #   提示词 YAML 模板（Jinja2）
+│   │   │   ├── workspace/      #   需求文档、提取图片、Excel 用例归档
+│   │   │   └── excel_exporter.py
 │   │   ├── config/config.py    # 配置（数据库、SMTP、CORS 等）
 │   │   ├── models/models.py    # SQLAlchemy 数据模型
 │   │   ├── routes/             # API 路由
-│   │   ├── services/           # 业务逻辑（邮件、通知、权限）
+│   │   ├── services/           # 业务逻辑（邮件、通知、权限、知识库）
 │   │   ├── utils/              # 工具函数（认证、辅助函数、调度器）
 │   │   └── constants/          # 常量（权限编码）
 │   ├── scripts/                # Agent 路径配置脚本
@@ -237,11 +243,17 @@ SMTP_PASSWORD=授权码
 
 ### AI 用例生成
 
-支持通过 AI 大模型自动生成测试用例，支持上传需求文档（.docx / .pdf / .txt）辅助生成。
+支持通过 AI 大模型自动生成测试用例，上传需求文档（.docx / .pdf / .txt）辅助生成。主要能力：
 
-配置方式见 [AI 用例生成配置说明](docs/方案/AI用例生成配置说明.md)。
+- **RAG 知识库增强**：基于 ChromaDB 向量检索，自动引入业务知识、测试标准等上下文
+- **分类知识库**：5 大类 18 篇文档（核心业务 / 测试标准 / 配置说明 / 历史问题 / 测试指南）
+- **长文档 Map-Reduce**：超长需求按段拆分生成后合并，避免遗漏
+- **需求图片提取**：从 docx 提取图片并持久化存储，一个需求文档对应一个图片目录
+- **Excel 自动归档**：每次生成的用例同时写入数据库和 Excel 文件
 
-涉及环境变量：`AI_API_KEY`、`AI_BASE_URL`、`AI_MODEL`、`EMBEDDING_MODEL`、`CHROMA_PERSIST_DIR` 等。
+统一目录位于 `backend/app/ai/`，配置方式见 [AI 用例生成配置说明](docs/方案/AI用例生成配置说明.md)。
+
+涉及环境变量：`AI_API_KEY`、`AI_BASE_URL`、`AI_MODEL`、`EMBEDDING_MODEL`、`EMBEDDING_API_KEY`、`CHROMA_PERSIST_DIR` 等。
 
 ### 设备 Agent
 
