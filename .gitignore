@@ -8,6 +8,7 @@ __pycache__/
 .Python
 *.so
 .env
+!.env.example
 .venv
 venv/
 ENV/

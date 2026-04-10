@@ -9,10 +9,10 @@
 ## 1. 环境与配置
 
 - **Python**：3.8+
-- **依赖**：`pymysql`、`werkzeug`（造数脚本密码哈希）、`python-dotenv`（与后端一致，用于读取 `backend/.env`）
+- **依赖**：`pymysql`、`werkzeug`（造数脚本密码哈希）、`python-dotenv`（读取 `backend/.env`）
 - **数据库**：MySQL 5.7+ / 8.x / MariaDB 10.2+，字符集 `utf8mb4`
 
-连接由 `database/config.py` 读取环境变量（`MYSQL_HOST`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_DATABASE` 等），缺省与本地开发一致。存在 `backend/.env` 时会自动加载。
+连接由 `database/config.py` 读取环境变量（`MYSQL_HOST`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_DATABASE` 等），缺省与本地开发一致。存在 `backend/.env` 时会自动加载，配置说明见 [`backend/.env.example`](../backend/.env.example)。
 
 ---
 
@@ -22,12 +22,12 @@
 |------|------|
 | `01_create_database.py` | 创建数据库（若不存在） |
 | `02_drop_database.py` | 删除整个数据库（需确认，慎用） |
-| `03_create_tables.py` | 创建全部数据表（当前约 27 张，结构以脚本内 DDL 为准） |
+| `03_create_tables.py` | 创建全部数据表（当前 30 张，结构以脚本内 DDL 为准） |
 | `04_drop_tables.py` | 删除所有表（需确认，慎用） |
-| `05_insert_test_data.py` | 用户 + 用例与项目管理 + 任务与设备管理 测试数据（项目、迭代、需求、用例库、任务、评审、设备、报告等） |
+| `05_insert_test_data.py` | 用户 + 业务模拟数据（项目、迭代、需求、用例、任务、评审、设备、报告等） |
 | `06_clear_table_data.py` | 清空所有表数据（保留表结构，需确认） |
 | `07_test_connection.py` | 测试数据库连接 |
-| `config.py` | 数据库连接配置 |
+| `config.py` | 数据库连接配置（读 `backend/.env`） |
 | `init_database.py` | 一键初始化（依次执行 01 → 03 → 05） |
 
 `03_create_tables.py` 中 DDL 使用 `CREATE TABLE IF NOT EXISTS`，在**空库**或**重复执行**时不会报错；若需在已有表上强制重建，请先执行 `04_drop_tables.py` 或使用新库。
@@ -76,7 +76,7 @@ python database/03_create_tables.py
 
 ## 4. 数据表一览
 
-`03_create_tables.py` 创建以下 27 张表：
+`03_create_tables.py` 创建以下 30 张表：
 
 | 表名 | 说明 |
 |------|------|
@@ -90,6 +90,9 @@ python database/03_create_tables.py
 | `version_requirements` | 版本需求表 |
 | `test_suites` | 测试套件表（文件夹 + 用例集） |
 | `test_cases` | 测试用例表 |
+| `case_tags` | 用例标签表 |
+| `case_markers` | 用例标记表 |
+| `mindmap_versions` | 脑图版本表 |
 | `task_folders` | 任务文件夹表 |
 | `test_tasks` | 测试任务表（用例执行 + 设备脚本） |
 | `test_case_executions` | 用例执行记录表 |
@@ -141,6 +144,9 @@ users（无依赖）
 │   ├── version_requirements → projects, iterations, users
 │   ├── test_suites → projects, users, version_requirements
 │   │   ├── test_cases → test_suites, projects, users
+│   │   │   ├── case_tags → test_cases, test_suites
+│   │   │   └── case_markers → test_cases, test_suites
+│   │   ├── mindmap_versions → test_suites, users
 │   │   ├── test_suite_review_tasks → test_suites, users
 │   │   │   ├── test_case_review_details → review_tasks, test_cases, users
 │   │   │   └── test_suite_review_history → review_tasks, test_suites, users
@@ -151,6 +157,7 @@ users（无依赖）
 │   │       ├── task_case_snapshots → test_tasks, test_cases
 │   │       ├── test_case_executions → test_tasks, test_cases, users
 │   │       └── reports → test_tasks, users
+├── task_folders → projects, users
 ├── devices → users
 ├── notifications → users
 ├── agents（无外键，本机 Agent 注册）

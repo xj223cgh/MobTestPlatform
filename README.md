@@ -6,7 +6,6 @@
 
 用例 · 评审 · 设备 · 任务 · 报告
 
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![Node.js](https://img.shields.io/badge/node.js-16%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Vue](https://img.shields.io/badge/vue-3.x-4FC08D?logo=vue.js&logoColor=white)](https://vuejs.org/)
@@ -24,13 +23,10 @@
 - [技术栈](#技术栈)
 - [界面预览](#界面预览)
 - [系统架构](#系统架构)
-- [环境要求](#环境要求)
-- [安装与运行](#安装与运行)
+- [快速开始](#快速开始)
 - [配置说明](#配置说明)
 - [目录结构](#目录结构)
 - [接口文档](#接口文档)
-- [相关文档](#相关文档)
-- [许可证](#许可证)
 
 ---
 
@@ -53,7 +49,7 @@
 - 树形 **测试套件 / 用例集** 组织，支持文件夹与用例集类型
 - **脑图** 编辑、版本与回滚，标签、标记等辅助信息
 - 用例 **导入 / 导出**、回收站与批量操作
-- （可选）基于需求文档的 **AI 异步生成用例**，见 [AI 用例生成配置](docs/方案/AI用例生成配置说明.md)
+- （可选）基于需求文档的 **AI 异步生成用例**，配置方法见 [AI 用例生成配置说明](docs/方案/AI用例生成配置说明.md)
 
 ### 用例评审
 
@@ -66,7 +62,7 @@
 - 设备列表、状态与常用 **ADB** 能力（无线调试、指令执行等）
 - **Escrcpy** 等投屏能力（`escrcpy/` 为引用的第三方开源客户端，许可见 `escrcpy/LICENSE`；说明见 [项目文档说明](docs/项目文档/README.md)）
 - 脚本任务、批量与计划任务等与设备侧执行衔接
-- 若部署形态为「平台在服务器、设备接在用户本机」，可在 **设备管理** 相关流程中按 [部署与访问说明](docs/方案/平台访问与Agent流程说明.md) 配置本机 ADB 桥接（`agent/`）
+- 若部署形态为「平台在服务器、设备接在用户本机」，可按 [部署与 Agent 流程说明](docs/方案/平台访问与Agent流程说明.md) 配置本机 ADB 桥接（`agent/`），Agent 使用方法另见 [agent/README.md](agent/README.md)
 
 ### 测试任务与报告
 
@@ -78,7 +74,7 @@
 
 - **项目管理**：项目、迭代、需求、成员与角色  
 - **用户与权限**：会话登录、QQ 邮箱验证码、四级角色 + 功能埋点权限 
-- **消息通知**：站内通知与实时推送
+- **消息通知**：站内通知与实时推送，设计方案见 [消息通知机制设计方案](docs/方案/消息通知机制设计方案.md)
 
 ---
 
@@ -121,11 +117,13 @@
                                                     └─────────┘
 ```
 
-业务主线（用例、评审、任务、报告）数据均经后端读写 MySQL；设备相关指令由后端编排，具体部署与网络见 [部署与访问说明](docs/方案/平台访问与Agent流程说明.md)。
+业务主线（用例、评审、任务、报告）数据均经后端读写 MySQL；设备相关指令由后端编排，具体部署与网络见 [部署与 Agent 流程说明](docs/方案/平台访问与Agent流程说明.md)。
 
 ---
 
-## 环境要求
+## 快速开始
+
+### 环境要求
 
 | 依赖 | 版本 |
 | --- | --- |
@@ -134,30 +132,32 @@
 | npm | 8+ |
 | MySQL | 5.7+ 或 8.x |
 
----
-
-## 安装与运行
+### 安装与运行
 
 ```bash
-# 克隆仓库
+# 1. 克隆仓库
 git clone https://github.com/xj223cgh/MobTestPlatform.git
 cd MobTestPlatform
 
-# Python 依赖
+# 2. 安装后端依赖
 cd backend && pip install -r requirements.txt && cd ..
 
-# 前端依赖
+# 3. 安装前端依赖
 cd frontend && npm install && cd ..
 
-# 数据库（先按需修改 database/config.py）
+# 4. 配置环境变量（见下一节「配置说明」）
+#    复制示例文件并填写实际值
+cp backend/.env.example backend/.env
+
+# 5. 初始化数据库（先确认 .env 中的数据库配置正确）
 python database/init_database.py
-# 可选：演示数据 python database/05_insert_test_data.py
+# 可选：单独插入演示数据 python database/05_insert_test_data.py
 
-# 在 backend/ 下配置 .env（见下一节）
-
-# 启动前后端
+# 6. 启动前后端
 python start.py
 ```
+
+数据库脚本与表结构详见 [database/README.md](database/README.md)。
 
 启动成功后：
 
@@ -167,30 +167,9 @@ python start.py
 | 后端 API | http://localhost:5000/api |
 | 接口文档（Scalar） | http://localhost:5000/api-docs/ |
 
----
+局域网/内网环境访问请参考 [内网访问说明](docs/方案/内网访问说明.md)。
 
-## 配置说明
-
-在 `backend/` 创建 `.env`，最小示例：
-
-```env
-FLASK_ENV=development
-PORT=5000
-
-MYSQL_HOST=localhost
-MYSQL_PORT=3306
-MYSQL_USER=root
-MYSQL_PASSWORD=你的密码
-MYSQL_DATABASE=mobile_test_platform
-
-SECRET_KEY=请改为随机长字符串
-
-SMTP_USER=你的QQ邮箱@qq.com
-SMTP_PASSWORD=SMTP授权码
-```
-
-- **AI 用例生成**（可选）：`AI_API_KEY`、`AI_BASE_URL`、`AI_MODEL` 等 → [AI用例生成配置说明](docs/方案/AI用例生成配置说明.md)  
-- **局域网访问**：→ [内网访问说明](docs/方案/内网访问说明.md)
+### 演示账号
 
 导入演示数据后可使用下列账号（密码均为 `123321`）：
 
@@ -203,22 +182,67 @@ SMTP_PASSWORD=SMTP授权码
 
 ---
 
+## 配置说明
+
+后端通过 `backend/.env` 文件加载环境变量，由 `backend/app/config/config.py` 读取。
+
+> **重要**：`.env` 包含密钥等敏感信息，已在 `.gitignore` 中排除。首次部署请复制示例文件：
+>
+> ```bash
+> cp backend/.env.example backend/.env    # Linux/Mac
+> copy backend\.env.example backend\.env  # Windows
+> ```
+>
+> 然后根据注释填写实际值。完整配置项与说明见 [`backend/.env.example`](backend/.env.example)。
+
+最小必填项：
+
+```env
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASSWORD=你的密码
+MYSQL_DATABASE=mobile_test_platform
+
+SECRET_KEY=请改为随机长字符串
+
+SMTP_USER=你的QQ邮箱@qq.com
+SMTP_PASSWORD=SMTP授权码
+```
+
+### 可选功能配置
+
+| 功能 | 涉及配置项 | 参考文档 |
+| --- | --- | --- |
+| AI 用例生成 | `AI_API_KEY`、`AI_BASE_URL`、`AI_MODEL` 等 | [AI 用例生成配置说明](docs/方案/AI用例生成配置说明.md) |
+| 知识库 RAG | `EMBEDDING_MODEL`、`CHROMA_PERSIST_DIR`、`KNOWLEDGE_TOP_K` | [AI 用例生成配置说明](docs/方案/AI用例生成配置说明.md) |
+| 图片识别 | `AI_VISION_MODEL`、`AI_VISION_MAX_IMAGES` | `.env.example` 中的注释说明 |
+| 设备 Agent | `AGENT_PLATFORM_BASE_URL`、`AGENT_EXE_PATH` | [部署与 Agent 流程说明](docs/方案/平台访问与Agent流程说明.md) |
+| 邮件通知 | `SMTP_USER`、`SMTP_PASSWORD` 等 | `.env.example` 中的注释说明 |
+| 局域网访问 | `CORS_ORIGINS` | [内网访问说明](docs/方案/内网访问说明.md) |
+
+---
+
 ## 目录结构
 
 ```
 MobTestPlatform/
 ├── backend/          # Flask 后端（REST、Socket.IO、定时任务）
+│   ├── .env.example  # 环境变量示例（复制为 .env 后填写实际值）
+│   └── app/          # 应用代码（routes/models/services/utils/config）
 ├── frontend/         # Vue 3 + Vite + Element Plus
-├── database/         # MySQL 初始化与维护脚本
+├── database/         # MySQL 初始化与维护脚本（30 张表）
 ├── agent/            # 设备管理：跨机场景下本机 ADB 桥接（可选）
-├── escrcpy/          # 投屏相关（Electron）
-├── docs/             # 方案、论文、截图；索引见 docs/项目文档/README.md
+├── escrcpy/          # 投屏相关（Electron，第三方开源组件）
+├── docs/             # 方案、论文、截图
+│   ├── 方案/         # 部署、AI、内网、消息通知、脑图协作等设计文档
+│   ├── 项目文档/     # 文档索引、功能地图、API 说明
+│   └── images/       # 界面截图
 ├── start.py          # 本地同时启动前后端
-├── LICENSE
 └── README.md
 ```
 
-后端路由位于 `backend/app/routes/`，模型在 `backend/app/models/models.py`；统一 JSON 响应见 `backend/app/utils/helpers.py`。数据库表说明见 [database/README.md](database/README.md)。
+后端路由位于 `backend/app/routes/`，模型在 `backend/app/models/models.py`；统一 JSON 响应见 `backend/app/utils/helpers.py`。
 
 ---
 
@@ -233,18 +257,15 @@ MobTestPlatform/
 
 ---
 
-## 相关文档
+## 更多文档
 
 | 文档 | 说明 |
 | --- | --- |
-| [docs/项目文档/README.md](docs/项目文档/README.md) | 文档索引、接口入口、第三方组件说明 |
-| [database/README.md](database/README.md) | 数据库脚本与表说明 |
+| [docs/项目文档/README.md](docs/项目文档/README.md) | 文档索引、功能地图、第三方组件说明 |
+| [database/README.md](database/README.md) | 数据库脚本与 30 张表说明 |
+| [agent/README.md](agent/README.md) | 本机 Agent 使用、清理与打包 |
 | [docs/方案/平台访问与Agent流程说明.md](docs/方案/平台访问与Agent流程说明.md) | 部署、网络、多用户及设备跨机说明 |
 | [docs/方案/AI用例生成配置说明.md](docs/方案/AI用例生成配置说明.md) | AI 环境变量与流程（可选） |
 | [docs/方案/内网访问说明.md](docs/方案/内网访问说明.md) | 局域网与防火墙 |
-
----
-
-## 许可证
-
-[MIT License](LICENSE)
+| [docs/方案/消息通知机制设计方案.md](docs/方案/消息通知机制设计方案.md) | 消息中心与 WebSocket 推送设计 |
+| [docs/方案/脑图多人协作设计方案.md](docs/方案/脑图多人协作设计方案.md) | 脑图版本与冲突处理策略 |

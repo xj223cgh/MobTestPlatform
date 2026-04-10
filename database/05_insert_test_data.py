@@ -1213,16 +1213,18 @@ def insert_test_data():
             print("开始清空现有数据...")
             cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
             tables = [
-                'reports', 'user_settings', 'system_settings',
-                'version_requirements', 'test_cases', 'test_tasks',
-                'task_folders',
-                'iterations', 'project_members', 'projects',
-                'devices', 'test_suites', 'test_case_review_details',
+                'reports', 'notifications', 'user_settings', 'system_settings',
                 'test_case_review_history', 'test_suite_review_history',
-                'test_suite_review_tasks', 'task_case_snapshots',
-                'task_case_relation', 'task_device_relation', 'test_case_executions',
-                'case_tags', 'case_markers',
-                'users'
+                'test_case_review_details', 'test_suite_review_tasks',
+                'task_case_snapshots', 'task_device_relation',
+                'task_case_relation', 'test_case_executions',
+                'test_tasks', 'task_folders',
+                'case_tags', 'case_markers', 'test_cases',
+                'mindmap_versions', 'test_suites',
+                'version_requirements', 'iterations',
+                'project_members', 'projects', 'devices',
+                'agent_binding_codes', 'user_agent_bindings', 'agents',
+                'role_permissions', 'email_verify_codes', 'users',
             ]
             for table in tables:
                 cursor.execute(f"TRUNCATE TABLE {table}")
