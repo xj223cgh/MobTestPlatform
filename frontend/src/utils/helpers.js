@@ -1,5 +1,10 @@
 /** 通用工具函数：日期格式化、深拷贝、防抖节流。 */
 import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
+import "dayjs/locale/zh-cn";
+
+dayjs.extend(relativeTime);
+dayjs.locale("zh-cn");
 
 /**
  * 格式化日期时间

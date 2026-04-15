@@ -25,7 +25,7 @@ _ai_config_cache = {}
 _ai_config_mtime = 0.0
 
 def load_ai_config() -> dict:
-    """Load ai_config.yaml with mtime-based caching."""
+    """加载 ai_config.yaml 配置，基于文件修改时间做缓存。"""
     global _ai_config_cache, _ai_config_mtime
     config_path = Path(__file__).resolve().parent.parent / 'ai' / 'ai_config.yaml'
     if not config_path.exists():
@@ -48,14 +48,14 @@ _AI_WORKSPACE = Path(__file__).resolve().parent.parent / 'ai' / 'workspace'
 
 
 def _sanitize_filename(name: str, max_len: int = 50) -> str:
-    """Remove characters that are unsafe for filenames."""
+    """移除文件名中的不安全字符，截断到 max_len 长度。"""
     unsafe = r'<>:"/\|?*'
     clean = ''.join(c for c in name if c not in unsafe).strip()
     return clean[:max_len] or 'unnamed'
 
 
 def _save_requirement_document(document_content: str, folder_name: str):
-    """Save the original requirement document to ai/workspace/requirements/original/."""
+    """将原始需求文档保存到 ai/workspace/requirements/original/ 目录。"""
     try:
         req_dir = _AI_WORKSPACE / 'requirements' / 'original'
         req_dir.mkdir(parents=True, exist_ok=True)
@@ -69,7 +69,7 @@ def _save_requirement_document(document_content: str, folder_name: str):
 
 
 def _build_requirement_folder_name(suite_name: str, project_name: str = '') -> str:
-    """Generate a consistent folder/file name prefix for one requirement generation session."""
+    """生成需求文件夹名前缀（项目_用例集_时间戳），确保每次生成会话唯一。"""
     project_part = _sanitize_filename(project_name, 20) if project_name else 'project'
     suite_part = _sanitize_filename(suite_name, 30)
     ts = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -81,10 +81,7 @@ def _save_requirement_images(
     docx_content: bytes | None,
     folder_name: str,
 ) -> str | None:
-    """Save all extracted images (uploaded + docx embedded) into a per-requirement subdirectory.
-
-    Directory: ai/workspace/requirements/images/{folder_name}/
-    """
+    """将所有图片（用户上传 + docx 内嵌）保存到 ai/workspace/requirements/images/{folder_name}/ 目录。"""
     all_images: list[tuple[str, bytes]] = []
 
     for img in (uploaded_images or []):
@@ -121,7 +118,7 @@ def _save_requirement_images(
 
 
 def _save_generated_cases_excel(saved_cases: list, suite_name: str, project_name: str = ''):
-    """Save generated test cases as an Excel file via ai/excel_exporter."""
+    """将 AI 生成的用例导出为 Excel 文件，保存到 workspace/outputs/excel/ 目录。"""
     try:
         from app.ai.excel_exporter import export_cases_to_excel
         output_dir = _AI_WORKSPACE / 'outputs' / 'excel'
@@ -139,7 +136,7 @@ def _save_generated_cases_excel(saved_cases: list, suite_name: str, project_name
 # ---------------------------------------------------------------------------
 
 def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id: str):
-    """在后台线程中调用 AI 生成测试用例并持久化。"""
+    """在后台线程中调用 AI 生成测试用例并持久化。支持单次生成和 Map-Reduce 长文档分段生成。"""
     app = params.pop('_app', None)
     if not app:
         raise RuntimeError("缺少应用上下文，无法在后台执行任务")
@@ -323,7 +320,7 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
 # ---------------------------------------------------------------------------
 
 def _retrieve_knowledge_context(document_content: str) -> str:
-    """Retrieve relevant knowledge base context using ai_config.yaml retrieval settings."""
+    """从知识库检索与需求文档相关的背景知识，参数取自 ai_config.yaml 中的 retrieval 配置。"""
     try:
         from app.services.knowledge_service import search
         if not document_content or not document_content.strip():
@@ -364,7 +361,7 @@ _SUPPORTED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'}
 
 
 def _extract_images_from_docx(file_content: bytes) -> list:
-    """Extract embedded images from a .docx file as (filename, bytes) tuples."""
+    """从 .docx 文件中提取内嵌图片，返回 (filename, bytes) 元组列表。"""
     try:
         from docx import Document
         import io
@@ -383,7 +380,7 @@ def _extract_images_from_docx(file_content: bytes) -> list:
 
 
 def _recognize_image_via_vision_api(image_bytes: bytes, image_filename: str, ai_config: dict) -> str:
-    """Call a vision-language model to describe the content of an image."""
+    """调用视觉大模型识别图片内容（用于提取需求图片中的文字与关键信息）。"""
     _ensure_env_loaded()
     vision_model = (os.getenv('AI_VISION_MODEL') or '').strip()
     if not vision_model:
@@ -426,7 +423,7 @@ def _recognize_image_via_vision_api(image_bytes: bytes, image_filename: str, ai_
 
 
 def _process_uploaded_images(image_files: list, ai_config: dict) -> str:
-    """Process uploaded image files through vision API, return combined text."""
+    """将用户上传的图片逐张调用视觉 API 识别，返回拼合后的文本。"""
     if not image_files:
         return ''
     parts = []
@@ -442,7 +439,7 @@ def _process_uploaded_images(image_files: list, ai_config: dict) -> str:
 
 
 def _extract_and_recognize_docx_images(docx_content: bytes, ai_config: dict) -> str:
-    """Extract images from .docx and recognize them via vision API."""
+    """从 .docx 中提取图片并调用视觉 API 识别，返回拼合后的文本。"""
     images = _extract_images_from_docx(docx_content)
     if not images:
         return ''
@@ -466,7 +463,7 @@ def _extract_and_recognize_docx_images(docx_content: bytes, ai_config: dict) -> 
 # ---------------------------------------------------------------------------
 
 def _generate_cases_from_document(document_content, knowledge_context, ai_config, task_manager, task_id):
-    """Generate test cases; auto-switches to Map-Reduce for long documents."""
+    """生成测试用例；文档超过阈值时自动切换为 Map-Reduce 分段生成。"""
     doc_cfg = load_ai_config().get('document_processing', {})
     map_reduce_threshold = doc_cfg.get('map_reduce_threshold', 3000)
     doc_len = len(document_content or '')
@@ -491,7 +488,7 @@ def _generate_cases_from_document(document_content, knowledge_context, ai_config
 
 
 def _generate_map_reduce(document_content, knowledge_context, ai_config, task_manager, task_id):
-    """Map-Reduce: split document → generate per chunk → merge & deduplicate."""
+    """Map-Reduce 模式：拆分文档 → 逐段生成用例 → 合并去重。"""
     from app.utils.doc_chunker import split_document, extract_summary
     from app.utils.prompt_loader import render_prompt
 
@@ -559,7 +556,7 @@ def _generate_map_reduce(document_content, knowledge_context, ai_config, task_ma
 
 
 def _deduplicate_cases(cases: list, threshold: float = 0.85) -> list:
-    """Remove near-duplicate cases by case_name similarity."""
+    """按用例名称相似度去重，阈值 ≥ threshold 视为重复。"""
     from difflib import SequenceMatcher
     result = []
     for case in cases:
@@ -575,7 +572,7 @@ def _deduplicate_cases(cases: list, threshold: float = 0.85) -> list:
 
 def _build_chunk_fallback_prompt(chunk, chunk_index, total_chunks, summary,
                                  knowledge_context, suggested_min, suggested_max):
-    """Fallback prompt when chunk template is missing."""
+    """分段模板缺失时的回退提示词构建。"""
     parts = [f"你是一名专业测试工程师。以下是需求文档的第 {chunk_index}/{total_chunks} 部分。"]
     parts.append(f"\n【文档总览】\n{summary}")
     if knowledge_context:
@@ -613,7 +610,7 @@ _MAX_RETRIES = 1
 
 
 def _call_and_parse_with_retry(prompt: str, ai_config: dict, max_tokens: int) -> list:
-    """Call AI API and parse; on JSON parse failure, retry once."""
+    """调用 AI API 并解析返回的 JSON；若解析失败则重试一次。"""
     last_error = None
     for attempt in range(_MAX_RETRIES + 1):
         try:
@@ -641,7 +638,7 @@ _PRIORITY_MAP = {
 
 
 def _validate_and_fix_case(case: dict) -> dict:
-    """Validate and fix a single test case dict: normalize priority, fill missing fields."""
+    """校验并修正单条用例：规范化优先级、填充缺失字段、将列表值转为换行文本。"""
     priority = (case.get('priority') or 'P1').strip()
     if priority not in _VALID_PRIORITIES:
         priority = _PRIORITY_MAP.get(priority.lower(), _PRIORITY_MAP.get(priority, 'P1'))
@@ -700,7 +697,7 @@ def build_test_case_prompt(params: dict, document_content: str, knowledge_contex
 
 
 def _build_fallback_prompt(doc_content: str, suggested_count: int, knowledge_context: str = '') -> str:
-    """Hardcoded fallback prompt when template is unavailable."""
+    """模板不可用时的硬编码回退提示词。"""
     knowledge_block = ''
     if knowledge_context:
         knowledge_block = f"""
@@ -912,12 +909,14 @@ _ZH2EN = {
 
 
 def _english_word_initials(english_phrase: str) -> str:
+    """提取英文短语每个单词的首字母大写拼接（如 "Test Case" → "TC"）。"""
     if not english_phrase or not english_phrase.strip():
         return ""
     return "".join(w[0].upper() for w in english_phrase.strip().split() if w and w[0].isalpha())
 
 
 def _chinese_char_to_pinyin_initial(char: str) -> str:
+    """将单个中文字符转为拼音首字母大写，需 pypinyin 库支持。"""
     if not char or not ("\u4e00" <= char <= "\u9fff"):
         return ""
     try:
@@ -931,6 +930,7 @@ def _chinese_char_to_pinyin_initial(char: str) -> str:
 
 
 def _name_to_english_abbrev(name: str, max_len: int = 3) -> str:
+    """将中英文混合名称转为英文缩写（中文先查词典再取拼音首字母），用于用例编号前缀。"""
     if not name or not str(name).strip():
         return ""
     name = str(name).strip()
@@ -971,6 +971,7 @@ def _name_to_english_abbrev(name: str, max_len: int = 3) -> str:
 
 
 def generate_case_number_prefix(suite, params: dict) -> str:
+    """生成用例编号前缀：项目缩写-版本号-需求缩写（如 MTP-1.0.0-REQ）。"""
     import re
     project_name = params.get("projectName") or (suite.project.project_name if suite.project else "") or "PROJ"
     iteration_name = params.get("iterationName") or (suite.iteration.iteration_name if suite.iteration else "") or "1.0.0"
@@ -985,6 +986,7 @@ def generate_case_number_prefix(suite, params: dict) -> str:
 
 
 def get_max_case_index(suite_id: int) -> int:
+    """查询用例集中已有用例编号的最大序号（末尾 3 位数字），用于自动递增编号。"""
     import re
     try:
         cases = TestCase.query.filter_by(suite_id=suite_id).all()

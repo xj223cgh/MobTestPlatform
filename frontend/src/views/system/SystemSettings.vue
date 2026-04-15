@@ -242,6 +242,7 @@
 </template>
 
 <script setup>
+// 系统设置页：个人设置（通知偏好）+ 系统设置（名称/Logo/主题/时区/分页数），管理员可修改系统级配置
 import { ref, reactive, computed, onMounted, watch, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";

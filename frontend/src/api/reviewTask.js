@@ -1,6 +1,8 @@
 /** 用例评审 API：发起、审批、历史。 */
 import request from "@/utils/request";
 
+// ---------- 发起与完成 ----------
+
 export const initiateReview = (suiteId, data) => {
   return request({
     url: `/review-tasks/test-suites/${suiteId}/initiate-review`,
@@ -38,6 +40,8 @@ export const getCaseReviews = (taskId) => {
     method: "get",
   });
 };
+
+// ---------- 评审中心（我的任务 / 我发起的） ----------
 
 export const getMyReviewTasks = (params) => {
   return request({
@@ -83,6 +87,8 @@ export const restartReview = (taskId) => {
     method: "post",
   });
 };
+
+// ---------- 评审历史 ----------
 
 export const getRecentReviewHistory = (params) => {
   return request({

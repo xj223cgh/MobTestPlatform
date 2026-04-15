@@ -15,7 +15,7 @@ from app.utils.helpers import (
 )
 from app.utils.task_manager import task_manager, TaskStatus
 
-bp = Blueprint('test_tasks', __name__, url_prefix='/api/test-tasks')
+bp = Blueprint('test_tasks', __name__)
 
 _LOCAL_TZ = timezone(timedelta(hours=8))
 

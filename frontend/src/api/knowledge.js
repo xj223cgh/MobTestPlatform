@@ -1,4 +1,4 @@
-/** Knowledge base API: document upload, list, delete, search. */
+/** 知识库 API：文档上传、列表、删除、检索。 */
 import request from '@/utils/request'
 
 export const uploadKnowledgeDocument = (formData) => {

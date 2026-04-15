@@ -261,6 +261,7 @@
 </template>
 
 <script setup>
+// 设备详情页：基本信息、截图、应用列表、日志、性能监控、远程 ADB 命令执行
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";

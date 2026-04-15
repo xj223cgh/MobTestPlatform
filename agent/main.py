@@ -363,6 +363,18 @@ def start_bind_server_thread(base_url, agent_token):
     t.start()
 
 
+def _ensure_adb_server(adb_path):
+    """用 Agent 内置的 ADB 接管 server，避免与用户本地不同版本冲突。"""
+    try:
+        subprocess.run([adb_path, 'kill-server'], capture_output=True, timeout=5)
+    except Exception:
+        pass
+    try:
+        subprocess.run([adb_path, 'start-server'], capture_output=True, timeout=10)
+    except Exception:
+        pass
+
+
 def run_agent(base_url, agent_uid, token):
     if not socketio:
         raise RuntimeError('需要安装 python-socketio[client]: pip install "python-socketio[client]"')
@@ -370,6 +382,7 @@ def run_agent(base_url, agent_uid, token):
     start_bind_server_thread(base_url, token)
 
     adb_path = find_adb()
+    _ensure_adb_server(adb_path)
     scrcpy_path = find_scrcpy()
     ws_url = base_url.rstrip('/').replace('http://', 'ws://').replace('https://', 'wss://')
 

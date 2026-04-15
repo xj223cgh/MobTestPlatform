@@ -440,6 +440,7 @@
 </template>
 
 <script setup>
+// 项目详情页：基本信息、链接、描述，以及用例执行 / 迭代 / 需求三维饼图统计
 import { ref, reactive, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";

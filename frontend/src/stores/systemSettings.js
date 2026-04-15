@@ -40,6 +40,7 @@ export const useSystemSettingsStore = defineStore("systemSettings", () => {
     }
   };
 
+  /** 由系统设置页保存后同步更新 store，入参字段为驼峰（前端侧） */
   const setFromSettings = (basicSettings) => {
     if (basicSettings.systemName != null) systemName.value = basicSettings.systemName;
     if (basicSettings.systemDescription != null) systemDescription.value = basicSettings.systemDescription;
@@ -52,6 +53,7 @@ export const useSystemSettingsStore = defineStore("systemSettings", () => {
     }
   };
 
+  /** 侧边栏折叠时显示的简短标题（取系统名称前两个字） */
   const shortTitle = computed(() => {
     const name = systemName.value || DEFAULT_NAME;
     if (name.length <= 2) return name;

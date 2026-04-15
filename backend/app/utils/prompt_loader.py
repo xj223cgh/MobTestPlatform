@@ -1,4 +1,4 @@
-"""Prompt template loader: YAML config + Jinja2 rendering with mtime-based hot-reload."""
+"""提示词模板加载器：从 YAML 读取配置，使用 Jinja2 渲染，支持基于文件修改时间的热加载。"""
 from pathlib import Path
 
 _PROMPTS_DIR = Path(__file__).resolve().parent.parent / 'ai' / 'prompts'
@@ -14,6 +14,7 @@ _DEFAULT_SYSTEM = (
 
 
 def _load_yaml(filename: str) -> dict:
+    """加载 YAML 文件，基于修改时间缓存避免重复解析。"""
     filepath = _PROMPTS_DIR / filename
     if not filepath.exists():
         return {}
@@ -29,13 +30,13 @@ def _load_yaml(filename: str) -> dict:
 
 
 def load_system_prompt(filename: str = 'system.yaml') -> str:
-    """Load system role prompt; falls back to built-in default if file is missing."""
+    """加载系统角色提示词；文件缺失时使用内置默认值。"""
     data = _load_yaml(filename)
     return data.get('content', '').strip() or _DEFAULT_SYSTEM
 
 
 def render_prompt(filename: str, **kwargs) -> str:
-    """Load a Jinja2 prompt template from YAML and render with *kwargs*."""
+    """从 YAML 加载 Jinja2 模板并用 kwargs 渲染为最终提示词。"""
     data = _load_yaml(filename)
     template_str = data.get('template', '')
     if not template_str:

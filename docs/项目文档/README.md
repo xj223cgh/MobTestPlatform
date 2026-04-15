@@ -4,6 +4,17 @@
 
 ---
 
+## 技术栈
+
+| 层 | 技术 |
+|----|------|
+| 前端 | Vue 3 + Element Plus + Vite + Pinia + Axios + ECharts + Socket.IO Client + simple-mind-map |
+| 后端 | Flask + Flask-SQLAlchemy + Flask-Login + Flask-SocketIO + APScheduler + PyMySQL |
+| 数据库 | MySQL 5.7+（utf8mb4），30 张表 |
+| Agent | Python Socket.IO 客户端，打包为 MobTestAgent.exe |
+
+---
+
 ## 环境变量与配置
 
 后端配置通过 `backend/.env` 加载，首次部署请复制示例文件并填写实际值：
@@ -63,10 +74,10 @@ cp backend/.env.example backend/.env
 
 | 文档 | 说明 |
 |------|------|
-| [平台访问与Agent流程说明.md](../方案/平台访问与Agent流程说明.md) | 服务器部署、多用户访问、Agent 绑定与设备列表来源 |
+| [平台访问与Agent流程说明.md](../方案/平台访问与Agent流程说明.md) | 服务器部署、多用户访问、Agent 注册绑定与设备列表来源 |
 | [内网访问说明.md](../方案/内网访问说明.md) | 局域网访问与防火墙 |
-| [AI用例生成配置说明.md](../方案/AI用例生成配置说明.md) | AI 异步生成用例与环境变量（可选） |
-| [AI测试用例生成方案说明.md](../方案/AI测试用例生成方案说明.md) | AI 测试用例生成技术方案与架构设计 |
+| [AI用例生成配置说明.md](../方案/AI用例生成配置说明.md) | AI 异步生成用例、环境变量与知识库配置（可选） |
+| [AI测试用例生成方案说明.md](../方案/AI测试用例生成方案说明.md) | AI 测试用例生成质量策略与架构说明 |
 | [消息通知机制设计方案.md](../方案/消息通知机制设计方案.md) | 消息中心、持久化与 WebSocket 推送设计 |
 | [脑图多人协作设计方案.md](../方案/脑图多人协作设计方案.md) | 脑图版本与冲突处理策略 |
 | [ws-scrcpy实现计划.md](../方案/ws-scrcpy实现计划.md) | 浏览器内投屏集成规划（第三方组件） |

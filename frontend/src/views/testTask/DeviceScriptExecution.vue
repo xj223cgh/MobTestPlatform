@@ -95,6 +95,7 @@
 </template>
 
 <script setup>
+// 设备脚本执行页：后端异步执行脚本任务，前端轮询进度与终端日志，完成后可生成测试报告
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";

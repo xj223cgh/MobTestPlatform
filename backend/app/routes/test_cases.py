@@ -8,7 +8,7 @@ from app.utils.helpers import (
     validate_json_data
 )
 
-bp = Blueprint('test_cases', __name__, url_prefix='/api/test-cases')
+bp = Blueprint('test_cases', __name__)
 
 
 @bp.route('', methods=['GET'])

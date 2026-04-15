@@ -300,6 +300,7 @@ echarts.use([
   TransformComponent,
 ]);
 
+// 迭代详情页：展示基本信息、日期持续天数、需求状态柱状图统计
 export default {
   name: "IterationDetail",
   components: {

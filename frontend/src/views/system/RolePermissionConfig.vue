@@ -90,6 +90,7 @@
 </template>
 
 <script setup>
+// 角色权限配置页：按角色（超级管理员/管理员/测试人员）勾选功能权限，保存后即时生效
 import { ref, reactive, computed, onMounted } from "vue";
 import { ElMessage } from "element-plus";
 import { getPermissionGroups, getRolePermissions, updateRolePermissions } from "@/api/role";

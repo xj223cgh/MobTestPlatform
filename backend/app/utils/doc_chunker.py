@@ -1,10 +1,10 @@
-"""Document chunking utilities for Map-Reduce test case generation."""
+"""文档分块工具：用于 Map-Reduce 分段生成测试用例时的需求文档拆分。"""
 import re
 from typing import List
 
 
 def extract_summary(text: str, max_length: int = 300) -> str:
-    """Extract a lightweight summary: heading structure + opening paragraph."""
+    """提取文档摘要：标题结构 + 开头段落，供分段生成时作为全局上下文。"""
     lines = text.strip().splitlines()
     headings = []
     first_para: List[str] = []
@@ -30,7 +30,7 @@ def extract_summary(text: str, max_length: int = 300) -> str:
 
 
 def split_document(text: str, max_chunk_size: int = 2000, overlap: int = 200) -> List[str]:
-    """Split document into semantic chunks by headings, then by paragraph size."""
+    """将文档按标题拆分为语义段落，超长段落再按字数二次拆分，相邻段落保留 overlap 字符重叠。"""
     text = (text or '').strip()
     if not text:
         return []
@@ -57,11 +57,13 @@ def split_document(text: str, max_chunk_size: int = 2000, overlap: int = 200) ->
 
 
 def _split_by_headings(text: str) -> List[str]:
+    """按 Markdown 标题（# ~ ###）拆分文档为多个段落。"""
     parts = re.split(r'(?=^#{1,3}\s+)', text, flags=re.MULTILINE)
     return [p.strip() for p in parts if p.strip()]
 
 
 def _split_by_size(text: str, max_size: int) -> List[str]:
+    """按段落累积字数拆分超长文本，确保每块不超过 max_size。"""
     paragraphs = re.split(r'\n\s*\n', text)
     chunks: List[str] = []
     current: List[str] = []

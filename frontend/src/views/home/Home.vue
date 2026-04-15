@@ -262,6 +262,7 @@
 </template>
 
 <script setup>
+// 首页仪表盘：展示项目/用例/任务/设备统计卡片、ECharts 图表（趋势、设备/任务状态分布）、最近活动时间线
 import { ref, reactive, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { use } from "echarts/core";

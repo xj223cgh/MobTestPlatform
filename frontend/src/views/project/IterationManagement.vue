@@ -330,6 +330,7 @@ import { getProjects } from "@/api/project";
 import { isPermissionError } from "@/utils/request";
 import { ElLoading, ElMessage, ElMessageBox } from "element-plus";
 
+// 迭代管理页：按项目筛选迭代，时间线卡片布局，支持 CRUD、消息跳转高亮闪烁、日期范围约束在项目周期内
 export default {
   name: "IterationManagement",
   data() {

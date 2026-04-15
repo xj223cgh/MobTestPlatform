@@ -15,6 +15,7 @@
 </template>
 
 <script setup>
+// QQ 邮箱输入组件：左侧输入 QQ 号，右侧固定 @qq.com 后缀，v-model 绑定纯 QQ 号部分
 import { computed } from "vue";
 
 const props = defineProps({

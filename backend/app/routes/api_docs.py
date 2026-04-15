@@ -62,7 +62,7 @@ def _tag_label(tag_key: str) -> str:
 
 
 def _endpoint_summary(app, endpoint: str) -> str:
-    """优先使用视图函数 docstring 首行中文说明，否则退回端点名。"""
+    """提取视图函数 docstring 首行作为接口摘要，无则退回端点名。"""
     view = app.view_functions.get(endpoint)
     if view is None:
         return endpoint
@@ -305,10 +305,12 @@ _SCALAR_PAGE_TEMPLATE = """<!DOCTYPE html>
 
 
 def _rule_to_openapi_path(rule: str) -> str:
+    """将 Flask URL 规则（如 <int:id>）转为 OpenAPI 路径参数格式（如 {id}）。"""
     return _FLASK_VAR.sub(r"{\1}", rule)
 
 
 def _tag_from_path(path: str) -> str:
+    """从 URL 路径中提取第二段作为 tag 分组键（如 /api/users/... → users）。"""
     parts = [p for p in path.split("/") if p]
     if len(parts) >= 2 and parts[0] == "api":
         return parts[1].replace("-", " ")
@@ -316,6 +318,7 @@ def _tag_from_path(path: str) -> str:
 
 
 def _sort_tags_by_module(tag_names: Set[str]) -> List[str]:
+    """按预定义模块顺序排列 tag，未知 tag 追加在末尾。"""
     order = {name: i for i, name in enumerate(_TAG_ORDER)}
     known = [t for t in _TAG_ORDER if t in tag_names]
     rest = sorted(t for t in tag_names if t not in order)
@@ -339,6 +342,7 @@ def _paths_ordered_by_module(paths: Dict) -> Dict:
 
 
 def build_openapi_spec(app):
+    """遍历 Flask 路由自动生成 OpenAPI 3.0 规范文档（JSON）。"""
     paths = {}
     for rule in app.url_map.iter_rules():
         if rule.endpoint == "static":
@@ -410,10 +414,12 @@ def build_openapi_spec(app):
 
 @bp.route("/")
 def api_reference_page():
+    """渲染 Scalar 交互式 API 文档页面"""
     html = _SCALAR_PAGE_TEMPLATE.replace("__SCALAR_CDN__", _SCALAR_CDN)
     return Response(html, mimetype="text/html; charset=utf-8")
 
 
 @bp.route("/openapi.json")
 def openapi_json():
+    """返回自动生成的 OpenAPI JSON 规范"""
     return jsonify(build_openapi_spec(current_app))

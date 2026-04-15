@@ -40,15 +40,15 @@
 
 ```bash
 # 在项目根目录执行
+python database/init_database.py
+```
+
+或分步执行：
+
+```bash
 python database/01_create_database.py
 python database/03_create_tables.py
 python database/05_insert_test_data.py
-```
-
-或使用一键初始化：
-
-```bash
-python database/init_database.py
 ```
 
 ### 仅重新造数（表已存在）

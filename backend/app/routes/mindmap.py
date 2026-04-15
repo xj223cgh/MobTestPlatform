@@ -258,6 +258,7 @@ def update_edit_status(suite_id):
 @bp.route('/tags/<int:project_id>', methods=['GET'])
 @login_required
 def get_tags(project_id):
+    """获取指定项目的用例标签列表"""
     tags = CaseTag.query.filter_by(project_id=project_id).all()
     return success_response([t.to_dict() for t in tags])
 
@@ -265,6 +266,7 @@ def get_tags(project_id):
 @bp.route('/tags', methods=['POST'])
 @login_required
 def create_tag():
+    """创建用例标签"""
     data = request.get_json()
     tag = CaseTag(
         tag_name=data['tag_name'],
@@ -280,6 +282,7 @@ def create_tag():
 @bp.route('/tags/<int:tag_id>', methods=['DELETE'])
 @login_required
 def delete_tag(tag_id):
+    """删除用例标签"""
     tag = CaseTag.query.get_or_404(tag_id)
     db.session.delete(tag)
     db.session.commit()
@@ -289,6 +292,7 @@ def delete_tag(tag_id):
 @bp.route('/markers/<int:project_id>', methods=['GET'])
 @login_required
 def get_markers(project_id):
+    """获取指定项目的用例标记列表（首次访问时自动初始化系统标记）"""
     markers = CaseMarker.query.filter_by(project_id=project_id).all()
     if not markers:
         _init_system_markers(project_id)
@@ -299,6 +303,7 @@ def get_markers(project_id):
 @bp.route('/markers', methods=['POST'])
 @login_required
 def create_marker():
+    """创建自定义用例标记"""
     data = request.get_json()
     marker = CaseMarker(
         marker_name=data['marker_name'],
@@ -314,6 +319,7 @@ def create_marker():
 @bp.route('/markers/<int:marker_id>', methods=['DELETE'])
 @login_required
 def delete_marker(marker_id):
+    """删除自定义标记（系统标记不可删除）"""
     marker = CaseMarker.query.get_or_404(marker_id)
     if marker.marker_type == 'system':
         return error_response(400, '系统标记不能删除')
@@ -499,6 +505,7 @@ def _extract_case_no_title(prec_node, group_path):
 
 
 def _find_child_by_attr(node, attribute):
+    """在节点的直接子节点中查找指定 attribute 的第一个子节点。"""
     for child in node.get('children', []):
         if child.get('attribute') == attribute:
             return child

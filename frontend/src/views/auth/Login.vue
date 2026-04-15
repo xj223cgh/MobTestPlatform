@@ -256,6 +256,7 @@
 </template>
 
 <script setup>
+// 登录 / 注册页：支持密码登录与 QQ 邮箱验证码登录，包含记住密码、用户协议与隐私政策弹窗
 import { ref, reactive, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";

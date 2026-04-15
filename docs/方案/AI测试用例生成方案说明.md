@@ -68,12 +68,14 @@
 app/ai/
 ├── ai_config.yaml              ← 中央配置：角色、检索策略、质量标准、文档处理参数
 ├── knowledge/docs/             ← 分类知识文档（5 类 18 篇），用于 RAG 增强
-├── knowledge/chroma_data/      ← ChromaDB 向量数据库
+├── knowledge/chroma_data/      ← ChromaDB 向量数据库（Embedding 向量检索）
 ├── prompts/                    ← Jinja2 提示词模板（system / generate_cases / chunk）
 ├── workspace/requirements/     ← 原始/转换后的需求文档自动存放
 ├── workspace/outputs/excel/    ← 每次生成的用例 Excel 自动导出
 └── excel_exporter.py           ← Excel 导出工具
 ```
+
+生成完成后，需求文档会自动存入知识库（非调试模式），持续丰富 RAG 上下文。
 
 ### 3.3 提示词结构
 

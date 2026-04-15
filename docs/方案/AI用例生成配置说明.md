@@ -2,7 +2,7 @@
 
 ## 功能概述
 
-在用例管理中**异步生成**测试用例：前端提交需求文档文本 → 后端后台线程调用 **OpenAI 兼容 Chat Completions API** → 检索知识库（RAG）→ 解析 JSON 结果写库 → 自动导出 Excel → 前端约每 **3 秒**轮询任务状态。API Key 仅在后端配置，不暴露给浏览器。
+在用例管理中**异步生成**测试用例：前端提交需求文档文本 → 后端后台线程调用 **OpenAI 兼容 Chat Completions API** → 检索知识库（RAG）→ 解析 JSON 结果写库 → 自动导出 Excel → 需求文档存入知识库 → 前端约每 **3 秒**轮询任务状态。API Key 仅在后端配置，不暴露给浏览器。
 
 ---
 
@@ -88,12 +88,13 @@ backend/app/ai/
 
 | 变量 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
-| `AI_API_KEY` | 是 | — | 服务商密钥 |
+| `AI_API_KEY` | 是 | — | 服务商密钥（Chat Completions） |
 | `AI_BASE_URL` | 否 | `https://api.siliconflow.cn/v1` | OpenAI 兼容接口根地址 |
 | `AI_MODEL` | 否 | `Qwen/Qwen2.5-7B-Instruct` | 模型名，按服务商文档填写 |
 | `AI_TEMPERATURE` | 否 | `0.3` | 0～2，越高越发散；测例场景建议 0.2～0.5 |
 | `AI_MAX_TOKENS` | 否 | `4096` | 见下方「Token 配置说明」 |
 | `EMBEDDING_MODEL` | 否 | `BAAI/bge-large-zh-v1.5` | 知识库向量化模型（不配置则跳过 RAG） |
+| `EMBEDDING_API_KEY` | 否 | — | Embedding 服务密钥（与 AI_API_KEY 不同服务商时需单独配置） |
 | `CHROMA_PERSIST_DIR` | 否 | `./app/ai/knowledge/chroma_data` | ChromaDB 持久化目录 |
 | `KNOWLEDGE_TOP_K` | 否 | `5` | 知识库检索返回条数 |
 | `AI_VISION_MODEL` | 否 | — | 图片识别模型（不配置则跳过图片处理） |
@@ -108,6 +109,7 @@ AI_MODEL=Qwen/Qwen2.5-7B-Instruct
 AI_TEMPERATURE=0.3
 AI_MAX_TOKENS=4096
 EMBEDDING_MODEL=BAAI/bge-large-zh-v1.5
+EMBEDDING_API_KEY=sk-xxxxxxxx
 CHROMA_PERSIST_DIR=./app/ai/knowledge/chroma_data
 ```
 
@@ -173,6 +175,17 @@ python -m app.ai.knowledge.load_knowledge --clear        # 清空后重新导入
 python -m app.ai.knowledge.load_knowledge --category 01_core_business  # 只导入核心业务
 ```
 
+### 知识库 REST API
+
+后端提供知识库管理接口，支持：
+
+- 上传文档到知识库
+- 查询知识库文档列表
+- 删除知识库文档
+- 搜索知识库内容
+
+详见 Scalar 接口文档中 `/api/knowledge/*` 相关接口。
+
 ### 知识库分类
 
 | 分类目录 | 文档数 | 优先级 | 必读 | 说明 |
@@ -201,7 +214,8 @@ python -m app.ai.knowledge.load_knowledge --category 01_core_business  # 只导�
 4. 生成进度在用例集详情页轮询显示；脑图页进入时若检测到正在生成会提示等待
 5. 生成完成后：用例自动入库 + Excel 自动导出到 `app/ai/workspace/outputs/excel/`
 6. 原始需求文档自动存档到 `app/ai/workspace/requirements/original/`
-7. 生成完成或失败均会推送站内通知
+7. 需求文档自动存入知识库（非调试模式），持续丰富 RAG 上下文
+8. 生成完成或失败均会推送站内通知
 
 ---
 
@@ -213,7 +227,7 @@ python -m app.ai.knowledge.load_knowledge --category 01_core_business  # 只导�
 | JSON 解析失败 | 可能被截断：检查文档长度是否导致输出超 max_tokens；系统会自动重试一次 |
 | 用例条数远少于预期 | 文档内容过短或功能点描述不清；可在 ai_config.yaml 调整 case_count_estimation |
 | 质量不理想 | 补充需求描述结构（加验收标准/步骤列表）；略降 `AI_TEMPERATURE`；导入更多知识库文档 |
-| 知识库检索无结果 | 检查 `EMBEDDING_MODEL` 是否配置；运行 `load_knowledge.py` 导入文档 |
+| 知识库检索无结果 | 检查 `EMBEDDING_MODEL` 和 `EMBEDDING_API_KEY` 是否配置；运行 `load_knowledge.py` 导入文档 |
 | 401 认证失败 | API Key 过期或格式错误；到服务商控制台重新获取 |
 | 进程重启后任务状态消失 | task_manager 使用内存存储，重启后历史任务状态不保留（已知限制） |
 

@@ -599,6 +599,7 @@
 </template>
 
 <script setup>
+// 报告详情页：展示测试概要、用例通过率饼图、执行结果柱状图、用例明细表，支持搜索筛选与 Excel 导出
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';

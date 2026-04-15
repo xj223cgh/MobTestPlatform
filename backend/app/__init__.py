@@ -1,4 +1,4 @@
-"""Flask 应用工厂：会话、数据库、CORS、蓝图注册、SocketIO（用户房间）、日志与轻量 schema 补丁。"""
+"""Flask 应用工厂：会话、数据库、CORS、蓝图注册、SocketIO（用户房间）与日志配置。"""
 import os
 import logging
 from logging.handlers import RotatingFileHandler
@@ -69,7 +69,6 @@ def create_app(config_name='default'):
     
     with app.app_context():
         db.create_all()
-        _ensure_schema(app)
     
     _cors = app.config.get('CORS_ORIGINS') or []
     if app.debug:
@@ -100,24 +99,6 @@ def create_app(config_name='default'):
         app.logger.debug('SocketIO: user %s joined room user:%s', current_user.id, current_user.id)
     
     return app
-
-
-def _ensure_schema(app):
-    """补全可能缺失的表列；已存在则跳过。"""
-    from sqlalchemy import text
-    migrations = [
-        # test_suites 表：用例编号前缀列
-        "ALTER TABLE test_suites ADD COLUMN case_number_prefix VARCHAR(50) DEFAULT 'TC-'",
-        # agent_binding_codes 表：binding_token 用于本机一键绑定
-        "ALTER TABLE agent_binding_codes ADD COLUMN binding_token VARCHAR(64) NULL",
-    ]
-    with db.engine.connect() as conn:
-        for sql in migrations:
-            try:
-                conn.execute(text(sql))
-                conn.commit()
-            except Exception:
-                conn.rollback()
 
 
 def setup_logging(app):

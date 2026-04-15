@@ -24,6 +24,7 @@ export const useUserStore = defineStore("user", () => {
   const userRole = computed(() => userInfo.value?.role || "");
   const avatar = computed(() => userInfo.value?.avatar || "");
 
+  /** 账号密码登录；成功后持久化用户信息与权限到 sessionStorage，remember 时额外写 localStorage */
   const login = async (credentials) => {
     try {
       loading.value = true;
@@ -92,6 +93,7 @@ export const useUserStore = defineStore("user", () => {
     }
   };
 
+  /** 登出：无论后端是否成功都清空本地状态，保证用户一定能退出 */
   const logout = async () => {
     try {
       await logoutApi();
@@ -119,6 +121,7 @@ export const useUserStore = defineStore("user", () => {
     }
   };
 
+  /** 校验会话有效性：401 强制踢出，网络/500 等保留本地状态避免误踢 */
   const checkAuth = async () => {
     try {
       loading.value = true;
@@ -191,6 +194,7 @@ export const useUserStore = defineStore("user", () => {
     localStorage.removeItem(REMEMBER_KEY);
   };
 
+  /** 判断当前用户是否拥有指定权限埋点 */
   const hasPermission = (code) => {
     if (!permissions.value || !Array.isArray(permissions.value)) return false;
     return permissions.value.includes(code);

@@ -45,7 +45,7 @@ def _get_collection():
 
 
 def _call_embedding_api(texts: List[str]) -> List[List[float]]:
-    """调用 Embedding API 将文本列表转为向量，按 32 条一批发送。"""
+    """调用 Embedding API 将文本列表转为向量，按 32 条一批发送。失败时抛出异常。"""
     import requests as _req
     _ensure_env()
     api_key = (os.getenv('AI_API_KEY') or '').strip()
@@ -103,7 +103,7 @@ def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str
 
 
 def _parse_document(content: bytes, filename: str) -> str:
-    """解析文档内容为纯文本，支持 .txt / .md（多编码探测）和 .docx。"""
+    """解析文档内容为纯文本。支持 .txt/.md（自动探测 utf-8/gbk/gb2312 编码）和 .docx。"""
     ext = Path(filename).suffix.lower()
     if ext in ('.txt', '.md'):
         for enc in ('utf-8', 'gbk', 'gb2312', 'latin-1'):
@@ -176,7 +176,7 @@ def delete_document(doc_id: str) -> bool:
 
 
 def search(query_text: str, top_k: int = None) -> List[dict]:
-    """语义检索：将查询文本向量化，在知识库中查找最相似的 top_k 个片段。"""
+    """语义检索：将查询文本向量化，在知识库中查找最相似的 top_k 个片段。返回含 distance 的结果列表。"""
     _ensure_env()
     if top_k is None:
         try:

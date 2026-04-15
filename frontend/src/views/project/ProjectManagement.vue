@@ -492,6 +492,7 @@
 </template>
 
 <script setup>
+// 项目管理列表页：搜索、筛选、分页、CRUD，支持消息跳转高亮闪烁目标行
 import { ref, reactive, computed, onMounted, watch, nextTick } from "vue";
 import { ElMessage } from "element-plus";
 import { Plus, Search, Refresh } from "@element-plus/icons-vue";

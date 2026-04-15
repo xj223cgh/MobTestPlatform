@@ -314,6 +314,7 @@
 </template>
 
 <script setup>
+// 全局布局：可折叠侧边栏、顶部导航（面包屑 + 通知 + 用户菜单）、主题切换、页面标题与 favicon 动态设置
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";

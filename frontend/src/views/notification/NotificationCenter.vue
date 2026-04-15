@@ -112,6 +112,7 @@
 </template>
 
 <script setup>
+// 消息中心页：分页通知列表，支持类型/已读/时间范围筛选、置顶、标为已读/未读、批量清理、点击跳转关联资源
 import { ref, reactive, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";

@@ -382,6 +382,7 @@
 </template>
 
 <script setup>
+// 脑图编辑器：基于 KityMinder 的用例脑图，支持节点增删改、标签/标记、版本回退、多人编辑冲突检测、全屏模式
 import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ArrowLeft, ArrowDown, Close, Check, Loading, RefreshRight, RefreshLeft, Upload, Lock, Unlock } from "@element-plus/icons-vue";

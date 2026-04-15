@@ -225,6 +225,7 @@ const router = createRouter({
   routes,
 });
 
+// 全局前置守卫：鉴权 → 权限校验 → 放行
 router.beforeEach(async (to, from, next) => {
   NProgress.start();
 
@@ -238,6 +239,7 @@ router.beforeEach(async (to, from, next) => {
     const isAuthenticated = userStore.isAuthenticated;
 
     if (isAuthenticated) {
+      // 首次进入（直接输入 URL 或刷新）时向后端校验 session 有效性
       if (from.path === "/" || from.path === "") {
         try {
           const isAuthValid = await userStore.checkAuth();
@@ -255,6 +257,7 @@ router.beforeEach(async (to, from, next) => {
       return;
     }
   } else {
+    // 已登录用户访问登录/注册等页面时自动跳转首页
     if (
       userStore.isAuthenticated &&
       to.path !== "/404" &&
@@ -265,6 +268,7 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
+  // meta.permissions 权限埋点校验：至少拥有其中一个才放行
   if (userStore.isAuthenticated && to.meta?.permissions?.length) {
     const hasAny = to.meta.permissions.some((p) => userStore.hasPermission(p));
     if (!hasAny) {

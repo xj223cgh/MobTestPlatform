@@ -21,6 +21,7 @@
 </template>
 
 <script setup>
+// 只读脑图查看器：基于 KityMinder，支持鼠标拖拽平移画布，禁止编辑/新增/删除，仅允许深度=1 节点拖拽排序
 import { ref, onMounted, watch, onBeforeUnmount } from "vue";
 
 const props = defineProps({

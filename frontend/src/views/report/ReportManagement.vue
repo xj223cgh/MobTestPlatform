@@ -387,6 +387,7 @@
 </template>
 
 <script setup>
+// 报告管理页：测试报告列表，支持筛选、查看详情、手动生成、批量删除
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';

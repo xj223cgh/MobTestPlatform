@@ -678,6 +678,7 @@
 </template>
 
 <script setup>
+// 用例管理页：左侧目录树 + 右侧用例集列表，支持文件夹/用例集 CRUD、拖拽移动、回收站、AI 生成、导入导出
 import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { Folder, DArrowRight, DArrowLeft, Loading, Delete, EditPen } from "@element-plus/icons-vue";

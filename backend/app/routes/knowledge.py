@@ -1,4 +1,4 @@
-"""Knowledge base API: document upload, list, delete, search."""
+"""知识库接口：文档上传、列表查询、删除、语义检索。"""
 from flask import Blueprint, request
 from flask_login import login_required
 from app.utils.helpers import success_response, error_response
@@ -9,7 +9,7 @@ bp = Blueprint('knowledge', __name__, url_prefix='/api/knowledge')
 @bp.route('/upload', methods=['POST'])
 @login_required
 def upload():
-    """Upload and index a document into the knowledge base."""
+    """上传文档并索引到知识库（解析 → 分块 → 向量化 → 存入 ChromaDB）"""
     try:
         if 'file' not in request.files:
             return error_response(400, '缺少文件')
@@ -33,7 +33,7 @@ def upload():
 @bp.route('/list', methods=['GET'])
 @login_required
 def list_docs():
-    """List all indexed documents."""
+    """列出知识库中所有已索引的文档"""
     try:
         from app.services.knowledge_service import list_documents
         return success_response(list_documents())
@@ -44,7 +44,7 @@ def list_docs():
 @bp.route('/delete/<doc_id>', methods=['DELETE'])
 @login_required
 def delete(doc_id):
-    """Delete a document and all its chunks from the knowledge base."""
+    """从知识库中删除指定文档及其所有向量片段"""
     try:
         from app.services.knowledge_service import delete_document
         ok = delete_document(doc_id)
@@ -58,7 +58,7 @@ def delete(doc_id):
 @bp.route('/search', methods=['POST'])
 @login_required
 def search_kb():
-    """Search the knowledge base for relevant chunks (debug endpoint)."""
+    """语义检索知识库中相关片段（调试用）"""
     try:
         data = request.get_json() or {}
         query = data.get('query', '')

@@ -483,6 +483,7 @@
 </template>
 
 <script setup>
+// 设备管理页：设备列表、状态刷新、ADB 操作弹窗、批量任务执行、Agent 绑定、悬浮预览
 import {
   ref,
   computed,

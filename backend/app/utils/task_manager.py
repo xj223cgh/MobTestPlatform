@@ -1,7 +1,4 @@
-"""
-异步任务管理器
-用于管理后台异步任务，支持任务状态查询和进度更新
-"""
+"""异步任务管理器：线程池驱动，支持任务创建、状态查询、进度更新与过期清理。"""
 import threading
 import uuid
 from datetime import datetime
@@ -9,7 +6,7 @@ from typing import Dict, Any, Callable, Optional
 
 
 class TaskStatus:
-    """任务状态枚举"""
+    """任务状态常量"""
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -17,25 +14,14 @@ class TaskStatus:
 
 
 class TaskManager:
-    """任务管理器，用于管理后台异步任务"""
+    """异步任务管理器：每个任务在独立守护线程中执行，通过 task_id 查询状态和进度。"""
     
     def __init__(self):
         self.tasks: Dict[str, Dict[str, Any]] = {}
         self.lock = threading.Lock()
     
     def create_task(self, task_name: str, task_func: Callable, *args, **kwargs) -> str:
-        """
-        创建一个新的异步任务
-        
-        Args:
-            task_name: 任务名称
-            task_func: 任务执行函数
-            *args: 任务函数的位置参数
-            **kwargs: 任务函数的关键字参数
-            
-        Returns:
-            task_id: 任务ID
-        """
+        """创建异步任务并在守护线程中启动执行，返回 task_id。"""
         task_id = str(uuid.uuid4())
         
         with self.lock:
@@ -64,15 +50,7 @@ class TaskManager:
         return task_id
     
     def _run_task(self, task_id: str, task_func: Callable, args: tuple, kwargs: dict):
-        """
-        在独立线程中运行任务
-        
-        Args:
-            task_id: 任务ID
-            task_func: 任务执行函数
-            args: 任务函数的位置参数
-            kwargs: 任务函数的关键字参数
-        """
+        """在独立线程中运行任务，自动注入 task_manager 和 task_id 到 kwargs。"""
         try:
             self.update_task_status(
                 task_id,
@@ -106,27 +84,13 @@ class TaskManager:
             )
     
     def update_task_status(self, task_id: str, **kwargs):
-        """
-        更新任务状态
-        
-        Args:
-            task_id: 任务ID
-            **kwargs: 要更新的字段
-        """
+        """更新任务状态字段（线程安全）。"""
         with self.lock:
             if task_id in self.tasks:
                 self.tasks[task_id].update(kwargs)
     
     def update_task_progress(self, task_id: str, current: int, total: int, message: str = None):
-        """
-        更新任务进度
-        
-        Args:
-            task_id: 任务ID
-            current: 当前进度
-            total: 总进度
-            message: 进度消息
-        """
+        """更新任务进度百分比（current/total），可选附带消息。"""
         progress = int((current / total * 100)) if total > 0 else 0
         update_data = {
             'current': current,
@@ -139,25 +103,12 @@ class TaskManager:
         self.update_task_status(task_id, **update_data)
     
     def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
-        """
-        获取任务状态
-        
-        Args:
-            task_id: 任务ID
-            
-        Returns:
-            任务状态字典，如果任务不存在则返回None
-        """
+        """获取任务状态字典，任务不存在返回 None。"""
         with self.lock:
             return self.tasks.get(task_id)
     
     def clear_completed_tasks(self, older_than_hours: int = 24):
-        """
-        清理已完成的任务
-        
-        Args:
-            older_than_hours: 清理多少小时前的任务
-        """
+        """清理已完成/失败超过指定小时数的任务记录，释放内存。"""
         from datetime import timedelta
         
         with self.lock:

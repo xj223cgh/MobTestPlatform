@@ -213,6 +213,7 @@ def create_tables():
                 last_saved_at DATETIME NULL COMMENT '脑图最后保存时间',
                 last_saved_by INT NULL COMMENT '最后保存人ID',
                 mindmap_version INT NOT NULL DEFAULT 0 COMMENT '脑图版本号，用于多人编辑冲突检测',
+                case_number_prefix VARCHAR(50) DEFAULT 'TC-' COMMENT '用例编号前缀',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                 FOREIGN KEY (parent_id) REFERENCES test_suites(id) ON DELETE SET NULL,
@@ -361,7 +362,6 @@ def create_tables():
                 documentation_url TEXT COMMENT '相关文档链接',
                 version_info VARCHAR(100) COMMENT '版本信息',
                 result TEXT NULL COMMENT '任务执行结果，JSON格式存储',
-                # 设备脚本任务专用字段
                 script_file VARCHAR(200) NULL COMMENT '脚本文件名',
                 file_path VARCHAR(500) NULL COMMENT '服务器上的相对存储路径',
                 file_hash VARCHAR(100) NULL COMMENT '文件哈希值（用于验证文件完整性）',

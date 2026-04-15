@@ -20,7 +20,7 @@ _config_cache: dict | None = None
 
 
 def _load_excel_config() -> dict:
-    """从 ai_config.yaml 加载 Excel 导出配置。"""
+    """从 ai_config.yaml 加载 Excel 导出配置（单例缓存）。"""
     global _config_cache
     if _config_cache is not None:
         return _config_cache
@@ -34,7 +34,7 @@ def _load_excel_config() -> dict:
 
 
 def _get_columns() -> list:
-    """获取列配置，优先从 ai_config.yaml 读取。"""
+    """获取 Excel 列配置（字段名、表头、列宽），优先从 ai_config.yaml 读取，否则使用默认值。"""
     cfg = _load_excel_config()
     columns = cfg.get('columns')
     if columns:
@@ -56,15 +56,13 @@ def export_cases_to_excel(
     suite_name: str = '',
     output_dir: str | Path | None = None,
 ) -> Path | None:
-    """将用例列表导出为 Excel 文件。
+    """
+    将用例列表导出为带样式的 Excel 文件。
 
-    Args:
-        cases: 用例字典列表，字段见 ai_config.yaml 中 output.excel_export.columns。
-        suite_name: 用例集名称，用于文件名。
-        output_dir: 输出目录，默认为 workspace/outputs/excel/。
-
-    Returns:
-        导出成功返回文件路径，失败返回 None。
+    :param cases: 用例字典列表，字段见 ai_config.yaml 中 output.excel_export.columns
+    :param suite_name: 用例集名称，用于生成文件名
+    :param output_dir: 输出目录，默认 workspace/outputs/excel/
+    :return: 导出成功返回文件路径，失败返回 None
     """
     if not cases:
         logger.warning("No cases to export")

@@ -502,6 +502,7 @@
 </template>
 
 <script setup>
+// 需求管理页：跨项目的版本需求列表，支持筛选、CRUD、消息跳转高亮
 import { ref, reactive, onMounted, computed, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { useRoute } from "vue-router";

@@ -113,10 +113,10 @@
 </template>
 
 <script setup>
+// AI 接口调试页：开发/测试阶段用于验证大模型 API 连通性与返回格式
 import { ref, reactive } from "vue";
 import axios from "axios";
 
-// 测试表单数据
 const testForm = reactive({
   baseUrl:
     import.meta.env.VITE_AI_API_BASE_URL || "https://api.siliconflow.cn/v1",

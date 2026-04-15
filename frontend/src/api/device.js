@@ -1,6 +1,8 @@
 /** 设备 API：列表、ADB 操作、镜像、Agent 绑定。 */
 import request from "@/utils/request";
 
+// ---------- 基础 CRUD ----------
+
 export function getDeviceList(params) {
   return request({
     url: "/devices",
@@ -46,6 +48,8 @@ export function getDeviceStats() {
   });
 }
 
+// ---------- 连接与状态 ----------
+
 export function connectDevice(id) {
   return request({
     url: `/devices/${id}/connect`,
@@ -80,6 +84,8 @@ export function batchRefreshDeviceStatus() {
     method: "post",
   });
 }
+
+// ---------- 应用与远程操作 ----------
 
 export function installAppToDevice(deviceId, appPath) {
   return request({
@@ -171,6 +177,8 @@ export function getDeviceInfo(deviceId) {
   });
 }
 
+// ---------- 批量操作与导入导出 ----------
+
 export function searchDevices(keyword) {
   return request({
     url: "/devices/search",
@@ -206,6 +214,8 @@ export function importDevices(file) {
     data: formData,
   });
 }
+
+// ---------- 设备分组 ----------
 
 export function getDeviceGroups() {
   return request({
@@ -250,6 +260,8 @@ export function removeDeviceFromGroup(deviceId, groupId) {
     method: "delete",
   });
 }
+
+// ---------- ADB 与任务执行 ----------
 
 export function getAdbDevices() {
   return request({

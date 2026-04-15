@@ -437,7 +437,6 @@ def toggle_user_status(user_id):
 @login_required
 def get_roles():
     """获取角色列表（下拉用），任意登录用户可调"""
-    """获取角色列表"""
     roles = [
         {'value': 'super', 'label': '超级管理员'},
         {'value': 'manager', 'label': '管理员'},

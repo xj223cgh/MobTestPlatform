@@ -68,13 +68,13 @@ def role_required(roles):
 
 
 class RateLimiter:
-    """简单的速率限制器"""
+    """基于内存的 IP 速率限制器（滑动窗口算法）"""
     
     def __init__(self):
         self.requests = {}
     
     def is_allowed(self, key, limit, window):
-        """检查是否允许请求"""
+        """检查 key（通常为 IP）在 window 秒内是否未超过 limit 次"""
         import time
         
         now = time.time()
@@ -93,7 +93,7 @@ class RateLimiter:
         return True
     
     def rate_limit(self, limit=100, window=60):
-        """速率限制装饰器"""
+        """速率限制装饰器，基于请求 IP 做频率控制"""
         def decorator(f):
             @wraps(f)
             def decorated_function(*args, **kwargs):

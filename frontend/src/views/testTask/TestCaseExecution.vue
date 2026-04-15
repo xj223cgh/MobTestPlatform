@@ -450,6 +450,7 @@
 </template>
 
 <script setup>
+// 手动测试执行页：逐条执行用例，标记通过/失败/阻塞/不适用，支持上传截图附件、实时统计进度
 import { ref, reactive, computed, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";

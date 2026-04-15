@@ -372,6 +372,7 @@
 </template>
 
 <script setup>
+// 测试任务管理页：左侧文件夹树 + 右侧任务列表，支持手动/设备脚本两种任务类型的 CRUD、执行、消息跳转高亮
 import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";

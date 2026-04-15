@@ -526,6 +526,7 @@
 </template>
 
 <script setup>
+// 用户管理页：用户列表、搜索、CRUD、角色分配、启用/禁用、重置密码、邮箱绑定
 import { ref, reactive, onMounted, onUnmounted, computed, watch, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
