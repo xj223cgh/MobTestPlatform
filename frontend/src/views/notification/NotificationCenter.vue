@@ -1,128 +1,159 @@
 <template>
   <div class="notification-center">
-    <div class="page-header">
-      <h2>消息中心</h2>
+    <div class="search-section">
+      <el-form :model="filters" inline>
+        <el-form-item label="消息类型">
+          <el-select v-model="filters.type" placeholder="全部类型" clearable class="filter-select filter-select--md">
+            <el-option
+              v-for="(label, key) in typeLabels"
+              :key="key"
+              :label="label"
+              :value="key"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="filters.is_read" placeholder="全部状态" clearable class="filter-select filter-select--sm">
+            <el-option label="未读" :value="false" />
+            <el-option label="已读" :value="true" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="时间范围">
+          <el-select v-model="filters.time_range" placeholder="全部时间" clearable class="filter-select filter-select--md">
+            <el-option label="24 小时内" value="1d" />
+            <el-option label="7 天内" value="1w" />
+            <el-option label="30 天内" value="1m" />
+            <el-option label="90 天内" value="3m" />
+            <el-option label="更早" value="older" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="清理已读">
+          <div class="clear-group">
+            <el-select v-model="clearTimeRange" placeholder="选择范围" clearable class="filter-select filter-select--md">
+              <el-option label="24小时内已读" value="1d" />
+              <el-option label="7天内已读" value="1w" />
+              <el-option label="30天内已读" value="1m" />
+              <el-option label="90天内已读" value="3m" />
+              <el-option label="更早已读" value="older" />
+            </el-select>
+            <el-button v-if="clearTimeRange" type="warning" @click="handleClearRead">清理</el-button>
+          </div>
+        </el-form-item>
+        <div class="search-actions">
+          <el-form-item>
+            <el-button type="primary" :loading="loading" @click="loadList(1)">
+              <el-icon><Search /></el-icon>
+              查询
+            </el-button>
+          </el-form-item>
+          <el-form-item>
+            <el-button :loading="readAllLoading" @click="handleReadAll">全部已读</el-button>
+          </el-form-item>
+          <el-form-item>
+            <el-button :loading="unreadAllLoading" @click="handleUnreadAll">全部未读</el-button>
+          </el-form-item>
+        </div>
+      </el-form>
     </div>
-    <el-card>
-      <div class="toolbar">
-        <el-select v-model="filters.type" placeholder="消息类型" clearable style="width: 140px">
-          <el-option
-            v-for="(label, key) in typeLabels"
-            :key="key"
-            :label="label"
-            :value="key"
-          />
-        </el-select>
-        <el-select v-model="filters.is_read" placeholder="已读状态" clearable style="width: 120px">
-          <el-option label="未读" :value="false" />
-          <el-option label="已读" :value="true" />
-        </el-select>
-        <el-select v-model="filters.time_range" placeholder="时间范围" clearable style="width: 140px">
-          <el-option label="24 小时内" value="1d" />
-          <el-option label="7 天内" value="1w" />
-          <el-option label="30 天内" value="1m" />
-          <el-option label="90 天内" value="3m" />
-          <el-option label="更早" value="older" />
-        </el-select>
-        <el-button type="primary" :loading="loading" @click="loadList(1)">查询</el-button>
-        <el-button plain class="toolbar-batch-btn" @click="handleReadAll" :loading="readAllLoading">全部已读</el-button>
-        <el-button plain class="toolbar-batch-btn" @click="handleUnreadAll" :loading="unreadAllLoading">全部未读</el-button>
-        <el-select v-model="clearTimeRange" placeholder="清理已读" style="width: 120px" clearable>
-          <el-option label="24小时内已读" value="1d" />
-          <el-option label="7天内已读" value="1w" />
-          <el-option label="30天内已读" value="1m" />
-          <el-option label="90天内已读" value="3m" />
-          <el-option label="更早已读" value="older" />
-        </el-select>
-        <el-button v-if="clearTimeRange" type="warning" @click="handleClearRead">清理</el-button>
+
+    <div class="table-section">
+      <div class="table-scroll-viewport">
+        <el-table
+          v-loading="loading"
+          :data="items"
+          stripe
+          border
+          style="width: 100%"
+          fit
+          :row-class-name="({ row }) => getNotificationRoute(row) ? 'notification-row--navigable' : ''"
+          @row-click="handleRowClick"
+        >
+          <el-table-column label="标题" min-width="180" align="center" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span style="display: inline-flex; align-items: center; gap: 4px;">
+                <el-icon v-if="row.is_pinned" style="font-size: 14px; color: var(--el-color-warning); flex-shrink: 0;"><Top /></el-icon>
+                <span :style="getNotificationRoute(row) ? 'color: var(--el-color-primary);' : ''">{{ row.title }}</span>
+                <el-tooltip v-if="getNotificationRoute(row)" content="点击跳转定位" placement="top" :show-after="400">
+                  <el-icon style="font-size: 13px; color: var(--el-color-primary); flex-shrink: 0;"><Right /></el-icon>
+                </el-tooltip>
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="摘要/详情" min-width="260" align="center" show-overflow-tooltip>
+            <template #default="{ row }">
+              {{ formatNotificationDisplay(row) || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="type" label="类型" min-width="90" align="center">
+            <template #default="{ row }">
+              {{ typeLabels[row.type] || row.type }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="is_read" label="状态" min-width="70" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.is_read ? 'info' : 'warning'" size="small">
+                {{ row.is_read ? '已读' : '未读' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="created_at" label="时间" min-width="120" align="center">
+            <template #default="{ row }">
+              {{ formatTime(row.created_at) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="130" align="center" fixed="right">
+            <template #default="{ row }">
+              <div class="operation-buttons" @click.stop>
+                <el-tooltip :content="row.is_pinned ? '取消置顶' : '置顶'" placement="top">
+                  <el-button link :type="row.is_pinned ? 'warning' : 'primary'" @click="handlePin(row)">
+                    <el-icon :size="16"><Top v-if="!row.is_pinned" /><Bottom v-else /></el-icon>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip :content="row.is_read ? '标为未读' : '标为已读'" placement="top">
+                  <el-button link type="primary" @click="handleToggleRead(row)">
+                    <el-icon :size="16" v-if="row.is_read"><CircleClose /></el-icon>
+                    <el-icon :size="16" v-else><CircleCheck /></el-icon>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip content="清除" placement="top">
+                  <el-button link type="danger" @click="handleDeleteOne(row)">
+                    <el-icon :size="16"><Delete /></el-icon>
+                  </el-button>
+                </el-tooltip>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
-      <el-table
-        v-loading="loading"
-        :data="items"
-        stripe
-        style="width: 100%"
-        :row-class-name="({ row }) => getNotificationRoute(row) ? 'notification-row--navigable' : ''"
-        @row-click="handleRowClick"
-      >
-        <el-table-column label="标题" min-width="160">
-          <template #default="{ row }">
-            <span style="display: inline-flex; align-items: center; gap: 4px;">
-              <span :style="getNotificationRoute(row) ? 'color: var(--el-color-primary);' : ''">{{ row.title }}</span>
-              <el-tooltip v-if="getNotificationRoute(row)" content="点击跳转定位" placement="top" :show-after="400">
-                <el-icon style="font-size: 13px; color: var(--el-color-primary); flex-shrink: 0;"><Right /></el-icon>
-              </el-tooltip>
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="摘要/详情" min-width="200" show-overflow-tooltip>
-          <template #default="{ row }">
-            {{ formatNotificationDisplay(row) || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="type" label="类型" width="100">
-          <template #default="{ row }">
-            {{ typeLabels[row.type] || row.type }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="is_read" label="状态" width="72">
-          <template #default="{ row }">
-            <el-tag :type="row.is_read ? 'info' : 'warning'" size="small">
-              {{ row.is_read ? '已读' : '未读' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="created_at" label="时间" width="160">
-          <template #default="{ row }">
-            {{ formatTime(row.created_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="140" align="center" fixed="right">
-          <template #default="{ row }">
-            <span class="action-btns" @click.stop>
-              <el-tooltip :content="row.is_pinned ? '取消置顶' : '置顶'" placement="top">
-                <el-button link type="primary" size="small" @click="handlePin(row)">
-                  <el-icon><Top /></el-icon>
-                </el-button>
-              </el-tooltip>
-              <el-tooltip :content="row.is_read ? '标为未读' : '标为已读'" placement="top">
-                <el-button link type="primary" size="small" @click="handleToggleRead(row)">
-                  <el-icon v-if="row.is_read"><CircleClose /></el-icon>
-                  <el-icon v-else><CircleCheck /></el-icon>
-                </el-button>
-              </el-tooltip>
-              <el-tooltip content="清除" placement="top">
-                <el-button link type="danger" size="small" @click="handleDeleteOne(row)">
-                  <el-icon><Delete /></el-icon>
-                </el-button>
-              </el-tooltip>
-            </span>
-          </template>
-        </el-table-column>
-      </el-table>
+    </div>
+
+    <div class="fixed-pagination">
       <el-pagination
-        v-model:current-page="page"
+        :current-page="page"
         :page-size="pageSize"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
         :total="total"
-        layout="total, prev, pager, next"
-        class="pagination"
-        @current-change="loadList"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
       />
-    </el-card>
+    </div>
   </div>
 </template>
 
 <script setup>
-// 消息中心页：分页通知列表，支持类型/已读/时间范围筛选、置顶、标为已读/未读、批量清理、点击跳转关联资源
 import { ref, reactive, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { getNotifications, markRead, markReadAll, markUnreadAll, clearRead, deleteNotification, pinNotification } from "@/api/notifications";
 import { useNotificationStore } from "@/stores/notification";
+import { useSystemSettingsStore } from "@/stores/systemSettings";
 import { getNotificationRoute, NOTIFICATION_TYPE_LABELS, formatNotificationDisplay } from "@/utils/notificationLink";
-import { Delete, CircleCheck, CircleClose, Top, Right } from "@element-plus/icons-vue";
+import { Delete, CircleCheck, CircleClose, Top, Bottom, Right, Search } from "@element-plus/icons-vue";
 
 const router = useRouter();
 const notificationStore = useNotificationStore();
+const systemSettingsStore = useSystemSettingsStore();
 
 const typeLabels = NOTIFICATION_TYPE_LABELS;
 const loading = ref(false);
@@ -131,7 +162,7 @@ const unreadAllLoading = ref(false);
 const items = ref([]);
 const total = ref(0);
 const page = ref(1);
-const pageSize = ref(10);
+const pageSize = ref(systemSettingsStore.defaultPageSize || 10);
 const clearTimeRange = ref("");
 
 const filters = reactive({
@@ -185,6 +216,15 @@ async function handleRowClick(row) {
 }
 
 async function handleReadAll() {
+  if (total.value === 0) {
+    ElMessage.info("当前没有消息");
+    return;
+  }
+  const hasUnread = items.value.some(item => !item.is_read);
+  if (!hasUnread && filters.is_read === undefined) {
+    ElMessage.info("所有消息已是已读状态");
+    return;
+  }
   readAllLoading.value = true;
   try {
     await markReadAll();
@@ -199,6 +239,15 @@ async function handleReadAll() {
 }
 
 async function handleUnreadAll() {
+  if (total.value === 0) {
+    ElMessage.info("当前没有消息");
+    return;
+  }
+  const hasRead = items.value.some(item => item.is_read);
+  if (!hasRead && filters.is_read === undefined) {
+    ElMessage.info("所有消息已是未读状态");
+    return;
+  }
   unreadAllLoading.value = true;
   try {
     await markUnreadAll();
@@ -212,18 +261,68 @@ async function handleUnreadAll() {
   }
 }
 
+async function handlePin(row) {
+  try {
+    const newPinned = !row.is_pinned;
+    await pinNotification(row.id, { is_pinned: newPinned });
+    row.is_pinned = newPinned;
+    ElMessage.success(newPinned ? "已置顶" : "已取消置顶");
+    loadList(page.value);
+  } catch (e) {
+    ElMessage.error(e?.message || "操作失败");
+  }
+}
+
+async function handleToggleRead(row) {
+  try {
+    const newRead = !row.is_read;
+    await markRead(row.id, { is_read: newRead });
+    row.is_read = newRead;
+    ElMessage.success(newRead ? "已标为已读" : "已标为未读");
+    notificationStore.fetchUnreadCount();
+  } catch (e) {
+    ElMessage.error(e?.message || "操作失败");
+  }
+}
+
+async function handleDeleteOne(row) {
+  try {
+    await deleteNotification(row.id);
+    ElMessage.success("已清除");
+    loadList(page.value);
+    notificationStore.fetchUnreadCount();
+  } catch (e) {
+    ElMessage.error(e?.message || "清除失败");
+  }
+}
+
 async function handleClearRead() {
   if (!clearTimeRange.value) return;
   try {
     const res = await clearRead(clearTimeRange.value);
     const cleared = res?.data?.cleared ?? 0;
-    ElMessage.success(`已清理 ${cleared} 条已读消息`);
+    if (cleared === 0) {
+      ElMessage.info("该时间范围内没有已读消息可清理");
+    } else {
+      ElMessage.success(`已清理 ${cleared} 条已读消息`);
+    }
     clearTimeRange.value = "";
     loadList(1);
     notificationStore.fetchUnreadCount();
   } catch (e) {
     ElMessage.error(e?.message || "清理失败");
   }
+}
+
+function handleSizeChange(size) {
+  pageSize.value = size;
+  page.value = 1;
+  loadList(1);
+}
+
+function handleCurrentChange(p) {
+  page.value = p;
+  loadList(p);
 }
 
 onMounted(() => {
@@ -236,46 +335,145 @@ watch([() => filters.type, () => filters.is_read, () => filters.time_range], () 
 });
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .notification-center {
-  padding: 16px;
+  padding: 20px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--el-bg-color-page, #f5f7fa);
 }
-.page-header {
+
+.search-section {
+  flex-shrink: 0;
+  background: var(--el-bg-color, white);
+  padding: 16px 20px;
+  border-radius: 8px;
   margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--el-border-color-lighter, transparent);
 }
-.page-header h2 {
-  margin: 0;
-  font-size: 20px;
-}
-.toolbar {
+
+.search-section :deep(.el-form) {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 16px;
   align-items: center;
+  gap: 12px 16px;
+  margin-bottom: 0;
 }
-.toolbar .toolbar-batch-btn {
-  font-size: 14px;
+
+.search-section :deep(.el-form-item) {
+  margin-bottom: 0;
+  margin-right: 0;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
-.pagination {
-  margin-top: 16px;
-  justify-content: flex-end;
+
+.search-section :deep(.el-form-item .el-select) {
+  min-width: 0;
 }
-.el-table {
-  cursor: default;
+
+.clear-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
+
+.filter-select {
+  max-width: 140px;
+}
+.filter-select--sm {
+  width: 100px;
+  max-width: 100px;
+}
+.filter-select--md {
+  width: 130px;
+  max-width: 130px;
+}
+
+.search-section .search-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0 10px;
+  flex-shrink: 0;
+}
+
+.search-section .search-actions :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+.table-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin-bottom: 70px;
+}
+
+.table-section .table-scroll-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.table-section .table-scroll-viewport :deep(.el-table) {
+  border-radius: 8px;
+}
+
+.table-section .table-scroll-viewport :deep(.el-table__body-wrapper) {
+  overflow-x: hidden !important;
+}
+
 :deep(.notification-row--navigable) {
   cursor: pointer;
 }
 :deep(.notification-row--navigable:hover td) {
   background-color: var(--el-color-primary-light-9) !important;
 }
-.action-btns {
-  display: inline-flex;
+
+.fixed-pagination {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--el-bg-color, white);
+  padding: 15px 20px;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: center;
   align-items: center;
-  gap: 2px;
+  border-top: 1px solid var(--el-border-color-light, #e4e7ed);
 }
-.action-btns .el-button {
+
+@media (max-width: 768px) {
+  .fixed-pagination {
+    left: 0;
+    right: 0;
+  }
+
+  .table-section {
+    margin-bottom: 70px;
+  }
+}
+
+.operation-buttons {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: nowrap;
+  padding: 2px 0;
+}
+
+.operation-buttons :deep(.el-button) {
+  flex: none;
+  min-width: 0;
   padding: 4px;
+  margin: 0;
+  font-size: 16px;
 }
 </style>
