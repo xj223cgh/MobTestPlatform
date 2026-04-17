@@ -409,8 +409,11 @@ watch([() => filters.type, () => filters.is_read, () => filters.time_range], () 
   min-height: 0;
   display: flex;
   flex-direction: column;
+  background: var(--el-bg-color, white);
+  border-radius: 8px;
   overflow: hidden;
   margin-bottom: 70px;
+  border: 1px solid var(--el-border-color-lighter, transparent);
 }
 
 .table-section .table-scroll-viewport {
@@ -418,14 +421,6 @@ watch([() => filters.type, () => filters.is_read, () => filters.time_range], () 
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-}
-
-.table-section .table-scroll-viewport :deep(.el-table) {
-  border-radius: 8px;
-}
-
-.table-section .table-scroll-viewport :deep(.el-table__body-wrapper) {
-  overflow-x: hidden !important;
 }
 
 :deep(.notification-row--navigable) {
@@ -462,7 +457,7 @@ watch([() => filters.type, () => filters.is_read, () => filters.time_range], () 
 
 .operation-buttons {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   justify-content: center;
   align-items: center;
   flex-wrap: nowrap;
@@ -472,8 +467,13 @@ watch([() => filters.type, () => filters.is_read, () => filters.time_range], () 
 .operation-buttons :deep(.el-button) {
   flex: none;
   min-width: 0;
-  padding: 4px;
+  padding: 2px 6px;
   margin: 0;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.operation-buttons :deep(.el-button .el-icon) {
   font-size: 16px;
 }
 </style>

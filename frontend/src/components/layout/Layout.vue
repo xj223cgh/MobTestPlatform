@@ -305,7 +305,7 @@
       <!-- 页面内容：测试任务页用 content-no-outer-scroll，仅表格内部滚动 -->
       <main
         class="content"
-        :class="{ 'content-no-outer-scroll': ['TestTasks', 'ReportManagement', 'Users', 'Requirements', 'CaseReviews', 'Projects'].includes($route.name) }"
+        :class="{ 'content-no-outer-scroll': ['TestTasks', 'ReportManagement', 'Users', 'Requirements', 'CaseReviews', 'Projects', 'NotificationCenter'].includes($route.name) }"
       >
         <router-view />
       </main>
