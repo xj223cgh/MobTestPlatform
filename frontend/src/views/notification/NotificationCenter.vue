@@ -1,5 +1,12 @@
 <template>
   <div class="notification-center">
+    <div class="page-header">
+      <div class="header-content">
+        <h1 class="header-title">消息中心</h1>
+        <span class="header-description">查看和管理系统消息通知</span>
+      </div>
+    </div>
+
     <div class="search-section">
       <el-form :model="filters" inline>
         <el-form-item label="消息类型">
@@ -67,6 +74,7 @@
           fit
           :row-class-name="({ row }) => getNotificationRoute(row) ? 'notification-row--navigable' : ''"
           @row-click="handleRowClick"
+          row-key="id"
         >
           <el-table-column label="标题" min-width="180" align="center" show-overflow-tooltip>
             <template #default="{ row }">
@@ -345,6 +353,37 @@ watch([() => filters.type, () => filters.is_read, () => filters.time_range], () 
   background-color: var(--el-bg-color-page, #f5f7fa);
 }
 
+.page-header {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  background: var(--el-bg-color, white);
+  padding: 16px 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--el-border-color-lighter, transparent);
+
+  .header-content {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .header-title {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--el-text-color-primary, #303133);
+  }
+
+  .header-description {
+    color: var(--el-text-color-regular, #606266);
+    font-size: 14px;
+  }
+}
+
 .search-section {
   flex-shrink: 0;
   background: var(--el-bg-color, white);
@@ -423,6 +462,10 @@ watch([() => filters.type, () => filters.is_read, () => filters.time_range], () 
   overflow-y: auto;
 }
 
+.table-section .table-scroll-viewport :deep(.el-table__body-wrapper) {
+  overflow-x: hidden !important;
+}
+
 :deep(.notification-row--navigable) {
   cursor: pointer;
 }
@@ -442,6 +485,13 @@ watch([() => filters.type, () => filters.is_read, () => filters.time_range], () 
   justify-content: center;
   align-items: center;
   border-top: 1px solid var(--el-border-color-light, #e4e7ed);
+}
+
+.fixed-pagination .pagination {
+  margin: 0;
+  text-align: center;
+  border-top: none;
+  width: 100%;
 }
 
 @media (max-width: 768px) {
