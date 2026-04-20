@@ -180,6 +180,27 @@
               />
             </el-select>
           </el-form-item>
+          <!-- 设备脚本任务：原表单隐藏了项目，导致 project_id 为空、列表按项目筛选时永远看不到 -->
+          <el-form-item
+            v-else
+            label="所属项目"
+            prop="project_id"
+          >
+            <el-select
+              v-model="form.project_id"
+              placeholder="可选，便于在列表中按项目筛选"
+              clearable
+              filterable
+              @change="handleProjectChange"
+            >
+              <el-option
+                v-for="project in projects"
+                :key="project.id"
+                :label="project.project_name"
+                :value="project.id"
+              />
+            </el-select>
+          </el-form-item>
         </el-col>
         <el-col :span="8">
           <el-form-item
@@ -1142,6 +1163,9 @@ const loadFolderOptions = async (taskType) => {
 const handleProjectChange = () => {
   form.version_requirement_id = "";
   form.iteration_id = "";
+  if (form.task_type === "device_script") {
+    return;
+  }
   form.test_cases = "";
   selectedSuiteName.value = "";
   loadRequirements();

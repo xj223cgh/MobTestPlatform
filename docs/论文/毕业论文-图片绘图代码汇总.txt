@@ -409,24 +409,36 @@ flowchart TB
 位置：第三章 概要设计 → 4.1 系统结构设计（图 4-1 之后）
 
 ```mermaid
+---
+config:
+  theme: neutral
+---
 flowchart TB
-    subgraph 表现层
+    subgraph PL["表现层"]
+        direction TB
         Browser[浏览器]
-        SPA[Vue 3 单页应用\nVite 构建]
-        Browser --> SPA
+        VueApp["Vue 3 单页应用 · Vite\nElement Plus 视图组件"]
+        FrontIO["Axios · socket.io-client · Pinia 等"]
+        Browser --> VueApp --> FrontIO
     end
-    subgraph 业务逻辑层
-        API[RESTful API\nFlask 路由]
-        WS[WebSocket\nFlask-SocketIO]
+
+    subgraph BL["业务逻辑层"]
+        direction TB
+        API[RESTful API · Flask 路由]
+        WS[WebSocket · Flask-SocketIO]
         API --- WS
     end
-    subgraph 数据访问层
+
+    subgraph DL["数据访问层"]
+        direction TB
         ORM[SQLAlchemy ORM]
+        DBAccess["连接池 / 会话与映射"]
         MySQL[(MySQL 数据库)]
-        ORM --> MySQL
+        ORM --> DBAccess --> MySQL
     end
-    SPA -->|HTTP/JSON| API
-    SPA -->|Socket.IO| WS
+
+    FrontIO -->|HTTP/JSON| API
+    FrontIO -->|Socket.IO| WS
     API --> ORM
 ```
 

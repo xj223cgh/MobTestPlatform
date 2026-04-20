@@ -18,6 +18,15 @@ const MIN_ALERT_INTERVAL = 2000;
 
 request.interceptors.request.use(
   (config) => {
+    // 实例默认 application/json；上传 FormData 时必须去掉 Content-Type，
+    // 由浏览器设置 multipart/form-data 及 boundary，否则 Flask 收不到 request.files → 400
+    if (config.data instanceof FormData) {
+      if (config.headers && typeof config.headers.delete === "function") {
+        config.headers.delete("Content-Type");
+      } else {
+        delete config.headers["Content-Type"];
+      }
+    }
     return config;
   },
   (error) => {

@@ -2007,6 +2007,8 @@ onBeforeUnmount(() => {
 
 .header-project-select {
   width: 180px;
+  /* 与左侧「导入用例集」等按钮拉开一点，避免贴得过紧 */
+  margin-left: 12px;
 }
 
 .main-content {

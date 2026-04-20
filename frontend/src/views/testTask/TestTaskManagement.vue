@@ -1253,9 +1253,8 @@ onMounted(async () => {
     activeTab.value = "device_script";
   }
   await loadProjects();
-  if (projectOptions.value.length > 0 && !filterForm.project_id) {
-    filterForm.project_id = projectOptions.value[0].id;
-  }
+  // 不按默认选中首个项目：脚本任务创建时无「所属项目」表单，project_id 为空；
+  // 若此处默认筛选第一个项目，列表将永远查不到 project_id 为空的脚本任务。
   loadFolderTree();
   // 消息/活动跳转：定位到目标行所在分页并高亮；否则正常加载
   if (route.query.highlight_id) {
