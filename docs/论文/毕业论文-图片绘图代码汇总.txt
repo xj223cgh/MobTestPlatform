@@ -581,9 +581,10 @@ flowchart LR
 
 ---------- 图 4-10  系统 E-R 图（实体及实体间关系） ----------
 位置：第四章 数据库设计 → 4.3.2 概念结构设计（E-R 图）
+说明：实体为方框、关系为菱形；边标注 1 / n 表示基数。线稿为黑白、紧凑排布；导出优先 SVG。
 
 ```mermaid
-%%{init: {'theme': 'neutral'}}%%
+%%{init: { 'theme': 'neutral', 'flowchart': { 'nodeSpacing': 10, 'rankSpacing': 20, 'padding': 3 }, 'themeVariables': { 'fontSize': '13px', 'fontFamily': 'Microsoft YaHei, sans-serif', 'primaryTextColor': '#000000', 'lineColor': '#000000' }}}%%
 flowchart TB
     E1[用户]
     E2[项目]
@@ -644,28 +645,35 @@ flowchart TB
     R15 ---|n| E9
     E8 ---|1| R16
     R16 ---|n| E10
+
+    classDef bw fill:#ffffff,stroke:#000000,stroke-width:1px,color:#000000
+    class E1,E2,E3,E4,E5,E6,E7,E8,E9,E10,E11,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11,R12,R13,R14,R15,R16 bw
 ```
 
 
 ---------- 图 4-11  用户与权限模块 E-R 图 ----------
 位置：第四章 数据库设计 → 4.3.2（1）用户与权限模块 E-R 图
+说明：同图4-10，白底黑线、紧凑；实体方框、关系菱形。
 
 ```mermaid
-%%{init: {'theme': 'neutral'}}%%
+%%{init: { 'theme': 'neutral', 'flowchart': { 'nodeSpacing': 10, 'rankSpacing': 20, 'padding': 3 }, 'themeVariables': { 'fontSize': '13px', 'fontFamily': 'Microsoft YaHei, sans-serif', 'primaryTextColor': '#000000', 'lineColor': '#000000' }}}%%
 flowchart LR
     A[用户]
     R1{配置}
     B[角色权限配置]
     A ---|1| R1
     R1 ---|n| B
+    classDef bw fill:#ffffff,stroke:#000000,stroke-width:1px,color:#000000
+    class A,R1,B bw
 ```
 
 
 ---------- 图 4-12  项目管理模块 E-R 图 ----------
 位置：第四章 数据库设计 → 4.3.2（2）项目管理模块 E-R 图
+说明：同图4-10，白底黑线、紧凑。
 
 ```mermaid
-%%{init: {'theme': 'neutral'}}%%
+%%{init: { 'theme': 'neutral', 'flowchart': { 'nodeSpacing': 10, 'rankSpacing': 20, 'padding': 3 }, 'themeVariables': { 'fontSize': '13px', 'fontFamily': 'Microsoft YaHei, sans-serif', 'primaryTextColor': '#000000', 'lineColor': '#000000' }}}%%
 flowchart TB
     A[用户]
     B[项目]
@@ -690,14 +698,17 @@ flowchart TB
     R5 ---|n| E
     D ---|1| R6
     R6 ---|n| E
+    classDef bw fill:#ffffff,stroke:#000000,stroke-width:1px,color:#000000
+    class A,B,C,D,E,R1,R2,R3,R4,R5,R6 bw
 ```
 
 
 ---------- 图 4-13  测试用例管理模块 E-R 图 ----------
 位置：第四章 数据库设计 → 4.3.2（3）测试用例管理模块 E-R 图
+说明：同图4-10，白底黑线、紧凑。
 
 ```mermaid
-%%{init: {'theme': 'neutral'}}%%
+%%{init: { 'theme': 'neutral', 'flowchart': { 'nodeSpacing': 10, 'rankSpacing': 20, 'padding': 3 }, 'themeVariables': { 'fontSize': '13px', 'fontFamily': 'Microsoft YaHei, sans-serif', 'primaryTextColor': '#000000', 'lineColor': '#000000' }}}%%
 flowchart TB
     A[用户]
     B[项目]
@@ -720,28 +731,34 @@ flowchart TB
     R4 ---|n| F
     A ---|1| R5
     R5 ---|n| F
+    classDef bw fill:#ffffff,stroke:#000000,stroke-width:1px,color:#000000
+    class A,B,C,D,E,F,R1,R2,R3,R4,R5 bw
 ```
 
 
 ---------- 图 4-14  设备管理模块 E-R 图 ----------
 位置：第四章 数据库设计 → 4.3.2（4）设备管理模块 E-R 图
+说明：同图4-10，白底黑线、紧凑。
 
 ```mermaid
-%%{init: {'theme': 'neutral'}}%%
+%%{init: { 'theme': 'neutral', 'flowchart': { 'nodeSpacing': 10, 'rankSpacing': 20, 'padding': 3 }, 'themeVariables': { 'fontSize': '13px', 'fontFamily': 'Microsoft YaHei, sans-serif', 'primaryTextColor': '#000000', 'lineColor': '#000000' }}}%%
 flowchart LR
     A[用户]
     R1{负责}
     B[设备]
     A ---|1| R1
     R1 ---|n| B
+    classDef bw fill:#ffffff,stroke:#000000,stroke-width:1px,color:#000000
+    class A,R1,B bw
 ```
 
 
 ---------- 图 4-15  测试任务与执行模块 E-R 图 ----------
 位置：第四章 数据库设计 → 4.3.2（5）测试任务与执行模块 E-R 图
+说明：同图4-10，白底黑线、紧凑。
 
 ```mermaid
-%%{init: {'theme': 'neutral'}}%%
+%%{init: { 'theme': 'neutral', 'flowchart': { 'nodeSpacing': 10, 'rankSpacing': 20, 'padding': 3 }, 'themeVariables': { 'fontSize': '13px', 'fontFamily': 'Microsoft YaHei, sans-serif', 'primaryTextColor': '#000000', 'lineColor': '#000000' }}}%%
 flowchart TB
     A[用户]
     B[测试任务]
@@ -760,34 +777,42 @@ flowchart TB
     R3 ---|n| D
     B ---|1| R4
     R4 ---|n| E
+    classDef bw fill:#ffffff,stroke:#000000,stroke-width:1px,color:#000000
+    class A,B,C,D,E,R1,R2,R3,R4 bw
 ```
 
 
 ---------- 图 4-16  报告管理模块 E-R 图 ----------
 位置：第四章 数据库设计 → 4.3.2（6）报告管理模块 E-R 图
+说明：同图4-10，白底黑线、紧凑。
 
 ```mermaid
-%%{init: {'theme': 'neutral'}}%%
+%%{init: { 'theme': 'neutral', 'flowchart': { 'nodeSpacing': 10, 'rankSpacing': 20, 'padding': 3 }, 'themeVariables': { 'fontSize': '13px', 'fontFamily': 'Microsoft YaHei, sans-serif', 'primaryTextColor': '#000000', 'lineColor': '#000000' }}}%%
 flowchart LR
     A[测试任务]
     R1{生成}
     B[报告]
     A ---|1| R1
     R1 ---|n| B
+    classDef bw fill:#ffffff,stroke:#000000,stroke-width:1px,color:#000000
+    class A,R1,B bw
 ```
 
 
 ---------- 图 4-17  消息通知模块 E-R 图 ----------
 位置：第四章 数据库设计 → 4.3.2（7）消息通知模块 E-R 图
+说明：同图4-10，白底黑线、紧凑。
 
 ```mermaid
-%%{init: {'theme': 'neutral'}}%%
+%%{init: { 'theme': 'neutral', 'flowchart': { 'nodeSpacing': 10, 'rankSpacing': 20, 'padding': 3 }, 'themeVariables': { 'fontSize': '13px', 'fontFamily': 'Microsoft YaHei, sans-serif', 'primaryTextColor': '#000000', 'lineColor': '#000000' }}}%%
 flowchart LR
     A[用户]
     R1{接收}
     B[通知]
     A ---|1| R1
     R1 ---|n| B
+    classDef bw fill:#ffffff,stroke:#000000,stroke-width:1px,color:#000000
+    class A,R1,B bw
 ```
 
 
@@ -996,36 +1021,32 @@ skinparam SequenceArrowColor #333
 skinparam SequenceActorBorderColor #333
 skinparam SequenceActivationBackgroundColor #E8E8E8
 skinparam SequenceActivationBorderColor #333
+skinparam wrapWidth 150
+skinparam ParticipantPadding 28
 hide footbox
 
 actor "发起人" as user
 participant "前端" as FE
 participant "后端" as BE
-participant "通知服务(notify_users)" as NS
-participant "数据库" as DB
+participant "通知服务" as NS
+database "数据库" as DB
 
-user -> FE : 选择用例集、评审人，发起评审
+user -> FE : 选择用例集、评审人并发起
 activate FE
-FE -> BE : 发起评审 (POST .../initiate-review)
+FE -> BE : POST …/initiate-review
 activate BE
-BE -> DB : 查询用例集与用例，创建评审任务 (TestSuiteReviewTask) 与评审详情 (TestCaseReviewDetail)
-activate DB
-DB --> BE : (完成)
-deactivate DB
-BE -> DB : 更新用例集 review_status
-activate DB
-DB --> BE : (完成)
-deactivate DB
-BE -> NS : 通知评审人 (notify_users)
+BE -> DB : 查询用例集与用例；\n创建 Task 与 Detail\n(TestSuiteReviewTask /\nTestCaseReviewDetail)
+DB --> BE
+BE -> DB : 更新 review_status
+DB --> BE
+BE -> NS : notify_users(评审人)
 activate NS
 NS -> DB : 写入 notifications
-activate DB
-DB --> NS : (完成)
-deactivate DB
-NS -> NS : 实时推送 (emit)
-NS --> BE : (完成)
+DB --> NS
+NS -> NS : emit 实时推送
+NS --> BE
 deactivate NS
-BE --> FE : 返回 review_task_id
+BE --> FE : review_task_id
 deactivate BE
 FE --> user : 发起成功
 deactivate FE
@@ -1047,63 +1068,38 @@ skinparam SequenceArrowColor #333
 skinparam SequenceActorBorderColor #333
 skinparam SequenceActivationBackgroundColor #E8E8E8
 skinparam SequenceActivationBorderColor #333
+skinparam wrapWidth 150
+skinparam ParticipantPadding 26
 hide footbox
 
 actor "用户" as user
 participant "前端" as FE
 participant "后端" as BE
-participant "数据库" as DB
+database "数据库" as DB
 participant "本机 Agent" as AG
 participant "服务器 ADB" as SA
 
-user -> FE : 打开设备管理页 / 点击刷新状态
+user -> FE : 打开页 / 刷新状态
 activate FE
-FE -> BE : 请求列表或状态 (GET /api/devices 等)
+FE -> BE : GET …/devices（列表或单设备）
 activate BE
 
-BE -> DB : 查用户-Agent 绑定、心跳及设备表
-activate DB
+BE -> DB : 读绑定、心跳、设备表
 DB --> BE
-deactivate DB
 
-alt 设备列表查询
-    alt 已绑定且 Agent 在线
-        BE -> AG : 转发：枚举本机已连接设备
-        activate AG
-        AG --> BE : 设备标识列表
-        deactivate AG
-    else 未绑定或 Agent 离线
-        BE -> SA : adb devices
-        activate SA
-        SA --> BE : 设备标识列表
-        deactivate SA
-    end
-    BE -> DB : 按条件查询设备业务数据
-    activate DB
-    DB --> BE : 设备记录
-    deactivate DB
-    BE --> FE : 返回列表 (合并业务数据与 ADB 侧结果)
-else 单设备状态刷新
-    BE -> DB : 查询目标设备信息
-    activate DB
-    DB --> BE
-    deactivate DB
-    alt 已绑定且 Agent 在线
-        BE -> AG : 转发：查询连接状态
-        activate AG
-        AG --> BE : device / offline 等
-        deactivate AG
-    else 未绑定或 Agent 离线
-        BE -> SA : adb get-state 等
-        activate SA
-        SA --> BE : 状态
-        deactivate SA
-    end
-    BE --> FE : 返回连接状态
+alt 已绑定且 Agent 在线
+    BE -> AG : 转发 adb（枚举列表 /\n查连接状态）
+    AG --> BE : 标识列表或状态
+else 未绑定或离线
+    BE -> SA : adb devices /\nget-state 等
+    SA --> BE
 end
 
+BE -> DB : 合并业务字段（列表筛选 /\n或目标设备）
+DB --> BE
+BE --> FE : 列表或连接状态
 deactivate BE
-FE --> user : 展示列表或状态
+FE --> user : 展示
 deactivate FE
 @enduml
 ```
@@ -1171,43 +1167,37 @@ skinparam SequenceArrowColor #333
 skinparam SequenceActorBorderColor #333
 skinparam SequenceActivationBackgroundColor #E8E8E8
 skinparam SequenceActivationBorderColor #333
+skinparam wrapWidth 120
+skinparam ParticipantPadding 20
 hide footbox
 
 actor "执行人" as user
 participant "前端" as FE
 participant "后端" as BE
-participant "报告服务(create_report_for_task)" as RS
-participant "通知服务(notify_users)" as NS
-participant "数据库" as DB
+participant "报告服务" as RS
+participant "通知服务" as NS
+database "数据库" as DB
 
-user -> FE : 填写执行结果并完成任务
+user -> FE : 填写结果并完成
 activate FE
-FE -> BE : 提交执行结果或完成 (POST .../executions/... 或 .../complete)
+FE -> BE : POST …/executions…\n或 …/complete
 activate BE
-BE -> DB : 更新执行记录、任务状态为已完成
-activate DB
-DB --> BE : (完成)
-deactivate DB
-BE -> RS : 生成报告 (create_report_for_task)
+BE -> DB : 更新执行、任务已完成
+DB --> BE
+BE -> RS : create_report_for_task
 activate RS
-RS -> DB : 汇总执行记录与快照，写入 Report
-activate DB
-DB --> RS : (完成)
-deactivate DB
-RS --> BE : 返回 Report
+RS -> DB : 汇总→Report
+DB --> RS
+RS --> BE : Report
 deactivate RS
-BE -> DB : 提交事务
-activate DB
-DB --> BE : (完成)
-deactivate DB
-BE -> NS : 通知创建人/执行人 (notify_users)
+BE -> DB : commit
+DB --> BE
+BE -> NS : notify_users(创建人/执行人)
 activate NS
-NS -> DB : 写入 notifications
-activate DB
-DB --> NS : (完成)
-deactivate DB
-NS -> NS : 实时推送 (emit)
-NS --> BE : (完成)
+NS -> DB : notifications
+DB --> NS
+NS -> NS : emit
+NS --> BE
 deactivate NS
 BE --> FE : 任务已完成
 deactivate BE
