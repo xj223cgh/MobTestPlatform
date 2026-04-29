@@ -18,7 +18,7 @@ bp = Blueprint('ai_tasks', __name__, url_prefix='/api/ai-tasks')
 
 
 # ---------------------------------------------------------------------------
-# AI config loader
+# AI 配置加载
 # ---------------------------------------------------------------------------
 
 _ai_config_cache = {}
@@ -41,7 +41,7 @@ def load_ai_config() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Document & Excel storage helpers
+# 文档 & Excel 存储辅助函数
 # ---------------------------------------------------------------------------
 
 _AI_WORKSPACE = Path(__file__).resolve().parent.parent / 'ai' / 'workspace'
@@ -132,7 +132,7 @@ def _save_generated_cases_excel(saved_cases: list, suite_name: str, project_name
 
 
 # ---------------------------------------------------------------------------
-# Core task: generate test cases (supports single-pass and Map-Reduce)
+# 核心任务：生成测试用例（支持单次生成和 Map-Reduce）
 # ---------------------------------------------------------------------------
 
 def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id: str):
@@ -146,8 +146,17 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
             _ensure_env_loaded()
             task_manager.update_task_status(task_id, message='正在解析需求文档...', progress=3)
 
-            document_content = params.get('documentContent', '')
+            document_content = (params.get('documentContent') or '').strip()
             ai_config = get_ai_config()
+
+            if params.get('_docx_content'):
+                docx_plain = _extract_plain_text_from_docx(params['_docx_content']).strip()
+                if docx_plain:
+                    document_content = (
+                        (document_content + '\n\n' + docx_plain).strip()
+                        if document_content
+                        else docx_plain
+                    )
 
             image_text = _process_uploaded_images(params.get('_image_files', []), ai_config)
             docx_image_text = ''
@@ -316,7 +325,7 @@ def generate_test_cases_task(suite_id: int, params: dict, task_manager, task_id:
 
 
 # ---------------------------------------------------------------------------
-# Knowledge retrieval (Phase 3 — RAG)
+# 知识检索（Phase 3 — RAG）
 # ---------------------------------------------------------------------------
 
 def _retrieve_knowledge_context(document_content: str) -> str:
@@ -354,10 +363,22 @@ def _retrieve_knowledge_context(document_content: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Image extraction & recognition (Vision API)
+# 图片提取 & 识别（Vision API）
 # ---------------------------------------------------------------------------
 
 _SUPPORTED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'}
+
+
+def _extract_plain_text_from_docx(file_content: bytes) -> str:
+    """从 .docx 中提取正文段落为纯文本（与知识库 .docx 解析一致）。"""
+    try:
+        from docx import Document
+        import io
+        doc = Document(io.BytesIO(file_content))
+        return '\n\n'.join(p.text for p in doc.paragraphs if p.text.strip())
+    except Exception as e:
+        logger.warning('Failed to extract plain text from docx: %s', e)
+        return ''
 
 
 def _extract_images_from_docx(file_content: bytes) -> list:
@@ -459,7 +480,7 @@ def _extract_and_recognize_docx_images(docx_content: bytes, ai_config: dict) -> 
 
 
 # ---------------------------------------------------------------------------
-# Generation: single-pass vs Map-Reduce
+# 生成：单次生成 vs Map-Reduce
 # ---------------------------------------------------------------------------
 
 def _generate_cases_from_document(document_content, knowledge_context, ai_config, task_manager, task_id):
@@ -603,7 +624,7 @@ def _build_chunk_fallback_prompt(chunk, chunk_index, total_chunks, summary,
 
 
 # ---------------------------------------------------------------------------
-# Retry + field validation
+# 重试 + 字段校验
 # ---------------------------------------------------------------------------
 
 _MAX_RETRIES = 1
@@ -662,7 +683,7 @@ def _validate_and_fix_case(case: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Prompt building
+# 提示词构建
 # ---------------------------------------------------------------------------
 
 def _suggest_case_count(document_content: str) -> int:
@@ -737,7 +758,7 @@ def _build_fallback_prompt(doc_content: str, suggested_count: int, knowledge_con
 
 
 # ---------------------------------------------------------------------------
-# AI API call
+# AI API 调用
 # ---------------------------------------------------------------------------
 
 _DEFAULT_SYSTEM_PROMPT = (
@@ -804,7 +825,7 @@ def call_ai_api(prompt: str, ai_config: dict, max_tokens_override: int = None,
 
 
 # ---------------------------------------------------------------------------
-# Response parsing
+# 响应解析
 # ---------------------------------------------------------------------------
 
 def parse_ai_response(ai_response: dict) -> list:
@@ -850,7 +871,7 @@ def parse_ai_response(ai_response: dict) -> list:
 
 
 # ---------------------------------------------------------------------------
-# Config & env helpers
+# 配置 & 环境变量辅助函数
 # ---------------------------------------------------------------------------
 
 def _ensure_env_loaded():
@@ -886,7 +907,7 @@ def get_ai_config() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Case number generation
+# 用例编号生成
 # ---------------------------------------------------------------------------
 
 _ZH2EN = {
@@ -1004,7 +1025,7 @@ def get_max_case_index(suite_id: int) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Route handlers
+# 路由处理  
 # ---------------------------------------------------------------------------
 
 @bp.route('/generate-cases', methods=['POST'])

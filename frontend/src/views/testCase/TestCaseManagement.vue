@@ -438,14 +438,20 @@
             accept=".txt,.md,.doc,.docx"
             :on-change="onGenerateFileChange"
             :on-remove="onGenerateFileRemove"
+            :on-exceed="onGenerateUploadExceed"
           >
             <el-button type="primary" plain>上传需求文档</el-button>
             <template #tip>
               <div class="upload-tip">支持 .txt、.md、.doc、.docx，上传后将读取文档内容用于生成用例</div>
             </template>
           </el-upload>
-          <div v-if="generateForm.documentContent" class="document-preview">
-            已加载 {{ (generateForm.documentContent || '').length }} 字，可重新上传替换
+          <div v-if="generateForm.documentContent || generateDocxFile" class="document-preview">
+            <template v-if="generateForm.documentContent">
+              已加载 {{ (generateForm.documentContent || '').length }} 字，可重新上传替换
+            </template>
+            <template v-else>
+              已选择 {{ generateDocxFile?.name }}，将在服务端解析正文与内嵌图，可重新上传替换
+            </template>
           </div>
         </el-form-item>
       </el-form>
@@ -698,7 +704,8 @@ import {
 import { moveTestSuite, copyTestSuite, importTestSuite } from "@/api/testSuite";
 import { getProjects, getProjectVersionRequirements } from "@/api/project";
 import { getProjectIterations } from "@/api/iteration";
-import { createGenerateCasesTask, getTaskStatus } from "@/api/aiTasks";
+import { createGenerateCasesTask, createGenerateCasesWithFiles, getTaskStatus } from "@/api/aiTasks";
+import { genFileId } from "element-plus";
 
 const router = useRouter();
 const route = useRoute();
@@ -787,13 +794,15 @@ const generateSuiteOptions = ref([]);
 const generateIterationOptions = ref([]);
 const generateRequirementOptions = ref([]);
 const generateUploadRef = ref(null);
+/** 选择了 .docx 时由服务端解析正文，此处保存待提交的 File */
+const generateDocxFile = ref(null);
 const editingSuiteId = ref(null);
 const editingSuiteName = ref("");
 const suiteNameInputRef = ref(null);
 
 const canSubmitGenerate = computed(() => {
   if (!generateForm.projectId) return false;
-  if (!generateForm.documentContent?.trim()) return false;
+  if (!generateForm.documentContent?.trim() && !generateDocxFile.value) return false;
   if (generateForm.mode === "append") return !!generateForm.suiteId;
   return generateForm.folderId != null && !!generateForm.newSuiteName?.trim() && !!generateForm.requirementId;
 });
@@ -1457,6 +1466,7 @@ function handleGenerateCases() {
   generateForm.suiteId = null;
   generateForm.newSuiteName = "";
   generateForm.documentContent = "";
+  generateDocxFile.value = null;
   generateForm.debugMode = false;
   generateFolderTree.value = [];
   generateSuiteOptions.value = [];
@@ -1566,18 +1576,37 @@ function onGenerateFileChange(file) {
   if (!raw) return;
   const ext = (raw.name || "").toLowerCase().split(".").pop();
   if (ext === "txt" || ext === "md") {
+    generateDocxFile.value = null;
     const reader = new FileReader();
     reader.onload = () => {
       generateForm.documentContent = reader.result ?? "";
     };
     reader.readAsText(raw, "UTF-8");
+  } else if (ext === "docx") {
+    generateForm.documentContent = "";
+    generateDocxFile.value = raw;
+  } else if (ext === "doc") {
+    generateDocxFile.value = null;
+    generateForm.documentContent = "";
+    ElMessage.warning("暂不支持旧版 .doc，请将文档另存为 .docx 或使用 .txt / .md");
   } else {
-    ElMessage.warning("请上传 .txt 或 .md 格式的需求文档，以便正确读取内容");
+    generateDocxFile.value = null;
+    ElMessage.warning("请上传 .txt、.md 或 .docx 格式的需求文档");
   }
+}
+
+function onGenerateUploadExceed(files) {
+  const upload = generateUploadRef.value;
+  if (!upload || !files?.length) return;
+  upload.clearFiles();
+  const raw = files[0];
+  raw.uid = genFileId();
+  upload.handleStart(raw);
 }
 
 function onGenerateFileRemove() {
   generateForm.documentContent = "";
+  generateDocxFile.value = null;
 }
 
 function handleGenerateForSuite(row) {
@@ -1587,6 +1616,7 @@ function handleGenerateForSuite(row) {
   generateForm.folderId = row.parent_id ?? null;
   generateForm.suiteId = row.id;
   generateForm.documentContent = "";
+  generateDocxFile.value = null;
   generateForm.debugMode = false;
   generateSuiteOptions.value = [];
   generateIterationOptions.value = [];
@@ -1595,17 +1625,18 @@ function handleGenerateForSuite(row) {
 }
 
 async function submitGenerate() {
-  if (!generateForm.documentContent?.trim()) {
+  if (!generateForm.documentContent?.trim() && !generateDocxFile.value) {
     ElMessage.warning("需求文档内容不能为空");
     return;
   }
+  const pendingDocx = generateDocxFile.value;
   generateDialogVisible.value = false;
   if (generateForm.mode === "append") {
     if (!generateForm.suiteId) {
       ElMessage.warning("请选择目标用例集");
       return;
     }
-    await startGenerateForSuite(generateForm.suiteId, generateForm.documentContent, generateForm.debugMode);
+    await startGenerateForSuite(generateForm.suiteId, generateForm.documentContent, generateForm.debugMode, pendingDocx);
     return;
   }
   // 创建新用例集并生成（未选文件夹或选根时 parent_id 为 null）
@@ -1626,7 +1657,7 @@ async function submitGenerate() {
       ElMessage.error("创建用例集失败");
       return;
     }
-    await startGenerateForSuite(newSuite.id, generateForm.documentContent, generateForm.debugMode);
+    await startGenerateForSuite(newSuite.id, generateForm.documentContent, generateForm.debugMode, pendingDocx);
     selectFolderById(newSuite.parent_id ?? 0);
     await loadCaseSets();
   } catch (e) {
@@ -1680,23 +1711,40 @@ watch(
   { flush: "post" }
 );
 
-async function startGenerateForSuite(suiteId, documentContent, debugMode = false) {
+async function startGenerateForSuite(suiteId, documentContent, debugMode = false, docxFile = null) {
   try {
     generatingMap[suiteId] = { taskId: null, progress: 0, message: '正在创建任务...' };
     const selectedProject = projectOptions.value.find(p => p.id === generateForm.projectId);
     const selectedIteration = generateIterationOptions.value.find(it => it.id === generateForm.iterationId);
     const selectedRequirement = generateRequirementOptions.value.find(r => r.id === generateForm.requirementId);
-    const res = await createGenerateCasesTask({
-      suite_id: suiteId,
-      documentContent,
-      debugMode,
-      projectId: generateForm.projectId,
-      iterationId: generateForm.iterationId,
-      requirementId: generateForm.requirementId,
-      projectName: selectedProject?.project_name || '',
-      iterationName: selectedIteration?.iteration_name || '',
-      requirementName: selectedRequirement?.requirement_name || '',
-    });
+    const docx = docxFile;
+    let res;
+    if (docx) {
+      const fd = new FormData();
+      fd.append("suite_id", String(suiteId));
+      fd.append("documentContent", documentContent || "");
+      fd.append("debugMode", debugMode ? "true" : "false");
+      fd.append("projectId", generateForm.projectId ?? "");
+      fd.append("iterationId", generateForm.iterationId ?? "");
+      fd.append("requirementId", generateForm.requirementId ?? "");
+      fd.append("projectName", selectedProject?.project_name || "");
+      fd.append("iterationName", selectedIteration?.iteration_name || "");
+      fd.append("requirementName", selectedRequirement?.requirement_name || "");
+      fd.append("document", docx, docx.name);
+      res = await createGenerateCasesWithFiles(fd);
+    } else {
+      res = await createGenerateCasesTask({
+        suite_id: suiteId,
+        documentContent,
+        debugMode,
+        projectId: generateForm.projectId,
+        iterationId: generateForm.iterationId,
+        requirementId: generateForm.requirementId,
+        projectName: selectedProject?.project_name || "",
+        iterationName: selectedIteration?.iteration_name || "",
+        requirementName: selectedRequirement?.requirement_name || "",
+      });
+    }
     const taskId = res.data?.task_id;
     if (taskId) {
       generatingMap[suiteId] = { taskId, progress: 0, message: '等待处理...' };
@@ -1960,6 +2008,7 @@ onMounted(async () => {
 watch(generateDialogVisible, (visible) => {
   if (!visible && generateUploadRef.value) {
     generateUploadRef.value.clearFiles();
+    generateDocxFile.value = null;
   }
 });
 
