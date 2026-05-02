@@ -264,14 +264,50 @@
                       <span v-else>{{ currentReport.script_file || '-' }}</span>
                     </span>
                   </div>
-                  <div class="info-item">
-                    <span class="label">文件路径：</span>
-                    <span class="value">{{ currentReport.file_path || '-' }}</span>
+                </div>
+                <div class="info-item script-meta-field-row">
+                  <span class="label">文件路径：</span>
+                  <div class="script-meta-field">
+                    <pre class="script-meta-pre">{{ currentReport.file_path || '—' }}</pre>
+                    <el-tooltip
+                      content="复制路径"
+                      placement="top"
+                    >
+                      <el-button
+                        v-if="currentReport.file_path"
+                        class="script-meta-copy-btn"
+                        text
+                        type="primary"
+                        @click="copyScriptReportField(currentReport.file_path)"
+                      >
+                        <el-icon :size="16">
+                          <DocumentCopy />
+                        </el-icon>
+                      </el-button>
+                    </el-tooltip>
                   </div>
                 </div>
-                <div class="info-item">
+                <div class="info-item script-meta-field-row">
                   <span class="label">执行命令：</span>
-                  <span class="value">{{ currentReport.command || '-' }}</span>
+                  <div class="script-meta-field">
+                    <pre class="script-meta-pre script-meta-pre--command">{{ currentReport.command || '—' }}</pre>
+                    <el-tooltip
+                      content="复制命令"
+                      placement="top"
+                    >
+                      <el-button
+                        v-if="currentReport.command"
+                        class="script-meta-copy-btn"
+                        text
+                        type="primary"
+                        @click="copyScriptReportField(currentReport.command)"
+                      >
+                        <el-icon :size="16">
+                          <DocumentCopy />
+                        </el-icon>
+                      </el-button>
+                    </el-tooltip>
+                  </div>
                 </div>
               </div>
             </div>
@@ -603,7 +639,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { ArrowLeft, Download, Document, ArrowDown, Search } from '@element-plus/icons-vue';
+import { ArrowLeft, Download, Document, ArrowDown, Search, DocumentCopy } from '@element-plus/icons-vue';
 import VChart from 'vue-echarts';
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
@@ -717,22 +753,38 @@ const testCaseBarOption = computed(() => ({
   }]
 }));
 
-const devicePieOption = computed(() => ({
-  tooltip: { trigger: 'item' },
-  legend: { bottom: 0, textStyle: { color: chartTextColor.value } },
-  color: ['#67c23a', '#f56c6c'],
-  series: [{
-    type: 'pie',
-    radius: ['40%', '70%'],
-    avoidLabelOverlap: false,
-    itemStyle: { borderColor: '#fff', borderWidth: 2 },
-    label: { show: true, color: chartTextColor.value, formatter: '{b}: {c}' },
-    data: [
-      { value: deviceReportSummary.value.success_count, name: '成功' },
-      { value: deviceReportSummary.value.failed_count, name: '失败' }
-    ].filter(d => d.value > 0)
-  }]
-}));
+const devicePieOption = computed(() => {
+  const succ = deviceReportSummary.value.success_count ?? 0;
+  const fail = deviceReportSummary.value.failed_count ?? 0;
+  const total = succ + fail;
+  const pct = (v) => (total > 0 ? ((v / total) * 100).toFixed(1) : '0');
+  const zeroCount = [succ, fail].filter((v) => v === 0).length;
+  const minAngle = zeroCount >= 2 ? 8 : 2;
+  return {
+    tooltip: {
+      trigger: 'item',
+      formatter: (params) => `${params.name}: ${params.value} (${pct(params.value)}%)`,
+    },
+    legend: { bottom: 0, textStyle: { color: chartTextColor.value } },
+    color: ['#67c23a', '#f56c6c'],
+    series: [{
+      type: 'pie',
+      radius: ['40%', '70%'],
+      avoidLabelOverlap: true,
+      minAngle,
+      itemStyle: { borderColor: '#fff', borderWidth: 2 },
+      label: {
+        show: true,
+        color: chartTextColor.value,
+        formatter: (params) => `${params.name}: ${params.value} (${pct(params.value)}%)`,
+      },
+      data: [
+        { value: succ, name: '成功' },
+        { value: fail, name: '失败' },
+      ],
+    }],
+  };
+});
 
 const deviceBarOption = computed(() => {
   const details = deviceReportDetails.value;
@@ -789,6 +841,62 @@ const mergedOutput = computed(() => {
   return `=== 标准输出 ===\n${out}\n\n=== 错误输出 ===\n${err}`;
 });
 
+/** summary 中缺省或非数字字段统一为数字，避免模板渲染成空白（如 failed_count、success_rate 缺失） */
+const asStatNum = (v, fallback = 0) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const normalizeTestCaseSummary = (raw) => {
+  const r = raw && typeof raw === 'object' ? raw : {};
+  return {
+    ...r,
+    total_cases: asStatNum(r.total_cases, 0),
+    executed_cases: asStatNum(r.executed_cases, 0),
+    pass_count: asStatNum(r.pass_count, 0),
+    fail_count: asStatNum(r.fail_count, 0),
+    blocked_count: asStatNum(r.blocked_count, 0),
+    not_applicable_count: asStatNum(r.not_applicable_count, 0),
+  };
+};
+
+const normalizeDeviceScriptSummary = (raw, details) => {
+  const r = raw && typeof raw === 'object' ? raw : {};
+  const det = Array.isArray(details) ? details : [];
+  const nDetails = det.length;
+
+  let totalDevices = asStatNum(r.total_devices, NaN);
+  if (!Number.isFinite(totalDevices)) {
+    totalDevices = nDetails;
+  }
+
+  let successCount = asStatNum(r.success_count, NaN);
+  if (!Number.isFinite(successCount)) {
+    successCount = det.filter((d) => d.status === 'success').length;
+  }
+
+  let failedCount = asStatNum(r.failed_count, NaN);
+  if (!Number.isFinite(failedCount)) {
+    failedCount = Math.max(0, totalDevices - successCount);
+  }
+
+  let successRate = asStatNum(r.success_rate, NaN);
+  if (!Number.isFinite(successRate)) {
+    successRate =
+      totalDevices > 0
+        ? Math.round((successCount / totalDevices) * 1000) / 10
+        : 0;
+  }
+
+  return {
+    ...r,
+    total_devices: totalDevices,
+    success_count: successCount,
+    failed_count: failedCount,
+    success_rate: successRate,
+  };
+};
+
 const fetchReportData = async () => {
   try {
     loading.value = true;
@@ -804,14 +912,18 @@ const fetchReportData = async () => {
     if (response && response.success && response.data) {
       currentReport.value = response.data.task_info;
       if (currentReport.value.task_type === 'test_case') {
-        reportSummary.value = { ...(response.data.summary || {}) };
-        // 通过率与任务列表统计列一致：通过数/用例总数（前端兜底，避免历史错误数据）
-        const total = reportSummary.value.total_cases || 0;
-        const passCount = reportSummary.value.pass_count || 0;
-        reportSummary.value.pass_rate = total > 0 ? Math.round((passCount / total) * 1000) / 10 : 0;
+        reportSummary.value = normalizeTestCaseSummary(response.data.summary);
+        const total = reportSummary.value.total_cases;
+        const passCount = reportSummary.value.pass_count;
+        reportSummary.value.pass_rate =
+          total > 0 ? Math.round((passCount / total) * 1000) / 10 : 0;
       } else if (currentReport.value.task_type === 'device_script') {
-        deviceReportSummary.value = response.data.summary || {};
-        deviceReportDetails.value = response.data.details || [];
+        const details = response.data.details || [];
+        deviceReportDetails.value = details;
+        deviceReportSummary.value = normalizeDeviceScriptSummary(
+          response.data.summary,
+          details,
+        );
       }
     } else {
       loadError.value = true;
@@ -870,6 +982,13 @@ const handleDownloadReportScript = () => {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
+};
+
+const copyScriptReportField = (text) => {
+  if (!text || typeof text !== 'string') return;
+  navigator.clipboard.writeText(text)
+    .then(() => ElMessage.success('已复制到剪贴板'))
+    .catch(() => ElMessage.error('复制失败'));
 };
 
 const handleViewOutput = (row) => {
@@ -1172,21 +1291,61 @@ watch(
 }
 .script-file-row {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 32px;
+  gap: 16px 32px;
 }
 .script-file-row .info-item {
-  flex: 0 1 auto;
+  flex: 1 1 240px;
   min-width: 0;
 }
 .script-file-row .info-item .value {
   word-break: break-all;
 }
-.script-section .script-info-content > .info-item {
+.script-meta-field-row {
+  align-items: flex-start;
+  width: 100%;
+}
+.script-meta-field-row .label {
+  padding-top: 10px;
+}
+.script-meta-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.script-meta-pre {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 10px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+  color: var(--el-text-color-primary, #303133);
+  background: var(--el-fill-color-light, #f5f7fa);
+  border: 1px solid var(--el-border-color-lighter, #ebeef5);
+  border-radius: 8px;
+  box-sizing: border-box;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.script-meta-pre--command {
+  max-height: 220px;
+  overflow-y: auto;
+}
+.script-meta-copy-btn {
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.script-section .script-info-content > .info-item:not(.script-meta-field-row) {
   align-items: flex-start;
 }
-.script-section .script-info-content > .info-item .value {
+.script-section .script-info-content > .info-item:not(.script-meta-field-row) .value {
   word-break: break-all;
   line-height: 1.5;
 }
@@ -1281,13 +1440,6 @@ watch(
     font-weight: 600;
     color: var(--el-text-color-primary, #303133);
   }
-}
-
-.script-info-content {
-  padding: 10px 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 16px;
 }
 
 .table-toolbar {

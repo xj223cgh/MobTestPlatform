@@ -1630,16 +1630,16 @@ async function submitGenerate() {
     return;
   }
   const pendingDocx = generateDocxFile.value;
-  generateDialogVisible.value = false;
   if (generateForm.mode === "append") {
     if (!generateForm.suiteId) {
       ElMessage.warning("请选择目标用例集");
       return;
     }
+    generateDialogVisible.value = false;
     await startGenerateForSuite(generateForm.suiteId, generateForm.documentContent, generateForm.debugMode, pendingDocx);
     return;
   }
-  // 创建新用例集并生成（未选文件夹或选根时 parent_id 为 null）
+  // 创建新用例集并生成（未选文件夹或选根时 parent_id 为 null）；创建失败时保持弹窗打开便于修改
   const parentId = (generateForm.folderId == null || generateForm.folderId === 0) ? null : generateForm.folderId;
   try {
     const createRes = await createTestSuite({
@@ -1657,6 +1657,7 @@ async function submitGenerate() {
       ElMessage.error("创建用例集失败");
       return;
     }
+    generateDialogVisible.value = false;
     await startGenerateForSuite(newSuite.id, generateForm.documentContent, generateForm.debugMode, pendingDocx);
     selectFolderById(newSuite.parent_id ?? 0);
     await loadCaseSets();

@@ -1,11 +1,29 @@
 /** 通知跳转：根据通知类型生成路由路径与展示格式。 */
 /**
- * 根据通知的 related_type、related_id 解析跳转路由
+ * 校验并规范化关联 ID（DB 为整数；避免用 !id 误判 0）
+ */
+function parseRelatedId(raw) {
+  if (raw === null || raw === undefined || raw === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * 根据通知的 related_type、related_id 解析跳转路由。
+ *
+ * 与后端 notify_users(related_type, related_id) 约定对齐：
+ * - project / iteration / version_requirement：实体主键 → 列表页 highlight
+ * - user：users.id → user_id
+ * - device：devices 表主键 → highlight_device_id（非 ADB 串号）
+ * - review_task：test_suite_review_tasks.id → case-reviews?taskId=
+ * - test_task：test_tasks.id → test-tasks?highlight_id=
+ * - report：reports.id → 须 name=ReportDetailByRecord（勿用 /report/:id，否则会被当成 task_id）
+ * - suite：test_suites.id（套件 type=suite）→ test-cases?suite_id=
  */
 export function getNotificationRoute(notification) {
   const type = notification?.related_type;
-  const id = notification?.related_id;
-  if (!id) return null;
+  const id = parseRelatedId(notification?.related_id);
+  if (id === null) return null;
   switch (type) {
     case "project":
       return { path: "/projects", query: { highlight_id: id } };
@@ -22,7 +40,7 @@ export function getNotificationRoute(notification) {
     case "test_task":
       return { path: "/test-tasks", query: { highlight_id: id } };
     case "report":
-      return { path: `/report/${id}` };
+      return { name: "ReportDetailByRecord", params: { id: String(id) } };
     case "suite":
       return { path: "/test-cases", query: { suite_id: id } };
     default:

@@ -934,7 +934,8 @@ const hasOnlineDevices = computed(() => {
 const flashDeviceId = ref(null);
 let flashClearTimer = null;
 const getDeviceRowClassName = ({ row }) => {
-  if (flashDeviceId.value && row.id === flashDeviceId.value) return "notification-flash-row";
+  const fid = flashDeviceId.value;
+  if (fid != null && Number(row.id) === Number(fid)) return "notification-flash-row";
   return "";
 };
 
@@ -1349,10 +1350,12 @@ watch(
   () => [deviceList.value, route.query.highlight_device_id],
   ([list, hid]) => {
     if (!hid || !list.length) return;
-    const found = list.some((r) => r.id === hid);
+    const nid = Number(hid);
+    if (!Number.isFinite(nid)) return;
+    const found = list.some((r) => Number(r.id) === nid);
     if (!found) return;
     if (flashClearTimer) { clearTimeout(flashClearTimer); flashClearTimer = null; }
-    flashDeviceId.value = hid;
+    flashDeviceId.value = nid;
     nextTick(() => {
       const table = tableRef.value?.$el;
       if (!table) return;

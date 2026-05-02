@@ -1258,269 +1258,226 @@ def insert_task_and_device_data(connection):
 
 def insert_notifications_data(connection):
     """
-    插入消息通知模拟数据。
-    覆盖所有通知类型（NOTIFICATION_TYPE_LABELS）和所有可跳转 related_type，
-    关联到项目、迭代、需求、评审、任务、设备、报告、用例集等真实数据。
+    插入消息通知模拟数据（约 8～12 条）。
+    全部非置顶；每条关联库中真实实体，文案与实体一致（如 AI 用例集通知使用真实套件名与用例条数）。
     """
     cursor = connection.cursor()
     now = datetime.now()
     time_fmt = '%Y-%m-%d %H:%M:%S'
 
-    cursor.execute("SELECT id, username, role FROM users ORDER BY id")
+    def pack_extra(extra):
+        if extra is None:
+            return None
+        return json.dumps(extra) if isinstance(extra, dict) else extra
+
+    def push(uid, ntype, title, summary, is_read, rel_type, rel_id, extra=None, **delta):
+        ts = (now - timedelta(**delta)).strftime(time_fmt)
+        notifications.append((
+            uid, ntype, title, summary, is_read, False, rel_type, rel_id, pack_extra(extra), ts,
+        ))
+
+    cursor.execute("SELECT id, username FROM users ORDER BY id")
     users = cursor.fetchall()
     if not users:
         return True
     user_map = {u[0]: u[1] for u in users}
     user_ids = [u[0] for u in users]
-    uid0, uid1, uid2 = user_ids[0], user_ids[min(1, len(user_ids)-1)], user_ids[min(2, len(user_ids)-1)]
-
-    cursor.execute("SELECT id, project_name FROM projects ORDER BY id")
-    projects = cursor.fetchall()
-    cursor.execute("SELECT id, iteration_name, project_id FROM iterations ORDER BY id")
-    iterations = cursor.fetchall()
-    cursor.execute("SELECT id, requirement_name, project_id FROM version_requirements ORDER BY id")
-    requirements = cursor.fetchall()
-    cursor.execute("SELECT id, suite_id, initiator_id, reviewer_id, status FROM test_suite_review_tasks ORDER BY id LIMIT 12")
-    review_tasks = cursor.fetchall()
-    cursor.execute("SELECT id, task_name, status, creator_id, executor_id FROM test_tasks ORDER BY id")
-    all_tasks = cursor.fetchall()
-    cursor.execute("SELECT id, device_name, owner_id FROM devices ORDER BY id")
-    devices = cursor.fetchall()
-    cursor.execute("SELECT id, task_name FROM reports ORDER BY id LIMIT 5")
-    reports = cursor.fetchall()
-    cursor.execute("SELECT id, suite_name FROM test_suites WHERE type = 'suite' ORDER BY id LIMIT 5")
-    suites = cursor.fetchall()
+    uid0 = user_ids[0]
+    uid1 = user_ids[min(1, len(user_ids) - 1)]
+    uid2 = user_ids[min(2, len(user_ids) - 1)]
 
     print("插入消息通知...")
     notifications = []
 
-    # ── 评审类 ──
-    for rt in review_tasks:
-        rt_id, suite_id, initiator_id, reviewer_id, status = rt
-        if reviewer_id:
-            notifications.append((
-                reviewer_id, 'review_pending', '您有新的待评审任务',
-                f'{user_map.get(initiator_id, "用户")} 邀请您评审用例集，请及时处理。',
-                False, False, 'review_task', rt_id,
-                json.dumps({'initiator': user_map.get(initiator_id), 'suite_id': suite_id}),
-                (now - timedelta(days=5, hours=rt_id % 12)).strftime(time_fmt),
-            ))
-        if status == 'completed' and initiator_id:
-            notifications.append((
-                initiator_id, 'review_completed', '评审已通过',
-                f'您发起的用例集评审已由 {user_map.get(reviewer_id, "评审人")} 通过。',
-                True, False, 'review_task', rt_id,
-                json.dumps({'reviewer': user_map.get(reviewer_id), 'suite_review_status': 'completed'}),
-                (now - timedelta(days=3, hours=rt_id % 8)).strftime(time_fmt),
-            ))
-        if status == 'rejected' and initiator_id:
-            notifications.append((
-                initiator_id, 'review_rejected', '评审被拒绝',
-                f'您发起的用例集评审已由 {user_map.get(reviewer_id, "评审人")} 驳回，请修改后重新提交。',
-                False, False, 'review_task', rt_id,
-                json.dumps({'reviewer': user_map.get(reviewer_id), 'suite_review_status': 'rejected'}),
-                (now - timedelta(days=2, hours=rt_id % 6)).strftime(time_fmt),
-            ))
+    # 1 待评审（跳转评审任务，摘要含真实用例集名）
+    cursor.execute("""
+        SELECT t.id, t.suite_id, t.initiator_id, t.reviewer_id
+        FROM test_suite_review_tasks t
+        WHERE t.status IN ('pending', 'in_review') AND t.reviewer_id IS NOT NULL
+        ORDER BY t.id LIMIT 1
+    """)
+    row = cursor.fetchone()
+    if row:
+        rt_id, suite_id, initiator_id, reviewer_id = row
+        cursor.execute("SELECT suite_name FROM test_suites WHERE id = %s", (suite_id,))
+        sn = cursor.fetchone()
+        suite_name = sn[0] if sn else '用例集'
+        push(
+            reviewer_id, 'review_pending', '您有新的待评审任务',
+            f'{user_map.get(initiator_id, "同事")} 邀请您评审用例集「{suite_name}」，请及时处理。',
+            False, 'review_task', rt_id,
+            {'initiator': user_map.get(initiator_id), 'suite_id': suite_id},
+            days=2, hours=4,
+        )
 
-    if review_tasks:
-        rt0 = review_tasks[0]
-        notifications.append((
-            rt0[2], 'review_restarted', '评审已重新发起',
-            f'用例集评审已重新发起，请 {user_map.get(rt0[3], "评审人")} 再次审核。',
-            False, False, 'review_task', rt0[0],
-            json.dumps({'suite_id': rt0[1]}),
-            (now - timedelta(days=1, hours=8)).strftime(time_fmt),
-        ))
+    # 2 评审通过（真实已完成任务）
+    cursor.execute("""
+        SELECT id, suite_id, initiator_id, reviewer_id FROM test_suite_review_tasks
+        WHERE status = 'completed' AND initiator_id IS NOT NULL
+        ORDER BY id LIMIT 1
+    """)
+    row = cursor.fetchone()
+    if row:
+        rt_id, suite_id, initiator_id, reviewer_id = row
+        cursor.execute("SELECT suite_name FROM test_suites WHERE id = %s", (suite_id,))
+        sn = cursor.fetchone()
+        suite_name = sn[0] if sn else '用例集'
+        push(
+            initiator_id, 'review_completed', '评审已通过',
+            f'用例集「{suite_name}」的评审已由 {user_map.get(reviewer_id, "评审人")} 通过。',
+            True, 'review_task', rt_id,
+            {'reviewer': user_map.get(reviewer_id), 'suite_review_status': 'completed'},
+            days=5, hours=2,
+        )
 
-    # ── 任务类 ──
-    completed_tasks = [t for t in all_tasks if t[2] == 'completed']
-    running_tasks = [t for t in all_tasks if t[2] == 'running']
-    failed_tasks = [t for t in all_tasks if t[2] == 'failed']
+    # 3 AI 用例生成完成（related suite_id；摘要用真实套件名与 test_cases 条数）
+    cursor.execute("""
+        SELECT s.id, s.suite_name,
+               (SELECT COUNT(*) FROM test_cases tc WHERE tc.suite_id = s.id) AS case_cnt
+        FROM test_suites s WHERE s.type = 'suite'
+        ORDER BY s.id LIMIT 1
+    """)
+    row = cursor.fetchone()
+    if row:
+        suite_id, suite_name, case_cnt = row[0], row[1], int(row[2] or 0)
+        push(
+            uid0, 'ai_case_generated', 'AI 用例生成完成',
+            f'AI 用例生成任务已完成，用例集「{suite_name}」在当前环境中已有 {case_cnt} 条用例，可在用例管理中查看。',
+            False, 'suite', suite_id,
+            {'generated_count': case_cnt, 'suite_name': suite_name},
+            hours=6, minutes=10,
+        )
 
-    for ct in completed_tasks[:5]:
-        task_id, task_name, _, creator_id, executor_id = ct
+    # 4 测试任务完成
+    cursor.execute("""
+        SELECT id, task_name, creator_id, executor_id FROM test_tasks
+        WHERE status = 'completed' ORDER BY id LIMIT 1
+    """)
+    row = cursor.fetchone()
+    if row:
+        task_id, task_name, creator_id, executor_id = row
         target_uid = creator_id or uid0
-        notifications.append((
+        push(
             target_uid, 'task_completed', '任务执行完成',
-            f'任务「{task_name}」已完成，报告已自动生成，请查看执行结果。',
-            True if task_id % 2 == 0 else False, False, 'test_task', task_id,
-            json.dumps({'task_name': task_name, 'executor': user_map.get(executor_id)}),
-            (now - timedelta(days=1, hours=task_id % 10)).strftime(time_fmt),
-        ))
+            f'任务「{task_name}」已完成，可在测试任务中查看执行结果。',
+            True, 'test_task', task_id,
+            {'task_name': task_name, 'executor': user_map.get(executor_id)},
+            days=1, hours=3,
+        )
 
-    for rt in running_tasks[:3]:
-        task_id, task_name, _, creator_id, executor_id = rt
+    # 5 测试任务进行中（若有）
+    cursor.execute("""
+        SELECT id, task_name, creator_id, executor_id FROM test_tasks
+        WHERE status = 'running' ORDER BY id LIMIT 1
+    """)
+    row = cursor.fetchone()
+    if row:
+        task_id, task_name, creator_id, executor_id = row
         target_uid = creator_id or uid0
-        notifications.append((
+        push(
             target_uid, 'task_started', '任务已开始执行',
             f'任务「{task_name}」已由 {user_map.get(executor_id, "执行人")} 开始执行。',
-            False, False, 'test_task', task_id,
-            json.dumps({'task_name': task_name}),
-            (now - timedelta(hours=task_id % 8 + 1)).strftime(time_fmt),
-        ))
+            False, 'test_task', task_id,
+            {'task_name': task_name},
+            hours=2,
+        )
 
-    if failed_tasks:
-        ft = failed_tasks[0]
-        notifications.append((
-            ft[3] or uid0, 'task_failed', '任务执行失败',
-            f'任务「{ft[1]}」执行失败，请检查日志并重试。',
-            False, False, 'test_task', ft[0],
-            json.dumps({'task_name': ft[1], 'reason': '设备连接超时'}),
-            (now - timedelta(hours=6)).strftime(time_fmt),
-        ))
-
-    # ── 报告类 ──
-    for rp in reports[:3]:
-        report_id, report_task_name = rp
-        notifications.append((
+    # 6 测试报告
+    cursor.execute("SELECT id, task_name FROM reports ORDER BY id LIMIT 1")
+    row = cursor.fetchone()
+    if row:
+        report_id, report_task_name = row
+        push(
             uid0, 'report_generated', '测试报告已生成',
-            f'任务「{report_task_name}」的测试报告已自动生成，请查看。',
-            True if report_id % 2 == 0 else False, False, 'report', report_id,
-            json.dumps({'report_name': report_task_name}),
-            (now - timedelta(days=1, hours=report_id % 5)).strftime(time_fmt),
-        ))
+            f'任务「{report_task_name}」的测试报告已生成，可打开报告详情查看。',
+            False, 'report', report_id,
+            {'report_name': report_task_name},
+            days=1, hours=1,
+        )
 
-    # ── 项目类 ──
-    for proj in projects[:2]:
-        proj_id, proj_name = proj
-        notifications.append((
-            uid0, 'project_created', '您已被指定为项目负责人',
-            f'项目「{proj_name}」已创建，您被指定为项目负责人。',
-            True, True, 'project', proj_id,
-            json.dumps({'project_name': proj_name}),
-            (now - timedelta(days=15)).strftime(time_fmt),
-        ))
-        for target_uid in user_ids[1:4]:
-            notifications.append((
-                target_uid, 'project_member_added', '您已加入项目',
-                f'您已被添加到项目「{proj_name}」，请及时查看项目信息。',
-                True if target_uid % 2 == 0 else False, False, 'project', proj_id,
-                json.dumps({'project_name': proj_name, 'added_by': user_map.get(uid0)}),
-                (now - timedelta(days=14, hours=target_uid % 5)).strftime(time_fmt),
-            ))
+    # 7 加入项目
+    cursor.execute("SELECT id, project_name FROM projects ORDER BY id LIMIT 1")
+    row = cursor.fetchone()
+    if row:
+        proj_id, proj_name = row
+        member_uid = uid1 if uid1 != uid0 else uid2
+        push(
+            member_uid, 'project_member_added', '您已加入项目',
+            f'您已被添加到项目「{proj_name}」，可在项目管理中查看。',
+            True, 'project', proj_id,
+            {'project_name': proj_name, 'added_by': user_map.get(uid0)},
+            days=12, hours=2,
+        )
 
-    if len(projects) >= 2:
-        notifications.append((
-            uid1, 'project_owner_changed', '项目负责人已变更',
-            f'项目「{projects[1][1]}」的负责人已变更为 {user_map.get(uid0, "管理员")}。',
-            False, False, 'project', projects[1][0],
-            json.dumps({'old_owner': user_map.get(uid1), 'new_owner': user_map.get(uid0)}),
-            (now - timedelta(days=5)).strftime(time_fmt),
-        ))
+    # 8 新迭代
+    cursor.execute("SELECT id, iteration_name, project_id FROM iterations ORDER BY id LIMIT 1")
+    row = cursor.fetchone()
+    if row:
+        iter_id, iter_name, proj_id = row
+        push(
+            uid0, 'iteration_created', '新迭代已创建',
+            f'迭代「{iter_name}」已创建，可在迭代管理中查看进度与范围。',
+            False, 'iteration', iter_id,
+            {'iteration_name': iter_name, 'project_id': proj_id},
+            days=9, hours=5,
+        )
 
-    # ── 迭代类 ──
-    for it in iterations[:3]:
-        iter_id, iter_name, proj_id = it
-        for target_uid in [uid0, uid1]:
-            notifications.append((
-                target_uid, 'iteration_created', '新迭代已创建',
-                f'迭代「{iter_name}」已创建，请关注迭代目标和时间安排。',
-                True if target_uid == uid0 else False, False, 'iteration', iter_id,
-                json.dumps({'iteration_name': iter_name, 'project_id': proj_id}),
-                (now - timedelta(days=10, hours=iter_id % 6)).strftime(time_fmt),
-            ))
+    # 9 需求指派（优先有 assignee 的记录，否则「新需求」）
+    cursor.execute("""
+        SELECT id, requirement_name, project_id, assigned_to FROM version_requirements
+        WHERE assigned_to IS NOT NULL ORDER BY id LIMIT 1
+    """)
+    row = cursor.fetchone()
+    if row:
+        req_id, req_name, proj_id, assigned_to = row
+        push(
+            assigned_to, 'requirement_assigned', '需求已指派给您',
+            f'需求「{req_name}」已指派给您，可在需求管理中跟进。',
+            False, 'version_requirement', req_id,
+            {'requirement_name': req_name, 'project_id': proj_id, 'assigned_by': user_map.get(uid0)},
+            days=7, hours=4,
+        )
+    else:
+        cursor.execute("""
+            SELECT id, requirement_name, project_id FROM version_requirements ORDER BY id LIMIT 1
+        """)
+        row = cursor.fetchone()
+        if row:
+            req_id, req_name, proj_id = row
+            push(
+                uid1, 'requirement_created', '新需求已创建',
+                f'需求「{req_name}」已创建，可在需求管理中查看。',
+                False, 'version_requirement', req_id,
+                {'requirement_name': req_name, 'project_id': proj_id},
+                days=8, hours=2,
+            )
 
-    if iterations:
-        notifications.append((
-            uid2, 'iteration_updated', '迭代信息已更新',
-            f'迭代「{iterations[0][1]}」的目标或时间范围已调整，请留意。',
-            False, False, 'iteration', iterations[0][0],
-            json.dumps({'iteration_name': iterations[0][1], 'change': '结束日期延后'}),
-            (now - timedelta(days=3)).strftime(time_fmt),
-        ))
-
-    # ── 需求类 ──
-    for req in requirements[:3]:
-        req_id, req_name, proj_id = req
-        notifications.append((
-            uid1, 'requirement_created', '新需求已创建',
-            f'需求「{req_name}」已创建并关联到项目，请查看详情。',
-            False, False, 'version_requirement', req_id,
-            json.dumps({'requirement_name': req_name, 'project_id': proj_id}),
-            (now - timedelta(days=8, hours=req_id % 5)).strftime(time_fmt),
-        ))
-
-    for req in requirements[:2]:
-        req_id, req_name, proj_id = req
-        notifications.append((
-            uid2, 'requirement_assigned', '需求已指派给您',
-            f'需求「{req_name}」已指派给您，请及时跟进。',
-            False, False, 'version_requirement', req_id,
-            json.dumps({'requirement_name': req_name, 'assigned_by': user_map.get(uid0)}),
-            (now - timedelta(days=7, hours=req_id % 4)).strftime(time_fmt),
-        ))
-
-    # ── 设备类 ──
-    for dev in devices[:2]:
-        dev_id, dev_name, owner_id = dev
-        notifications.append((
+    # 10 设备（跳转设备页，摘要与设备名一致）
+    cursor.execute("SELECT id, device_name, owner_id FROM devices ORDER BY id LIMIT 1")
+    row = cursor.fetchone()
+    if row:
+        dev_id, dev_name, owner_id = row
+        push(
             owner_id or uid0, 'task_completed', '设备脚本任务完成',
-            f'设备「{dev_name}」的脚本任务已执行完成，请查看结果。',
-            False, False, 'device', dev_id,
-            json.dumps({'device_name': dev_name}),
-            (now - timedelta(days=2, hours=dev_id % 4)).strftime(time_fmt),
-        ))
+            f'设备「{dev_name}」相关脚本任务已执行完成，可在设备管理中查看。',
+            False, 'device', dev_id,
+            {'device_name': dev_name},
+            days=2, hours=1,
+        )
 
-    # ── AI 用例生成类 ──
-    for suite in suites[:2]:
-        suite_id, suite_name = suite
-        notifications.append((
-            uid0, 'ai_case_generated', 'AI 用例生成完成',
-            f'AI 用例生成任务已完成，用例集「{suite_name}」共生成 15 条用例，请查看。',
-            False, False, 'suite', suite_id,
-            json.dumps({'generated_count': 15, 'suite_name': suite_name}),
-            (now - timedelta(hours=3, minutes=suite_id % 30)).strftime(time_fmt),
-        ))
+    # 系统公告 1 条（无关联实体，非置顶）
+    push(
+        uid0, 'system', '系统维护通知',
+        '平台例行维护窗口：每周日凌晨 2:00～4:00，期间可能出现短暂不可用。',
+        True, None, None, None,
+        days=6, hours=8,
+    )
 
-    if len(suites) > 2:
-        notifications.append((
-            uid1, 'ai_case_generated', 'AI 用例生成完成',
-            f'AI 用例生成任务已完成，用例集「{suites[2][1]}」共生成 8 条用例。',
-            True, False, 'suite', suites[2][0],
-            json.dumps({'generated_count': 8, 'suite_name': suites[2][1]}),
-            (now - timedelta(days=2)).strftime(time_fmt),
-        ))
-
-    # ── 用户注册类 ──
-    for uid in user_ids[4:7]:
-        notifications.append((
-            uid0, 'user_registered', '新用户注册',
-            f'用户 {user_map.get(uid, "新用户")} 已注册平台账号。',
-            True, False, 'user', uid,
-            json.dumps({'username': user_map.get(uid)}),
-            (now - timedelta(days=12, hours=uid % 8)).strftime(time_fmt),
-        ))
-
-    # ── 系统类通知（无关联实体） ──
-    system_notifications = [
-        (uid0, 'system', '系统升级通知',
-         '平台已升级至 V2.0.0，新增 AI 用例生成、设备脚本管理、消息中心等功能。',
-         True, True, None, None, None,
-         (now - timedelta(days=7)).strftime(time_fmt)),
-        (uid0, 'system', '安全提醒',
-         '检测到您的账号在新设备登录，如非本人操作请及时修改密码。',
-         False, False, None, None, None,
-         (now - timedelta(hours=5)).strftime(time_fmt)),
-        (uid0, 'system', '数据备份完成',
-         '数据库定时备份已于今日凌晨完成，备份文件大小 256MB。',
-         True, False, None, None,
-         json.dumps({'backup_size': '256MB'}),
-         (now - timedelta(hours=12)).strftime(time_fmt)),
-    ]
-    for uid in user_ids[1:5]:
-        system_notifications.append((
-            uid, 'system', '系统升级通知',
-            '平台已升级至 V2.0.0，新增 AI 用例生成、设备脚本管理、消息中心等功能。',
-            False, False, None, None, None,
-            (now - timedelta(days=7)).strftime(time_fmt),
-        ))
-
-    all_notifications = notifications + system_notifications
     cursor.executemany("""
         INSERT INTO notifications (user_id, type, title, summary, is_read, is_pinned, related_type, related_id, extra, created_at)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-    """, all_notifications)
-    print(f"  共插入 {len(all_notifications)} 条通知")
+    """, notifications)
+    print(f"  共插入 {len(notifications)} 条通知")
     return True
 
 

@@ -297,7 +297,7 @@
             @change="handleProjectChange"
           >
             <el-option
-              v-for="project in projectOptions"
+              v-for="project in dialogProjectOptions"
               :key="project.id"
               :label="project.project_name"
               :value="project.id"
@@ -553,6 +553,8 @@ const assigneeFilter = ref([]);
 const searchForm = reactive({});
 
 const projectOptions = ref([]);
+/** 创建/编辑弹窗「所属项目」：全量项目（不受列表页时间筛选影响），避免选中值不在选项中而显示 ID */
+const dialogProjectOptions = ref([]);
 const iterationOptions = ref([]);
 /** 弹窗内「所属迭代」下拉数据（按选中项目单独加载） */
 const dialogIterationOptions = ref([]);
@@ -759,6 +761,7 @@ const handleTimeRangeChange = async () => {
       );
     });
 
+    dialogProjectOptions.value = allProjects;
     projectOptions.value = filteredProjects;
 
     if (projectFilter.value && projectFilter.value.length > 0) {
@@ -917,6 +920,7 @@ const getOptionData = async () => {
       );
     });
 
+    dialogProjectOptions.value = allProjects;
     projectOptions.value = filteredProjects;
 
     let iterationsToLoad = filteredProjects;
@@ -1030,12 +1034,31 @@ const handleEditRequirement = (row) => {
   dialogTitle.value = "编辑需求";
   editingRequirementId.value = row.id;
 
+  const pid =
+    row.project_id != null && row.project_id !== ""
+      ? Number(row.project_id)
+      : "";
+  const iid =
+    row.iteration_id != null && row.iteration_id !== ""
+      ? Number(row.iteration_id)
+      : "";
+
+  if (pid && row.project_name) {
+    const exists = dialogProjectOptions.value.some((p) => p.id === pid);
+    if (!exists) {
+      dialogProjectOptions.value = [
+        ...dialogProjectOptions.value,
+        { id: pid, project_name: row.project_name },
+      ];
+    }
+  }
+
   Object.assign(requirementForm, {
     requirement_name: row.requirement_name || "",
     description: row.requirement_description || "",
     status: row.status || "new",
-    project_id: row.project_id || "",
-    iteration_id: row.iteration_id || "",
+    project_id: pid,
+    iteration_id: iid,
     priority: row.priority || "P1",
     environment: row.environment || "test",
     estimated_hours: row.estimated_hours || null,

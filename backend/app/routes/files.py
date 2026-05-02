@@ -109,6 +109,7 @@ def get_logo(subpath):
 
 
 @files_bp.route('/upload', methods=['POST'])
+@login_required
 def upload_file():
     """
     上传文件API，用于上传设备脚本文件
@@ -171,6 +172,7 @@ def upload_file():
         return jsonify({'code': 500, 'message': f'文件上传失败: {str(e)}'}), 500
 
 @files_bp.route('/<path:file_path>', methods=['GET'])
+@login_required
 def get_file(file_path):
     """下载脚本文件"""
     try:
@@ -189,6 +191,7 @@ def get_file(file_path):
 
 
 @files_bp.route('/<path:file_path>', methods=['DELETE'])
+@login_required
 def delete_file(file_path):
     """删除脚本文件"""
     try:
