@@ -33,7 +33,9 @@ def initiate_review(suite_id):
             return error_response(400, '只有用例集才能发起评审')
         if suite.deleted_at is not None:
             return error_response(400, '该用例集已在回收站中，无法发起评审')
-        
+        if suite.creator_id != current_user.id:
+            return error_response(403, '仅该用例集的创建人可以发起评审')
+
         data = request.get_json()
         reviewer_id = data.get('reviewer_id')
         
@@ -522,13 +524,16 @@ def restart_review(task_id):
 @bp.route('/<int:task_id>/reinitiate-review', methods=['POST'])
 @login_required
 def reinitiate_review(task_id):
-    """重新发起评审：发起人重新发起已拒绝的评审"""
+    """重新发起评审：仅该用例集创建人可操作（与首次发起评审权限一致）"""
     try:
         review_task = TestSuiteReviewTask.query.get_or_404(task_id)
-        
-        if current_user.id != review_task.initiator_id:
-            return error_response(403, '只有评审发起人可以重新发起评审')
-        
+
+        suite = TestSuite.query.get(review_task.suite_id)
+        if not suite:
+            return error_response(404, '用例集不存在')
+        if suite.creator_id != current_user.id:
+            return error_response(403, '仅该用例集的创建人可以重新发起评审')
+
         # 已完成或已拒绝的评审均可重新发起
         if review_task.status not in ('completed', 'rejected'):
             return error_response(400, '只有已完成或已拒绝的评审才能重新发起')

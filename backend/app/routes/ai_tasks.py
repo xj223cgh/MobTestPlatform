@@ -6,7 +6,13 @@ from app.utils.helpers import success_response, error_response
 from app.utils.task_manager import task_manager, TaskStatus
 import requests
 import json
+import re
 import os
+
+try:
+    import json_repair
+except ImportError:
+    json_repair = None
 import base64
 import logging
 from pathlib import Path
@@ -828,6 +834,119 @@ def call_ai_api(prompt: str, ai_config: dict, max_tokens_override: int = None,
 # 响应解析
 # ---------------------------------------------------------------------------
 
+def _strip_ai_markdown_json_fence(content: str) -> str:
+    """去掉 ``` / ```json 包裹及首尾说明文字中的代码块。"""
+    text = (content or "").strip()
+    if not text:
+        return text
+    m = re.search(r"```(?:json)?\s*\r?\n(.*?)```", text, flags=re.DOTALL | re.IGNORECASE)
+    if m:
+        return m.group(1).strip()
+    return text
+
+
+def _extract_first_balanced_json_object(text: str) -> str | None:
+    """从首个 {{ 起截取与之配平的 JSON 对象（字符串内引号与 \\ 转义参与判断）。"""
+    start = text.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    in_string = False
+    escape = False
+    i = start
+    while i < len(text):
+        ch = text[i]
+        if escape:
+            escape = False
+            i += 1
+            continue
+        if in_string:
+            if ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            i += 1
+            continue
+        if ch == '"':
+            in_string = True
+            i += 1
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : i + 1]
+        i += 1
+    return None
+
+
+def _repair_common_json_text(s: str) -> str:
+    """模型常见笔误：尾随逗号、弯引号（避免打断 JSON 字符串边界）。"""
+    s = s.strip()
+    # 中文弯引号在字符串值内易与 ASCII " 冲突，改为单引号（JSON 字符串内允许 '）
+    s = s.replace("\u201c", "'").replace("\u201d", "'")
+    s = s.replace("\u2018", "'").replace("\u2019", "'")
+    # }, ] 前的多余逗号
+    s = re.sub(r",(\s*[\]}])", r"\1", s)
+    return s
+
+
+def _parse_ai_raw_json_text(raw: str):
+    """严格 json.loads → 简单修复后 loads → json_repair.loads（若已安装）。"""
+    variants = []
+    seen = set()
+    for v in (raw, _repair_common_json_text(raw)):
+        if not v or v in seen:
+            continue
+        seen.add(v)
+        variants.append(v)
+
+    last_err: Exception | None = None
+    for text in variants:
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as e:
+            last_err = e
+        except Exception as e:
+            last_err = e
+
+    if json_repair is not None:
+        for text in variants:
+            try:
+                return json_repair.loads(text)
+            except Exception as e:
+                last_err = e
+
+    if isinstance(last_err, json.JSONDecodeError):
+        raise last_err
+    if last_err is not None:
+        raise json.JSONDecodeError(str(last_err), raw, 0) from last_err
+    raise json.JSONDecodeError("empty AI JSON content", raw, 0)
+
+
+def parse_ai_content_to_payload(content: str) -> dict | list:
+    """将模型输出的正文解析为 dict 或 list（含 test_cases 的对象，或直接为用例数组）。"""
+    stripped = _strip_ai_markdown_json_fence(content)
+    if not stripped:
+        raise json.JSONDecodeError("empty content after strip", content or "", 0)
+
+    candidates = [stripped]
+    inner = _extract_first_balanced_json_object(stripped)
+    if inner and inner != stripped:
+        candidates.append(inner)
+
+    last_err: Exception | None = None
+    for cand in candidates:
+        try:
+            return _parse_ai_raw_json_text(cand)
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            last_err = e
+    if last_err:
+        raise last_err
+    raise json.JSONDecodeError("unable to parse AI JSON", stripped, 0)
+
+
 def parse_ai_response(ai_response: dict) -> list:
     """解析 AI 返回 JSON"""
     if not isinstance(ai_response, dict):
@@ -852,17 +971,23 @@ def parse_ai_response(ai_response: dict) -> list:
         content = str(content).strip()
         if not content:
             raise Exception("AI 返回的 content 为空字符串")
-        if content.startswith('```json'):
-            content = content[7:]
-        if content.startswith('```'):
-            content = content.split('\n', 1)[-1]
-        if content.endswith('```'):
-            content = content[:-3].rstrip()
-        content = content.strip()
-        parsed = json.loads(content)
-        cases = parsed.get('test_cases') if isinstance(parsed, dict) else []
+
+        parsed = parse_ai_content_to_payload(content)
+        if isinstance(parsed, list):
+            cases = parsed
+        elif isinstance(parsed, dict):
+            cases = parsed.get('test_cases')
+            if cases is None and parsed:
+                # 偶发仅返回单条用例对象
+                if any(k in parsed for k in ('case_name', 'steps', 'expected_result')):
+                    cases = [parsed]
+                else:
+                    cases = []
+        else:
+            cases = []
         return list(cases) if cases else []
     except json.JSONDecodeError as e:
+        logger.warning("AI 返回 JSON 解析失败（首段字符预览）: %s", content[:800] if content else "")
         raise Exception(f"解析AI返回结果失败: 内容不是合法 JSON（{e}）")
     except Exception as e:
         if isinstance(e, Exception) and not isinstance(e, (KeyError, IndexError, TypeError)):

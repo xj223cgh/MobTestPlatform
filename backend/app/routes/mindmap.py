@@ -193,16 +193,21 @@ def rollback_mindmap(suite_id):
         ver = MindmapVersion.query.filter_by(id=version_id, suite_id=suite_id).first()
         if not ver:
             return error_response(404, '版本不存在')
+        try:
+            mindmap_data = json.loads(ver.snapshot) if ver.snapshot else None
+        except json.JSONDecodeError:
+            return error_response(400, '该版本快照数据损坏，无法回退')
+        if not mindmap_data or 'root' not in mindmap_data:
+            return error_response(400, '该版本快照格式无效（缺少 root），无法回退')
+
         suite.case_mindmap_data = ver.snapshot
         suite.last_saved_at = datetime.now(LOCAL_TIMEZONE)
         suite.last_saved_by = current_user.id
         suite.mindmap_version = (getattr(suite, 'mindmap_version', 0) or 0) + 1
         # 回退后同步 test_cases 表，保证脑图数据与用例表一致
-        mindmap_data = json.loads(ver.snapshot) if ver.snapshot else None
-        if mindmap_data and 'root' in mindmap_data:
-            rollback_cases = _parse_mindmap_to_cases(mindmap_data['root'], suite)
-            _sync_cases_to_db(rollback_cases, suite)
-            suite.case_count = len(rollback_cases)
+        rollback_cases = _parse_mindmap_to_cases(mindmap_data['root'], suite)
+        _sync_cases_to_db(rollback_cases, suite)
+        suite.case_count = len(rollback_cases)
         db.session.commit()
         return success_response({
             'suite_id': suite.id,

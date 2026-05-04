@@ -608,6 +608,47 @@
       </el-tabs>
     </el-card>
 
+    <!-- 从用例管理带入 suiteId：尚无评审任务时，在此选择评审人并发起 -->
+    <el-dialog
+      v-model="initiateReviewDialogVisible"
+      title="发起用例集评审"
+      width="480px"
+      destroy-on-close
+      @open="onInitiateReviewDialogOpen"
+    >
+      <el-form label-width="88px">
+        <el-form-item label="用例集">
+          <span>{{ initiateReviewSuiteName || "—" }}</span>
+        </el-form-item>
+        <el-form-item label="评审人" required>
+          <el-select
+            v-model="initiateReviewReviewerId"
+            filterable
+            placeholder="请选择评审人"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="u in initiateReviewUserOptions"
+              :key="u.id"
+              :label="u.real_name || u.username"
+              :value="u.id"
+              :disabled="String(u.id) === String(userStore.userInfo?.id)"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="initiateReviewDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="initiateReviewSubmitting"
+          @click="submitInitiateReview"
+        >
+          发起评审
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- 评审详情弹窗 -->
     <el-dialog
       v-model="reviewDialogVisible"
@@ -1010,11 +1051,7 @@
             </template>
 
             <el-button
-              v-if="
-                isInitiator &&
-                  currentReviewTask &&
-                  (currentReviewTask.status === 'rejected' || currentReviewTask.status === 'completed')
-              "
+              v-if="canReinitiateReviewAsCreator && currentReviewTask"
               type="warning"
               @click="handleReinitiateReview"
             >
@@ -1034,6 +1071,7 @@ import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import * as reviewApi from "@/api/reviewTask";
 import * as testSuiteApi from "@/api/testSuite";
+import { getUserOptions } from "@/api/user";
 import { isPermissionError } from "@/utils/request";
 import { useUserStore } from "@/stores/user";
 import { useSystemSettingsStore } from "@/stores/systemSettings";
@@ -1086,6 +1124,14 @@ const reviewDialogVisible = ref(false);
 const reviewDialogTitle = ref("");
 const overallComments = ref("");
 
+/** 首次发起评审弹窗（接口已实现但此前未对接页面） */
+const initiateReviewDialogVisible = ref(false);
+const initiateReviewSuiteId = ref(null);
+const initiateReviewSuiteName = ref("");
+const initiateReviewReviewerId = ref(null);
+const initiateReviewUserOptions = ref([]);
+const initiateReviewSubmitting = ref(false);
+
 const selectedSuiteId = ref(null);
 const selectedSuitePath = ref("");
 const suitePopoverVisible = ref(false);
@@ -1125,6 +1171,16 @@ const isInitiator = computed(() => {
   const currentUserId = String(userStore.userInfo.id);
   const initiatorId = String(currentReviewTask.value.initiator_id);
   return currentUserId === initiatorId;
+});
+
+/** 与后端一致：仅用例集创建人可「重新发起评审」 */
+const canReinitiateReviewAsCreator = computed(() => {
+  if (!userStore.userInfo || !currentReviewTask.value) return false;
+  const st = currentReviewTask.value.status;
+  if (st !== "rejected" && st !== "completed") return false;
+  const cid = currentReviewTask.value.suite?.creator_id;
+  if (cid == null) return false;
+  return String(cid) === String(userStore.userInfo.id);
 });
 
 const canCompleteReview = computed(() => {
@@ -1256,6 +1312,127 @@ const resetFilterMyInitiated = () => {
   paginationMyInitiated.value.page = 1;
   getMyInitiated();
 };
+
+async function onInitiateReviewDialogOpen() {
+  if (initiateReviewUserOptions.value.length) return;
+  try {
+    const r = await getUserOptions({ size: 1000 });
+    initiateReviewUserOptions.value = r.data?.items || [];
+  } catch (e) {
+    if (!isPermissionError(e)) ElMessage.error("加载用户列表失败");
+  }
+}
+
+async function submitInitiateReview() {
+  const sid = initiateReviewSuiteId.value;
+  const rid = initiateReviewReviewerId.value;
+  if (sid == null || Number.isNaN(Number(sid))) {
+    ElMessage.warning("用例集无效");
+    return;
+  }
+  if (!rid) {
+    ElMessage.warning("请选择评审人");
+    return;
+  }
+  initiateReviewSubmitting.value = true;
+  try {
+    const res = await reviewApi.initiateReview(sid, { reviewer_id: rid });
+    const newTaskId = res.data?.review_task_id;
+    initiateReviewDialogVisible.value = false;
+    ElMessage.success(res.data?.message || "发起评审成功");
+    activeTab.value = "my-initiated";
+    if (newTaskId) {
+      highlightedSuiteTaskId.value = newTaskId;
+      loading.value.myInitiated = true;
+      try {
+        const r = await reviewApi.getMyInitiatedReviews({
+          locate_id: newTaskId,
+          size: paginationMyInitiated.value.size,
+        });
+        myInitiated.value = r.data?.items || [];
+        paginationMyInitiated.value.page = r.data?.page || 1;
+        paginationMyInitiated.value.total = r.data?.total ?? 0;
+      } finally {
+        loading.value.myInitiated = false;
+      }
+      reviewDialogTitle.value = "评审详情";
+      reviewDialogVisible.value = true;
+      await getReviewTaskDetail(newTaskId);
+    } else {
+      await getMyInitiated();
+    }
+  } catch (e) {
+    if (!isPermissionError(e)) {
+      ElMessage.error(e.response?.data?.message || e.message || "发起评审失败");
+    }
+  } finally {
+    initiateReviewSubmitting.value = false;
+  }
+}
+
+/**
+ * 用例管理「评审」深链接：按 latest_task_id 打开详情，并在对应 Tab 用 locate_id 对齐分页。
+ */
+async function openReviewTaskFromDeepLink(taskId) {
+  try {
+    const res = await reviewApi.getReviewTask(taskId);
+    const task = res.data;
+    const uid = userStore.userInfo?.id;
+    highlightedSuiteTaskId.value = taskId;
+
+    if (String(task.reviewer_id) === String(uid)) {
+      activeTab.value = "my-tasks";
+      loading.value.myTasks = true;
+      try {
+        const r = await reviewApi.getMyReviewTasks({
+          locate_id: taskId,
+          size: paginationMyTasks.value.size,
+        });
+        myTasks.value = r.data?.items || [];
+        paginationMyTasks.value.page = r.data?.page || 1;
+        paginationMyTasks.value.total = r.data?.total ?? 0;
+      } finally {
+        loading.value.myTasks = false;
+      }
+    } else if (String(task.initiator_id) === String(uid)) {
+      activeTab.value = "my-initiated";
+      loading.value.myInitiated = true;
+      try {
+        const r = await reviewApi.getMyInitiatedReviews({
+          locate_id: taskId,
+          size: paginationMyInitiated.value.size,
+        });
+        myInitiated.value = r.data?.items || [];
+        paginationMyInitiated.value.page = r.data?.page || 1;
+        paginationMyInitiated.value.total = r.data?.total ?? 0;
+      } finally {
+        loading.value.myInitiated = false;
+      }
+    } else if (task.status === "completed") {
+      highlightedSuiteTaskId.value = null;
+    } else {
+      ElMessage.warning("您不是该评审的发起人或评审人，无法查看进行中的评审");
+      highlightedSuiteTaskId.value = null;
+      return false;
+    }
+
+    reviewDialogTitle.value = "评审详情";
+    reviewDialogVisible.value = true;
+    await getReviewTaskDetail(taskId);
+    return true;
+  } catch (error) {
+    highlightedSuiteTaskId.value = null;
+    if (!isPermissionError(error)) {
+      const status = error.response?.status;
+      if (status === 404) {
+        ElMessage.warning("该评审任务可能已被删除或您无权限查看");
+      } else {
+        ElMessage.error(error.response?.data?.message || error.message || "打开评审失败");
+      }
+    }
+    return false;
+  }
+}
 
 const onMyTasksPageChange = (page) => {
   paginationMyTasks.value.page = page;
@@ -2103,37 +2280,44 @@ onMounted(async () => {
   await getAvailableSuites();
   const suiteId = route.query.suiteId;
   if (suiteId && !route.query.taskId) {
+    const nextQuery = { ...route.query };
+    delete nextQuery.suiteId;
+    const replaceQuery = Object.keys(nextQuery).length ? nextQuery : undefined;
     try {
-      const sid = parseInt(suiteId, 10);
-      const inMyTasks = myTasks.value.find((t) => t.suite_id === sid);
-      const inMyInitiated = myInitiated.value.find((t) => t.suite_id === sid);
-      const suiteTask = inMyTasks || inMyInitiated;
-      if (suiteTask) {
-        highlightedSuiteTaskId.value = suiteTask.id;
-        if (inMyTasks) activeTab.value = "my-tasks";
-        else activeTab.value = "my-initiated";
-        reviewDialogTitle.value = "评审详情";
-        reviewDialogVisible.value = true;
-        await getReviewTaskDetail(suiteTask.id);
+      const sid = parseInt(String(suiteId), 10);
+      if (Number.isNaN(sid)) throw new Error("invalid suite id");
+
+      const stRes = await reviewApi.getSuiteReviewStatus(sid);
+      const tid = stRes.data?.latest_task_id;
+
+      if (tid) {
+        await openReviewTaskFromDeepLink(tid);
+      } else {
+        initiateReviewReviewerId.value = null;
+        try {
+          const dRes = await testSuiteApi.getTestSuiteDetail(sid);
+          const detail = dRes.data;
+          initiateReviewSuiteName.value = detail?.suite_name || "";
+          const uid = userStore.userInfo?.id;
+          if (detail?.creator_id != null && String(detail.creator_id) !== String(uid)) {
+            ElMessage.warning("仅该用例集的创建人可以发起评审");
+          } else {
+            initiateReviewSuiteId.value = sid;
+            initiateReviewDialogVisible.value = true;
+          }
+        } catch {
+          ElMessage.warning("无法加载用例集信息，请稍后重试");
+        }
       }
-      const nextQuery = { ...route.query };
-      delete nextQuery.suiteId;
-      if (!nextQuery.activeTab) nextQuery.activeTab = inMyTasks ? "my-tasks" : "my-initiated";
-      router.replace({ path: route.path, query: Object.keys(nextQuery).length ? nextQuery : undefined });
     } catch (error) {
-      if (isPermissionError(error)) {
-        const nextQuery = { ...route.query };
-        delete nextQuery.suiteId;
-        if (!nextQuery.activeTab) nextQuery.activeTab = "my-initiated";
-        router.replace({ path: route.path, query: Object.keys(nextQuery).length ? nextQuery : undefined });
-        return;
+      if (!isPermissionError(error)) {
+        console.error("处理套件ID跳转失败:", error);
+        ElMessage.error(
+          error.response?.data?.message || error.message || "处理跳转失败，请在评审中心手动操作",
+        );
       }
-      console.error("处理套件ID跳转失败:", error);
-      ElMessage.error("处理跳转失败，请手动查找评审任务");
-      const nextQuery = { ...route.query };
-      delete nextQuery.suiteId;
-      if (!nextQuery.activeTab) nextQuery.activeTab = "my-initiated";
-      router.replace({ path: route.path, query: Object.keys(nextQuery).length ? nextQuery : undefined });
+    } finally {
+      router.replace({ path: route.path, query: replaceQuery });
     }
   }
 });

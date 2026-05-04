@@ -7,6 +7,22 @@ from app.utils.helpers import success_response, error_response, get_pagination_p
 bp = Blueprint('test_suites', __name__, url_prefix='/api/test-suites')
 
 
+@bp.route('/import-template', methods=['GET'])
+@login_required
+def download_import_template():
+    """下载用例导入 .xlsx 模板（标准库打包 OOXML，不依赖 openpyxl）"""
+    from flask import send_file
+    from app.utils.case_import_template_xlsx import build_case_import_template_xlsx
+
+    buf = build_case_import_template_xlsx()
+    return send_file(
+        buf,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name='用例导入模板.xlsx',
+    )
+
+
 @bp.route('/', methods=['GET'])
 @login_required
 def get_test_suites():
@@ -377,16 +393,20 @@ def delete_test_suite(suite_id):
                     # 删除评审任务
                     db.session.delete(review_task)
             
-            # 3. 删除关联的测试用例
+            # 3. 删除脑图版本快照（suite_id NOT NULL；ORM 删除套件时会先尝试将外键置空导致 1048）
+            for mv in list(suite_obj.mindmap_versions):
+                db.session.delete(mv)
+
+            # 4. 删除关联的测试用例
             for test_case in suite_obj.test_cases:
                 db.session.delete(test_case)
             
-            # 4. 更新关联的评审历史记录（设置suite_id为NULL）
+            # 5. 更新关联的评审历史记录（设置suite_id为NULL）
             review_histories = TestSuiteReviewHistory.query.filter_by(suite_id=suite_obj.id).all()
             for history in review_histories:
                 history.suite_id = None
             
-            # 5. 删除套件本身
+            # 6. 删除套件本身
             db.session.delete(suite_obj)
 
         recursive_delete(suite)
@@ -553,6 +573,8 @@ def batch_permanent_delete_recycled():
                     for case_review in review_task.case_reviews:
                         db.session.delete(case_review)
                     db.session.delete(review_task)
+            for mv in list(suite_obj.mindmap_versions):
+                db.session.delete(mv)
             for test_case in suite_obj.test_cases:
                 db.session.delete(test_case)
             review_histories = TestSuiteReviewHistory.query.filter_by(suite_id=suite_obj.id).all()
@@ -912,78 +934,6 @@ def import_suite():
     except Exception as e:
         db.session.rollback()
         return error_response(500, f'导入失败: {str(e)}')
-
-
-@bp.route('/import-template', methods=['GET'])
-@login_required
-def download_import_template():
-    """下载用例导入 Excel 模板"""
-    import io
-    try:
-        import openpyxl
-        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    except ImportError:
-        return error_response(400, '服务端缺少 openpyxl 依赖')
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = '用例导入模板'
-
-    headers = ['用例名称', '优先级', '前置条件', '操作步骤', '预期结果', '测试数据']
-    col_widths = [30, 10, 25, 35, 30, 20]
-    header_font = Font(bold=True, color='FFFFFF', size=11)
-    header_fill = PatternFill(start_color='409EFF', end_color='409EFF', fill_type='solid')
-    header_align = Alignment(horizontal='center', vertical='center')
-    thin_border = Border(
-        left=Side(style='thin'), right=Side(style='thin'),
-        top=Side(style='thin'), bottom=Side(style='thin'))
-
-    for col_idx, (name, width) in enumerate(zip(headers, col_widths), 1):
-        cell = ws.cell(row=1, column=col_idx, value=name)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = header_align
-        cell.border = thin_border
-        ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = width
-
-    example = ['登录成功验证', 'P0', '用户已注册且状态正常', '1.打开登录页\n2.输入用户名和密码\n3.点击登录', '登录成功，跳转到首页', '用户名:Tester 密码:123321']
-    wrap_align = Alignment(wrap_text=True, vertical='top')
-    for col_idx, val in enumerate(example, 1):
-        cell = ws.cell(row=2, column=col_idx, value=val)
-        cell.alignment = wrap_align
-        cell.border = thin_border
-
-    ws.row_dimensions[1].height = 24
-    ws.row_dimensions[2].height = 60
-
-    note_ws = wb.create_sheet('填写说明')
-    notes = [
-        ['字段', '必填', '说明'],
-        ['用例名称', '是', '测试用例名称，不可为空'],
-        ['优先级', '否', '可选值：P0/P1/P2/P3/P4，默认 P1'],
-        ['前置条件', '否', '执行用例前需要满足的条件'],
-        ['操作步骤', '否', '具体操作步骤，多步骤换行书写'],
-        ['预期结果', '否', '操作后的预期结果'],
-        ['测试数据', '否', '测试所需的数据'],
-    ]
-    for r_idx, row_data in enumerate(notes, 1):
-        for c_idx, val in enumerate(row_data, 1):
-            cell = note_ws.cell(row=r_idx, column=c_idx, value=val)
-            cell.border = thin_border
-            if r_idx == 1:
-                cell.font = header_font
-                cell.fill = header_fill
-                cell.alignment = header_align
-    note_ws.column_dimensions['A'].width = 14
-    note_ws.column_dimensions['B'].width = 8
-    note_ws.column_dimensions['C'].width = 45
-
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    from flask import send_file
-    return send_file(buf, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                     as_attachment=True, download_name='用例导入模板.xlsx')
 
 
 @bp.route('/<int:suite_id>/tree', methods=['GET'])

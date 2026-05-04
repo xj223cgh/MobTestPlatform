@@ -345,6 +345,43 @@
       </template>
     </el-dialog>
 
+    <!-- 发起评审：在当前页弹窗完成，不跳转评审管理 -->
+    <el-dialog
+      v-model="initiateReviewDialogVisible"
+      title="发起用例集评审"
+      width="480px"
+      destroy-on-close
+      @open="onInitiateReviewDialogOpen"
+    >
+      <el-form label-width="88px">
+        <el-form-item label="用例集">
+          <span>{{ initiatingReviewSuite?.suite_name || "—" }}</span>
+        </el-form-item>
+        <el-form-item label="评审人" required>
+          <el-select
+            v-model="initiateReviewReviewerId"
+            filterable
+            placeholder="请选择评审人"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="u in initiateReviewUserOptions"
+              :key="u.id"
+              :label="u.real_name || u.username"
+              :value="u.id"
+              :disabled="String(u.id) === String(userStore.userInfo?.id)"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="initiateReviewDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="initiateReviewSubmitting" @click="submitInitiateReview">
+          发起评审
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- AI生成用例对话框 -->
     <el-dialog v-model="generateDialogVisible" title="AI 生成用例" width="600px" @open="onGenerateDialogOpen">
       <el-form :model="generateForm" label-width="110px">
@@ -593,7 +630,7 @@
             <template #tip>
               <div class="el-upload__tip">
                 支持 JSON / Excel / CSV 格式，
-                <el-link type="primary" :underline="false" @click="downloadImportTemplate">下载导入模板</el-link>
+                <el-link type="primary" :underline="false" @click.prevent="downloadImportTemplate">下载 Excel 模板</el-link>
               </div>
             </template>
           </el-upload>
@@ -701,10 +738,17 @@ import {
   batchPermanentDeleteRecycledSuites,
   getTestSuiteDetail,
 } from "@/api/testSuite";
-import { moveTestSuite, copyTestSuite, importTestSuite } from "@/api/testSuite";
+import {
+  moveTestSuite,
+  copyTestSuite,
+  importTestSuite,
+  downloadTestSuiteImportTemplate,
+} from "@/api/testSuite";
 import { getProjects, getProjectVersionRequirements } from "@/api/project";
 import { getProjectIterations } from "@/api/iteration";
 import { createGenerateCasesTask, createGenerateCasesWithFiles, getTaskStatus } from "@/api/aiTasks";
+import { initiateReview } from "@/api/reviewTask";
+import { getUserOptions } from "@/api/user";
 import { genFileId } from "element-plus";
 
 const router = useRouter();
@@ -744,6 +788,12 @@ const suiteForm = reactive({
 const moveDialogVisible = ref(false);
 const moveTargetId = ref(null);
 const movingSuite = ref(null);
+
+const initiateReviewDialogVisible = ref(false);
+const initiatingReviewSuite = ref(null);
+const initiateReviewReviewerId = ref(null);
+const initiateReviewUserOptions = ref([]);
+const initiateReviewSubmitting = ref(false);
 
 const requirementOptions = ref([]);
 
@@ -1208,9 +1258,32 @@ function onImportFileChange(uploadFile) {
   importForm.file = uploadFile.raw;
 }
 
-function downloadImportTemplate() {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
-  window.open(`${baseURL}/test-suites/import-template`, '_blank');
+async function downloadImportTemplate() {
+  try {
+    const data = await downloadTestSuiteImportTemplate();
+    const blob = data instanceof Blob ? data : new Blob([data]);
+    const mime = blob.type || "";
+    if (mime.includes("application/json") || mime.includes("text/json")) {
+      const text = await blob.text();
+      try {
+        const j = JSON.parse(text);
+        ElMessage.error(j.message || j.error || "下载失败");
+      } catch {
+        ElMessage.error("下载失败");
+      }
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "用例导入模板.xlsx";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch {
+    /* 401/403/4xx/5xx 已由请求拦截器提示 */
+  }
 }
 
 async function submitImport() {
@@ -1436,7 +1509,8 @@ function getReviewButtonTooltip(row) {
   const reviewerId = row.review_reviewer_id != null ? String(row.review_reviewer_id) : null;
 
   if (status === "not_reviewed") {
-    return me === creatorId ? "创建者未发起评审" : "未发起评审";
+    if (me === creatorId) return "点击发起评审（您为创建人）";
+    return "仅创建人可发起评审";
   }
   if (status === "pending") {
     if (me === reviewerId) return "待我评审";
@@ -1453,7 +1527,56 @@ function getReviewButtonTooltip(row) {
   return "评审";
 }
 
+async function onInitiateReviewDialogOpen() {
+  if (initiateReviewUserOptions.value.length) return;
+  try {
+    const r = await getUserOptions({ size: 1000 });
+    initiateReviewUserOptions.value = r.data?.items || [];
+  } catch {
+    ElMessage.error("加载用户列表失败");
+  }
+}
+
+async function submitInitiateReview() {
+  const suite = initiatingReviewSuite.value;
+  const rid = initiateReviewReviewerId.value;
+  if (!suite?.id) {
+    ElMessage.warning("用例集无效");
+    return;
+  }
+  if (!rid) {
+    ElMessage.warning("请选择评审人");
+    return;
+  }
+  initiateReviewSubmitting.value = true;
+  try {
+    const res = await initiateReview(suite.id, { reviewer_id: rid });
+    ElMessage.success(res.data?.message || "发起评审成功");
+    initiateReviewDialogVisible.value = false;
+    initiatingReviewSuite.value = null;
+    initiateReviewReviewerId.value = null;
+    await loadCaseSets();
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || e.message || "发起评审失败");
+  } finally {
+    initiateReviewSubmitting.value = false;
+  }
+}
+
 function handleReviewSuite(row) {
+  const status = row.review_status || "not_reviewed";
+  const me = userStore.userInfo?.id != null ? String(userStore.userInfo.id) : null;
+  const creatorId = row.creator_id != null ? String(row.creator_id) : null;
+  if (status === "not_reviewed" && me !== creatorId) {
+    ElMessage.warning("仅该用例集的创建人可以发起评审");
+    return;
+  }
+  if (status === "not_reviewed") {
+    initiatingReviewSuite.value = { id: row.id, suite_name: row.suite_name };
+    initiateReviewReviewerId.value = null;
+    initiateReviewDialogVisible.value = true;
+    return;
+  }
   router.push({ path: "/case-reviews", query: { suiteId: row.id } });
 }
 
@@ -2034,8 +2157,8 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #e4e7ed;
-  background: #fff;
+  border-bottom: 1px solid var(--el-border-color-light);
+  background: var(--el-bg-color);
 }
 
 .page-header h1 {
@@ -2067,13 +2190,13 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
-  .left-panel {
+.left-panel {
   width: 220px;
   min-width: 220px;
-  border-right: 1px solid #e4e7ed;
-  background: #fafafa;
-    display: flex;
-    flex-direction: column;
+  border-right: 1px solid var(--el-border-color-light);
+  background: var(--el-fill-color-light);
+  display: flex;
+  flex-direction: column;
   transition: width 0.2s;
 }
 
@@ -2085,28 +2208,29 @@ onBeforeUnmount(() => {
 }
 
 .collapsed-expand-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
   min-width: 24px;
   cursor: pointer;
-  background: #f0f2f5;
-  border-right: 1px solid #e4e7ed;
-  color: #606266;
+  background: var(--el-fill-color-light);
+  border-right: 1px solid var(--el-border-color-light);
+  color: var(--el-text-color-regular);
   transition: background 0.2s;
 }
 .collapsed-expand-btn:hover {
-  background: #e6f7ff;
-  color: #409eff;
+  background: var(--el-fill-color-dark);
+  color: var(--el-color-primary);
 }
 
-    .panel-header {
-      display: flex;
-      align-items: center;
+.panel-header {
+  display: flex;
+  align-items: center;
   padding: 10px 12px;
   gap: 6px;
-  border-bottom: 1px solid #e4e7ed;
+  border-bottom: 1px solid var(--el-border-color-light);
+  background: var(--el-fill-color-light);
 }
 
 .tree-container {
@@ -2120,15 +2244,15 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 6px;
   padding: 10px 12px;
-  border-top: 1px solid #e4e7ed;
+  border-top: 1px solid var(--el-border-color-light);
   cursor: pointer;
   font-size: 13px;
-  color: #606266;
-  background: #fafafa;
+  color: var(--el-text-color-regular);
+  background: var(--el-fill-color-light);
 }
 .recycle-trigger:hover {
-  background: #f0f2f5;
-  color: #409eff;
+  background: var(--el-fill-color-dark);
+  color: var(--el-color-primary);
 }
 
 .tree-node-label {

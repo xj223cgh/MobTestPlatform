@@ -53,6 +53,19 @@ request.interceptors.response.use(
     const { response, config } = error;
     const userStore = useUserStore();
 
+    // responseType 为 blob 时，4xx/5xx 的 JSON 正文仍是 Blob，需解析后才能读到 message/code
+    if (response && config?.responseType === "blob" && response.data instanceof Blob) {
+      try {
+        const text = await response.data.text();
+        const parsed = JSON.parse(text);
+        if (parsed && typeof parsed === "object") {
+          response.data = parsed;
+        }
+      } catch {
+        /* 非 JSON（如 HTML）保持 Blob */
+      }
+    }
+
     const isDeviceDisconnected = (response) => {
       const errorMessage = response?.data?.message || "";
       const requestUrl = config?.url || "";

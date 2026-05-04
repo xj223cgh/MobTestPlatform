@@ -136,6 +136,15 @@ export const importTestSuite = (formData) => {
   });
 };
 
+/** 下载用例导入 Excel 模板（.xlsx blob，走 Cookie 鉴权） */
+export const downloadTestSuiteImportTemplate = () => {
+  return request({
+    url: "/test-suites/import-template",
+    method: "get",
+    responseType: "blob",
+  });
+};
+
 export const testSuiteApi = {
   getTestSuiteList,
   getTestSuiteTree,

@@ -594,21 +594,11 @@ async function loadMindmapVersions() {
 async function rollbackToVersion(versionId) {
   try {
     await ElMessageBox.confirm("回退后将用该版本替换当前脑图，是否继续？", "确认回退", { type: "warning" });
-    const res = await rollbackMindmapVersion(suiteId.value, versionId);
-    const resData = res.data;
-    const data = resData?.mindmap_data;
-    if (data && mindMapInstance) {
-      const smmData = toSMM(data.root || data);
-      mindMapInstance.setData(smmData);
-      mindMapInstance.render();
-      countCases();
-      // 同步本地版本号，避免回退后保存时触发误判版本冲突
-      if (resData?.mindmap_version !== undefined) {
-        mindmapVersion.value = resData.mindmap_version;
-      }
-      showVersionDrawer.value = false;
-      ElMessage.success("已回退到该版本");
-    }
+    await rollbackMindmapVersion(suiteId.value, versionId);
+    showVersionDrawer.value = false;
+    ElMessage.success("已回退到该版本");
+    // 始终以服务端为准重新拉取，避免「库已回退但画布未刷新」（如实例未就绪或数据结构边界情况）
+    await loadMindmap();
   } catch (e) {
     if (e !== "cancel") ElMessage.error("回退失败");
   }

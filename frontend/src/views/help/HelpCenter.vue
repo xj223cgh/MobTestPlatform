@@ -54,6 +54,16 @@
               :src="video.thumbnail"
               :alt="video.title"
             >
+            <video
+              v-else-if="video.url && !thumbLoadFailed[video.id]"
+              class="video-thumbnail-video"
+              :src="thumbVideoPreviewSrc(video.url)"
+              muted
+              playsinline
+              preload="metadata"
+              aria-hidden="true"
+              @error="markThumbVideoFailed(video.id)"
+            />
             <div
               v-else
               class="video-thumbnail-placeholder"
@@ -273,20 +283,25 @@
     <el-dialog
       v-model="videoDialogVisible"
       :title="currentVideo?.title"
-      width="80%"
+      width="min(1040px, 94vw)"
+      align-center
+      destroy-on-close
       class="video-dialog"
     >
       <div
         v-if="currentVideo"
         class="video-player"
       >
-        <video
-          ref="videoPlayer"
-          :src="currentVideo.url"
-          controls
-          width="100%"
-          height="400"
-        />
+        <div class="video-player-frame">
+          <video
+            ref="videoPlayer"
+            :src="currentVideo.url"
+            controls
+            playsinline
+            preload="metadata"
+            class="video-player-el"
+          />
+        </div>
         <div class="video-description">
           <p>{{ currentVideo.description }}</p>
         </div>
@@ -296,7 +311,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, reactive } from "vue";
 import { ElMessage } from "element-plus";
 import {
   ArrowDown,
@@ -314,6 +329,20 @@ import {
   Odometer,
   Key,
 } from "@element-plus/icons-vue";
+
+/** 未配置 thumbnail 时用 mp4 首帧作为封面；失败则回退占位 */
+const thumbLoadFailed = reactive({});
+
+function thumbVideoPreviewSrc(url) {
+  if (!url) {
+    return "";
+  }
+  return url.includes("#") ? url : `${url}#t=0.1`;
+}
+
+function markThumbVideoFailed(videoId) {
+  thumbLoadFailed[videoId] = true;
+}
 
 const searchKeyword = ref("");
 /** 实际参与过滤的关键字（点击搜索后生效） */
@@ -762,73 +791,78 @@ const faqList = ref([
   },
 ]);
 
-// 视频教程（项目管理 → 设备管理含 Agent → 用例管理 → 任务管理 → 报告管理 → 用户管理 → 权限配置 → 个人中心 → 系统设置）
+// 视频教程（项目管理 → 迭代管理 → 需求管理 → 设备连接与计划任务 → 用例管理 → 用例任务执行 → 权限配置 → 个人中心 → 系统设置）
 const videoList = ref([
   {
     id: "video-1",
-    title: "项目与迭代管理",
-    description: "创建项目、规划迭代，并将用例与任务按版本归类管理。",
+    title: "项目管理",
+    description:
+      "在「项目管理」中新建与编辑项目、维护项目列表与基本信息，以及进入项目详情开展后续配置。",
     thumbnail: "",
-    url: "/videos/project-iteration.mp4",
-    duration: "09:50",
-    views: 756,
-    uploadTime: "2024-01-11",
+    url: "/videos/project-management.mp4",
+    duration: "01:00",
+    views: 0,
+    uploadTime: "2026-05-04",
     tag: "项目管理",
   },
   {
     id: "video-2",
-    title: "设备连接与调试入门",
-    description: "USB/无线接入、刷新列表；远程办公场景下本机 Agent 的下载、绑定与状态查看（与页面「本机 Agent」一致）。",
+    title: "迭代管理",
+    description:
+      "在项目中创建与规划迭代、编辑迭代信息，以及通过迭代将版本与用例、任务等按周期归类管理。",
     thumbnail: "",
-    url: "/videos/device-connection.mp4",
-    duration: "08:32",
-    views: 2150,
-    uploadTime: "2025-03-19",
-    tag: "设备管理",
+    url: "/videos/iteration-management.mp4",
+    duration: "00:36",
+    views: 0,
+    uploadTime: "2026-05-04",
+    tag: "迭代管理",
   },
   {
     id: "video-3",
+    title: "需求管理",
+    description:
+      "新建与编辑需求、维护需求列表与详情，并将需求与项目或迭代关联，便于跟踪与测试对齐。",
+    thumbnail: "",
+    url: "/videos/requirement-management.mp4",
+    duration: "00:32",
+    views: 0,
+    uploadTime: "2026-05-04",
+    tag: "需求管理",
+  },
+  {
+    id: "video-4",
+    title: "设备连接与计划任务执行",
+    description:
+      "接入设备（USB/无线），创建关联设备并定时执行的脚本任务，确认到点/手动触发任务执行并到报告管理页面查看报告结果汇总。",
+    thumbnail: "",
+    url: "/videos/device-connection.mp4",
+    duration: "01:27",
+    views: 0,
+    uploadTime: "2026-05-03",
+    tag: "设备与任务",
+  },
+  {
+    id: "video-5",
     title: "测试用例的创建与编辑",
     description: "在平台中新建用例、填写步骤与预期结果，并关联到测试套件。",
     thumbnail: "",
     url: "/videos/test-case-create.mp4",
-    duration: "12:18",
+    duration: "02:42",
     views: 1680,
     uploadTime: "2024-01-14",
     tag: "用例管理",
   },
   {
-    id: "video-4",
-    title: "测试任务配置与执行",
-    description: "创建任务、选择设备与用例、设置参数，并查看执行日志与结果。",
+    id: "video-6",
+    title: "用例任务执行",
+    description:
+      "创建测试用例任务，填写相关参数并关联对应用例集，待执行用例后，点击「完成任务」生成对应用例执行报告并查看报告结果汇总。",
     thumbnail: "",
     url: "/videos/test-task-run.mp4",
-    duration: "15:42",
-    views: 1420,
-    uploadTime: "2024-01-13",
-    tag: "任务管理",
-  },
-  {
-    id: "video-5",
-    title: "测试报告解读与导出",
-    description: "如何查看通过率、失败原因，以及导出 PDF/Excel 报告。",
-    thumbnail: "",
-    url: "/videos/report-export.mp4",
-    duration: "06:25",
-    views: 980,
-    uploadTime: "2024-01-12",
-    tag: "报告管理",
-  },
-  {
-    id: "video-6",
-    title: "用户管理",
-    description: "用户列表、新建与编辑用户、分配角色及禁用/启用账号。",
-    thumbnail: "",
-    url: "/videos/user-management.mp4",
-    duration: "06:20",
-    views: 620,
-    uploadTime: "2024-01-10",
-    tag: "用户管理",
+    duration: "01:46",
+    views: 0,
+    uploadTime: "2026-05-03",
+    tag: "用例与任务",
   },
   {
     id: "video-7",
@@ -836,7 +870,7 @@ const videoList = ref([
     description: "进入角色权限配置、为管理员/测试人员/普通用户勾选功能权限并保存。",
     thumbnail: "",
     url: "/videos/permission-config.mp4",
-    duration: "05:50",
+    duration: "00:54",
     views: 480,
     uploadTime: "2024-01-16",
     tag: "权限配置",
@@ -847,7 +881,7 @@ const videoList = ref([
     description: "修改个人资料与登录密码，修改密码后重新登录。",
     thumbnail: "",
     url: "/videos/profile.mp4",
-    duration: "04:30",
+    duration: "00:55",
     views: 520,
     uploadTime: "2024-01-16",
     tag: "个人中心",
@@ -858,7 +892,7 @@ const videoList = ref([
     description: "基础与安全配置、消息通知、功能设置（如报告自动生成）等。",
     thumbnail: "",
     url: "/videos/system-settings.mp4",
-    duration: "06:10",
+    duration: "00:43",
     views: 410,
     uploadTime: "2024-01-16",
     tag: "系统设置",
@@ -1165,6 +1199,15 @@ const dislikeHelpItem = () => {
   object-fit: cover;
 }
 
+.video-thumbnail-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+  background: #1a1a1a;
+}
+
 .video-thumbnail-placeholder {
   width: 100%;
   height: 100%;
@@ -1264,6 +1307,47 @@ const dislikeHelpItem = () => {
   align-items: center;
   color: var(--el-text-color-secondary, #909399);
   font-size: 12px;
+}
+
+/* 教程弹窗：按视频原始宽高比缩放，限制在视口内，避免固定高度导致拉伸 */
+.video-player {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.video-player-frame {
+  width: 100%;
+  background: #0a0a0a;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-player-el {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: min(72vh, 880px);
+  margin: 0 auto;
+}
+
+.video-description {
+  margin: 0;
+}
+
+.video-description p {
+  margin: 0;
+  color: var(--el-text-color-regular, #606266);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.video-dialog :deep(.el-dialog__body) {
+  padding-top: 8px;
 }
 
 .developer-contact-content {
