@@ -26,6 +26,12 @@ backend/storage/device_scripts/
 # Agent 下载路径（各服务器用脚本单独配置，不提交）
 backend/agent_exe_path.txt
 
+# AI 生成用例：用户上传的需求原文与导出 Excel（运行时产生，不纳入版本库）
+backend/app/ai/workspace/requirements/original/*
+!backend/app/ai/workspace/requirements/original/.gitkeep
+backend/app/ai/workspace/outputs/excel/*
+!backend/app/ai/workspace/outputs/excel/.gitkeep
+
 # IDE / OS
 .idea/
 .vscode/
